@@ -1,4 +1,6 @@
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -17,7 +19,7 @@
   --buy: #22c55e;
   --sell: #f97316;
   --radius: 10px;
-  --shadow: 0 2px 12px rgba(0,0,0,0.4);
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
 }
 
 body {
@@ -37,7 +39,8 @@ button {
   transition: background 0.15s;
 }
 
-input, select {
+input,
+select {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -49,7 +52,8 @@ input, select {
   transition: border-color 0.15s;
 }
 
-input:focus, select:focus {
+input:focus,
+select:focus {
   border-color: var(--accent);
 }
 

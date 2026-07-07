@@ -5,15 +5,15 @@ export async function fetchQuotes(tickers: string[]): Promise<Map<string, number
 
   const token = process.env.BRAPI_TOKEN;
   const joined = tickers.join(',');
-  const url = token
-    ? `${BRAPI_BASE}/${joined}?token=${token}`
-    : `${BRAPI_BASE}/${joined}`;
+  const url = token ? `${BRAPI_BASE}/${joined}?token=${token}` : `${BRAPI_BASE}/${joined}`;
 
   try {
     const res = await fetch(url);
     if (!res.ok) return new Map();
 
-    const data = await res.json() as { results?: { symbol: string; regularMarketPrice: number }[] };
+    const data = (await res.json()) as {
+      results?: { symbol: string; regularMarketPrice: number }[];
+    };
     const map = new Map<string, number>();
 
     for (const item of data.results ?? []) {

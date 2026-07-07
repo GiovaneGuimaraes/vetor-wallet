@@ -6,9 +6,7 @@ import type { Operation, Position, PortfolioSummary } from '../types';
 const router = Router();
 
 router.get('/', async (_req: Request, res: Response) => {
-  const result = await db.execute(
-    'SELECT * FROM operations ORDER BY date ASC, created_at ASC'
-  );
+  const result = await db.execute('SELECT * FROM operations ORDER BY date ASC, created_at ASC');
   const ops = result.rows as unknown as Operation[];
 
   const positionMap = new Map<string, { quantity: number; avgPrice: number }>();
@@ -59,7 +57,8 @@ router.get('/', async (_req: Request, res: Response) => {
     }
 
     const profitLoss = currentValue !== null ? currentValue - invested : null;
-    const profitLossPct = profitLoss !== null && invested > 0 ? (profitLoss / invested) * 100 : null;
+    const profitLossPct =
+      profitLoss !== null && invested > 0 ? (profitLoss / invested) * 100 : null;
 
     positions.push({
       ticker,
@@ -96,4 +95,3 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 export default router;
-

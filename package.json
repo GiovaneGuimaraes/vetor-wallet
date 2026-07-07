@@ -10,6 +10,8 @@
     "dev:web": "pnpm --filter vetor-wallet-web dev",
     "dev:server": "pnpm --filter vetor-wallet-server dev",
     "dev": "pnpm --filter vetor-wallet-server dev & pnpm --filter vetor-wallet-web dev",
-    "build": "pnpm --filter vetor-wallet-server build && pnpm --filter vetor-wallet-web build"
+    "build": "pnpm --filter vetor-wallet-server build && pnpm --filter vetor-wallet-web build",
+    "lint": "pnpm --filter vetor-wallet-server lint && pnpm --filter vetor-wallet-web lint",
+    "format": "pnpm --filter vetor-wallet-server format && pnpm --filter vetor-wallet-web format"
   }
 }
