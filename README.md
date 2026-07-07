@@ -2,10 +2,12 @@
 
 Carteira pessoal de ações da B3 com cadastro manual de operações, cálculo de posição consolidada e indicadores de rentabilidade.
 
+> Para detalhes de arquitetura, comandos e pontos de atenção, veja [CLAUDE.md](./CLAUDE.md).
+
 ## Stack
 
 - **web/** — Vite + React + TypeScript
-- **server/** — Node + Express + TypeScript, SQLite via `better-sqlite3`
+- **server/** — Node + Express + TypeScript, SQLite via `@libsql/client`
 - **Cotações** — [brapi.dev](https://brapi.dev) (API gratuita)
 
 ## Como funciona
@@ -20,12 +22,12 @@ Carteira pessoal de ações da B3 com cadastro manual de operações, cálculo d
 ### Pré-requisitos
 
 - Node.js 18+
-- npm 9+
+- pnpm 10+ (`npm install -g pnpm`)
 
 ### Instalação
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### Configuração
@@ -43,7 +45,7 @@ cp web/.env.example web/.env
 ### Desenvolvimento
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Acesse:
@@ -53,7 +55,7 @@ Acesse:
 ### Build
 
 ```bash
-npm run build
+pnpm build
 ```
 
 ## Próximos passos
