@@ -5,9 +5,7 @@ import type { NewOperation } from '../types';
 const router = Router();
 
 router.get('/', async (_req: Request, res: Response) => {
-  const result = await db.execute(
-    'SELECT * FROM operations ORDER BY date DESC, created_at DESC'
-  );
+  const result = await db.execute('SELECT * FROM operations ORDER BY date DESC, created_at DESC');
   res.json(result.rows);
 });
 

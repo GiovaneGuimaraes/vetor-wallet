@@ -15,12 +15,13 @@ app.use('/api/portfolio', portfolioRouter);
 
 const PORT = process.env.PORT ?? 3001;
 
-initDb().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Vetor Wallet API running on http://localhost:${PORT}`);
+initDb()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Vetor Wallet API running on http://localhost:${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Failed to initialize database:', err);
+    process.exit(1);
   });
-}).catch(err => {
-  console.error('Failed to initialize database:', err);
-  process.exit(1);
-});
-

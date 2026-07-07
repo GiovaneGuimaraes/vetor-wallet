@@ -34,10 +34,12 @@ export function OperationsList({ operations, onDelete }: Props) {
             </tr>
           </thead>
           <tbody>
-            {operations.map(op => (
+            {operations.map((op) => (
               <tr key={op.id}>
                 <td>{op.date}</td>
-                <td><strong>{op.ticker}</strong></td>
+                <td>
+                  <strong>{op.ticker}</strong>
+                </td>
                 <td>
                   <span className={`badge ${op.type === 'BUY' ? 'badge-buy' : 'badge-sell'}`}>
                     {op.type === 'BUY' ? 'Compra' : 'Venda'}

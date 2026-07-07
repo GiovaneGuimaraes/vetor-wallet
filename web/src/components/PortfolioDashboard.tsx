@@ -5,8 +5,7 @@ interface Props {
 }
 
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-const fmtPct = (v: number | null) =>
-  v === null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+const fmtPct = (v: number | null) => (v === null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`);
 const fmtCur = (v: number | null) => (v === null ? '—' : fmt.format(v));
 const colorClass = (v: number | null) => (v === null ? '' : v >= 0 ? 'positive' : 'negative');
 
@@ -20,7 +19,8 @@ export function PortfolioDashboard({ summary }: Props) {
     );
   }
 
-  const { positions, totalInvested, totalCurrentValue, totalProfitLoss, totalProfitLossPct } = summary;
+  const { positions, totalInvested, totalCurrentValue, totalProfitLoss, totalProfitLossPct } =
+    summary;
 
   return (
     <div className="dashboard">
@@ -58,9 +58,11 @@ export function PortfolioDashboard({ summary }: Props) {
               </tr>
             </thead>
             <tbody>
-              {positions.map(p => (
+              {positions.map((p) => (
                 <tr key={p.ticker}>
-                  <td><strong>{p.ticker}</strong></td>
+                  <td>
+                    <strong>{p.ticker}</strong>
+                  </td>
                   <td>{p.quantity.toLocaleString('pt-BR')}</td>
                   <td>{fmt.format(p.avgPrice)}</td>
                   <td>{fmtCur(p.currentPrice)}</td>

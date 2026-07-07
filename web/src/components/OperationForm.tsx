@@ -27,7 +27,13 @@ export function OperationForm({ onSubmit }: Props) {
 
     setLoading(true);
     try {
-      await onSubmit({ ticker: ticker.trim().toUpperCase(), type, quantity: qty, price: prc, date });
+      await onSubmit({
+        ticker: ticker.trim().toUpperCase(),
+        type,
+        quantity: qty,
+        price: prc,
+        date,
+      });
       setTicker('');
       setQuantity('');
       setPrice('');
@@ -48,14 +54,14 @@ export function OperationForm({ onSubmit }: Props) {
           Ticker
           <input
             value={ticker}
-            onChange={e => setTicker(e.target.value.toUpperCase())}
+            onChange={(e) => setTicker(e.target.value.toUpperCase())}
             placeholder="ex: PETR4"
             maxLength={10}
           />
         </label>
         <label>
           Tipo
-          <select value={type} onChange={e => setType(e.target.value as OperationType)}>
+          <select value={type} onChange={(e) => setType(e.target.value as OperationType)}>
             <option value="BUY">Compra</option>
             <option value="SELL">Venda</option>
           </select>
@@ -65,7 +71,7 @@ export function OperationForm({ onSubmit }: Props) {
           <input
             type="number"
             value={quantity}
-            onChange={e => setQuantity(e.target.value)}
+            onChange={(e) => setQuantity(e.target.value)}
             placeholder="100"
             min="0.0001"
             step="any"
@@ -76,7 +82,7 @@ export function OperationForm({ onSubmit }: Props) {
           <input
             type="number"
             value={price}
-            onChange={e => setPrice(e.target.value)}
+            onChange={(e) => setPrice(e.target.value)}
             placeholder="38.50"
             min="0.0001"
             step="any"
@@ -84,7 +90,7 @@ export function OperationForm({ onSubmit }: Props) {
         </label>
         <label>
           Data
-          <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
         <button type="submit" disabled={loading} className="btn-primary">
           {loading ? 'Salvando...' : 'Adicionar'}
