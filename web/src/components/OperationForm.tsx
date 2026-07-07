@@ -5,6 +5,13 @@ interface Props {
   onSubmit: (op: NewOperation) => Promise<void>;
 }
 
+const field =
+  'w-full bg-canvas border border-edge rounded-lg px-3 py-2 text-sm text-ink ' +
+  'placeholder:text-dim/50 focus:outline-none focus:border-accent focus:ring-1 ' +
+  'focus:ring-accent/40 transition-colors';
+
+const label = 'block text-xs font-medium text-dim uppercase tracking-wide mb-1.5';
+
 export function OperationForm({ onSubmit }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const [ticker, setTicker] = useState('');
@@ -46,29 +53,43 @@ export function OperationForm({ onSubmit }: Props) {
   }
 
   return (
-    <form className="operation-form card" onSubmit={handleSubmit}>
-      <h2>Nova Operação</h2>
-      {error && <p className="error">{error}</p>}
-      <div className="form-row">
-        <label>
-          Ticker
+    <form className="bg-card border border-edge rounded-xl p-5 md:p-6" onSubmit={handleSubmit}>
+      <h2 className="text-sm font-semibold text-ink mb-4">Nova Operação</h2>
+
+      {error && (
+        <div className="mb-4 text-sm text-down bg-down/10 border border-down/25 rounded-lg px-3 py-2">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div>
+          <span className={label}>Ticker</span>
           <input
+            className={field}
             value={ticker}
             onChange={(e) => setTicker(e.target.value.toUpperCase())}
-            placeholder="ex: PETR4"
+            placeholder="PETR4"
             maxLength={10}
           />
-        </label>
-        <label>
-          Tipo
-          <select value={type} onChange={(e) => setType(e.target.value as OperationType)}>
+        </div>
+
+        <div>
+          <span className={label}>Tipo</span>
+          <select
+            className={field}
+            value={type}
+            onChange={(e) => setType(e.target.value as OperationType)}
+          >
             <option value="BUY">Compra</option>
             <option value="SELL">Venda</option>
           </select>
-        </label>
-        <label>
-          Quantidade
+        </div>
+
+        <div>
+          <span className={label}>Quantidade</span>
           <input
+            className={field}
             type="number"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
@@ -76,10 +97,12 @@ export function OperationForm({ onSubmit }: Props) {
             min="0.0001"
             step="any"
           />
-        </label>
-        <label>
-          Preço (R$)
+        </div>
+
+        <div>
+          <span className={label}>Preço (R$)</span>
           <input
+            className={field}
             type="number"
             value={price}
             onChange={(e) => setPrice(e.target.value)}
@@ -87,14 +110,27 @@ export function OperationForm({ onSubmit }: Props) {
             min="0.0001"
             step="any"
           />
-        </label>
-        <label>
-          Data
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </label>
-        <button type="submit" disabled={loading} className="btn-primary">
-          {loading ? 'Salvando...' : 'Adicionar'}
-        </button>
+        </div>
+
+        <div>
+          <span className={label}>Data</span>
+          <input
+            className={field}
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-col justify-end">
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-accent hover:bg-accent-hover text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {loading ? 'Salvando...' : 'Adicionar'}
+          </button>
+        </div>
       </div>
     </form>
   );
