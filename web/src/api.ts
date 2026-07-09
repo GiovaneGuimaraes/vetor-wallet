@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, CsvImportResult } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -30,6 +30,30 @@ export async function getPortfolio(): Promise<PortfolioSummary> {
   const res = await fetch(`${BASE}/api/portfolio`);
   if (!res.ok) throw new Error('Falha ao buscar carteira');
   return res.json();
+}
+
+export async function getAlertRules(): Promise<AlertRule[]> {
+  const res = await fetch(`${BASE}/api/alerts`);
+  if (!res.ok) throw new Error('Falha ao buscar alertas');
+  return res.json();
+}
+
+export async function createAlertRule(rule: NewAlertRule): Promise<AlertRule> {
+  const res = await fetch(`${BASE}/api/alerts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(rule),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao criar alerta');
+  }
+  return res.json();
+}
+
+export async function deleteAlertRule(id: number): Promise<void> {
+  const res = await fetch(`${BASE}/api/alerts/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Falha ao remover alerta');
 }
 
 export async function importCsv(csvText: string): Promise<CsvImportResult> {

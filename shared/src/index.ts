@@ -38,6 +38,23 @@ export interface PortfolioSummary {
   totalProfitLossPct: number | null;
 }
 
+export type AlertRuleType = 'PRICE_ABOVE' | 'PRICE_BELOW' | 'CHANGE_PCT' | 'ALLOCATION_PCT';
+
+export interface AlertRule {
+  id: number;
+  ticker: string;
+  type: AlertRuleType;
+  threshold: number;
+  active: number;
+  created_at: string;
+}
+
+export interface NewAlertRule {
+  ticker: string;
+  type: AlertRuleType;
+  threshold: number;
+}
+
 export interface CsvRowError {
   line: number;
   raw: string;
