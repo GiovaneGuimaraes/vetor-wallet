@@ -37,3 +37,14 @@ export interface PortfolioSummary {
   totalProfitLoss: number | null;
   totalProfitLossPct: number | null;
 }
+
+export interface CsvRowError {
+  line: number;
+  raw: string;
+  error: string;
+}
+
+export interface CsvImportResult {
+  imported: number;
+  errors: CsvRowError[];
+}

@@ -3,6 +3,7 @@ import { getOperations, createOperation, deleteOperation, getPortfolio } from '.
 import { OperationForm } from './components/OperationForm';
 import { OperationsList } from './components/OperationsList';
 import { PortfolioDashboard } from './components/PortfolioDashboard';
+import { CsvImport } from './components/CsvImport';
 import type { NewOperation, Operation, PortfolioSummary } from '@vetor-wallet/shared';
 
 export default function App() {
@@ -60,6 +61,7 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-6 md:px-10 py-6 flex flex-col gap-5">
         <OperationForm onSubmit={handleCreate} />
+        <CsvImport onSuccess={refresh} />
 
         {loadingData ? (
           <div className="text-center py-16 text-dim text-sm">Carregando...</div>
