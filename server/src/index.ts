@@ -4,6 +4,7 @@ import cors from 'cors';
 import { initDb } from './db';
 import operationsRouter from './routes/operations';
 import portfolioRouter from './routes/portfolio';
+import importRouter from './routes/import';
 
 const app = express();
 
@@ -12,6 +13,7 @@ app.use(express.json());
 
 app.use('/api/operations', operationsRouter);
 app.use('/api/portfolio', portfolioRouter);
+app.use('/api/import', importRouter);
 
 const PORT = process.env.PORT ?? 3001;
 
