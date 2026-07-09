@@ -5,6 +5,7 @@ import { initDb } from './db';
 import operationsRouter from './routes/operations';
 import portfolioRouter from './routes/portfolio';
 import importRouter from './routes/import';
+import alertsRouter from './routes/alerts';
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.use(express.json());
 app.use('/api/operations', operationsRouter);
 app.use('/api/portfolio', portfolioRouter);
 app.use('/api/import', importRouter);
+app.use('/api/alerts', alertsRouter);
 
 const PORT = process.env.PORT ?? 3001;
 
