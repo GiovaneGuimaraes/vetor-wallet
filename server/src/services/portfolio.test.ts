@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildPositionMap, buildPortfolioSummary } from './portfolio';
-import type { Operation } from '../types';
+import type { Operation } from '@vetor-wallet/shared';
 
 function op(
   ticker: string,

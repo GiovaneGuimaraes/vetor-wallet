@@ -2,7 +2,7 @@
 import { db } from '../db';
 import { fetchQuotes } from '../services/quotes';
 import { buildPositionMap, buildPortfolioSummary } from '../services/portfolio';
-import type { Operation } from '../types';
+import type { Operation } from '@vetor-wallet/shared';
 
 const router = Router();
 

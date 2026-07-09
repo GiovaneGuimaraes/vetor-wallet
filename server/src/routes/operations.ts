@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
-import type { NewOperation } from '../types';
+import type { NewOperation } from '@vetor-wallet/shared';
 
 const router = Router();
 
