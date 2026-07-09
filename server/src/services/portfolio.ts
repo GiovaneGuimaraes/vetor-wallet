@@ -1,4 +1,4 @@
-import type { Operation, Position, PortfolioSummary } from '../types';
+import type { Operation, Position, PortfolioSummary } from '@vetor-wallet/shared';
 
 export interface PositionEntry {
   quantity: number;

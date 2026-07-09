@@ -1,4 +1,4 @@
-import type { PortfolioSummary } from '../types';
+import type { PortfolioSummary } from '@vetor-wallet/shared';
 
 interface Props {
   summary: PortfolioSummary | null;

@@ -3,7 +3,7 @@ import { getOperations, createOperation, deleteOperation, getPortfolio } from '.
 import { OperationForm } from './components/OperationForm';
 import { OperationsList } from './components/OperationsList';
 import { PortfolioDashboard } from './components/PortfolioDashboard';
-import type { NewOperation, Operation, PortfolioSummary } from './types';
+import type { NewOperation, Operation, PortfolioSummary } from '@vetor-wallet/shared';
 
 export default function App() {
   const [operations, setOperations] = useState<Operation[]>([]);

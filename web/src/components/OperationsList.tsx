@@ -1,4 +1,4 @@
-import type { Operation } from '../types';
+import type { Operation } from '@vetor-wallet/shared';
 
 interface Props {
   operations: Operation[];

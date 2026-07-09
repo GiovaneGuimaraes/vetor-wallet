@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import type { NewOperation, OperationType } from '../types';
+import type { NewOperation, OperationType } from '@vetor-wallet/shared';
 
 interface Props {
   onSubmit: (op: NewOperation) => Promise<void>;
