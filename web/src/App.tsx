@@ -1,16 +1,18 @@
 import { useEffect, useState, useCallback } from 'react';
-import { getOperations, createOperation, deleteOperation, getPortfolio, getAlertRules } from './api';
+import { getOperations, createOperation, deleteOperation, getPortfolio, getAlertRules, getBenchmarks } from './api';
 import { OperationForm } from './components/OperationForm';
 import { OperationsList } from './components/OperationsList';
 import { PortfolioDashboard } from './components/PortfolioDashboard';
 import { CsvImport } from './components/CsvImport';
 import { AlertsPanel } from './components/AlertsPanel';
+import { BenchmarkComparison } from './components/BenchmarkComparison';
 import { evaluateAlerts, type TriggeredAlert } from './utils/alerts';
-import type { NewOperation, Operation, PortfolioSummary, AlertRule } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, AlertRule, BenchmarkData } from '@vetor-wallet/shared';
 
 export default function App() {
   const [operations, setOperations] = useState<Operation[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
+  const [benchmarks, setBenchmarks] = useState<BenchmarkData | null>(null);
   const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState<TriggeredAlert[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -28,6 +30,8 @@ export default function App() {
       setPortfolio(port);
       setAlertRules(rules);
       setTriggeredAlerts(evaluateAlerts(rules, port));
+      // Fetch benchmarks in background — errors here shouldn't block the dashboard
+      getBenchmarks().then(setBenchmarks).catch(() => null);
     } catch (err) {
       setApiError(err instanceof Error ? err.message : 'Erro ao conectar com a API');
     } finally {
@@ -93,6 +97,7 @@ export default function App() {
               </div>
             )}
             <PortfolioDashboard summary={portfolio} />
+            {benchmarks && <BenchmarkComparison data={benchmarks} />}
             <OperationsList operations={operations} onDelete={handleDelete} />
           </>
         )}

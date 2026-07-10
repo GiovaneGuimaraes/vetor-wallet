@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -54,6 +54,12 @@ export async function createAlertRule(rule: NewAlertRule): Promise<AlertRule> {
 export async function deleteAlertRule(id: number): Promise<void> {
   const res = await fetch(`${BASE}/api/alerts/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Falha ao remover alerta');
+}
+
+export async function getBenchmarks(): Promise<BenchmarkData> {
+  const res = await fetch(`${BASE}/api/benchmarks`);
+  if (!res.ok) throw new Error('Falha ao buscar benchmarks');
+  return res.json();
 }
 
 export async function importCsv(csvText: string): Promise<CsvImportResult> {
