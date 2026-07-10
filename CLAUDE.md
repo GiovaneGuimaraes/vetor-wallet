@@ -140,6 +140,45 @@ Driver: `@libsql/client` (libsql/SQLite). Sem ORM; queries são SQL puro.
 
 ---
 
+## Política de testes
+
+Toda mudança em código de produto — server ou web — deve vir acompanhada de um teste automatizado que cobre o comportamento novo ou alterado, **ou** de uma justificativa explícita de por que testes não se aplicam naquele caso.
+
+Essa política vale igualmente para mudanças feitas manualmente e para mudanças feitas por IA (Claude Code ou qualquer outro assistente).
+
+### Como rodar
+
+```bash
+# server (Vitest — já configurado)
+pnpm --filter vetor-wallet-server test
+
+# web — runner ainda não configurado (pendente issue #6)
+# até lá, lógica isolável deve ser extraída para funções puras e testada via server
+```
+
+### Onde criar os testes
+
+| Pacote | Padrão | Exemplo existente |
+|---|---|---|
+| `server` | `server/src/**/*.test.ts` | `server/src/services/portfolio.test.ts` |
+| `web` | `web/src/**/*.test.ts` | — (pendente setup de runner) |
+
+O `vitest.config.ts` do server inclui `src/**/*.test.ts` automaticamente.
+
+### Quando testes não se aplicam
+
+**Não exigem teste novo:**
+- Ajustes de estilo/layout sem lógica (CSS, Tailwind classes)
+- Refatoração sem mudança de comportamento (testes existentes devem continuar passando)
+- Atualizações de documentação
+
+**Sempre exigem teste:**
+- Nova função de serviço ou utilitário com lógica de negócio
+- Nova rota ou mudança de comportamento de rota existente
+- Lógica de cálculo (posições, alertas, importação, benchmarks)
+
+---
+
 ## Pontos de atenção
 
 ### Tipos duplicados
