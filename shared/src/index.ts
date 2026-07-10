@@ -65,3 +65,10 @@ export interface CsvImportResult {
   imported: number;
   errors: CsvRowError[];
 }
+
+export interface BenchmarkData {
+  period: { from: string; to: string };
+  portfolio: number | null;
+  cdi: number | null;
+  ibovespa: number | null;
+}

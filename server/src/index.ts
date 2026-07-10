@@ -6,6 +6,7 @@ import operationsRouter from './routes/operations';
 import portfolioRouter from './routes/portfolio';
 import importRouter from './routes/import';
 import alertsRouter from './routes/alerts';
+import benchmarksRouter from './routes/benchmarks';
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use('/api/operations', operationsRouter);
 app.use('/api/portfolio', portfolioRouter);
 app.use('/api/import', importRouter);
 app.use('/api/alerts', alertsRouter);
+app.use('/api/benchmarks', benchmarksRouter);
 
 const PORT = process.env.PORT ?? 3001;
 
