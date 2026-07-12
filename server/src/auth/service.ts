@@ -19,16 +19,6 @@ export async function createUser(email: string, password: string): Promise<User>
     args: [email.toLowerCase().trim(), passwordHash],
   });
   const id = Number(insert.lastInsertRowid ?? 0);
-
-  // Claim any orphaned rows (pre-auth data) for the first user
-  await db.batch(
-    [
-      { sql: 'UPDATE operations SET user_id = ? WHERE user_id IS NULL', args: [id] },
-      { sql: 'UPDATE alert_rules SET user_id = ? WHERE user_id IS NULL', args: [id] },
-    ],
-    'write',
-  );
-
   return { id, email: email.toLowerCase().trim(), created_at: new Date().toISOString() };
 }
 
