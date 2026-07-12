@@ -72,3 +72,9 @@ export interface BenchmarkData {
   cdi: number | null;
   ibovespa: number | null;
 }
+
+export interface User {
+  id: number;
+  email: string;
+  created_at: string;
+}

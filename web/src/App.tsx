@@ -1,15 +1,26 @@
 import { useEffect, useState, useCallback } from 'react';
-import { getOperations, createOperation, deleteOperation, getPortfolio, getAlertRules, getBenchmarks } from './api';
+import {
+  getMe,
+  logout,
+  getOperations,
+  createOperation,
+  deleteOperation,
+  getPortfolio,
+  getAlertRules,
+  getBenchmarks,
+} from './api';
 import { OperationForm } from './components/OperationForm';
 import { OperationsList } from './components/OperationsList';
 import { PortfolioDashboard } from './components/PortfolioDashboard';
 import { CsvImport } from './components/CsvImport';
 import { AlertsPanel } from './components/AlertsPanel';
 import { BenchmarkComparison } from './components/BenchmarkComparison';
+import { AuthPage } from './components/AuthPage';
 import { evaluateAlerts, type TriggeredAlert } from './utils/alerts';
-import type { NewOperation, Operation, PortfolioSummary, AlertRule, BenchmarkData } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, AlertRule, BenchmarkData, User } from '@vetor-wallet/shared';
 
 export default function App() {
+  const [user, setUser] = useState<User | null | 'loading'>('loading');
   const [operations, setOperations] = useState<Operation[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
   const [benchmarks, setBenchmarks] = useState<BenchmarkData | null>(null);
@@ -17,6 +28,17 @@ export default function App() {
   const [triggeredAlerts, setTriggeredAlerts] = useState<TriggeredAlert[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [apiError, setApiError] = useState('');
+
+  // Listen for 401s from any API call and redirect to login
+  useEffect(() => {
+    const handler = () => setUser(null);
+    window.addEventListener('auth:unauthorized', handler);
+    return () => window.removeEventListener('auth:unauthorized', handler);
+  }, []);
+
+  useEffect(() => {
+    getMe().then(setUser).catch(() => setUser(null));
+  }, []);
 
   const refresh = useCallback(async () => {
     setApiError('');
@@ -30,7 +52,6 @@ export default function App() {
       setPortfolio(port);
       setAlertRules(rules);
       setTriggeredAlerts(evaluateAlerts(rules, port));
-      // Fetch benchmarks in background — errors here shouldn't block the dashboard
       getBenchmarks().then(setBenchmarks).catch(() => null);
     } catch (err) {
       setApiError(err instanceof Error ? err.message : 'Erro ao conectar com a API');
@@ -40,8 +61,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (user && user !== 'loading') {
+      refresh();
+    }
+  }, [user, refresh]);
 
   async function handleCreate(op: NewOperation) {
     await createOperation(op);
@@ -53,12 +76,45 @@ export default function App() {
     await refresh();
   }
 
+  async function handleLogout() {
+    await logout();
+    setUser(null);
+    setOperations([]);
+    setPortfolio(null);
+    setBenchmarks(null);
+    setAlertRules([]);
+    setTriggeredAlerts([]);
+  }
+
+  if (user === 'loading') {
+    return (
+      <div className="min-h-screen bg-canvas flex items-center justify-center">
+        <p className="text-sm text-dim">Carregando...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage onAuth={setUser} />;
+  }
+
   return (
     <div className="min-h-screen bg-canvas">
       <header className="border-b border-edge/50 px-6 py-4 md:px-10">
-        <div className="max-w-7xl mx-auto flex items-baseline gap-3">
-          <h1 className="text-lg font-semibold tracking-tight text-accent">Vetor Wallet</h1>
-          <span className="text-sm text-dim">Carteira B3 pessoal</span>
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-baseline gap-3">
+            <h1 className="text-lg font-semibold tracking-tight text-accent">Vetor Wallet</h1>
+            <span className="text-sm text-dim">Carteira B3 pessoal</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-dim hidden sm:block">{user.email}</span>
+            <button
+              onClick={handleLogout}
+              className="text-xs text-dim hover:text-ink transition-colors cursor-pointer"
+            >
+              Sair
+            </button>
+          </div>
         </div>
       </header>
 

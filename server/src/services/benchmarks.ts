@@ -53,12 +53,15 @@ export async function fetchIbovespaReturn(from: string): Promise<number | null> 
   }
 }
 
-export async function getPortfolioReturnAndEarliestDate(): Promise<{
+export async function getPortfolioReturnAndEarliestDate(userId: number): Promise<{
   pct: number | null;
   earliestDate: string | null;
 }> {
   try {
-    const result = await db.execute('SELECT * FROM operations ORDER BY date ASC, created_at ASC');
+    const result = await db.execute({
+      sql: 'SELECT * FROM operations WHERE user_id = ? ORDER BY date ASC, created_at ASC',
+      args: [userId],
+    });
     const ops = result.rows as unknown as Operation[];
     if (!ops.length) return { pct: null, earliestDate: null };
 

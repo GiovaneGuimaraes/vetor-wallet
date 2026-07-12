@@ -5,15 +5,18 @@ import {
   getPortfolioReturnAndEarliestDate,
 } from '../services/benchmarks';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { requireAuth } from '../auth/middleware';
 import type { BenchmarkData } from '@vetor-wallet/shared';
 
 const router = Router();
 
 router.get(
   '/',
+  requireAuth,
   asyncHandler(async (_req: Request, res: Response) => {
+    const userId = res.locals.userId as number;
     const today = new Date().toISOString().split('T')[0];
-    const { pct: portfolioPct, earliestDate } = await getPortfolioReturnAndEarliestDate();
+    const { pct: portfolioPct, earliestDate } = await getPortfolioReturnAndEarliestDate(userId);
 
     if (!earliestDate) {
       const result: BenchmarkData = {
