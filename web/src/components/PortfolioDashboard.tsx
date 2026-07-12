@@ -38,8 +38,21 @@ export function PortfolioDashboard({ summary }: Props) {
         ? 'border-up/30'
         : 'border-down/30';
 
+  const hasUnavailableQuotes = positions.some((p) => p.currentPrice === null);
+
   return (
     <div className="flex flex-col gap-4">
+      {hasUnavailableQuotes && (
+        <div className="bg-warn/10 border border-warn/30 rounded-xl px-4 py-3 text-sm text-ink flex items-start gap-2">
+          <span className="mt-0.5 shrink-0">⚠</span>
+          <span>
+            Cotações indisponíveis para {positions.filter((p) => p.currentPrice === null).map((p) => p.ticker).join(', ')}.
+            Valor atual e resultado não podem ser calculados para {positions.filter((p) => p.currentPrice === null).length === 1 ? 'esse ativo' : 'esses ativos'}.
+            A brapi.dev pode estar fora do ar ou o limite da API foi atingido.
+          </span>
+        </div>
+      )}
+
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-card border border-edge rounded-xl p-5">
