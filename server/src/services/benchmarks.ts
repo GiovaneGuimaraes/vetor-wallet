@@ -11,7 +11,7 @@ function toDateBR(isoDate: string): string {
 export async function fetchCDIAccumulated(from: string, to: string): Promise<number | null> {
   const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json&dataInicial=${toDateBR(from)}&dataFinal=${toDateBR(to)}`;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
     const data = (await res.json()) as { data: string; valor: string }[];
     if (!data.length) return null;
@@ -31,7 +31,7 @@ export async function fetchIbovespaReturn(from: string): Promise<number | null> 
   const tokenParam = token ? `&token=${token}` : '';
   const url = `https://brapi.dev/api/quote/%5EBVSP?range=5y&interval=1mo&fundamental=false&history=true${tokenParam}`;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
 
     const data = (await res.json()) as {

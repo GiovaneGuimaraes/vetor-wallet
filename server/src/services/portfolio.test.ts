@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPositionMap, buildPortfolioSummary } from './portfolio';
+import { buildPositionMap, buildPortfolioSummary, wouldExceedPosition } from './portfolio';
 import type { Operation } from '@vetor-wallet/shared';
 
 function op(
@@ -36,7 +36,7 @@ describe('buildPositionMap', () => {
     expect(map.get('PETR4')).toEqual({ quantity: 0, avgPrice: 30 });
   });
 
-  it('selling more than held truncates to zero (known edge case — no negative positions)', () => {
+  it('selling more than held truncates to zero (defensive floor; routes reject this before it reaches here)', () => {
     const map = buildPositionMap([op('PETR4', 'BUY', 50, 30), op('PETR4', 'SELL', 200, 50)]);
     expect(map.get('PETR4')!.quantity).toBe(0);
   });
@@ -59,6 +59,25 @@ describe('buildPositionMap', () => {
     // quantity=0 after a buy is contrived but the division guard should fire
     const map = buildPositionMap([op('PETR4', 'BUY', 0, 30)]);
     expect(map.get('PETR4')).toEqual({ quantity: 0, avgPrice: 0 });
+  });
+});
+
+// ── wouldExceedPosition ──────────────────────────────────────────────────────
+
+describe('wouldExceedPosition', () => {
+  it('returns true when sell quantity exceeds current position', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 50, 30)]);
+    expect(wouldExceedPosition(map, 'PETR4', 100)).toBe(true);
+  });
+
+  it('returns false when sell quantity is within current position', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 100, 30)]);
+    expect(wouldExceedPosition(map, 'PETR4', 100)).toBe(false);
+  });
+
+  it('returns true for any positive sell on a ticker with no position', () => {
+    const map = buildPositionMap([]);
+    expect(wouldExceedPosition(map, 'PETR4', 1)).toBe(true);
   });
 });
 
