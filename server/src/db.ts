@@ -56,10 +56,15 @@ export async function initDb() {
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       ticker      TEXT    NOT NULL,
       price       REAL    NOT NULL,
-      captured_at TEXT    NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(ticker, date(captured_at))
+      captured_at TEXT    NOT NULL DEFAULT (datetime('now'))
     )
   `);
+
+  // Expression-based unique constraints must be separate indexes in SQLite
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_snapshots_unique_day
+     ON quote_snapshots(ticker, date(captured_at))`,
+  );
 
   await db.execute(
     `CREATE INDEX IF NOT EXISTS idx_snapshots_ticker_time
