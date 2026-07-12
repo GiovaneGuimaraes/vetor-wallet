@@ -28,6 +28,7 @@ import type {
   BenchmarkData,
   User,
   Wallet,
+  NewWallet,
 } from '@vetor-wallet/shared';
 
 function resolveInitialTheme(): 'dark' | 'light' {
@@ -54,6 +55,8 @@ export default function App() {
     }
   });
   const [screen, setScreen] = useState<'wallets' | 'dashboard'>('wallets');
+
+  const [walletSummaries, setWalletSummaries] = useState<Record<number, PortfolioSummary>>({});
 
   const [operations, setOperations] = useState<Operation[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
@@ -113,7 +116,13 @@ export default function App() {
   async function loadWallets() {
     const ws = await getWallets();
     setWallets(ws);
-    // Se tinha activeWallet salvo, verificar se ainda existe
+
+    // Busca portfolio de cada carteira em paralelo (para exibir nos cards)
+    const results = await Promise.allSettled(ws.map((w) => getPortfolio(w.id).then((s) => ({ id: w.id, s }))));
+    const summaries: Record<number, PortfolioSummary> = {};
+    results.forEach((r) => { if (r.status === 'fulfilled') summaries[r.value.id] = r.value.s; });
+    setWalletSummaries(summaries);
+
     if (activeWallet && ws.find((w) => w.id === activeWallet.id)) {
       setScreen('dashboard');
       refresh(activeWallet.id);
@@ -139,11 +148,25 @@ export default function App() {
     refresh(wallet.id);
   }
 
-  async function handleCreateWallet() {
-    const name = window.prompt('Nome da nova carteira:');
-    if (!name?.trim()) return;
-    const w = await createWallet({ name: name.trim() });
+  function handleBackToWallets() {
+    setScreen('wallets');
+    // Rebusca summaries em background para refletir operações adicionadas no dashboard
+    Promise.allSettled(wallets.map((w) => getPortfolio(w.id).then((s) => ({ id: w.id, s })))).then(
+      (results) => {
+        const summaries: Record<number, PortfolioSummary> = {};
+        results.forEach((r) => { if (r.status === 'fulfilled') summaries[r.value.id] = r.value.s; });
+        setWalletSummaries(summaries);
+      },
+    );
+  }
+
+  async function handleCreateWallet(data: NewWallet) {
+    const w = await createWallet(data);
     setWallets((prev) => [...prev, w]);
+    // Busca portfolio da nova carteira (vazia, mas mantém consistência)
+    getPortfolio(w.id)
+      .then((s) => setWalletSummaries((prev) => ({ ...prev, [w.id]: s })))
+      .catch(() => null);
   }
 
   async function handleAuth(u: User) {
@@ -153,7 +176,7 @@ export default function App() {
   }
 
   async function handleCreate(op: NewOperation) {
-    await createOperation(op);
+    await createOperation(op, activeWallet?.id);
     await refresh(activeWallet?.id);
   }
 
@@ -197,6 +220,7 @@ export default function App() {
       <WalletSelector
         user={user}
         wallets={wallets}
+        walletSummaries={walletSummaries}
         onSelect={handleSelectWallet}
         onLogout={handleLogout}
         theme={theme}
@@ -218,7 +242,7 @@ export default function App() {
             <h1 className="text-lg font-semibold tracking-tight text-accent">Vetor Wallet</h1>
             {activeWallet && (
               <button
-                onClick={() => setScreen('wallets')}
+                onClick={handleBackToWallets}
                 className="flex items-center gap-1.5 bg-raised border border-edge rounded-full px-3 py-1 text-xs text-ink hover:border-accent/50 transition-colors cursor-pointer"
                 title="Trocar carteira"
               >
@@ -304,7 +328,7 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto px-6 md:px-10 py-6 flex flex-col gap-5">
         <OperationForm onSubmit={handleCreate} />
-        <CsvImport onSuccess={() => refresh(activeWallet?.id)} />
+        <CsvImport walletId={activeWallet?.id} onSuccess={() => refresh(activeWallet?.id)} />
         <AlertsPanel rules={alertRules} onUpdate={() => refresh(activeWallet?.id)} />
 
         {loadingData ? (

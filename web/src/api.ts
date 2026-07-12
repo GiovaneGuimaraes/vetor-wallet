@@ -152,8 +152,9 @@ export async function getSnapshots(ticker: string, from?: string, to?: string): 
   return res.json();
 }
 
-export async function importCsv(csvText: string): Promise<CsvImportResult> {
-  const res = await apiFetch('/api/import', {
+export async function importCsv(csvText: string, walletId?: number): Promise<CsvImportResult> {
+  const qs = walletId ? `?walletId=${walletId}` : '';
+  const res = await apiFetch(`/api/import${qs}`, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
     body: csvText,

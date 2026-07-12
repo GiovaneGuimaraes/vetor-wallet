@@ -70,6 +70,7 @@ router.post(
   express.text({ type: '*/*', limit: '1mb' }),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
+    const walletId = req.query.walletId !== undefined ? Number(req.query.walletId) : null;
     const body = typeof req.body === 'string' ? req.body : '';
     if (!body.trim()) {
       res.status(400).json({ error: 'Body vazio' });
@@ -107,8 +108,8 @@ router.post(
     if (valid.length > 0) {
       await db.batch(
         valid.map((op) => ({
-          sql: 'INSERT INTO operations (ticker, type, quantity, price, date, user_id) VALUES (?, ?, ?, ?, ?, ?)',
-          args: [op.ticker, op.type, op.quantity, op.price, op.date, userId],
+          sql: 'INSERT INTO operations (ticker, type, quantity, price, date, user_id, wallet_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          args: [op.ticker, op.type, op.quantity, op.price, op.date, userId, walletId],
         })),
         'write',
       );
