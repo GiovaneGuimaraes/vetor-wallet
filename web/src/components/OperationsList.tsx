@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Operation } from '@vetor-wallet/shared';
 
 interface Props {
@@ -11,6 +12,22 @@ const th = 'pb-3 text-xs font-medium text-dim uppercase tracking-wide whitespace
 const td = 'py-3 whitespace-nowrap';
 
 export function OperationsList({ operations, onDelete }: Props) {
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+
+  async function handleDelete(op: Operation) {
+    if (!window.confirm(`Remover operação de ${op.type === 'BUY' ? 'Compra' : 'Venda'} de ${op.ticker} em ${op.date}?`)) return;
+    setDeleteError('');
+    setDeletingId(op.id);
+    try {
+      await onDelete(op.id);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Falha ao remover operação');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   if (operations.length === 0) {
     return (
       <div className="bg-card border border-edge rounded-xl p-5 md:p-6">
@@ -25,6 +42,12 @@ export function OperationsList({ operations, onDelete }: Props) {
       <h2 className="text-sm font-semibold text-ink mb-4">
         Operações <span className="font-normal text-dim">({operations.length})</span>
       </h2>
+
+      {deleteError && (
+        <div className="mb-4 text-sm text-down bg-down/10 border border-down/25 rounded-lg px-3 py-2">
+          {deleteError}
+        </div>
+      )}
 
       <div className="overflow-x-auto -mx-5 md:-mx-6">
         <table className="w-full text-sm" style={{ minWidth: '580px' }}>
@@ -67,11 +90,12 @@ export function OperationsList({ operations, onDelete }: Props) {
                 </td>
                 <td className={`${td} pr-5 md:pr-6 text-right`}>
                   <button
-                    onClick={() => onDelete(op.id)}
-                    className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded text-dim hover:text-down hover:bg-down/10 transition-all cursor-pointer text-base leading-none"
+                    onClick={() => handleDelete(op)}
+                    disabled={deletingId === op.id}
+                    className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded text-dim hover:text-down hover:bg-down/10 transition-all cursor-pointer text-base leading-none disabled:cursor-wait"
                     title="Remover operação"
                   >
-                    ×
+                    {deletingId === op.id ? '…' : '×'}
                   </button>
                 </td>
               </tr>

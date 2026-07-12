@@ -31,6 +31,7 @@ export function OperationForm({ onSubmit }: Props) {
     if (isNaN(qty) || qty <= 0) return setError('Quantidade inválida');
     if (isNaN(prc) || prc <= 0) return setError('Preço inválido');
     if (!date) return setError('Informe a data');
+    if (date > today) return setError('Data não pode ser futura');
 
     setLoading(true);
     try {
@@ -118,6 +119,7 @@ export function OperationForm({ onSubmit }: Props) {
             className={field}
             type="date"
             value={date}
+            max={today}
             onChange={(e) => setDate(e.target.value)}
           />
         </div>
