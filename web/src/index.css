@@ -2,16 +2,19 @@
 
 @theme {
   /* --- Dark defaults (Tailwind utilities: bg-canvas, text-ink, etc.) --- */
-  --color-canvas:   #0f0e0b;
-  --color-card-1:   #1a1712;
-  --color-card-2:   #12100c;
-  --color-raised:   #211d16;
-  --color-edge:     #2b261d;
-  --color-ink:      #ece5d6;
-  --color-dim:      #7d7364;
-  --color-mid:      #b3a892;
-  --color-accent:   #e3d5b8;
-  --color-accent-2: #e9dcc0;
+  --color-canvas:       #0f0e0b;
+  --color-card-1:       #1a1712;
+  --color-card-2:       #12100c;
+  --color-card:         #1a1712;   /* alias → card-1 */
+  --color-surface:      #211d16;   /* alias → raised */
+  --color-raised:       #211d16;
+  --color-edge:         #2b261d;
+  --color-ink:          #ece5d6;
+  --color-dim:          #7d7364;
+  --color-mid:          #b3a892;
+  --color-accent:       #e3d5b8;
+  --color-accent-2:     #e9dcc0;
+  --color-accent-hover: #d4c3a0;   /* accent escurecido para hover */
   /* Sentiment — unchanged across themes */
   --color-up:   #10b981;
   --color-down: #f43f5e;
@@ -43,16 +46,19 @@ html.light {
   color-scheme: light;
 
   /* Tailwind @theme overrides */
-  --color-canvas:   #f4efe5;
-  --color-card-1:   #fffdf8;
-  --color-card-2:   #faf5ea;
-  --color-raised:   #ece5d5;
-  --color-edge:     #e0d8c5;
-  --color-ink:      #2b251a;
-  --color-dim:      #9a9080;
-  --color-mid:      #6b6250;
-  --color-accent:   #a8814f;
-  --color-accent-2: #8a6a3f;
+  --color-canvas:       #f4efe5;
+  --color-card-1:       #fffdf8;
+  --color-card-2:       #faf5ea;
+  --color-card:         #fffdf8;
+  --color-surface:      #ece5d5;
+  --color-raised:       #ece5d5;
+  --color-edge:         #e0d8c5;
+  --color-ink:          #2b251a;
+  --color-dim:          #9a9080;
+  --color-mid:          #6b6250;
+  --color-accent:       #a8814f;
+  --color-accent-2:     #8a6a3f;
+  --color-accent-hover: #8a6a3f;
 
   /* Custom property overrides */
   --card-1:     #fffdf8;
