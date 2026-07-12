@@ -89,3 +89,10 @@ export interface User {
   email: string;
   created_at: string;
 }
+
+export interface QuoteSnapshot {
+  id: number;
+  ticker: string;
+  price: number;
+  captured_at: string;
+}

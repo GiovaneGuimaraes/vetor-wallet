@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -116,6 +116,16 @@ export async function deleteAlertRule(id: number): Promise<void> {
 export async function getBenchmarks(): Promise<BenchmarkData> {
   const res = await apiFetch('/api/benchmarks');
   if (!res.ok) throw new Error('Falha ao buscar benchmarks');
+  return res.json();
+}
+
+export async function getSnapshots(ticker: string, from?: string, to?: string): Promise<QuoteSnapshot[]> {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const res = await apiFetch(`/api/snapshots/${encodeURIComponent(ticker)}${qs}`);
+  if (!res.ok) throw new Error('Falha ao buscar histórico de cotações');
   return res.json();
 }
 

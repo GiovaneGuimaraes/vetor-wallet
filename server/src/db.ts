@@ -51,6 +51,21 @@ export async function initDb() {
     'write',
   );
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS quote_snapshots (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      ticker      TEXT    NOT NULL,
+      price       REAL    NOT NULL,
+      captured_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(ticker, date(captured_at))
+    )
+  `);
+
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_snapshots_ticker_time
+     ON quote_snapshots(ticker, captured_at)`,
+  );
+
   // Add user_id column to existing tables (idempotent — ignored if already present)
   for (const sql of [
     'ALTER TABLE operations ADD COLUMN user_id INTEGER REFERENCES users(id)',
