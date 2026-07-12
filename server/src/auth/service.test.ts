@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { hashPassword, verifyPassword } from './service';
 
 // Isolate pure functions from db — createUser/findUserByEmail are tested via router integration
