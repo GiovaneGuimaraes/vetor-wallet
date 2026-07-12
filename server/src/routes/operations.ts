@@ -11,12 +11,21 @@ router.use(requireAuth);
 
 router.get(
   '/',
-  asyncHandler(async (_req: Request, res: Response) => {
+  asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const result = await db.execute({
-      sql: 'SELECT * FROM operations WHERE user_id = ? ORDER BY date DESC, created_at DESC',
-      args: [userId],
-    });
+    const { walletId } = req.query;
+
+    let sql = 'SELECT * FROM operations WHERE user_id = ?';
+    const args: (number | string)[] = [userId];
+
+    if (walletId !== undefined) {
+      sql += ' AND wallet_id = ?';
+      args.push(Number(walletId));
+    }
+
+    sql += ' ORDER BY date DESC, created_at DESC';
+
+    const result = await db.execute({ sql, args });
     res.json(result.rows);
   }),
 );
@@ -25,7 +34,7 @@ router.post(
   '/',
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const { ticker, type, quantity, price, date } = req.body as Partial<NewOperation>;
+    const { ticker, type, quantity, price, date, wallet_id } = req.body as Partial<NewOperation & { wallet_id?: number | null }>;
 
     if (!ticker || typeof ticker !== 'string' || !ticker.trim()) {
       res.status(400).json({ error: 'ticker e obrigatorio' });
@@ -51,10 +60,17 @@ router.post(
     const tickerUp = ticker.trim().toUpperCase();
 
     if (type === 'SELL') {
-      const existing = await db.execute({
-        sql: 'SELECT * FROM operations WHERE ticker = ? AND user_id = ? ORDER BY date ASC, created_at ASC',
-        args: [tickerUp, userId],
-      });
+      let sellCheckSql = 'SELECT * FROM operations WHERE ticker = ? AND user_id = ?';
+      const sellCheckArgs: (string | number)[] = [tickerUp, userId];
+
+      if (wallet_id !== undefined && wallet_id !== null) {
+        sellCheckSql += ' AND wallet_id = ?';
+        sellCheckArgs.push(wallet_id);
+      }
+
+      sellCheckSql += ' ORDER BY date ASC, created_at ASC';
+
+      const existing = await db.execute({ sql: sellCheckSql, args: sellCheckArgs });
       const positionMap = buildPositionMap(existing.rows as unknown as Operation[]);
       if (wouldExceedPosition(positionMap, tickerUp, quantity)) {
         res.status(400).json({ error: 'venda maior que a posicao atual' });
@@ -63,8 +79,8 @@ router.post(
     }
 
     const insert = await db.execute({
-      sql: 'INSERT INTO operations (ticker, type, quantity, price, date, user_id) VALUES (?, ?, ?, ?, ?, ?)',
-      args: [tickerUp, type, quantity, price, date, userId],
+      sql: 'INSERT INTO operations (ticker, type, quantity, price, date, user_id, wallet_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      args: [tickerUp, type, quantity, price, date, userId, wallet_id ?? null],
     });
 
     const newId = insert.lastInsertRowid ?? 0;

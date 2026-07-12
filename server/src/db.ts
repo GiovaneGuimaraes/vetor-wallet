@@ -71,10 +71,22 @@ export async function initDb() {
      ON quote_snapshots(ticker, captured_at)`,
   );
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS wallets (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id     INTEGER NOT NULL REFERENCES users(id),
+      name        TEXT    NOT NULL,
+      description TEXT    NOT NULL DEFAULT '',
+      color       TEXT    NOT NULL DEFAULT '#e3d5b8',
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
   // Add user_id column to existing tables (idempotent — ignored if already present)
   for (const sql of [
     'ALTER TABLE operations ADD COLUMN user_id INTEGER REFERENCES users(id)',
     'ALTER TABLE alert_rules ADD COLUMN user_id INTEGER REFERENCES users(id)',
+    'ALTER TABLE operations ADD COLUMN wallet_id INTEGER REFERENCES wallets(id)',
   ]) {
     try {
       await db.execute(sql);

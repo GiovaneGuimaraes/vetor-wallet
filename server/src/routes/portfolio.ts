@@ -11,12 +11,21 @@ const router = Router();
 router.get(
   '/',
   requireAuth,
-  asyncHandler(async (_req: Request, res: Response) => {
+  asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const result = await db.execute({
-      sql: 'SELECT * FROM operations WHERE user_id = ? ORDER BY date ASC, created_at ASC',
-      args: [userId],
-    });
+    const { walletId } = req.query;
+
+    let sql = 'SELECT * FROM operations WHERE user_id = ?';
+    const args: (number | string)[] = [userId];
+
+    if (walletId !== undefined) {
+      sql += ' AND wallet_id = ?';
+      args.push(Number(walletId));
+    }
+
+    sql += ' ORDER BY date ASC, created_at ASC';
+
+    const result = await db.execute({ sql, args });
     const ops = result.rows as unknown as Operation[];
 
     const positionMap = buildPositionMap(ops);

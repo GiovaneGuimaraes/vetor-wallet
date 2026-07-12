@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<style>
+:root{color-scheme:dark}
+.theme{--canvas:#0f0e0b;--card1:#1a1712;--card2:#12100c;--raised:#211d16;--raisedRGB:33,29,22;--edge:#2b261d;--edgeRGB:43,38,29;--ink:#ece5d6;--dim:#7d7364;--mid:#b3a892;--accentRGB:227,213,184;--acc:#e3d5b8;--acc2:#e9dcc0;--btn1:#f2e7cd;--btn2:#d9c49c;--btnInk:#1a1610;--hdrBg:rgba(15,14,11,.8);--leather1:#242019;color:var(--ink)}
+.theme.light{color-scheme:light;--canvas:#f4efe5;--card1:#fffdf8;--card2:#faf5ea;--raised:#ece5d5;--raisedRGB:214,204,184;--edge:#e0d8c5;--edgeRGB:150,138,114;--ink:#2b251a;--dim:#9a9080;--mid:#6b6250;--accentRGB:168,129,79;--acc:#a8814f;--acc2:#8a6a3f;--btn1:#b99668;--btn2:#a37f4e;--btnInk:#fff;--hdrBg:rgba(246,241,231,.85);--leather1:#f1e9d8}body{margin:0;background:#0f0e0b;color:#ece5d6;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}a:hover{color:var(--acc2)}
+.dim{color:var(--dim)}.mid{color:var(--mid)}.acc{color:var(--acc2)}.up{color:#10b981}.down{color:#f43f5e}.warn{color:#f59e0b}
+.num{font-variant-numeric:tabular-nums}
+.vh{min-height:100vh}
+.wrap{max-width:1120px;margin:0 auto;padding:0 32px;box-sizing:border-box}
+.card{background:linear-gradient(180deg,var(--card1),var(--card2));border:1px solid var(--edge);border-radius:16px;padding:22px;transition:border-color .25s,transform .25s,box-shadow .25s}
+.lbl{font-size:11px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
+.inp{width:100%;background:var(--canvas);border:1px solid var(--edge);border-radius:10px;padding:10px 12px;font-size:14px;color:var(--ink);outline:none;transition:border-color .2s,box-shadow .2s;box-sizing:border-box;font-family:inherit}
+.inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(var(--accentRGB),.18)}
+.btn{background:linear-gradient(135deg,var(--btn1),var(--btn2));color:var(--btnInk);border:0;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;transition:transform .15s,box-shadow .25s,filter .2s;font-family:inherit}
+.btn:hover{box-shadow:0 6px 24px rgba(var(--accentRGB),.4);transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.gbtn{background:rgba(var(--raisedRGB),.6);border:1px solid var(--edge);color:var(--ink);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;transition:border-color .2s,color .2s,box-shadow .25s;font-family:inherit}
+.gbtn:hover{border-color:var(--acc);color:var(--acc2);box-shadow:0 4px 18px rgba(var(--accentRGB),.15)}
+.brand{background:linear-gradient(90deg,var(--acc2),var(--acc));-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:700}
+.hdr{border-bottom:1px solid rgba(var(--edgeRGB),.5);background:var(--hdrBg);backdrop-filter:blur(8px);position:sticky;top:0;z-index:20}
+.hbar{height:60px}
+.screen{animation:fadeUp .55s cubic-bezier(.22,1,.36,1) both}
+.rise{animation:fadeUp .6s cubic-bezier(.22,1,.36,1) both}
+.d1{animation-delay:.06s}.d2{animation-delay:.12s}.d3{animation-delay:.18s}.d4{animation-delay:.24s}.d5{animation-delay:.3s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.seg{display:flex;background:var(--card2);border:1px solid var(--edge);border-radius:10px;padding:3px;gap:3px}
+.segb{flex:1;border:0;background:transparent;color:var(--dim);font-size:13px;font-weight:600;padding:7px 14px;border-radius:8px;cursor:pointer;transition:color .2s,background .2s;font-family:inherit;white-space:nowrap}
+.segb:hover{color:var(--mid)}
+.segb.on{background:linear-gradient(135deg,var(--btn1),var(--btn2));color:var(--btnInk);box-shadow:0 2px 12px rgba(var(--accentRGB),.35)}
+.wcard{cursor:pointer;position:relative;overflow:hidden;text-align:left;width:100%;font-family:inherit;color:var(--ink)}
+.wcard:hover{transform:translateY(-5px);box-shadow:0 16px 48px rgba(var(--accentRGB),.18)}
+.wico{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px}
+.chipup{background:rgba(16,185,129,.14);color:#10b981}
+.chipdn{background:rgba(244,63,94,.14);color:#f43f5e}
+.pgrid{display:grid;grid-template-columns:1.1fr .7fr 1fr 1fr 1.1fr 1.1fr 1.1fr .75fr .75fr;gap:0 12px;align-items:center}
+.prow{padding:13px 22px;border-top:1px solid rgba(var(--edgeRGB),.35);cursor:pointer;transition:background .2s;font-size:14px}
+.prow:hover{background:rgba(var(--raisedRGB),.55)}
+.phead{padding:0 22px 12px}
+.pxp{border-top:1px solid rgba(var(--edgeRGB),.35);background:rgba(12,19,34,.6);padding:16px 22px;animation:fadeUp .3s ease both}
+.ogrid{display:grid;grid-template-columns:1fr .9fr .9fr .6fr .9fr 1fr 30px;gap:0 12px;align-items:center}
+.orow{padding:12px 22px;border-top:1px solid rgba(var(--edgeRGB),.35);font-size:14px;transition:background .2s}
+.orow:hover{background:rgba(var(--raisedRGB),.55)}
+.orow:hover .xdel{opacity:1}
+.xdel{opacity:0;background:transparent;border:0;color:var(--dim);font-size:16px;cursor:pointer;border-radius:6px;width:24px;height:24px;transition:opacity .2s,color .2s}
+.xdel:hover{color:#f43f5e}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:6px}
+.tagb{background:rgba(var(--accentRGB),.15);color:var(--acc2)}
+.tagv{background:rgba(244,63,94,.15);color:#f43f5e}
+.bart{height:10px;background:rgba(var(--raisedRGB),.7);border-radius:99px;overflow:hidden}
+.barf{height:100%;border-radius:99px;transition:width .3s}
+.dot{width:9px;height:9px;border-radius:99px;flex-shrink:0}
+.flat{padding:0}
+.sect{padding:18px 22px 14px;font-size:14px;font-weight:600}
+.pcard:hover{transform:translateY(-3px);border-color:rgba(var(--accentRGB),.45)}
+.flash{animation:flashbg 1.2s ease both}
+@keyframes flashbg{0%{background:rgba(var(--accentRGB),.22)}100%{background:transparent}}
+.hero{background:radial-gradient(120% 160% at 20% 0%,rgba(var(--accentRGB),.16),rgba(12,19,34,0) 55%),linear-gradient(180deg,var(--card1),var(--card2))}
+.linkish{background:transparent;border:0;color:var(--dim);font-size:13px;cursor:pointer;transition:color .2s;font-family:inherit;padding:0}
+.linkish:hover{color:var(--ink)}
+.wchip{display:flex;align-items:center;gap:8px;background:rgba(var(--raisedRGB),.6);border:1px solid var(--edge);border-radius:99px;padding:5px 14px 5px 8px;cursor:pointer;font-family:inherit;color:var(--ink);font-size:13px;font-weight:600;transition:border-color .2s,box-shadow .2s}
+.wchip:hover{border-color:var(--acc);box-shadow:0 4px 16px rgba(var(--accentRGB),.18)}
+.mini{font-size:12px}
+.tbtn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--edge);border-radius:99px;color:var(--dim);cursor:pointer;transition:color .2s,border-color .2s;padding:0}
+.tbtn:hover{color:var(--ink);border-color:var(--acc)}
+.ccard{aspect-ratio:1.6;border-radius:20px;padding:22px;position:relative;overflow:hidden;display:flex;flex-direction:column;text-align:left;cursor:pointer;font-family:inherit;color:var(--ink);border:1px solid var(--edge);background:linear-gradient(145deg,var(--leather1),var(--card2));transition:transform .35s cubic-bezier(.22,1,.36,1),box-shadow .35s,border-color .25s}
+.ccard:hover{transform:perspective(700px) translateY(-6px) rotate3d(1,-.6,0,4deg);box-shadow:0 20px 50px rgba(0,0,0,.3);border-color:rgba(var(--accentRGB),.55)}
+.csheen{inset:0;background:linear-gradient(115deg,transparent 32%,rgba(255,255,255,.07) 46%,transparent 58%);pointer-events:none}
+.cchip{width:42px;height:31px;border-radius:7px;background:linear-gradient(135deg,var(--btn1),var(--btn2));position:relative;margin-top:auto;box-shadow:inset 0 0 0 1px rgba(0,0,0,.22)}
+.cchipl{position:absolute;inset:6px 8px;border:1px solid rgba(0,0,0,.28);border-radius:4px}
+.wvalue{font-size:30px;font-weight:650;letter-spacing:-.01em;text-shadow:0 1px 0 rgba(255,255,255,.05),0 2px 8px rgba(0,0,0,.25)}
+</style>
+</helmet>
+<sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+<div class="screen vh fx col ac jc theme {{ themeCls }}" style="background:radial-gradient(90% 60% at 50% -10%,rgba(var(--accentRGB),.12),transparent 60%),var(--canvas);padding:24px 16px">
+<div style="width:100%;max-width:380px">
+<div class="tc mb16"><div class="brand fs22" style="font-size:26px;letter-spacing:-.02em">Vetor Wallet</div><div class="dim fs14" style="margin-top:4px">Carteira B3 pessoal</div></div>
+<div class="card rise d1" style="padding:26px;box-shadow:0 24px 80px rgba(0,0,0,.45)">
+<div class="seg mb16" style="margin-bottom:22px"><button type="button" class="segb {{ loginTabCls }}" onClick="{{ setLoginMode }}">Entrar</button><button type="button" class="segb {{ registerTabCls }}" onClick="{{ setRegisterMode }}">Criar conta</button></div>
+<form class="fx col gap16" onSubmit="{{ onLogin }}">
+<div><span class="lbl" style="display:block;margin-bottom:6px">E-mail</span><input class="inp" type="email" value="{{ email }}" onChange="{{ setEmail }}" placeholder="voce@exemplo.com" required="{{ true }}"></input></div>
+<div><span class="lbl" style="display:block;margin-bottom:6px">Senha</span><input class="inp" type="password" placeholder="{{ pwPlaceholder }}" required="{{ true }}"></input></div>
+<sc-if value="{{ isRegister }}" hint-placeholder-val="{{ false }}"><div><span class="lbl" style="display:block;margin-bottom:6px">Confirmar senha</span><input class="inp" type="password" placeholder="••••••••" required="{{ true }}"></input></div></sc-if>
+<button type="submit" class="btn w100" style="margin-top:4px;padding:12px">{{ loginBtnText }}</button>
+</form>
+</div>
+<div class="tc dim mini rise d2" style="margin-top:18px">Suas cotações via brapi.dev · dados criptografados</div>
+<div class="tc rise d3" style="margin-top:10px"><button class="tbtn" onClick="{{ toggleTheme }}" title="{{ themeLabel }}"><sc-if value="{{ isDarkTheme }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if><sc-if value="{{ isLightTheme }}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path></svg></sc-if></button></div>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ isWallets }}" hint-placeholder-val="{{ false }}">
+<div class="screen vh theme {{ themeCls }}" style="background:radial-gradient(80% 50% at 50% -10%,rgba(var(--accentRGB),.1),transparent 60%),var(--canvas)">
+<header class="hdr"><div class="wrap fx ac jb hbar"><div class="fx ac gap12"><span class="brand" style="font-size:17px">Vetor Wallet</span></div><div class="fx ac gap16"><button class="tbtn" onClick="{{ toggleTheme }}" title="{{ themeLabel }}"><sc-if value="{{ isDarkTheme }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if><sc-if value="{{ isLightTheme }}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path></svg></sc-if></button><span class="dim mini">{{ email }}</span><button class="linkish" onClick="{{ onLogout }}">Sair</button></div></div></header>
+<main class="wrap" style="padding-top:56px;padding-bottom:64px">
+<div class="rise d1"><h2 class="m0" style="font-size:26px;font-weight:600;letter-spacing:-.02em">Suas carteiras</h2><p class="dim fs14" style="margin:6px 0 0">Escolha qual carteira você quer gerir agora</p></div>
+<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-top:28px">
+<sc-for list="{{ walletCards }}" as="w" hint-placeholder-count="3">
+<button class="ccard rise {{ w.delayCls }}" onClick="{{ w.onOpen }}">
+<div class="posabs" style="inset:0;background:radial-gradient(130% 160% at 85% -30%,{{ w.tint }},transparent 55%);pointer-events:none"></div>
+<div class="posabs csheen"></div>
+<div class="fx jb" style="align-items:flex-start"><div><div class="fw6" style="font-size:16px">{{ w.name }}</div><div class="dim mini" style="margin-top:2px">{{ w.desc }}</div></div><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{ w.color }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg></div>
+<div class="cchip"><div class="cchipl"></div></div>
+<div class="wvalue num" style="margin-top:10px">{{ w.value }}</div>
+<div class="fx ac jb" style="margin-top:10px;margin-bottom:6px"><span class="chip {{ w.chipCls }}">{{ w.plPct }}</span><span class="mid mini num">{{ w.nAtivos }} ativos · {{ w.nOps }} operações</span></div>
+<div class="posabs fx" style="left:0;right:0;bottom:0;height:5px;display:flex"><sc-for list="{{ w.allocSegs }}" as="seg" hint-placeholder-count="3"><div style="width:{{ seg.w }}%;background:{{ seg.c }}" title="{{ seg.t }}"></div></sc-for></div>
+</button>
+</sc-for>
+<button class="card wcard rise d4 fx col ac jc" onClick="{{ noop }}" style="border-style:dashed;background:transparent;min-height:220px;gap:10px"><div class="wico" style="background:rgba(var(--accentRGB),.1)"><span class="acc" style="font-size:24px;font-weight:300;line-height:1">+</span></div><span class="mid fs14 fw6">Nova carteira</span></button>
+</div>
+</main>
+</div>
+</sc-if>
+<sc-if value="{{ isDash }}" hint-placeholder-val="{{ false }}">
+<div class="screen vh theme {{ themeCls }}" style="background:var(--canvas)" data-screen-label="Dashboard">
+<header class="hdr"><div class="wrap fx ac jb hbar"><div class="fx ac gap12"><span class="brand" style="font-size:17px">Vetor Wallet</span><button class="wchip" onClick="{{ backToWallets }}" title="Trocar carteira"><span class="dot" style="background:{{ wColor }};width:10px;height:10px"></span>{{ wName }}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" style="stroke:var(--dim)"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"></path></svg></button></div><div class="fx ac gap16"><button class="tbtn" onClick="{{ toggleTheme }}" title="{{ themeLabel }}"><sc-if value="{{ isDarkTheme }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if><sc-if value="{{ isLightTheme }}" hint-placeholder-val="{{ false }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"></path></svg></sc-if></button><span class="dim mini">{{ email }}</span><button class="linkish" onClick="{{ onLogout }}">Sair</button></div></div></header>
+<main class="wrap fx col" style="padding-top:24px;padding-bottom:64px;gap:18px">
+<div class="fx ac jb rise d1"><div class="fx gap10"><div class="card fx ac jb f1" style="padding:14px 18px;border-radius:12px"><div><div class="fw6 fs14">Importar CSV</div><div class="dim mini">Múltiplas operações de uma vez</div></div><button class="gbtn" onClick="{{ noop }}" style="margin-left:18px">Selecionar arquivo</button></div><div class="card fx ac jb f1" style="padding:14px 18px;border-radius:12px"><div><div class="fw6 fs14">Alertas</div><div class="dim mini">1 regra ativa</div></div><button class="gbtn" onClick="{{ noop }}" style="margin-left:18px">Gerenciar</button></div></div><div class="seg noshrink" style="margin-left:18px"><button class="segb {{ segOverviewCls }}" onClick="{{ setOverview }}">Visão geral</button><button class="segb {{ segFocusCls }}" onClick="{{ setFocus }}">Foco no patrimônio</button></div></div>
+<sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+<div class="grid rise d2" style="grid-template-columns:repeat(3,1fr);gap:18px">
+<div class="card"><div class="lbl">Investido</div><div class="num" style="font-size:28px;font-weight:600;margin-top:8px">{{ invested }}</div></div>
+<div class="card"><div class="lbl">Valor atual</div><div class="num" style="font-size:28px;font-weight:600;margin-top:8px">{{ currentVal }}</div></div>
+<div class="card posrel ohide" style="border-color:{{ resBorder }}"><div class="posabs" style="inset:0;background:radial-gradient(100% 100% at 90% -20%,{{ resTint }},transparent 60%);pointer-events:none"></div><div class="lbl">Resultado</div><div class="num {{ plCls }}" style="font-size:28px;font-weight:600;margin-top:8px">{{ plVal }}</div><div class="fs13 {{ plCls }} num" style="margin-top:2px">{{ plPct }}</div></div>
+</div>
+</sc-if>
+<sc-if value="{{ isFocus }}" hint-placeholder-val="{{ false }}">
+<div class="card hero rise d2 tc" style="padding:40px 22px 36px"><div class="lbl">Patrimônio total</div><div class="num" style="font-size:52px;font-weight:650;letter-spacing:-.03em;margin-top:10px">{{ currentVal }}</div><div class="fx ac jc gap12" style="margin-top:12px"><span class="chip {{ chipCls }}">{{ plPct }}</span><span class="mid fs14 num">{{ plVal }} de resultado</span><span class="dim">·</span><span class="mid fs14 num">{{ invested }} investido</span></div></div>
+</sc-if>
+<div class="grid rise d3" style="grid-template-columns:1.6fr 1fr;gap:18px">
+<div class="card"><div class="fx ac jb"><span class="fw6 fs14">Evolução do patrimônio</span><span class="dim mini">últimas 12 semanas</span></div>
+<svg viewBox="0 0 600 190" style="width:100%;margin-top:14px;display:block" preserveAspectRatio="none"><defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{{ wColor }}" stop-opacity=".28"></stop><stop offset="1" stop-color="{{ wColor }}" stop-opacity="0"></stop></linearGradient></defs><path d="{{ areaPath }}" fill="url(#ag)" opacity="{{ chartOp }}"></path><path d="{{ linePath }}" fill="none" stroke="{{ wColor }}" stroke-width="2.5" stroke-linecap="round" pathLength="1" style="stroke-dasharray:1;stroke-dashoffset:{{ dashOff }}"></path><sc-for list="{{ chartDots }}" as="p" hint-placeholder-count="2"><circle cx="{{ p.x }}" cy="{{ p.y }}" r="4" style="fill:var(--card2)" stroke="{{ wColor }}" stroke-width="2" opacity="{{ chartOp }}"><title>{{ p.label }}</title></circle></sc-for></svg>
+<div class="fx jb dim mini" style="margin-top:6px"><span>{{ chartFrom }}</span><span>{{ chartTo }}</span></div></div>
+<div class="card"><span class="fw6 fs14">Alocação</span>
+<div class="fx ac gap16" style="margin-top:14px"><div class="posrel noshrink" style="width:128px;height:128px"><div class="round" style="width:128px;height:128px;background:{{ donutBg }};-webkit-mask:radial-gradient(circle,transparent 49px,#000 50px);mask:radial-gradient(circle,transparent 49px,#000 50px)"></div><div class="posabs fx col ac jc" style="inset:0"><span class="fw6" style="font-size:18px">{{ nAtivos }}</span><span class="dim mini">ativos</span></div></div>
+<div class="fx col gap10 f1"><sc-for list="{{ legendRows }}" as="l" hint-placeholder-count="3"><div class="fx ac gap8 fs13"><span class="dot" style="background:{{ l.c }}"></span><span class="fw6">{{ l.ticker }}</span><span class="dim num" style="margin-left:auto">{{ l.pct }}</span></div></sc-for></div></div></div>
+</div>
+<form class="card rise d3" onSubmit="{{ onAddOp }}"><div class="fw6 fs14" style="margin-bottom:16px">Nova Operação</div>
+<div class="grid gap12" style="grid-template-columns:1.2fr 1fr .9fr 1fr 1.1fr auto;align-items:end;gap:12px">
+<div><span class="lbl" style="display:block;margin-bottom:6px">Ticker</span><input class="inp" value="{{ fTicker }}" onChange="{{ setFTicker }}" placeholder="PETR4" maxLength="10"></input></div>
+<div><span class="lbl" style="display:block;margin-bottom:6px">Tipo</span><select class="inp" value="{{ fType }}" onChange="{{ setFType }}"><option value="Compra">Compra</option><option value="Venda">Venda</option></select></div>
+<div><span class="lbl" style="display:block;margin-bottom:6px">Quantidade</span><input class="inp" type="number" value="{{ fQty }}" onChange="{{ setFQty }}" placeholder="100"></input></div>
+<div><span class="lbl" style="display:block;margin-bottom:6px">Preço (R$)</span><input class="inp" type="number" step="any" value="{{ fPrice }}" onChange="{{ setFPrice }}" placeholder="38.50"></input></div>
+<div><span class="lbl" style="display:block;margin-bottom:6px">Data</span><input class="inp" type="date" value="{{ fDate }}" onChange="{{ setFDate }}" max="2026-07-12"></input></div>
+<button type="submit" class="btn" style="padding:10px 22px">Adicionar</button>
+</div></form>
+<sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+<div class="card flat rise d4"><div class="sect">Posições <span class="dim fw5 mini" style="font-weight:400">· clique para detalhes</span></div>
+<div class="pgrid phead"><span class="lbl">Ticker</span><span class="lbl tc" style="text-align:right">Qtd</span><span class="lbl" style="text-align:right">PM (R$)</span><span class="lbl" style="text-align:right">Cotação</span><span class="lbl" style="text-align:right">Investido</span><span class="lbl" style="text-align:right">Valor atual</span><span class="lbl" style="text-align:right">Resultado</span><span class="lbl" style="text-align:right">%</span><span class="lbl" style="text-align:right">Carteira</span></div>
+<sc-for list="{{ posRows }}" as="p" hint-placeholder-count="3">
+<div><div class="pgrid prow" onClick="{{ p.onToggle }}"><span class="fw6">{{ p.ticker }}</span><span class="num mid" style="text-align:right">{{ p.qty }}</span><span class="num mid" style="text-align:right">{{ p.pm }}</span><span class="num mid" style="text-align:right">{{ p.cot }}</span><span class="num mid" style="text-align:right">{{ p.inv }}</span><span class="num mid" style="text-align:right">{{ p.val }}</span><span class="num fw6 {{ p.cls }}" style="text-align:right">{{ p.res }}</span><span class="num fw6 {{ p.cls }}" style="text-align:right">{{ p.pct }}</span><span class="num dim" style="text-align:right">{{ p.alloc }}</span></div>
+<sc-if value="{{ p.expanded }}" hint-placeholder-val="{{ false }}"><div class="pxp fx ac gap24"><svg viewBox="0 0 200 48" style="width:200px;height:48px" preserveAspectRatio="none"><path d="{{ p.spark }}" fill="none" stroke="{{ p.sparkColor }}" stroke-width="2" stroke-linecap="round"></path></svg><div class="fx col gap4 mini"><span class="dim">PM vs. cotação</span><div class="bart" style="width:180px"><div class="barf" style="width:{{ p.pmBar }}%;background:{{ p.sparkColor }}"></div></div></div><div class="fx col gap4 mini"><span class="dim">Participação na carteira</span><div class="bart" style="width:180px"><div class="barf" style="width:{{ p.allocBar }}%;background:var(--acc)"></div></div></div><span class="mini dim" style="margin-left:auto">últimos 30 dias</span></div></sc-if></div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ isFocus }}" hint-placeholder-val="{{ false }}">
+<div class="grid rise d4" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px">
+<sc-for list="{{ posRows }}" as="p" hint-placeholder-count="3">
+<div class="card pcard" style="padding:18px"><div class="fx ac jb"><span class="fw6" style="font-size:15px">{{ p.ticker }}</span><span class="chip {{ p.chipCls }}">{{ p.pct }}</span></div><div class="num" style="font-size:21px;font-weight:600;margin-top:10px">{{ p.val }}</div><div class="mid mini num" style="margin-top:2px">{{ p.qty }} cotas · PM {{ p.pm }}</div><svg viewBox="0 0 200 40" style="width:100%;height:40px;margin-top:12px" preserveAspectRatio="none"><path d="{{ p.spark }}" fill="none" stroke="{{ p.sparkColor }}" stroke-width="2" stroke-linecap="round"></path></svg><div class="bart" style="margin-top:12px;height:5px"><div class="barf" style="width:{{ p.allocBar }}%;background:{{ p.sparkColor }}"></div></div><div class="dim mini" style="margin-top:6px">{{ p.alloc }} da carteira</div></div>
+</sc-for>
+</div>
+</sc-if>
+<div class="card rise d4"><div class="fx ac gap10" style="margin-bottom:18px"><span class="fw6 fs14">Comparativo de rentabilidade</span><span class="dim mini">desde 04/07/2026</span></div>
+<div class="fx col gap14"><sc-for list="{{ benchRows }}" as="b" hint-placeholder-count="3"><div class="fx ac gap12"><span class="fs13 fw6 noshrink" style="width:64px;color:{{ b.lc }}">{{ b.label }}</span><div class="bart f1"><div class="barf" style="width:{{ b.w }}%;background:{{ b.bc }}"></div></div><span class="num fw6 fs14 noshrink" style="width:72px;text-align:right;color:{{ b.vc }}">{{ b.value }}</span></div></sc-for></div></div>
+<div class="card flat rise d5"><div class="sect">Operações <span class="dim" style="font-weight:400">({{ nOps }})</span></div>
+<div class="ogrid phead"><span class="lbl">Data</span><span class="lbl">Ticker</span><span class="lbl">Tipo</span><span class="lbl" style="text-align:right">Qtd</span><span class="lbl" style="text-align:right">Preço</span><span class="lbl" style="text-align:right">Total</span><span></span></div>
+<sc-for list="{{ opsRows }}" as="o" hint-placeholder-count="3">
+<div class="ogrid orow {{ o.flashCls }}"><span class="dim mini num" style="font-family:ui-monospace,monospace">{{ o.date }}</span><span class="fw6">{{ o.ticker }}</span><span><span class="tag {{ o.tagCls }}">{{ o.type }}</span></span><span class="num mid" style="text-align:right">{{ o.qty }}</span><span class="num mid" style="text-align:right">{{ o.price }}</span><span class="num fw6" style="text-align:right">{{ o.total }}</span><button class="xdel" onClick="{{ o.onDelete }}" title="Remover operação">×</button></div>
+</sc-for>
+</div>
+</main>
+</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultVariant&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;overview&quot;, &quot;focus&quot;], &quot;default&quot;: &quot;overview&quot;, &quot;tsType&quot;: &quot;'overview' | 'focus'&quot;, &quot;section&quot;: &quot;Dashboard&quot;}}">
+class Component extends DCLogic {
+  state = { theme: 'dark', screen: 'login', mode: 'login', walletId: null, variant: null, progress: 1, expanded: null, email: 'gioguima24@gmail.com', fTicker: '', fType: 'Compra', fQty: '', fPrice: '', fDate: '2026-07-12', extraOps: {}, deleted: {}, flashKey: null };
+
+  wallets = [
+    { id: 'b3', name: 'Carteira B3 pessoal', desc: 'Ações · longo prazo', color: 'acc', tint: 'rgba(var(--accentRGB),.14)',
+      pos: [ ['PETR4', 100, 38.00, 39.65], ['VALE3', 60, 61.20, 63.42], ['ITUB4', 150, 32.40, 33.05] ],
+      ops: [ ['2026-07-04', 'PETR4', 'Compra', 100, 38.00], ['2026-06-20', 'VALE3', 'Compra', 60, 61.20], ['2026-06-02', 'ITUB4', 'Compra', 150, 32.40] ] },
+    { id: 'div', name: 'Dividendos', desc: 'Renda passiva mensal', color: '#10b981', tint: 'rgba(16,185,129,.13)',
+      pos: [ ['TAEE11', 80, 34.10, 35.02], ['BBSE3', 90, 33.50, 34.18], ['ITSA4', 300, 10.15, 10.42] ],
+      ops: [ ['2026-06-28', 'TAEE11', 'Compra', 80, 34.10], ['2026-06-15', 'BBSE3', 'Compra', 90, 33.50], ['2026-05-30', 'ITSA4', 'Compra', 300, 10.15] ] },
+    { id: 'spec', name: 'Especulativa', desc: 'Alto risco · curto prazo', color: '#f59e0b', tint: 'rgba(245,158,11,.12)',
+      pos: [ ['MGLU3', 400, 2.05, 1.88], ['HAPV3', 500, 3.42, 3.35] ],
+      ops: [ ['2026-07-01', 'MGLU3', 'Compra', 400, 2.05], ['2026-06-24', 'HAPV3', 'Compra', 500, 3.42] ] }
+  ];
+
+  palette = ['var(--acc)', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4'];
+  fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  fmtPct(v) { return (v >= 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '%'; }
+  col(c) { return c === 'acc' ? (this.state.theme === 'light' ? '#a8814f' : '#e3d5b8') : c; }
+  ease(p) { return 1 - Math.pow(1 - p, 3); }
+
+  startAnim() {
+    cancelAnimationFrame(this._raf);
+    const t0 = performance.now();
+    const tick = (t) => {
+      const p = Math.min(1, (t - t0) / 1200);
+      this.setState({ progress: p });
+      if (p < 1) this._raf = requestAnimationFrame(tick);
+    };
+    this.setState({ progress: 0 });
+    this._raf = requestAnimationFrame(tick);
+  }
+
+  calc(w) {
+    const pos = w.pos.map(([ticker, qty, avg, cur]) => {
+      const inv = qty * avg, val = qty * cur;
+      return { ticker, qty, avg, cur, inv, val, pl: val - inv, plPct: (val / inv - 1) * 100 };
+    });
+    const inv = pos.reduce((a, p) => a + p.inv, 0);
+    const val = pos.reduce((a, p) => a + p.val, 0);
+    pos.forEach(p => { p.alloc = p.val / val * 100; });
+    return { pos, inv, val, pl: val - inv, plPct: (val / inv - 1) * 100 };
+  }
+
+  series(w) {
+    const c = this.calc(w);
+    const pts = [];
+    for (let i = 0; i < 12; i++) {
+      const f = i / 11;
+      const base = c.inv + (c.val - c.inv) * f;
+      const wig = Math.sin(i * 2.1 + w.id.length) * c.inv * 0.008 * (1 - f * 0.4);
+      pts.push(i === 11 ? c.val : base + wig);
+    }
+    return pts;
+  }
+
+  spark(seed, avg, cur) {
+    const pts = [];
+    for (let i = 0; i < 14; i++) {
+      const f = i / 13;
+      pts.push(avg + (cur - avg) * f + Math.sin(i * 1.7 + seed) * Math.abs(cur - avg) * 0.35);
+    }
+    const min = Math.min(...pts), max = Math.max(...pts), rng = max - min || 1;
+    return pts.map((v, i) => (i ? 'L' : 'M') + (i / 13 * 200).toFixed(1) + ' ' + (42 - (v - min) / rng * 36).toFixed(1)).join(' ');
+  }
+
+  renderVals() {
+    const s = this.state;
+    const noop = () => {};
+    const base = {
+      noop, email: s.email,
+      themeCls: s.theme === 'light' ? 'light' : '',
+      isLightTheme: s.theme === 'light', isDarkTheme: s.theme !== 'light',
+      themeLabel: s.theme === 'light' ? 'Modo escuro' : 'Modo claro',
+      toggleTheme: () => { const t = s.theme === 'light' ? 'dark' : 'light'; this.setState({ theme: t }); try { localStorage.setItem('vw-theme', t); } catch (err) {} },
+      isLogin: s.screen === 'login', isWallets: s.screen === 'wallets', isDash: s.screen === 'dash',
+      onLogout: () => this.setState({ screen: 'login' }),
+      setEmail: (e) => this.setState({ email: e.target.value })
+    };
+
+    if (s.screen === 'login') {
+      const reg = s.mode === 'register';
+      return Object.assign(base, {
+        isRegister: reg,
+        loginTabCls: reg ? '' : 'on', registerTabCls: reg ? 'on' : '',
+        setLoginMode: () => this.setState({ mode: 'login' }),
+        setRegisterMode: () => this.setState({ mode: 'register' }),
+        pwPlaceholder: reg ? 'Mínimo 8 caracteres' : '••••••••',
+        loginBtnText: reg ? 'Criar conta' : 'Entrar',
+        onLogin: (e) => { e.preventDefault(); this.setState({ screen: 'wallets' }); }
+      });
+    }
+
+    if (s.screen === 'wallets') {
+      return Object.assign(base, {
+        walletCards: this.wallets.map((w, i) => {
+          const c = this.calc(w);
+          return {
+            name: w.name, desc: w.desc, color: this.col(w.color), tint: w.tint,
+            icoBg: w.tint.replace('.14', '.16').replace('.13', '.16').replace('.12', '.16'),
+            value: this.fmt.format(c.val), plPct: this.fmtPct(c.plPct),
+            chipCls: c.pl >= 0 ? 'chipup' : 'chipdn',
+            nAtivos: c.pos.length, nOps: w.ops.length,
+            delayCls: 'd' + (i + 1),
+            allocSegs: c.pos.map((p, j) => ({ w: p.alloc.toFixed(1), c: this.palette[j % 6], t: p.ticker })),
+            onOpen: () => { this.setState({ screen: 'dash', walletId: w.id, expanded: null }); this.startAnim(); }
+          };
+        })
+      });
+    }
+
+    // dashboard
+    const w = this.wallets.find(x => x.id === s.walletId) || this.wallets[0];
+    const c = this.calc(w);
+    const e = this.ease(s.progress);
+    const variant = s.variant ?? (this.props.defaultVariant ?? 'overview');
+    const isOverview = variant === 'overview';
+
+    const ser = this.series(w);
+    const min = Math.min(...ser), max = Math.max(...ser), rng = max - min || 1;
+    const pts = ser.map((v, i) => [20 + i / 11 * 560, 16 + (1 - (v - min) / rng) * 150]);
+    const linePath = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    const areaPath = linePath + ' L580 186 L20 186 Z';
+
+    let accPct = 0;
+    const stops = c.pos.map((p, i) => {
+      const from = accPct * e, to = (accPct + p.alloc) * e;
+      accPct += p.alloc;
+      return this.palette[i % 6] + ' ' + from.toFixed(2) + '% ' + to.toFixed(2) + '%';
+    });
+    const donutBg = 'conic-gradient(' + stops.join(',') + ',var(--raised) ' + (accPct * e).toFixed(2) + '% 100%)';
+
+    const extra = s.extraOps[w.id] || [];
+    const deleted = s.deleted[w.id] || [];
+    const allOps = extra.concat(w.ops.map((o, i) => ({ key: 'base' + i, date: o[0], ticker: o[1], type: o[2], qty: o[3], price: o[4] })))
+      .filter(o => !deleted.includes(o.key));
+
+    const maxBench = Math.max(Math.abs(c.plPct), 1.12, 0.01);
+
+    return Object.assign(base, {
+      wName: w.name, wColor: this.col(w.color), nAtivos: c.pos.length,
+      backToWallets: () => this.setState({ screen: 'wallets' }),
+      isOverview, isFocus: !isOverview,
+      segOverviewCls: isOverview ? 'on' : '', segFocusCls: isOverview ? '' : 'on',
+      setOverview: () => { this.setState({ variant: 'overview' }); this.startAnim(); },
+      setFocus: () => { this.setState({ variant: 'focus' }); this.startAnim(); },
+      invested: this.fmt.format(c.inv * e),
+      currentVal: this.fmt.format(c.val * e),
+      plVal: this.fmt.format(c.pl * e),
+      plPct: this.fmtPct(c.plPct * e),
+      plCls: c.pl >= 0 ? 'up' : 'down',
+      chipCls: c.pl >= 0 ? 'chipup' : 'chipdn',
+      resBorder: c.pl >= 0 ? 'rgba(16,185,129,.35)' : 'rgba(244,63,94,.35)',
+      resTint: c.pl >= 0 ? 'rgba(16,185,129,.12)' : 'rgba(244,63,94,.12)',
+      linePath, areaPath, dashOff: 1 - e, chartOp: e, donutBg,
+      chartDots: pts.filter((_, i) => i % 2 === 1).map((p, i) => ({ x: p[0].toFixed(1), y: p[1].toFixed(1), label: this.fmt.format(ser[i * 2 + 1]) })),
+      chartFrom: '20/04/2026', chartTo: '12/07/2026',
+      legendRows: c.pos.map((p, i) => ({ ticker: p.ticker, c: this.palette[i % 6], pct: (p.alloc * e).toFixed(1).replace('.', ',') + '%' })),
+      posRows: c.pos.map((p, i) => ({
+        ticker: p.ticker, qty: p.qty.toLocaleString('pt-BR'),
+        pm: this.fmt.format(p.avg), cot: this.fmt.format(p.cur),
+        inv: this.fmt.format(p.inv), val: this.fmt.format(p.val),
+        res: this.fmt.format(p.pl), pct: this.fmtPct(p.plPct),
+        alloc: p.alloc.toFixed(1).replace('.', ',') + '%',
+        cls: p.pl >= 0 ? 'up' : 'down',
+        chipCls: p.pl >= 0 ? 'chipup' : 'chipdn',
+        sparkColor: p.pl >= 0 ? '#10b981' : '#f43f5e',
+        spark: this.spark(i * 3 + w.id.length, p.avg, p.cur),
+        pmBar: Math.min(100, p.cur / p.avg * 90).toFixed(0),
+        allocBar: (p.alloc * e).toFixed(1),
+        expanded: s.expanded === p.ticker,
+        onToggle: () => this.setState({ expanded: s.expanded === p.ticker ? null : p.ticker })
+      })),
+      benchRows: [
+        { label: 'Carteira', lc: 'var(--acc2)', value: this.fmtPct(c.plPct * e), vc: c.plPct >= 0 ? '#10b981' : '#f43f5e', bc: c.plPct >= 0 ? 'rgba(16,185,129,.75)' : 'rgba(244,63,94,.75)', w: (Math.abs(c.plPct) / maxBench * 100 * e).toFixed(1) },
+        { label: 'CDI', lc: '#f59e0b', value: this.fmtPct(0.21 * e), vc: '#10b981', bc: 'rgba(16,185,129,.75)', w: (0.21 / maxBench * 100 * e).toFixed(1) },
+        { label: 'Ibovespa', lc: 'var(--dim)', value: this.fmtPct(1.12 * e), vc: '#10b981', bc: 'rgba(16,185,129,.55)', w: (1.12 / maxBench * 100 * e).toFixed(1) }
+      ],
+      nOps: allOps.length,
+      opsRows: allOps.map(o => ({
+        date: o.date, ticker: o.ticker, type: o.type,
+        tagCls: o.type === 'Compra' ? 'tagb' : 'tagv',
+        qty: o.qty.toLocaleString('pt-BR'),
+        price: this.fmt.format(o.price), total: this.fmt.format(o.qty * o.price),
+        flashCls: s.flashKey === o.key ? 'flash' : '',
+        onDelete: () => {
+          const d = Object.assign({}, s.deleted);
+          d[w.id] = (d[w.id] || []).concat(o.key);
+          this.setState({ deleted: d });
+        }
+      })),
+      fTicker: s.fTicker, fType: s.fType, fQty: s.fQty, fPrice: s.fPrice, fDate: s.fDate,
+      setFTicker: (ev) => this.setState({ fTicker: ev.target.value.toUpperCase() }),
+      setFType: (ev) => this.setState({ fType: ev.target.value }),
+      setFQty: (ev) => this.setState({ fQty: ev.target.value }),
+      setFPrice: (ev) => this.setState({ fPrice: ev.target.value }),
+      setFDate: (ev) => this.setState({ fDate: ev.target.value }),
+      onAddOp: (ev) => {
+        ev.preventDefault();
+        const qty = parseFloat(s.fQty), price = parseFloat(s.fPrice);
+        if (!s.fTicker.trim() || isNaN(qty) || qty <= 0 || isNaN(price) || price <= 0) return;
+        const key = 'x' + Date.now();
+        const x = Object.assign({}, s.extraOps);
+        x[w.id] = [{ key, date: s.fDate, ticker: s.fTicker.trim(), type: s.fType, qty, price }].concat(x[w.id] || []);
+        this.setState({ extraOps: x, fTicker: '', fQty: '', fPrice: '', flashKey: key });
+        setTimeout(() => this.setState({ flashKey: null }), 1300);
+      }
+    });
+  }
+
+  componentDidMount() { try { const t = localStorage.getItem('vw-theme'); if (t === 'light' || t === 'dark') this.setState({ theme: t }); } catch (err) {} }
+  componentDidUpdate() { document.body.style.background = this.state.theme === 'light' ? '#f4efe5' : '#0f0e0b'; }
+  componentWillUnmount() { cancelAnimationFrame(this._raf); }
+}
+</script>
+</body>
+</html>
