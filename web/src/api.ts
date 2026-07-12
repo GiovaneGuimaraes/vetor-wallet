@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -47,6 +47,14 @@ export async function register(email: string, password: string): Promise<User> {
 
 export async function logout(): Promise<void> {
   await apiFetch('/api/auth/logout', { method: 'POST' });
+}
+
+// ── Tickers ───────────────────────────────────────────────────────────────────
+
+export async function searchTickers(query: string): Promise<TickersResponse> {
+  const res = await apiFetch(`/api/tickers?search=${encodeURIComponent(query)}`);
+  if (!res.ok) return { results: [], listAvailable: false };
+  return res.json();
 }
 
 // ── Operations ────────────────────────────────────────────────────────────────

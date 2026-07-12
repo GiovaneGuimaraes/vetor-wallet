@@ -64,6 +64,17 @@ export interface CsvRowError {
 export interface CsvImportResult {
   imported: number;
   errors: CsvRowError[];
+  unknownTickers?: string[];
+}
+
+export interface TickerInfo {
+  ticker: string;
+  name: string;
+}
+
+export interface TickersResponse {
+  results: TickerInfo[];
+  listAvailable: boolean;
 }
 
 export interface BenchmarkData {
