@@ -8,6 +8,7 @@ export interface Operation {
   price: number;
   date: string;
   created_at: string;
+  wallet_id?: number | null;
 }
 
 export interface NewOperation {
@@ -47,6 +48,7 @@ export interface AlertRule {
   threshold: number;
   active: number;
   created_at: string;
+  wallet_id?: number | null;
 }
 
 export interface NewAlertRule {
@@ -95,4 +97,19 @@ export interface QuoteSnapshot {
   ticker: string;
   price: number;
   captured_at: string;
+}
+
+export interface Wallet {
+  id: number;
+  user_id: number;
+  name: string;
+  description: string;
+  color: string;
+  created_at: string;
+}
+
+export interface NewWallet {
+  name: string;
+  description?: string;
+  color?: string;
 }

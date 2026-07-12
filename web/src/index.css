@@ -1,28 +1,79 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-canvas: #090e1c;
-  --color-card: #101825;
-  --color-raised: #16202f;
-  --color-edge: #1e2e47;
-  --color-ink: #d9e4f8;
-  --color-dim: #4d6180;
-  --color-accent: #2869f5;
-  --color-accent-hover: #1b5ae0;
-  --color-up: #10b981;
+  /* --- Dark defaults (Tailwind utilities: bg-canvas, text-ink, etc.) --- */
+  --color-canvas:   #0f0e0b;
+  --color-card-1:   #1a1712;
+  --color-card-2:   #12100c;
+  --color-raised:   #211d16;
+  --color-edge:     #2b261d;
+  --color-ink:      #ece5d6;
+  --color-dim:      #7d7364;
+  --color-mid:      #b3a892;
+  --color-accent:   #e3d5b8;
+  --color-accent-2: #e9dcc0;
+  /* Sentiment — unchanged across themes */
+  --color-up:   #10b981;
   --color-down: #f43f5e;
   --color-warn: #f59e0b;
-  --color-surface: #16202f;
 }
 
+/* ------------------------------------------------------------------ */
+/* Custom properties (not Tailwind utilities)                          */
+/* ------------------------------------------------------------------ */
+:root {
+  color-scheme: dark;
+
+  --card-1:      #1a1712;
+  --card-2:      #12100c;
+  --raised-rgb:  33, 29, 22;
+  --edge-rgb:    43, 38, 29;
+  --accent-rgb:  227, 213, 184;
+  --btn-1:       #f2e7cd;
+  --btn-2:       #d9c49c;
+  --btn-ink:     #1a1610;
+  --header-bg:   rgba(15, 14, 11, 0.8);
+  --leather-1:   #242019;
+}
+
+/* ------------------------------------------------------------------ */
+/* Light theme overrides                                               */
+/* ------------------------------------------------------------------ */
+html.light {
+  color-scheme: light;
+
+  /* Tailwind @theme overrides */
+  --color-canvas:   #f4efe5;
+  --color-card-1:   #fffdf8;
+  --color-card-2:   #faf5ea;
+  --color-raised:   #ece5d5;
+  --color-edge:     #e0d8c5;
+  --color-ink:      #2b251a;
+  --color-dim:      #9a9080;
+  --color-mid:      #6b6250;
+  --color-accent:   #a8814f;
+  --color-accent-2: #8a6a3f;
+
+  /* Custom property overrides */
+  --card-1:     #fffdf8;
+  --card-2:     #faf5ea;
+  --raised-rgb: 214, 204, 184;
+  --edge-rgb:   150, 138, 114;
+  --accent-rgb: 168, 129, 79;
+  --btn-1:      #b99668;
+  --btn-2:      #a37f4e;
+  --btn-ink:    #fff;
+  --header-bg:  rgba(246, 241, 231, 0.85);
+  --leather-1:  #f1e9d8;
+}
+
+/* ------------------------------------------------------------------ */
+/* Base reset                                                          */
+/* ------------------------------------------------------------------ */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
-}
-
-:root {
-  color-scheme: dark;
 }
 
 html,
@@ -32,8 +83,8 @@ body {
 }
 
 body {
-  background-color: #090e1c;
-  color: #d9e4f8;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
   font-family:
     system-ui,
     -apple-system,
@@ -44,8 +95,45 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ------------------------------------------------------------------ */
+/* Animations                                                          */
+/* ------------------------------------------------------------------ */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.screen {
+  animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.rise.d1 { animation-delay: 0.06s; }
+.rise.d2 { animation-delay: 0.12s; }
+.rise.d3 { animation-delay: 0.18s; }
+.rise.d4 { animation-delay: 0.24s; }
+.rise.d5 { animation-delay: 0.30s; }
+
+/* ------------------------------------------------------------------ */
+/* Form element theming                                                */
+/* ------------------------------------------------------------------ */
+select option {
+  background-color: var(--card-2);
+  color: var(--color-ink);
+}
+
 input[type='date']::-webkit-calendar-picker-indicator {
   filter: invert(0.6) brightness(1.2);
+  cursor: pointer;
+}
+
+html.light input[type='date']::-webkit-calendar-picker-indicator {
+  filter: none;
   cursor: pointer;
 }
 
@@ -53,9 +141,4 @@ input[type='number']::-webkit-inner-spin-button,
 input[type='number']::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
-}
-
-select option {
-  background-color: #101825;
-  color: #d9e4f8;
 }
