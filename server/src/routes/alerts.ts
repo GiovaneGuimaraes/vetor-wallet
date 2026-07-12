@@ -1,16 +1,23 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { requireAuth } from '../auth/middleware';
 import type { NewAlertRule } from '@vetor-wallet/shared';
 
 const router = Router();
 
 const VALID_TYPES = ['PRICE_ABOVE', 'PRICE_BELOW', 'CHANGE_PCT', 'ALLOCATION_PCT'];
 
+router.use(requireAuth);
+
 router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
-    const result = await db.execute('SELECT * FROM alert_rules ORDER BY created_at DESC');
+    const userId = res.locals.userId as number;
+    const result = await db.execute({
+      sql: 'SELECT * FROM alert_rules WHERE user_id = ? ORDER BY created_at DESC',
+      args: [userId],
+    });
     res.json(result.rows);
   }),
 );
@@ -18,6 +25,7 @@ router.get(
 router.post(
   '/',
   asyncHandler(async (req: Request, res: Response) => {
+    const userId = res.locals.userId as number;
     const { ticker, type, threshold } = req.body as Partial<NewAlertRule>;
 
     if (!ticker || typeof ticker !== 'string' || !ticker.trim()) {
@@ -34,8 +42,8 @@ router.post(
     }
 
     const insert = await db.execute({
-      sql: 'INSERT INTO alert_rules (ticker, type, threshold) VALUES (?, ?, ?)',
-      args: [ticker.trim().toUpperCase(), type, threshold],
+      sql: 'INSERT INTO alert_rules (ticker, type, threshold, user_id) VALUES (?, ?, ?, ?)',
+      args: [ticker.trim().toUpperCase(), type, threshold, userId],
     });
 
     const newId = insert.lastInsertRowid ?? 0;
@@ -50,8 +58,12 @@ router.post(
 router.delete(
   '/:id',
   asyncHandler(async (req: Request, res: Response) => {
+    const userId = res.locals.userId as number;
     const { id } = req.params;
-    const result = await db.execute({ sql: 'DELETE FROM alert_rules WHERE id = ?', args: [id] });
+    const result = await db.execute({
+      sql: 'DELETE FROM alert_rules WHERE id = ? AND user_id = ?',
+      args: [id, userId],
+    });
     if (result.rowsAffected === 0) {
       res.status(404).json({ error: 'Regra não encontrada' });
       return;

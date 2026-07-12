@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import express from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { requireAuth } from '../auth/middleware';
 import { buildPositionMap, applyOperation, wouldExceedPosition } from '../services/portfolio';
 import type { NewOperation, CsvRowError, CsvImportResult, Operation } from '@vetor-wallet/shared';
 
@@ -64,8 +65,10 @@ function parseRows(body: string): { rows: ParsedRow[]; errors: CsvRowError[] } {
 
 router.post(
   '/',
+  requireAuth,
   express.text({ type: '*/*', limit: '1mb' }),
   asyncHandler(async (req: Request, res: Response) => {
+    const userId = res.locals.userId as number;
     const body = typeof req.body === 'string' ? req.body : '';
     if (!body.trim()) {
       res.status(400).json({ error: 'Body vazio' });
@@ -79,8 +82,8 @@ router.post(
     if (tickers.length > 0) {
       const placeholders = tickers.map(() => '?').join(',');
       const existing = await db.execute({
-        sql: `SELECT * FROM operations WHERE ticker IN (${placeholders}) ORDER BY date ASC, created_at ASC`,
-        args: tickers,
+        sql: `SELECT * FROM operations WHERE ticker IN (${placeholders}) AND user_id = ? ORDER BY date ASC, created_at ASC`,
+        args: [...tickers, userId],
       });
       positionMap = buildPositionMap(existing.rows as unknown as Operation[]);
     }
@@ -103,8 +106,8 @@ router.post(
     if (valid.length > 0) {
       await db.batch(
         valid.map((op) => ({
-          sql: 'INSERT INTO operations (ticker, type, quantity, price, date) VALUES (?, ?, ?, ?, ?)',
-          args: [op.ticker, op.type, op.quantity, op.price, op.date],
+          sql: 'INSERT INTO operations (ticker, type, quantity, price, date, user_id) VALUES (?, ?, ?, ?, ?, ?)',
+          args: [op.ticker, op.type, op.quantity, op.price, op.date, userId],
         })),
         'write',
       );
