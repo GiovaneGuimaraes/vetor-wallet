@@ -252,13 +252,14 @@ function PatrimonioChart({ invested, current }: PatrimonioChartProps) {
 function DonutChart({ positions }: { positions: Position[] }) {
   const total = positions.reduce((s, p) => s + p.invested, 0);
 
-  let accumulated = 0;
-  const segments = positions.slice(0, 6).map((p, i) => {
-    const pct = total > 0 ? (p.invested / total) * 100 : 0;
-    const start = accumulated;
-    accumulated += pct;
-    return { ticker: p.ticker, pct, start, color: PALETTE[i % PALETTE.length] };
-  });
+  const segments = positions.slice(0, 6).reduce<{ ticker: string; pct: number; start: number; color: string }[]>(
+    (acc, p, i) => {
+      const pct = total > 0 ? (p.invested / total) * 100 : 0;
+      const start = acc.length > 0 ? acc[acc.length - 1].start + acc[acc.length - 1].pct : 0;
+      return [...acc, { ticker: p.ticker, pct, start, color: PALETTE[i % PALETTE.length] }];
+    },
+    [],
+  );
 
   const conicStops = segments
     .map((s) => `${s.color} ${s.start}% ${s.start + s.pct}%`)
