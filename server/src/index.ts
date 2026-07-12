@@ -10,7 +10,9 @@ import alertsRouter from './routes/alerts';
 import benchmarksRouter from './routes/benchmarks';
 import authRouter from './auth/router';
 import tickersRouter from './routes/tickers';
+import snapshotsRouter from './routes/snapshots';
 import { errorHandler } from './middleware/errorHandler';
+import { startScheduler } from './scheduler';
 
 const app = express();
 
@@ -35,6 +37,7 @@ app.use(
 
 app.use('/api/auth', authRouter);
 app.use('/api/tickers', tickersRouter);
+app.use('/api/snapshots', snapshotsRouter);
 app.use('/api/operations', operationsRouter);
 app.use('/api/portfolio', portfolioRouter);
 app.use('/api/import', importRouter);
@@ -49,6 +52,7 @@ initDb()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Vetor Wallet API running on http://localhost:${PORT}`);
+      startScheduler();
     });
   })
   .catch((err) => {
