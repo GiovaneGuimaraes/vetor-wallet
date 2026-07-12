@@ -4,6 +4,7 @@ import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { buildPositionMap, applyOperation, wouldExceedPosition } from '../services/portfolio';
+import { getUnknownTickers } from '../services/tickers';
 import type { NewOperation, CsvRowError, CsvImportResult, Operation } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -113,7 +114,10 @@ router.post(
       );
     }
 
-    const result: CsvImportResult = { imported: valid.length, errors };
+    const importedTickers = [...new Set(valid.map((op) => op.ticker))];
+    const unknownTickers = await getUnknownTickers(importedTickers);
+
+    const result: CsvImportResult = { imported: valid.length, errors, unknownTickers };
     res.json(result);
   }),
 );

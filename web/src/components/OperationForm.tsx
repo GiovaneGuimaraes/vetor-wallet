@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useRef, type FormEvent } from 'react';
 import type { NewOperation, OperationType } from '@vetor-wallet/shared';
+import { TickerCombobox } from './TickerCombobox';
 
 interface Props {
   onSubmit: (op: NewOperation) => Promise<void>;
@@ -15,16 +16,38 @@ const label = 'block text-xs font-medium text-dim uppercase tracking-wide mb-1.5
 export function OperationForm({ onSubmit }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const [ticker, setTicker] = useState('');
+  const [tickerIsKnown, setTickerIsKnown] = useState<boolean | null>(null);
+  const [showUnknownWarning, setShowUnknownWarning] = useState(false);
   const [type, setType] = useState<OperationType>('BUY');
   const [quantity, setQuantity] = useState('');
   const [price, setPrice] = useState('');
   const [date, setDate] = useState(today);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const doSubmitRef = useRef<(() => Promise<void>) | null>(null);
+
+  async function doSubmit(op: NewOperation) {
+    setLoading(true);
+    try {
+      await onSubmit(op);
+      setTicker('');
+      setTickerIsKnown(null);
+      setQuantity('');
+      setPrice('');
+      setDate(today);
+      setShowUnknownWarning(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao cadastrar');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    setShowUnknownWarning(false);
+
     const qty = parseFloat(quantity);
     const prc = parseFloat(price);
     if (!ticker.trim()) return setError('Informe o ticker');
@@ -33,24 +56,21 @@ export function OperationForm({ onSubmit }: Props) {
     if (!date) return setError('Informe a data');
     if (date > today) return setError('Data não pode ser futura');
 
-    setLoading(true);
-    try {
-      await onSubmit({
-        ticker: ticker.trim().toUpperCase(),
-        type,
-        quantity: qty,
-        price: prc,
-        date,
-      });
-      setTicker('');
-      setQuantity('');
-      setPrice('');
-      setDate(today);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao cadastrar');
-    } finally {
-      setLoading(false);
+    const op: NewOperation = { ticker: ticker.trim().toUpperCase(), type, quantity: qty, price: prc, date };
+
+    if (tickerIsKnown === false) {
+      doSubmitRef.current = () => doSubmit(op);
+      setShowUnknownWarning(true);
+      return;
     }
+
+    await doSubmit(op);
+  }
+
+  function handleTickerChange(value: string, isKnown: boolean | null) {
+    setTicker(value);
+    setTickerIsKnown(isKnown);
+    setShowUnknownWarning(false);
   }
 
   return (
@@ -63,15 +83,38 @@ export function OperationForm({ onSubmit }: Props) {
         </div>
       )}
 
+      {showUnknownWarning && (
+        <div className="mb-4 text-sm bg-warn/10 border border-warn/30 rounded-lg px-3 py-2.5">
+          <p className="text-ink mb-2">
+            <span className="font-semibold">{ticker}</span> não está na lista de ativos conhecidos da brapi.dev. Deseja registrar mesmo assim?
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setShowUnknownWarning(false); doSubmitRef.current?.(); }}
+              className="text-xs font-medium bg-warn/20 hover:bg-warn/30 text-ink px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+            >
+              Registrar mesmo assim
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowUnknownWarning(false)}
+              className="text-xs font-medium text-dim hover:text-ink px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <div>
+        <div className="relative">
           <span className={label}>Ticker</span>
-          <input
-            className={field}
+          <TickerCombobox
             value={ticker}
-            onChange={(e) => setTicker(e.target.value.toUpperCase())}
+            onChange={handleTickerChange}
+            className={field}
             placeholder="PETR4"
-            maxLength={10}
           />
         </div>
 

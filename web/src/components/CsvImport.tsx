@@ -252,6 +252,14 @@ export function CsvImport({ onSuccess }: Props) {
               ✓ {result.imported} operaç{result.imported !== 1 ? 'ões importadas' : 'ão importada'} com sucesso
             </p>
           )}
+          {result.unknownTickers && result.unknownTickers.length > 0 && (
+            <div className="text-left mb-4 bg-warn/10 border border-warn/30 rounded-lg px-3 py-2.5">
+              <p className="text-xs font-semibold text-warn uppercase tracking-wide mb-1">Tickers não reconhecidos</p>
+              <p className="text-xs text-ink">
+                {result.unknownTickers.join(', ')} — importados, mas não estão na lista da brapi.dev. Verifique se os tickers estão corretos.
+              </p>
+            </div>
+          )}
           {result.errors.length > 0 && (
             <div className="text-left mb-4">
               <p className="text-xs text-dim mb-2 uppercase tracking-wide">
