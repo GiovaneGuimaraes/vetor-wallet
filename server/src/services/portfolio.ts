@@ -5,29 +5,45 @@ export interface PositionEntry {
   avgPrice: number;
 }
 
-export function buildPositionMap(ops: Operation[]): Map<string, PositionEntry> {
-  const positionMap = new Map<string, PositionEntry>();
+export function applyOperation(
+  positionMap: Map<string, PositionEntry>,
+  op: Pick<Operation, 'ticker' | 'type' | 'quantity' | 'price'>,
+): PositionEntry {
+  const current = positionMap.get(op.ticker) ?? { quantity: 0, avgPrice: 0 };
+  let updated: PositionEntry;
 
-  for (const op of ops) {
-    const current = positionMap.get(op.ticker) ?? { quantity: 0, avgPrice: 0 };
-
-    if (op.type === 'BUY') {
-      const totalCost = current.quantity * current.avgPrice + op.quantity * op.price;
-      const newQty = current.quantity + op.quantity;
-      positionMap.set(op.ticker, {
-        quantity: newQty,
-        avgPrice: newQty > 0 ? totalCost / newQty : 0,
-      });
-    } else {
-      const newQty = current.quantity - op.quantity;
-      positionMap.set(op.ticker, {
-        quantity: Math.max(0, newQty),
-        avgPrice: current.avgPrice,
-      });
-    }
+  if (op.type === 'BUY') {
+    const totalCost = current.quantity * current.avgPrice + op.quantity * op.price;
+    const newQty = current.quantity + op.quantity;
+    updated = { quantity: newQty, avgPrice: newQty > 0 ? totalCost / newQty : 0 };
+  } else {
+    const newQty = current.quantity - op.quantity;
+    updated = { quantity: Math.max(0, newQty), avgPrice: current.avgPrice };
   }
 
+  positionMap.set(op.ticker, updated);
+  return updated;
+}
+
+export function buildPositionMap(ops: Operation[]): Map<string, PositionEntry> {
+  const positionMap = new Map<string, PositionEntry>();
+  for (const op of ops) applyOperation(positionMap, op);
   return positionMap;
+}
+
+export function getPositionQuantity(
+  positionMap: Map<string, PositionEntry>,
+  ticker: string,
+): number {
+  return positionMap.get(ticker)?.quantity ?? 0;
+}
+
+export function wouldExceedPosition(
+  positionMap: Map<string, PositionEntry>,
+  ticker: string,
+  sellQuantity: number,
+): boolean {
+  return sellQuantity > getPositionQuantity(positionMap, ticker);
 }
 
 export function buildPortfolioSummary(

@@ -8,7 +8,7 @@ export async function fetchQuotes(tickers: string[]): Promise<Map<string, number
   const url = token ? `${BRAPI_BASE}/${joined}?token=${token}` : `${BRAPI_BASE}/${joined}`;
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return new Map();
 
     const data = (await res.json()) as {

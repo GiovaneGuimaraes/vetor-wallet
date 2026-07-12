@@ -1,13 +1,21 @@
 import { Router, Request, Response } from 'express';
 import express from 'express';
 import { db } from '../db';
-import type { NewOperation, CsvRowError, CsvImportResult } from '@vetor-wallet/shared';
+import { asyncHandler } from '../middleware/asyncHandler';
+import { buildPositionMap, applyOperation, wouldExceedPosition } from '../services/portfolio';
+import type { NewOperation, CsvRowError, CsvImportResult, Operation } from '@vetor-wallet/shared';
 
 const router = Router();
 
-function parseRows(body: string): { valid: NewOperation[]; errors: CsvRowError[] } {
+interface ParsedRow {
+  line: number;
+  raw: string;
+  op: NewOperation;
+}
+
+function parseRows(body: string): { rows: ParsedRow[]; errors: CsvRowError[] } {
   const lines = body.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  const valid: NewOperation[] = [];
+  const rows: ParsedRow[] = [];
   const errors: CsvRowError[] = [];
 
   const start = lines.length > 0 && /ticker/i.test(lines[0]) ? 1 : 0;
@@ -37,30 +45,60 @@ function parseRows(body: string): { valid: NewOperation[]; errors: CsvRowError[]
     if (colErrors.length > 0) {
       errors.push({ line: lineNum, raw, error: colErrors.join('; ') });
     } else {
-      valid.push({
-        ticker: ticker.toUpperCase(),
-        type: type as 'BUY' | 'SELL',
-        quantity,
-        price,
-        date,
+      rows.push({
+        line: lineNum,
+        raw,
+        op: {
+          ticker: ticker.toUpperCase(),
+          type: type as 'BUY' | 'SELL',
+          quantity,
+          price,
+          date,
+        },
       });
     }
   }
 
-  return { valid, errors };
+  return { rows, errors };
 }
 
 router.post(
   '/',
   express.text({ type: '*/*', limit: '1mb' }),
-  async (req: Request, res: Response) => {
+  asyncHandler(async (req: Request, res: Response) => {
     const body = typeof req.body === 'string' ? req.body : '';
     if (!body.trim()) {
       res.status(400).json({ error: 'Body vazio' });
       return;
     }
 
-    const { valid, errors } = parseRows(body);
+    const { rows, errors } = parseRows(body);
+
+    const tickers = [...new Set(rows.map((r) => r.op.ticker))];
+    let positionMap = new Map<string, { quantity: number; avgPrice: number }>();
+    if (tickers.length > 0) {
+      const placeholders = tickers.map(() => '?').join(',');
+      const existing = await db.execute({
+        sql: `SELECT * FROM operations WHERE ticker IN (${placeholders}) ORDER BY date ASC, created_at ASC`,
+        args: tickers,
+      });
+      positionMap = buildPositionMap(existing.rows as unknown as Operation[]);
+    }
+
+    const valid: NewOperation[] = [];
+    for (const row of rows) {
+      if (row.op.type === 'SELL' && wouldExceedPosition(positionMap, row.op.ticker, row.op.quantity)) {
+        errors.push({
+          line: row.line,
+          raw: row.raw,
+          error: 'venda maior que a posicao atual',
+        });
+        continue;
+      }
+      applyOperation(positionMap, row.op);
+      valid.push(row.op);
+    }
+    errors.sort((a, b) => a.line - b.line);
 
     if (valid.length > 0) {
       await db.batch(
@@ -74,7 +112,7 @@ router.post(
 
     const result: CsvImportResult = { imported: valid.length, errors };
     res.json(result);
-  },
+  }),
 );
 
 export default router;
