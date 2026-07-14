@@ -1,11 +1,11 @@
 import 'dotenv/config';
-import { initDb } from '../db';
-import { grantRole } from '../auth/service';
+import { initDb } from '@vetor-wallet/server/db';
+import { grantRole } from '@vetor-wallet/server/auth/service';
 
 async function main(): Promise<void> {
   const email = process.argv[2];
   if (!email || !email.trim()) {
-    console.error('[grantAdmin] Uso: tsx src/cli/grantAdmin.ts <email>');
+    console.error('[grantAdmin] Uso: pnpm --filter vetor-wallet-cli roles:grant-admin <email>');
     process.exit(1);
   }
 
@@ -25,4 +25,7 @@ async function main(): Promise<void> {
   }
 }
 
-main();
+main().catch((err) => {
+  console.error('[grantAdmin] Fatal error:', err);
+  process.exit(1);
+});

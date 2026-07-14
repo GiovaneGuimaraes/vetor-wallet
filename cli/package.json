@@ -5,6 +5,7 @@
   "type": "commonjs",
   "scripts": {
     "insights:hourly": "tsx src/hourlyInsights.ts",
+    "roles:grant-admin": "tsx src/grantAdmin.ts",
     "build": "tsc --build tsconfig.json"
   },
   "dependencies": {
