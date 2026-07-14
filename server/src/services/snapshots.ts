@@ -25,7 +25,7 @@ export function isBusinessDay(brtDate: Date): boolean {
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3, delayMs = 1000): Promise<T> {
+export async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3, delayMs = 1000): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -86,6 +86,15 @@ export async function saveSnapshot(ticker: string, price: number): Promise<boole
   const result = await db.execute({
     sql: `INSERT OR IGNORE INTO quote_snapshots (ticker, price) VALUES (?, ?)`,
     args: [ticker, price],
+  });
+  return result.rowsAffected > 0;
+}
+
+/** Saves a closing price for a specific past date (historical backfill). */
+export async function saveSnapshotForDate(ticker: string, price: number, isoDate: string): Promise<boolean> {
+  const result = await db.execute({
+    sql: `INSERT OR IGNORE INTO quote_snapshots (ticker, price, captured_at) VALUES (?, ?, ?)`,
+    args: [ticker, price, `${isoDate}T18:00:00`],
   });
   return result.rowsAffected > 0;
 }

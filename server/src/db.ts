@@ -2,15 +2,18 @@ import { createClient } from '@libsql/client';
 import path from 'path';
 import fs from 'fs';
 
-const dataDir = path.join(process.cwd(), 'data');
+// DATABASE_URL overrides the default local SQLite path.
+// Use it when running from a different cwd (e.g. the cli package) or when
+// migrating to Turso: DATABASE_URL=libsql://your-db.turso.io?authToken=...
+const dbUrl = process.env.DATABASE_URL ?? (() => {
+  const dataDir = path.join(process.cwd(), 'data');
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+  return `file:${path.join(dataDir, 'wallet.db')}`;
+})();
 
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
-
-const dbPath = path.join(dataDir, 'wallet.db');
-
-export const db = createClient({ url: `file:${dbPath}` });
+export const db = createClient({ url: dbUrl });
 
 export async function initDb() {
   await db.batch(
@@ -69,6 +72,27 @@ export async function initDb() {
   await db.execute(
     `CREATE INDEX IF NOT EXISTS idx_snapshots_ticker_time
      ON quote_snapshots(ticker, captured_at)`,
+  );
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS hourly_quote_insights (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      ticker      TEXT    NOT NULL,
+      quote_date  TEXT    NOT NULL,
+      hour        INTEGER NOT NULL CHECK(hour BETWEEN 0 AND 23),
+      price       REAL    NOT NULL,
+      captured_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_hourly_insights_unique
+     ON hourly_quote_insights(ticker, quote_date, hour)`,
+  );
+
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_hourly_insights_ticker_date
+     ON hourly_quote_insights(ticker, quote_date)`,
   );
 
   await db.execute(`

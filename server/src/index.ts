@@ -13,7 +13,6 @@ import tickersRouter from './routes/tickers';
 import snapshotsRouter from './routes/snapshots';
 import walletsRouter from './routes/wallets';
 import { errorHandler } from './middleware/errorHandler';
-import { startScheduler } from './scheduler';
 
 const app = express();
 
@@ -54,7 +53,6 @@ initDb()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Vetor Wallet API running on http://localhost:${PORT}`);
-      startScheduler();
     });
   })
   .catch((err) => {
