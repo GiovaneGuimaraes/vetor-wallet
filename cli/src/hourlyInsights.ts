@@ -16,7 +16,7 @@ async function main(): Promise<void> {
 
   await initDb();
 
-  console.log(`[cli] Starting hourly insights job${targetDate ? ` for ${targetDate}` : ' (previous business day)'}...`);
+  console.log(`[cli] Starting hourly insights job${targetDate ? ` for ${targetDate}` : ' (yesterday)'}...`);
 
   const results = await runHourlyInsightsJob(targetDate);
 

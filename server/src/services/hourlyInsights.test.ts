@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { saveHourlyInsight, runHourlyInsightsJob, previousBusinessDay } from './hourlyInsights';
+import { saveHourlyInsight, runHourlyInsightsJob, yesterday } from './hourlyInsights';
 
 vi.mock('../db', () => ({
   db: { execute: vi.fn() },
@@ -42,25 +42,25 @@ beforeEach(() => {
   mockSaveSnapshot.mockResolvedValue(true);
 });
 
-// ── previousBusinessDay ───────────────────────────────────────────────────────
+// ── yesterday ────────────────────────────────────────────────────────────────
 
-describe('previousBusinessDay', () => {
-  it('returns yesterday when today is Tuesday BRT', () => {
+describe('yesterday', () => {
+  it('returns the previous calendar day in BRT when today is Tuesday', () => {
     // Tuesday 2024-01-09 12:00 BRT = 2024-01-09 15:00 UTC
     mockGetBRTDate.mockReturnValue(new Date('2024-01-09T15:00:00Z'));
-    expect(previousBusinessDay()).toBe('2024-01-08');
+    expect(yesterday()).toBe('2024-01-08');
   });
 
-  it('returns Friday when today is Monday BRT (yesterday was Sunday)', () => {
+  it('returns Sunday when today is Monday BRT', () => {
     // Monday 2024-01-08 12:00 BRT
     mockGetBRTDate.mockReturnValue(new Date('2024-01-08T15:00:00Z'));
-    expect(previousBusinessDay()).toBe('2024-01-05');
+    expect(yesterday()).toBe('2024-01-07');
   });
 
-  it('returns Friday when today is Sunday BRT (yesterday was Saturday)', () => {
+  it('returns Saturday when today is Sunday BRT', () => {
     // Sunday 2024-01-07 12:00 BRT
     mockGetBRTDate.mockReturnValue(new Date('2024-01-07T15:00:00Z'));
-    expect(previousBusinessDay()).toBe('2024-01-05');
+    expect(yesterday()).toBe('2024-01-06');
   });
 });
 
@@ -211,8 +211,8 @@ describe('runHourlyInsightsJob', () => {
     expect(mockSaveSnapshot).not.toHaveBeenCalled();
   });
 
-  it('uses previousBusinessDay when no targetDate is provided', async () => {
-    // Tuesday 2024-01-09 12:00 BRT → previousBusinessDay = 2024-01-08
+  it('uses yesterday when no targetDate is provided', async () => {
+    // Tuesday 2024-01-09 12:00 BRT → yesterday = 2024-01-08
     mockGetBRTDate.mockReturnValue(new Date('2024-01-09T15:00:00Z'));
     mockResolveActiveTickers.mockResolvedValue(['PETR4']);
     mockExecute.mockResolvedValue({ rows: [], rowsAffected: 1, lastInsertRowid: BigInt(1) } as never);

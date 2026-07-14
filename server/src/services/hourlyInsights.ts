@@ -57,12 +57,9 @@ export interface InsightJobResult {
   error?: string;
 }
 
-export function previousBusinessDay(): string {
+export function yesterday(): string {
   const brt = getBRTDate();
   const prev = new Date(brt.getTime() - 24 * 60 * 60 * 1000);
-  const day = prev.getUTCDay();
-  if (day === 0) prev.setTime(prev.getTime() - 2 * 24 * 60 * 60 * 1000); // Sunday → Friday
-  if (day === 6) prev.setTime(prev.getTime() - 1 * 24 * 60 * 60 * 1000); // Saturday → Friday
   return prev.toISOString().split('T')[0];
 }
 
@@ -106,7 +103,7 @@ export async function runHourlyInsightsJob(targetDate?: string): Promise<Insight
     return [];
   }
 
-  const date = targetDate ?? previousBusinessDay();
+  const date = targetDate ?? yesterday();
   console.log(`[hourly-insights] Processing ${tickers.length} ticker(s) for ${date}`);
 
   const results = await Promise.all(
