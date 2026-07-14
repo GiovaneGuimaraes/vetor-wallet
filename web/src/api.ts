@@ -49,6 +49,20 @@ export async function logout(): Promise<void> {
   await apiFetch('/api/auth/logout', { method: 'POST' });
 }
 
+// ── Admin ─────────────────────────────────────────────────────────────────────
+
+export async function runInsightsJob(): Promise<{
+  tickersProcessed: number;
+  saved: number;
+  duplicated: number;
+  failed: number;
+}> {
+  const res = await apiFetch('/api/admin/run-insights-job', { method: 'POST' });
+  if (res.status === 403) throw new Error('Acesso restrito a administradores');
+  if (!res.ok) throw new Error('Falha ao executar o job de insights');
+  return res.json();
+}
+
 // ── Tickers ───────────────────────────────────────────────────────────────────
 
 export async function searchTickers(query: string): Promise<TickersResponse> {

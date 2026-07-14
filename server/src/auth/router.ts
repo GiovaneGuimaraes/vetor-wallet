@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { db } from '../db';
-import { createUser, findUserByEmail, verifyPassword, userExists } from './service';
+import { createUser, findUserByEmail, verifyPassword, userExists, parseRoles } from './service';
 
 const router = Router();
 
@@ -30,7 +30,7 @@ router.post(
 
     const user = await createUser(email, password);
     req.session.userId = user.id;
-    res.status(201).json({ id: user.id, email: user.email });
+    res.status(201).json({ id: user.id, email: user.email, roles: user.roles });
   }),
 );
 
@@ -56,7 +56,7 @@ router.post(
     }
 
     req.session.userId = user.id;
-    res.json({ id: user.id, email: user.email });
+    res.json({ id: user.id, email: user.email, roles: user.roles });
   }),
 );
 
@@ -75,7 +75,7 @@ router.get(
       return;
     }
     const result = await db.execute({
-      sql: 'SELECT id, email, created_at FROM users WHERE id = ?',
+      sql: 'SELECT id, email, created_at, roles FROM users WHERE id = ?',
       args: [req.session.userId],
     });
     if (result.rows.length === 0) {
@@ -84,7 +84,7 @@ router.get(
       return;
     }
     const row = result.rows[0];
-    res.json({ id: row.id, email: row.email });
+    res.json({ id: row.id, email: row.email, roles: parseRoles(row.roles) });
   }),
 );
 

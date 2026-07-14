@@ -111,6 +111,7 @@ export async function initDb() {
     'ALTER TABLE operations ADD COLUMN user_id INTEGER REFERENCES users(id)',
     'ALTER TABLE alert_rules ADD COLUMN user_id INTEGER REFERENCES users(id)',
     'ALTER TABLE operations ADD COLUMN wallet_id INTEGER REFERENCES wallets(id)',
+    "ALTER TABLE users ADD COLUMN roles TEXT NOT NULL DEFAULT '[]'",
   ]) {
     try {
       await db.execute(sql);
