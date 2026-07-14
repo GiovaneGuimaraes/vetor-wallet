@@ -11,8 +11,8 @@ import { resolveActiveTickers, getBRTDate, saveSnapshot, withRetry } from './sna
 
 const BRAPI_BASE = 'https://brapi.dev/api/quote';
 
-// 1 request per 1.5 s — stays well within brapi's free-tier rate limit.
-const queue = new PQueue({ concurrency: 1, interval: 1500, intervalCap: 1 });
+// 1 request per 2 s — conservative margin for brapi's authenticated rate limit.
+const queue = new PQueue({ concurrency: 1, interval: 2000, intervalCap: 1 });
 
 interface BrapiCandle {
   date: number;  // Unix timestamp in seconds (UTC)
