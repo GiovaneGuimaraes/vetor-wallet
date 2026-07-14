@@ -90,6 +90,7 @@ export interface User {
   id: number;
   email: string;
   created_at: string;
+  roles: string[];
 }
 
 export interface QuoteSnapshot {

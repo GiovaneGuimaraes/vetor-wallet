@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useLocation, Link } from 'react-router-dom';
 import {
   getMe,
   logout,
@@ -19,6 +20,7 @@ import { AlertsPanel } from './components/AlertsPanel';
 import { BenchmarkComparison } from './components/BenchmarkComparison';
 import { AuthPage } from './components/AuthPage';
 import { WalletSelector } from './components/WalletSelector';
+import { AdminPage } from './components/AdminPage';
 import { evaluateAlerts, type TriggeredAlert } from './utils/alerts';
 import type {
   NewOperation,
@@ -42,6 +44,7 @@ function resolveInitialTheme(): 'dark' | 'light' {
 }
 
 export default function App() {
+  const location = useLocation();
   const [theme, setTheme] = useState<'dark' | 'light'>(resolveInitialTheme);
 
   const [user, setUser] = useState<User | null | 'loading'>('loading');
@@ -215,6 +218,10 @@ export default function App() {
     return <AuthPage onAuth={handleAuth} theme={theme} onToggle={toggleTheme} />;
   }
 
+  if (location.pathname === '/admin') {
+    return <AdminPage user={user} onLogout={handleLogout} />;
+  }
+
   if (screen === 'wallets') {
     return (
       <WalletSelector
@@ -304,6 +311,14 @@ export default function App() {
                 </svg>
               )}
             </button>
+            {user.roles.includes('admin') && (
+              <Link
+                to="/admin"
+                className="text-xs text-dim hover:text-ink transition-colors"
+              >
+                Admin
+              </Link>
+            )}
             <span className="text-xs text-dim hidden sm:block">{user.email}</span>
             <button
               onClick={handleLogout}
