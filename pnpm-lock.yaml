@@ -8,6 +8,28 @@ importers:
 
   .: {}
 
+  cli:
+    dependencies:
+      '@libsql/client':
+        specifier: ^0.14.0
+        version: 0.14.0
+      '@vetor-wallet/shared':
+        specifier: workspace:*
+        version: link:../shared
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      tsx:
+        specifier: ^4.15.6
+        version: 4.23.0
+      typescript:
+        specifier: ^5.4.5
+        version: 5.9.3
+
   server:
     dependencies:
       '@libsql/client':
