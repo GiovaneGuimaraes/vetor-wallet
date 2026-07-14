@@ -81,7 +81,7 @@ describe('requireAdmin', () => {
   it('returns 403 when user does not have admin role', async () => {
     mockExecute.mockResolvedValue({ rows: [{ roles: '[]' }] } as never);
     const req = {} as Request;
-    const { res, status, json } = makeRes({ userId: 2 });
+    const { res, status } = makeRes({ userId: 2 });
     const next = vi.fn() as unknown as NextFunction;
 
     await new Promise<void>((resolve) => {
