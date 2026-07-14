@@ -17,6 +17,7 @@ interface Props {
 
 export function AdminPage({ user, onLogout }: Props) {
   const [loading, setLoading] = useState(false);
+  const [date, setDate] = useState('');
   const [summary, setSummary] = useState<InsightsJobSummary | null>(null);
   const [error, setError] = useState('');
 
@@ -27,7 +28,7 @@ export function AdminPage({ user, onLogout }: Props) {
     setError('');
     setSummary(null);
     try {
-      const result = await runInsightsJob();
+      const result = await runInsightsJob(date || undefined);
       setSummary(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao executar o job');
@@ -92,14 +93,28 @@ export function AdminPage({ user, onLogout }: Props) {
                 </p>
               </div>
 
-              <button
-                onClick={handleRunJob}
-                disabled={loading}
-                className="self-start px-4 py-2 rounded-lg bg-accent text-canvas text-sm font-medium
-                           hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity cursor-pointer"
-              >
-                {loading ? 'Executando…' : 'Rodar job de insights'}
-              </button>
+              <div className="flex items-center gap-3">
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => { setDate(e.target.value); setSummary(null); }}
+                  disabled={loading}
+                  className="px-3 py-2 rounded-lg border border-edge bg-canvas text-ink text-sm
+                             focus:outline-none focus:border-accent/60 disabled:opacity-50
+                             [color-scheme:dark] dark:[color-scheme:dark]"
+                />
+                <button
+                  onClick={handleRunJob}
+                  disabled={loading}
+                  className="px-4 py-2 rounded-lg bg-accent text-canvas text-sm font-medium
+                             hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity cursor-pointer"
+                >
+                  {loading ? 'Executando…' : 'Rodar job'}
+                </button>
+              </div>
+              {!date && (
+                <p className="text-xs text-dim -mt-2">Sem data selecionada, usa ontem por padrão.</p>
+              )}
 
               {error && (
                 <div className="bg-down/10 border border-down/30 text-down rounded-lg px-4 py-3 text-sm">

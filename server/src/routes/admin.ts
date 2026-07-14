@@ -18,8 +18,13 @@ router.post(
   '/run-insights-job',
   requireAuth,
   requireAdmin,
-  asyncHandler(async (_req: Request, res: Response) => {
-    const results = await runHourlyInsightsJob();
+  asyncHandler(async (req: Request, res: Response) => {
+    const { date } = req.body as { date?: string };
+    if (date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      res.status(400).json({ error: 'Formato de data inválido — esperado YYYY-MM-DD' });
+      return;
+    }
+    const results = await runHourlyInsightsJob(date);
     res.json(summariseResults(results));
   }),
 );
