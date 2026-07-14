@@ -8,7 +8,7 @@ Guia de arquitetura e operação para assistentes de IA. Leia este arquivo antes
 
 Vetor Wallet é uma carteira pessoal de ações da B3. O usuário cadastra operações de compra/venda manualmente; o servidor calcula posições consolidadas via preço médio ponderado e busca cotações em tempo real na [brapi.dev](https://brapi.dev). O dashboard exibe valor investido, valor atual e P&L por ativo e no total.
 
-**Roadmap:** importação CSV de corretoras, alertas por regras, sugestões via LLM, comparação com CDI/Ibovespa.
+**Roadmap:** alertas por regras, sugestões via LLM, comparação com CDI/Ibovespa, deploy do job de insights horários em AWS Lambda.
 
 ---
 
@@ -17,31 +17,34 @@ Vetor Wallet é uma carteira pessoal de ações da B3. O usuário cadastra opera
 ```
 vetor-wallet/
 ├── package.json            # raiz pnpm workspace (packageManager: pnpm@10.32.1)
-├── pnpm-workspace.yaml     # packages: [web, server]
+├── pnpm-workspace.yaml     # packages: [shared, web, server, cli]
 ├── pnpm-lock.yaml          # lockfile único — não edite manualmente
-├── server/                 # Node + Express + TypeScript (CJS)
+├── shared/                 # tipos TypeScript compartilhados entre server e web
+│   └── src/index.ts        # Operation, Position, PortfolioSummary, HourlyQuoteInsight…
+├── server/                 # Node + Express + TypeScript (CJS) — API REST
 │   ├── src/
-│   │   ├── index.ts        # entry point: dotenv, Express, monta rotas, chama initDb()
-│   │   ├── db.ts           # cliente @libsql/client + initDb() (cria tabela operations)
-│   │   ├── types.ts        # interfaces de domínio (Operation, Position, PortfolioSummary…)
-│   │   ├── routes/
-│   │   │   ├── operations.ts   # CRUD de operações
-│   │   │   └── portfolio.ts    # cálculo de posição + fetch de cotações
-│   │   └── services/
-│   │       └── quotes.ts   # fetchQuotes() → brapi.dev
+│   │   ├── index.ts        # entry point: sessão, CORS, rotas, initDb()
+│   │   ├── db.ts           # @libsql/client + initDb(); suporta DATABASE_URL
+│   │   ├── auth/           # register/login/logout, requireAuth middleware, bcrypt
+│   │   ├── routes/         # operations, portfolio, snapshots, alerts, import,
+│   │   │                   # benchmarks, wallets, tickers
+│   │   ├── services/       # portfolio, quotes, snapshots, hourlyInsights,
+│   │   │                   # benchmarks, tickers
+│   │   └── middleware/     # asyncHandler, errorHandler
 │   ├── data/wallet.db      # SQLite local (gitignored, criado automaticamente)
 │   ├── .env.example
 │   └── tsconfig.json       # target ES2022, module CommonJS
+├── cli/                    # CLIs de coleta de dados (TypeScript CJS, sem Express)
+│   ├── src/
+│   │   └── hourlyInsights.ts  # job de captura horária de cotações via brapi
+│   ├── .env.example        # DATABASE_URL=file:../server/data/wallet.db
+│   └── tsconfig.json       # path alias @vetor-wallet/server/* → ../server/src/*
 └── web/                    # Vite + React 18 + TypeScript (ESM)
     ├── src/
     │   ├── main.tsx         # monta <App /> em StrictMode
-    │   ├── App.tsx          # estado global, orquestra refresh após cada operação
-    │   ├── api.ts           # todas as chamadas fetch ao server (baseURL via VITE_API_URL)
-    │   ├── types.ts         # espelho exato de server/src/types.ts (ver ponto de atenção)
-    │   └── components/
-    │       ├── OperationForm.tsx       # form controlado de cadastro
-    │       ├── OperationsList.tsx      # tabela de operações com delete
-    │       └── PortfolioDashboard.tsx  # cards de resumo + tabela de posições
+    │   ├── App.tsx          # estado global, orquestra refresh
+    │   ├── api.ts           # todas as chamadas fetch (baseURL via VITE_API_URL)
+    │   └── components/      # OperationForm, OperationsList, PortfolioDashboard…
     ├── .env.example
     └── tsconfig.json        # strict, noEmit, moduleResolution: bundler
 ```
@@ -72,6 +75,10 @@ pnpm --filter vetor-wallet-web build
 
 # rodar server compilado (após build)
 cd server && node dist/index.js
+
+# job de insights horários (requer cli/.env com DATABASE_URL)
+pnpm --filter vetor-wallet-cli insights:hourly
+pnpm --filter vetor-wallet-cli insights:hourly 2025-07-10   # data específica
 ```
 
 `pnpm dev` usa `&` para paralelismo — no Windows, considere usar dois terminais separados (`pnpm dev:server` e `pnpm dev:web`) se houver problemas.
@@ -83,15 +90,34 @@ cd server && node dist/index.js
 ```bash
 cp server/.env.example server/.env
 cp web/.env.example web/.env
+cp cli/.env.example cli/.env          # necessário antes de rodar o CLI
 ```
 
-| Arquivo | Variável | Padrão | Obrigatório |
-|---|---|---|---|
-| `server/.env` | `PORT` | `3001` | Não |
-| `server/.env` | `BRAPI_TOKEN` | — | Não (limite maior com token) |
-| `web/.env` | `VITE_API_URL` | `http://localhost:3001` | Não |
+### server/.env
 
-O banco SQLite (`server/data/wallet.db`) é criado automaticamente em `initDb()` na primeira execução.
+| Variável | Padrão | Obrigatório em prod |
+|---|---|---|
+| `PORT` | `3001` | Não |
+| `BRAPI_TOKEN` | — | Não (limite maior com token) |
+| `SESSION_SECRET` | `dev-secret-change-in-production` | **Sim** |
+| `ALLOWED_ORIGIN` | `http://localhost:5173` | **Sim** |
+| `NODE_ENV` | — | Sim (`production` ativa cookie `secure`) |
+| `DATABASE_URL` | *(deriva de `process.cwd()/data`)* | Para Turso/deploy remoto |
+
+### web/.env
+
+| Variável | Padrão |
+|---|---|
+| `VITE_API_URL` | `http://localhost:3001` |
+
+### cli/.env
+
+| Variável | Exemplo | Descrição |
+|---|---|---|
+| `DATABASE_URL` | `file:../server/data/wallet.db` | Caminho do SQLite (relativo ao diretório do CLI) |
+| `BRAPI_TOKEN` | — | Token brapi.dev (opcional) |
+
+O banco SQLite (`server/data/wallet.db`) é criado automaticamente em `initDb()` na primeira execução do server.
 
 ---
 
@@ -99,29 +125,96 @@ O banco SQLite (`server/data/wallet.db`) é criado automaticamente em `initDb()`
 
 Base URL: `http://localhost:3001`
 
+Todas as rotas abaixo (exceto `/api/auth/*`) exigem sessão autenticada via cookie `sid`.
+
 | Método | Path | Descrição |
 |---|---|---|
-| `GET` | `/api/operations` | Lista todas as operações (ordem: date DESC) |
-| `POST` | `/api/operations` | Cria operação — body: `{ ticker, type, quantity, price, date }` |
-| `DELETE` | `/api/operations/:id` | Remove operação por ID |
-| `GET` | `/api/portfolio` | Retorna `PortfolioSummary` com cotações em tempo real |
-
-Todas as respostas são JSON. Ticker é normalizado para maiúsculas no POST.
+| `POST` | `/api/auth/register` | Cria conta — body: `{ email, password }` |
+| `POST` | `/api/auth/login` | Login — body: `{ email, password }` |
+| `POST` | `/api/auth/logout` | Encerra sessão |
+| `GET` | `/api/auth/me` | Retorna usuário autenticado |
+| `GET` | `/api/wallets` | Lista carteiras do usuário |
+| `POST` | `/api/wallets` | Cria carteira |
+| `GET` | `/api/operations` | Lista operações (filtrado por wallet) |
+| `POST` | `/api/operations` | Cria operação |
+| `DELETE` | `/api/operations/:id` | Remove operação |
+| `GET` | `/api/portfolio` | `PortfolioSummary` com cotações em tempo real |
+| `GET` | `/api/snapshots/:ticker` | Histórico diário de preços |
+| `POST` | `/api/import` | Importa CSV de corretora |
+| `GET` | `/api/alerts` | Lista alertas |
+| `POST` | `/api/alerts` | Cria alerta |
+| `DELETE` | `/api/alerts/:id` | Remove alerta |
+| `GET` | `/api/benchmarks` | Retorno CDI e Ibovespa no período |
+| `GET` | `/api/tickers` | Busca tickers disponíveis na brapi |
 
 ---
 
 ## Schema do banco
 
+Gerenciado em `server/src/db.ts > initDb()` via `CREATE TABLE IF NOT EXISTS` e `ALTER TABLE` idempotentes.
+
 ```sql
+-- Usuários
+CREATE TABLE IF NOT EXISTS users (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  email        TEXT    NOT NULL UNIQUE,
+  password_hash TEXT   NOT NULL,
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Carteiras por usuário
+CREATE TABLE IF NOT EXISTS wallets (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id),
+  name        TEXT    NOT NULL,
+  description TEXT    NOT NULL DEFAULT '',
+  color       TEXT    NOT NULL DEFAULT '#e3d5b8',
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Operações de compra/venda
 CREATE TABLE IF NOT EXISTS operations (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   ticker     TEXT    NOT NULL,
   type       TEXT    NOT NULL CHECK(type IN ('BUY', 'SELL')),
   quantity   REAL    NOT NULL,
   price      REAL    NOT NULL,
-  date       TEXT    NOT NULL,   -- formato YYYY-MM-DD
+  date       TEXT    NOT NULL,   -- YYYY-MM-DD
+  user_id    INTEGER REFERENCES users(id),
+  wallet_id  INTEGER REFERENCES wallets(id),
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
-)
+);
+
+-- Snapshot diário de preço (um por ticker por dia)
+CREATE TABLE IF NOT EXISTS quote_snapshots (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticker      TEXT    NOT NULL,
+  price       REAL    NOT NULL,
+  captured_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+-- UNIQUE(ticker, date(captured_at))
+
+-- Preços horários do pregão (alimentados pelo CLI de insights)
+CREATE TABLE IF NOT EXISTS hourly_quote_insights (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticker      TEXT    NOT NULL,
+  quote_date  TEXT    NOT NULL,   -- YYYY-MM-DD
+  hour        INTEGER NOT NULL CHECK(hour BETWEEN 0 AND 23),  -- hora BRT
+  price       REAL    NOT NULL,
+  captured_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+-- UNIQUE(ticker, quote_date, hour)
+
+-- Alertas de preço/alocação
+CREATE TABLE IF NOT EXISTS alert_rules (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticker    TEXT    NOT NULL,
+  type      TEXT    NOT NULL CHECK(type IN ('PRICE_ABOVE','PRICE_BELOW','CHANGE_PCT','ALLOCATION_PCT')),
+  threshold REAL    NOT NULL,
+  active    INTEGER NOT NULL DEFAULT 1,
+  user_id   INTEGER REFERENCES users(id),
+  created_at TEXT   NOT NULL DEFAULT (datetime('now'))
+);
 ```
 
 Driver: `@libsql/client` (libsql/SQLite). Sem ORM; queries são SQL puro.
@@ -130,23 +223,20 @@ Driver: `@libsql/client` (libsql/SQLite). Sem ORM; queries são SQL puro.
 
 ## Convenções
 
-- **TypeScript strict** em ambos os pacotes.
+- **TypeScript strict** em todos os pacotes.
 - **Sem ORM** — SQL puro via `@libsql/client`.
-- **Sem autenticação** — API pública por design (projeto pessoal local).
+- **Tipos compartilhados em `shared/src/index.ts`** — não duplique interfaces entre server e web.
+- **Autenticação via sessão** — cookie `sid` (express-session + MemoryStore). Todas as rotas de dados filtram por `user_id`.
 - **Locale pt-BR/BRL** para formatação de números e moeda no frontend (`Intl.NumberFormat`).
-- **CSS custom properties** para tema escuro — variáveis em `web/src/index.css` (`--bg`, `--surface`, `--accent`, `--positive`, `--negative`).
-- **Nenhum gerenciador de estado externo** — estado em `App.tsx`, passado via props.
-- **pnpm workspaces** — único lockfile na raiz. Nunca rode `npm install` ou `yarn` neste repositório.
+- **CSS custom properties** para tema — variáveis em `web/src/index.css`.
+- **Nenhum gerenciador de estado externo** no frontend — estado em `App.tsx`, passado via props.
+- **pnpm workspaces** — único lockfile na raiz. Nunca rode `npm install` ou `yarn`.
 
 ---
 
 ## Política de testes
 
-Toda mudança em código de produto — server ou web — deve vir acompanhada de um teste automatizado que cobre o comportamento novo ou alterado, **ou** de uma justificativa explícita de por que testes não se aplicam naquele caso.
-
-Essa política vale igualmente para mudanças feitas manualmente e para mudanças feitas por IA (Claude Code ou qualquer outro assistente).
-
-### Como rodar
+Toda mudança em código de produto — server ou web — deve vir acompanhada de um teste automatizado que cobre o comportamento novo ou alterado, **ou** de uma justificativa explícita de por que testes não se aplicam.
 
 ```bash
 # server (Vitest — já configurado)
@@ -156,45 +246,30 @@ pnpm --filter vetor-wallet-server test
 # até lá, lógica isolável deve ser extraída para funções puras e testada via server
 ```
 
-### Onde criar os testes
-
 | Pacote | Padrão | Exemplo existente |
 |---|---|---|
-| `server` | `server/src/**/*.test.ts` | `server/src/services/portfolio.test.ts` |
+| `server` | `server/src/**/*.test.ts` | `server/src/services/hourlyInsights.test.ts` |
 | `web` | `web/src/**/*.test.ts` | — (pendente setup de runner) |
 
-O `vitest.config.ts` do server inclui `src/**/*.test.ts` automaticamente.
+**Não exigem teste novo:** ajustes de estilo/layout, refatoração sem mudança de comportamento, documentação.
 
-### Quando testes não se aplicam
-
-**Não exigem teste novo:**
-- Ajustes de estilo/layout sem lógica (CSS, Tailwind classes)
-- Refatoração sem mudança de comportamento (testes existentes devem continuar passando)
-- Atualizações de documentação
-
-**Sempre exigem teste:**
-- Nova função de serviço ou utilitário com lógica de negócio
-- Nova rota ou mudança de comportamento de rota existente
-- Lógica de cálculo (posições, alertas, importação, benchmarks)
+**Sempre exigem teste:** nova função de serviço com lógica de negócio, nova rota ou mudança de comportamento, lógica de cálculo.
 
 ---
 
 ## Pontos de atenção
 
-### Tipos duplicados
-`server/src/types.ts` e `web/src/types.ts` são cópias manuais um do outro. Qualquer alteração de interface deve ser replicada nos dois arquivos. Candidato futuro a pacote `packages/shared`.
-
-### CORS permissivo
-`app.use(cors())` sem restrição de origem. Aceitável para uso local; deve ser restrito antes de qualquer exposição pública.
-
-### Sem autenticação
-A API não tem camada de auth. Qualquer cliente com acesso à rede pode ler e modificar a carteira.
+### `DATABASE_URL` para o CLI e futuro Turso
+`server/src/db.ts` usa `process.cwd()/data/wallet.db` por padrão. O CLI roda em `cli/`, então precisa de `DATABASE_URL=file:../server/data/wallet.db` no `cli/.env`. Quando o projeto migrar para Turso, basta apontar `DATABASE_URL` para a URL remota em ambos os ambientes.
 
 ### SELL sem validação de saldo
-`portfolio.ts` usa `Math.max(0, newQty)` para vendas — vender mais do que se possui não é rejeitado, a quantidade é silenciosamente truncada a zero.
+`portfolio.ts` usa `Math.max(0, newQty)` — vender mais do que se possui trunca silenciosamente a quantidade a zero, sem rejeitar a operação.
 
-### `process.cwd()` no caminho do banco
-`db.ts` constrói o path como `path.join(process.cwd(), 'data')`. O servidor **deve** ser iniciado a partir de `server/`, não da raiz. Os scripts pnpm garantem isso via `--filter`; rodar `node dist/index.js` da raiz resultaria em path errado.
+### Sessões não persistem no restart
+`express-session` usa **MemoryStore** — sessões são perdidas quando o servidor reinicia. Aceitável para uso local; para produção, migrar para Redis store ou AWS Cognito.
 
 ### Falha silenciosa de cotações
-`fetchQuotes` retorna um `Map` vazio em qualquer erro de rede/API sem logar nada. Posições sem cotação exibem `null` nos campos de valor atual e P&L.
+`fetchQuotes` retorna um `Map` vazio em qualquer erro de rede/API. Posições sem cotação exibem `null` nos campos de valor atual e P&L.
+
+### Job de insights horários sem agendador automático
+O CLI `pnpm --filter vetor-wallet-cli insights:hourly` precisa ser invocado manualmente ou via cron do SO até o deploy em AWS Lambda + EventBridge (issue futura).
