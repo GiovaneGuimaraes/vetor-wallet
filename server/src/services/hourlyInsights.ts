@@ -1,41 +1,50 @@
-// Plan A implementation: fetches hourly candles for the previous business day via
-// brapi.dev range+interval params (`range=5d&interval=1h`), filters to targetDate, and
-// persists each BRT hour bucket via INSERT OR IGNORE.
+// Fetches the daily closing price for each active ticker via brapi.dev (interval=1d)
+// and persists it into quote_snapshots for the target date.
+// Runs from the CLI as a historical backfill — covers days the server was offline
+// or dates the snapshot job didn't capture.
 //
-// If brapi does NOT support historicalDataPrice on the current plan/token, switch to
-// Plan B (live hourly polling during market hours) — see issue notes for details.
+// NOTE: interval=1h requires a paid brapi plan. When upgraded, restore the hourly
+// logic in saveHourlyInsight and switch fetchDailyClose back to interval=1h.
 
 import PQueue from 'p-queue';
 import { db } from '../db';
-import { resolveActiveTickers, getBRTDate, saveSnapshot, withRetry } from './snapshots';
+import { resolveActiveTickers, getBRTDate, saveSnapshotForDate, withRetry } from './snapshots';
 
 const BRAPI_BASE = 'https://brapi.dev/api/quote';
 
 // 1 request per 2 s — conservative margin for brapi's authenticated rate limit.
 const queue = new PQueue({ concurrency: 1, interval: 2000, intervalCap: 1 });
 
-interface BrapiCandle {
-  date: number;  // Unix timestamp in seconds (UTC)
-  close: number;
-}
-
-async function fetchHourlyCandles(ticker: string): Promise<BrapiCandle[]> {
+async function fetchDailyClose(ticker: string, targetDate: string): Promise<number | null> {
   const token = process.env.BRAPI_TOKEN;
-  const params = `range=5d&interval=1h${token ? `&token=${token}` : ''}`;
+  const params = `range=5d&interval=1d${token ? `&token=${token}` : ''}`;
   const url = `${BRAPI_BASE}/${ticker}?${params}`;
 
   const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-  if (!res.ok) throw new Error(`brapi responded with ${res.status} for ${ticker}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`brapi responded with ${res.status} for ${ticker}: ${body}`);
+  }
 
   const data = (await res.json()) as {
-    results?: { symbol: string; historicalDataPrice?: BrapiCandle[] }[];
+    results?: { symbol: string; historicalDataPrice?: { date: number; close: number }[] }[];
   };
 
   const candles = data.results?.[0]?.historicalDataPrice;
-  if (!candles?.length) throw new Error(`brapi returned no historical candles for ${ticker}`);
-  return candles;
+  if (!candles?.length) throw new Error(`brapi returned no candles for ${ticker}`);
+
+  // brapi daily timestamps may be anchored to UTC midnight or BRT market open;
+  // check both UTC and BRT date to handle either convention.
+  const candle = candles.find((c) => {
+    const utcDate = new Date(c.date * 1000).toISOString().split('T')[0];
+    const brtDate = new Date(c.date * 1000 - 3 * 60 * 60 * 1000).toISOString().split('T')[0];
+    return utcDate === targetDate || brtDate === targetDate;
+  });
+
+  return candle?.close ?? null;
 }
 
+// Preserved for future use when interval=1h becomes available on the plan.
 export async function saveHourlyInsight(
   ticker: string,
   quoteDate: string,
@@ -67,27 +76,16 @@ async function processTicker(ticker: string, date: string): Promise<InsightJobRe
   const r: InsightJobResult = { ticker, processed: 0, saved: 0, duplicates: 0 };
 
   try {
-    const candles = await withRetry(() => fetchHourlyCandles(ticker));
-
-    const dayCandles = candles.filter((c) => {
-      const brtDt = new Date(c.date * 1000 - 3 * 60 * 60 * 1000);
-      return brtDt.toISOString().split('T')[0] === date;
-    });
-
-    for (const candle of dayCandles) {
-      const brtDt = new Date(candle.date * 1000 - 3 * 60 * 60 * 1000);
-      const hour = brtDt.getUTCHours();
-      r.processed++;
-      const inserted = await saveHourlyInsight(ticker, date, hour, candle.close);
-      if (inserted) r.saved++;
-      else r.duplicates++;
+    const close = await withRetry(() => fetchDailyClose(ticker, date));
+    if (close === null) {
+      console.log(`[hourly-insights] No candle for ${ticker} on ${date} — non-trading day?`);
+      return r;
     }
 
-    // Bridge: upsert last candle of the day into quote_snapshots so that
-    // GET /api/snapshots/:ticker continues to serve data without changes.
-    if (dayCandles.length > 0) {
-      await saveSnapshot(ticker, dayCandles[dayCandles.length - 1].close);
-    }
+    r.processed = 1;
+    const inserted = await saveSnapshotForDate(ticker, close, date);
+    if (inserted) r.saved = 1;
+    else r.duplicates = 1;
   } catch (err) {
     r.error = err instanceof Error ? err.message : String(err);
     console.error(`[hourly-insights] Failed for ${ticker}:`, err);

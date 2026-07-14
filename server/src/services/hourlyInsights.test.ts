@@ -8,22 +8,22 @@ vi.mock('../db', () => ({
 vi.mock('./snapshots', () => ({
   resolveActiveTickers: vi.fn(),
   getBRTDate: vi.fn(),
-  saveSnapshot: vi.fn(),
+  saveSnapshotForDate: vi.fn(),
   withRetry: vi.fn((fn: () => Promise<unknown>) => fn()),
 }));
 
 import { db } from '../db';
-import { resolveActiveTickers, getBRTDate, saveSnapshot } from './snapshots';
+import { resolveActiveTickers, getBRTDate, saveSnapshotForDate } from './snapshots';
 
 const mockExecute = vi.mocked(db.execute);
 const mockResolveActiveTickers = vi.mocked(resolveActiveTickers);
 const mockGetBRTDate = vi.mocked(getBRTDate);
-const mockSaveSnapshot = vi.mocked(saveSnapshot);
+const mockSaveSnapshotForDate = vi.mocked(saveSnapshotForDate);
 
-// 2024-01-08 10:00 BRT = 2024-01-08 13:00 UTC → Unix 1704718800
-const JAN08_10H_UTC = 1704718800;
-// 2024-01-08 11:00 BRT = 2024-01-08 14:00 UTC → Unix 1704722400
-const JAN08_11H_UTC = 1704722400;
+// 2024-01-08 (Monday) — a trading day
+const TARGET_DATE = '2024-01-08';
+// Timestamp: 2024-01-08 13:00 UTC = 2024-01-08 10:00 BRT
+const JAN08_UTC_TS = 1704718800;
 
 function mockFetchWithCandles(candles: { date: number; close: number }[]) {
   vi.stubGlobal(
@@ -37,9 +37,20 @@ function mockFetchWithCandles(candles: { date: number; close: number }[]) {
   );
 }
 
+function mockFetchError(status: number, body = '') {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      ok: false,
+      status,
+      text: async () => body,
+    }),
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
-  mockSaveSnapshot.mockResolvedValue(true);
+  mockSaveSnapshotForDate.mockResolvedValue(true);
 });
 
 // ── yesterday ────────────────────────────────────────────────────────────────
@@ -91,15 +102,6 @@ describe('saveHourlyInsight', () => {
     const inserted = await saveHourlyInsight('VALE3', '2024-01-08', 11, 90.2);
     expect(inserted).toBe(true);
   });
-
-  it('passes ticker, quoteDate, hour and price as query args', async () => {
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 1, lastInsertRowid: BigInt(2) } as never);
-
-    await saveHourlyInsight('ITUB4', '2024-01-08', 14, 25.0);
-
-    const call = mockExecute.mock.calls[0][0] as { sql: string; args: unknown[] };
-    expect(call.args).toEqual(['ITUB4', '2024-01-08', 14, 25.0]);
-  });
 });
 
 // ── runHourlyInsightsJob ──────────────────────────────────────────────────────
@@ -110,56 +112,52 @@ describe('runHourlyInsightsJob', () => {
   it('returns [] and logs when there are no active tickers', async () => {
     mockResolveActiveTickers.mockResolvedValue([]);
 
-    const results = await runHourlyInsightsJob('2024-01-08');
+    const results = await runHourlyInsightsJob(TARGET_DATE);
     expect(results).toEqual([]);
   });
 
-  it('processes a ticker and returns correct counts', async () => {
+  it('processes a ticker and returns processed=1 saved=1 when candle is found', async () => {
     mockResolveActiveTickers.mockResolvedValue(['PETR4']);
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 1, lastInsertRowid: BigInt(1) } as never);
-    mockFetchWithCandles([
-      { date: JAN08_10H_UTC, close: 35.5 },
-      { date: JAN08_11H_UTC, close: 36.0 },
-    ]);
+    mockFetchWithCandles([{ date: JAN08_UTC_TS, close: 35.5 }]);
 
-    const results = await runHourlyInsightsJob('2024-01-08');
+    const results = await runHourlyInsightsJob(TARGET_DATE);
 
     expect(results).toHaveLength(1);
-    expect(results[0]).toMatchObject({ ticker: 'PETR4', processed: 2, saved: 2, duplicates: 0 });
+    expect(results[0]).toMatchObject({ ticker: 'PETR4', processed: 1, saved: 1, duplicates: 0 });
   });
 
-  it('counts duplicates when INSERT OR IGNORE discards a row', async () => {
+  it('counts duplicate when saveSnapshotForDate returns false', async () => {
     mockResolveActiveTickers.mockResolvedValue(['PETR4']);
-    mockExecute
-      .mockResolvedValueOnce({ rows: [], rowsAffected: 1, lastInsertRowid: BigInt(1) } as never)
-      .mockResolvedValueOnce({ rows: [], rowsAffected: 0, lastInsertRowid: undefined } as never);
-    mockFetchWithCandles([
-      { date: JAN08_10H_UTC, close: 35.5 },
-      { date: JAN08_11H_UTC, close: 36.0 },
-    ]);
+    mockSaveSnapshotForDate.mockResolvedValue(false);
+    mockFetchWithCandles([{ date: JAN08_UTC_TS, close: 35.5 }]);
 
-    const results = await runHourlyInsightsJob('2024-01-08');
+    const results = await runHourlyInsightsJob(TARGET_DATE);
 
-    expect(results[0]).toMatchObject({ processed: 2, saved: 1, duplicates: 1 });
+    expect(results[0]).toMatchObject({ processed: 1, saved: 0, duplicates: 1 });
   });
 
-  it('calls saveSnapshot with the last candle for bridging', async () => {
+  it('calls saveSnapshotForDate with the correct ticker, price and date', async () => {
     mockResolveActiveTickers.mockResolvedValue(['PETR4']);
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 1, lastInsertRowid: BigInt(1) } as never);
-    mockFetchWithCandles([
-      { date: JAN08_10H_UTC, close: 35.5 },
-      { date: JAN08_11H_UTC, close: 36.0 },
-    ]);
+    mockFetchWithCandles([{ date: JAN08_UTC_TS, close: 35.5 }]);
 
-    await runHourlyInsightsJob('2024-01-08');
+    await runHourlyInsightsJob(TARGET_DATE);
 
-    expect(mockSaveSnapshot).toHaveBeenCalledWith('PETR4', 36.0);
+    expect(mockSaveSnapshotForDate).toHaveBeenCalledWith('PETR4', 35.5, TARGET_DATE);
   });
 
-  it('continues processing remaining tickers when one fails', async () => {
+  it('returns processed=0 when no candle matches the target date', async () => {
+    mockResolveActiveTickers.mockResolvedValue(['PETR4']);
+    // Candle for a different day (2024-01-07 13:00 UTC = 2024-01-07 BRT)
+    mockFetchWithCandles([{ date: JAN08_UTC_TS - 86400, close: 34.0 }]);
+
+    const results = await runHourlyInsightsJob(TARGET_DATE);
+
+    expect(results[0]).toMatchObject({ processed: 0, saved: 0, duplicates: 0 });
+    expect(mockSaveSnapshotForDate).not.toHaveBeenCalled();
+  });
+
+  it('records error and continues when fetch fails', async () => {
     mockResolveActiveTickers.mockResolvedValue(['PETR4', 'VALE3']);
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 1, lastInsertRowid: BigInt(1) } as never);
-
     vi.stubGlobal(
       'fetch',
       vi.fn()
@@ -167,62 +165,36 @@ describe('runHourlyInsightsJob', () => {
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({
-            results: [{ symbol: 'VALE3', historicalDataPrice: [{ date: JAN08_10H_UTC, close: 90.0 }] }],
+            results: [{ symbol: 'VALE3', historicalDataPrice: [{ date: JAN08_UTC_TS, close: 90.0 }] }],
           }),
         }),
     );
 
-    const results = await runHourlyInsightsJob('2024-01-08');
+    const results = await runHourlyInsightsJob(TARGET_DATE);
 
     expect(results).toHaveLength(2);
-    expect(results[0].ticker).toBe('PETR4');
-    expect(results[0].error).toBeDefined();
-    expect(results[1].ticker).toBe('VALE3');
-    expect(results[1].error).toBeUndefined();
-    expect(results[1].processed).toBe(1);
+    expect(results[0]).toMatchObject({ ticker: 'PETR4', error: expect.stringContaining('network error') });
+    expect(results[1]).toMatchObject({ ticker: 'VALE3', processed: 1, saved: 1 });
   });
 
-  it('filters out candles that do not belong to targetDate', async () => {
+  it('includes brapi error body in error message on non-ok response', async () => {
     mockResolveActiveTickers.mockResolvedValue(['PETR4']);
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 1, lastInsertRowid: BigInt(1) } as never);
+    mockFetchError(400, '{"code":"INVALID_INTERVAL"}');
 
-    // This timestamp is 2024-01-07 13:00 UTC = 2024-01-07 10:00 BRT (different day)
-    const JAN07_10H_UTC = 1704632400;
-    mockFetchWithCandles([
-      { date: JAN07_10H_UTC, close: 34.0 },  // wrong day
-      { date: JAN08_10H_UTC, close: 35.5 },  // correct day
-    ]);
+    const results = await runHourlyInsightsJob(TARGET_DATE);
 
-    const results = await runHourlyInsightsJob('2024-01-08');
-
-    expect(results[0].processed).toBe(1);
-    expect(results[0].saved).toBe(1);
-  });
-
-  it('does not call saveSnapshot when no candles match targetDate', async () => {
-    mockResolveActiveTickers.mockResolvedValue(['PETR4']);
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 0, lastInsertRowid: undefined } as never);
-
-    const JAN07_10H_UTC = 1704632400; // 2024-01-07 BRT
-    mockFetchWithCandles([{ date: JAN07_10H_UTC, close: 34.0 }]);
-
-    await runHourlyInsightsJob('2024-01-08');
-
-    expect(mockSaveSnapshot).not.toHaveBeenCalled();
+    expect(results[0].error).toContain('400');
+    expect(results[0].error).toContain('INVALID_INTERVAL');
   });
 
   it('uses yesterday when no targetDate is provided', async () => {
     // Tuesday 2024-01-09 12:00 BRT → yesterday = 2024-01-08
     mockGetBRTDate.mockReturnValue(new Date('2024-01-09T15:00:00Z'));
     mockResolveActiveTickers.mockResolvedValue(['PETR4']);
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 1, lastInsertRowid: BigInt(1) } as never);
-    mockFetchWithCandles([{ date: JAN08_10H_UTC, close: 35.5 }]);
+    mockFetchWithCandles([{ date: JAN08_UTC_TS, close: 35.5 }]);
 
-    const results = await runHourlyInsightsJob();
+    await runHourlyInsightsJob();
 
-    expect(results[0].processed).toBe(1);
-    // Verify the insert used quoteDate = '2024-01-08'
-    const insertCall = mockExecute.mock.calls[0][0] as { args: unknown[] };
-    expect(insertCall.args[1]).toBe('2024-01-08');
+    expect(mockSaveSnapshotForDate).toHaveBeenCalledWith('PETR4', 35.5, '2024-01-08');
   });
 });
