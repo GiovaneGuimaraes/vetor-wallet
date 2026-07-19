@@ -24,10 +24,61 @@ Do `CLAUDE.md > Pontos de atenção`:
 
 > Atualize esta lista com aprovação do humano quando o contexto mudar. Registre a mudança no `TODO-HUMANO.md` se precisar de decisão.
 
-1. **Corretude do dinheiro primeiro**: validação de SELL (dívida 1) e sinalização de cotação indisponível na UI (dívida 2). Bugs que distorcem P&L têm prioridade máxima.
-2. **Testabilidade**: setup de test runner no `web` (issue #6) — destrava a política de testes para o frontend.
-3. **Roadmap de features**: alertas por regras (motor de avaliação dos `alert_rules`), comparação CDI/Ibovespa no dashboard, sugestões via LLM.
-4. **Infra**: deploy do job horário em AWS Lambda + EventBridge; store de sessão persistente.
+1. **Redesign visual com regra 60-30-10 + responsividade mobile**
+   Reformular o tema do app aplicando a regra 60-30-10 de cores: ~60% cor dominante
+   (fundos/superfícies), ~30% cor secundária (cards, painéis, navegação), ~10% cor de
+   destaque (CTAs, links, realces). O orquestrador escolhe a paleta que melhor serve o
+   app (proposta atual é tom areia `#e3d5b8` — avaliar se mantém como base) e registra
+   a proposta no `TODO-HUMANO.md` para aprovação antes de aplicar em larga escala.
+   Restrições: implementar via CSS custom properties em `web/src/index.css` (convenção
+   do projeto); preservar as cores semânticas de lucro/prejuízo (verde/vermelho) fora
+   da conta do 60-30-10; nada de framework CSS novo sem aprovação.
+   Inclui responsividade mobile: todas as telas (dashboard, operações, auth, admin)
+   usáveis em viewport ≥360px — tabelas viram scroll horizontal ou layout empilhado,
+   formulários em coluna única, gráficos redimensionam.
+   Critério de aceite: telas legíveis e operáveis em 360px, 768px e desktop sem
+   overflow horizontal da página; paleta documentada (qual cor é 60, qual é 30, qual
+   é 10) em comentário no `index.css`.
+
+2. **Métricas reais nos gráficos das carteiras**
+   Os gráficos em `web/src/components/PortfolioDashboard.tsx` (gráfico de evolução de
+   patrimônio com nós `<circle>` e os sparklines por posição) devem exibir valores
+   reais em cada nó/ponto: valor em R$ formatado pt-BR visível no hover (tooltip) e,
+   onde couber, rótulo no próprio ponto. Cada ponto deve ser condizente com a
+   realidade — derivado dos dados reais de `quote_snapshots`/`hourly_quote_insights`
+   e das operações do usuário, nunca interpolado/inventado; dias sem dado não geram nó.
+   Investigar antes de corrigir: de onde vem cada série hoje e onde ela diverge do
+   valor real da carteira (ex.: snapshot ausente, cotação nula tratada como zero).
+   Critério de aceite: para uma carteira de teste com operações conhecidas, o valor de
+   cada nó bate com o cálculo manual (quantidade × preço do snapshot do dia); lógica de
+   montagem das séries extraída para função pura com teste automatizado.
+
+3. **Ampliar funcionalidades do /admin**
+   Hoje o admin (`web/src/components/AdminPage.tsx` + `server/src/routes/admin.ts`) só
+   dispara o job de insights horários. Ampliar para um painel de operação do app.
+   Candidatas (orquestrador propõe o conjunto final no `TODO-HUMANO.md` antes de
+   implementar): listagem de usuários com contagem de operações/carteiras; status dos
+   dados (últimos snapshots por ticker, buracos de cobertura, falhas de captura);
+   disparo manual do job de snapshots diários com feedback de resultado; visão dos
+   alertas ativos de todos os usuários; healthcheck da integração brapi (última
+   resposta, latência, uso de token).
+   Restrições: toda rota nova exige `requireAuth` + `requireAdmin` e teste automatizado
+   (padrão existente em `admin.test.ts`); nenhuma rota admin expõe hash de senha.
+   Critério de aceite: cada funcionalidade nova acessível pela AdminPage, negada com
+   403 para usuário não-admin, e coberta por teste de rota.
+
+4. **Logo oficial nas páginas**
+   O arquivo `logo-vetor-wallet.png` está salvo no repositório e deve virar a
+   identidade visual do app: exibir a logo junto à string "Vetor Wallet" no cabeçalho
+   das páginas autenticadas (`App.tsx`) e na tela de login/registro (`AuthPage.tsx`),
+   além de usá-la como favicon (gerar tamanho adequado a partir do PNG).
+   Primeiro passo do executor: localizar o arquivo no repo (`git ls-files | grep -i logo`)
+   e movê-lo para `web/public/` se ainda não estiver lá.
+   Restrições: imagem servida como asset estático do Vite (`web/public/`); manter
+   proporção sem distorção; dimensionar bem em mobile (coordenar com a prioridade 1 —
+   pode ser executada junto do redesign).
+   Critério de aceite: logo visível no header e na tela de auth em desktop e mobile,
+   favicon atualizado, build do web (`pnpm --filter vetor-wallet-web build`) sem erro.
 
 ## Como operar
 

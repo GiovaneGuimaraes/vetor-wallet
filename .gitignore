@@ -5,3 +5,6 @@ server/data/
 .env
 .env.local
 *.tsbuildinfo
+
+# worktrees temporarios dos subagentes (Claude Code)
+.claude/worktrees/
