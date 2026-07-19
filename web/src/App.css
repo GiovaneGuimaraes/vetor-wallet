@@ -1,1 +1,26 @@
-/* replaced by Tailwind utilities */
+/*
+ * Ajustes de responsividade mobile (T-002).
+ * NAO editar web/src/index.css - reservado a T-001 (paleta), rodando em paralelo.
+ * Regras utilitarias/globais complementares as classes Tailwind usadas
+ * diretamente nos componentes.
+ */
+
+/* Nunca deixar a pagina rolar horizontalmente -- conteudo largo (tabelas,
+   graficos) deve rolar dentro do proprio container via overflow-x: auto. */
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Em viewports muito estreitos (>=360px), reduz o padding lateral do
+   header/main da tela de selecao de carteiras (WalletSelector), que usa
+   estilo inline com padding fixo pensado para desktop. */
+@media (max-width: 420px) {
+  .wallet-selector-header-inner,
+  .wallet-selector-main {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}

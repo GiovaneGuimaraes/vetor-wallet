@@ -243,21 +243,21 @@ export default function App() {
         className="sticky top-0 z-10 border-b border-edge/50 px-6 py-4 md:px-10 backdrop-blur"
         style={{ background: 'var(--header-bg)' }}
       >
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           {/* Left: wordmark + wallet chip */}
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold tracking-tight text-accent">Vetor Wallet</h1>
+          <div className="flex items-center gap-3 min-w-0">
+            <h1 className="text-lg font-semibold tracking-tight text-accent flex-shrink-0">Vetor Wallet</h1>
             {activeWallet && (
               <button
                 onClick={handleBackToWallets}
-                className="flex items-center gap-1.5 bg-raised border border-edge rounded-full px-3 py-1 text-xs text-ink hover:border-accent/50 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 bg-raised border border-edge rounded-full px-3 py-1 text-xs text-ink hover:border-accent/50 transition-colors cursor-pointer min-w-0"
                 title="Trocar carteira"
               >
                 <span
                   className="w-2 h-2 rounded-full flex-shrink-0"
                   style={{ background: activeWallet.color }}
                 />
-                <span>{activeWallet.name}</span>
+                <span className="truncate max-w-[120px] sm:max-w-[200px]">{activeWallet.name}</span>
                 <svg
                   width="12"
                   height="12"

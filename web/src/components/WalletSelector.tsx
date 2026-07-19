@@ -318,7 +318,7 @@ export function WalletSelector({ user, wallets, walletSummaries, onSelect, onCre
   return (
     <div className="min-h-screen bg-canvas" style={{ background: `radial-gradient(80% 50% at 50% -10%, rgba(var(--accent-rgb), .08), transparent 60%), var(--color-canvas)` }}>
       <header style={{ position: 'sticky', top: 0, height: '60px', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', background: 'var(--header-bg)', borderBottom: '1px solid rgba(var(--edge-rgb), 0.5)', zIndex: 50, display: 'flex', alignItems: 'center' }}>
-        <div style={{ maxWidth: '1120px', width: '100%', margin: '0 auto', padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="wallet-selector-header-inner" style={{ maxWidth: '1120px', width: '100%', margin: '0 auto', padding: '0 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: '17px', fontWeight: 700, letterSpacing: '-0.01em', background: 'linear-gradient(90deg, var(--color-accent-2), var(--color-accent))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
             Vetor Wallet
           </span>
@@ -335,7 +335,7 @@ export function WalletSelector({ user, wallets, walletSummaries, onSelect, onCre
         </div>
       </header>
 
-      <main style={{ maxWidth: '1120px', margin: '0 auto', padding: '56px 32px 64px' }}>
+      <main className="wallet-selector-main" style={{ maxWidth: '1120px', margin: '0 auto', padding: '56px 32px 64px' }}>
         <div className="screen">
           <h1 style={{ margin: 0, fontSize: '26px', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--color-ink)' }}>Suas carteiras</h1>
           <p style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--color-dim)' }}>Selecione uma carteira para acessar seu dashboard</p>

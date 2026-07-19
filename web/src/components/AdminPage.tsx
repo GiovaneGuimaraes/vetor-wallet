@@ -93,20 +93,20 @@ export function AdminPage({ user, onLogout }: Props) {
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => { setDate(e.target.value); setSummary(null); }}
                   disabled={loading}
-                  className="px-3 py-2 rounded-lg border border-edge bg-canvas text-ink text-sm
+                  className="w-full sm:w-auto px-3 py-2 rounded-lg border border-edge bg-canvas text-ink text-sm
                              focus:outline-none focus:border-accent/60 disabled:opacity-50
                              [color-scheme:dark] dark:[color-scheme:dark]"
                 />
                 <button
                   onClick={handleRunJob}
                   disabled={loading}
-                  className="px-4 py-2 rounded-lg bg-accent text-canvas text-sm font-medium
+                  className="w-full sm:w-auto px-4 py-2 rounded-lg bg-accent text-canvas text-sm font-medium
                              hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity cursor-pointer"
                 >
                   {loading ? 'Executando…' : 'Rodar job'}
