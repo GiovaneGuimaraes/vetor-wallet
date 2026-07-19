@@ -149,7 +149,7 @@ export function CsvImport({ walletId, onSuccess }: Props) {
             Tipo: <span className="text-ink">BUY</span> ou <span className="text-ink">SELL</span> — Data: <span className="text-ink">YYYY-MM-DD</span>
           </div>
 
-          <div className="flex gap-3 mb-4">
+          <div className="flex flex-wrap items-center gap-3 mb-4">
             <button
               onClick={() => fileRef.current?.click()}
               className={`${btn} bg-surface border border-edge text-ink hover:border-accent hover:text-accent`}
@@ -157,7 +157,7 @@ export function CsvImport({ walletId, onSuccess }: Props) {
               Escolher arquivo .csv
             </button>
             <input ref={fileRef} type="file" accept=".csv,text/plain" className="hidden" onChange={handleFileChange} />
-            <span className="text-xs text-dim self-center">ou cole o conteúdo abaixo</span>
+            <span className="text-xs text-dim">ou cole o conteúdo abaixo</span>
           </div>
 
           <textarea
@@ -229,7 +229,7 @@ export function CsvImport({ walletId, onSuccess }: Props) {
             </div>
           )}
 
-          <div className="flex gap-3 justify-end">
+          <div className="flex flex-wrap gap-3 justify-end">
             <button onClick={handleClose} className={`${btn} bg-surface border border-edge text-ink hover:border-edge`}>
               Cancelar
             </button>

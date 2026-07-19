@@ -131,7 +131,7 @@ export function AlertsPanel({ rules, onUpdate }: Props) {
           </div>
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-3">
           <div>
             <span className={label}>Ticker</span>
             <input
