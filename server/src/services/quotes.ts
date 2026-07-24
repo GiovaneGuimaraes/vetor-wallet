@@ -1,7 +1,19 @@
 const BRAPI_BASE = 'https://brapi.dev/api/quote';
 
-export async function fetchQuotes(tickers: string[]): Promise<Map<string, number>> {
-  if (tickers.length === 0) return new Map();
+export interface FetchQuotesResult {
+  /** ticker → cotação atual, para os tickers que a brapi retornou. */
+  quotes: Map<string, number>;
+  /**
+   * true quando a própria requisição à brapi falhou (erro de rede, timeout ou
+   * resposta não-ok) e por isso NENHUMA cotação pôde ser obtida — diferente
+   * de um ticker específico simplesmente não vir no payload de uma resposta
+   * bem-sucedida (ex.: ticker deslistado/typo), que não seta essa flag.
+   */
+  failed: boolean;
+}
+
+export async function fetchQuotes(tickers: string[]): Promise<FetchQuotesResult> {
+  if (tickers.length === 0) return { quotes: new Map(), failed: false };
 
   const token = process.env.BRAPI_TOKEN;
   const joined = tickers.join(',');
@@ -9,7 +21,7 @@ export async function fetchQuotes(tickers: string[]): Promise<Map<string, number
 
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return new Map();
+    if (!res.ok) return { quotes: new Map(), failed: true };
 
     const data = (await res.json()) as {
       results?: { symbol: string; regularMarketPrice: number }[];
@@ -20,8 +32,8 @@ export async function fetchQuotes(tickers: string[]): Promise<Map<string, number
       map.set(item.symbol, item.regularMarketPrice);
     }
 
-    return map;
+    return { quotes: map, failed: false };
   } catch {
-    return new Map();
+    return { quotes: new Map(), failed: true };
   }
 }

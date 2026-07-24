@@ -324,8 +324,8 @@ pnpm --filter vetor-wallet-web test
 ### Sessões não persistem no restart
 `express-session` usa **MemoryStore** — sessões são perdidas quando o servidor reinicia. Aceitável para uso local; para produção, migrar para Redis store ou AWS Cognito.
 
-### Falha silenciosa de cotações
-`fetchQuotes` retorna um `Map` vazio em qualquer erro de rede/API. Posições sem cotação exibem `null` nos campos de valor atual e P&L.
+### Falha de cotações agora é sinalizada (antes silenciosa)
+`fetchQuotes` (`server/src/services/quotes.ts`) continua **não derrubando a request** em erro de rede/timeout/resposta não-ok da brapi — mas agora retorna `{ quotes, failed }` em vez de só o `Map`. `failed: true` sinaliza que a busca falhou por completo (distinto de um ticker pontual vir ausente numa resposta bem-sucedida). `routes/portfolio.ts` propaga isso para `buildPortfolioSummary(positionMap, quotes, failed)`, que seta `PortfolioSummary.quotesUnavailable` (campo opcional). Posições sem cotação continuam exibindo `null` nos campos de valor atual e P&L; o dashboard (`PortfolioDashboard.tsx`) mostra um banner discreto (`--color-warn`) quando `quotesUnavailable` está ativo.
 
 ### Job de insights horários sem agendador automático
 O CLI `pnpm --filter vetor-wallet-cli insights:hourly` precisa ser invocado manualmente ou via cron do SO até o deploy em AWS Lambda + EventBridge (issue futura).

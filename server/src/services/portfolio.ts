@@ -49,6 +49,7 @@ export function wouldExceedPosition(
 export function buildPortfolioSummary(
   positionMap: Map<string, PositionEntry>,
   quotes: Map<string, number>,
+  quotesFailed = false,
 ): PortfolioSummary {
   const activeTickers: string[] = [];
   for (const [ticker, pos] of positionMap.entries()) {
@@ -102,5 +103,12 @@ export function buildPortfolioSummary(
       ? (totalProfitLoss / totalInvested) * 100
       : null;
 
-  return { positions, totalInvested, totalCurrentValue, totalProfitLoss, totalProfitLossPct };
+  return {
+    positions,
+    totalInvested,
+    totalCurrentValue,
+    totalProfitLoss,
+    totalProfitLossPct,
+    ...(quotesFailed ? { quotesUnavailable: true } : {}),
+  };
 }

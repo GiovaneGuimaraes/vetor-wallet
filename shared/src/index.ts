@@ -37,6 +37,12 @@ export interface PortfolioSummary {
   totalCurrentValue: number | null;
   totalProfitLoss: number | null;
   totalProfitLossPct: number | null;
+  /**
+   * true quando a busca de cotações na brapi.dev falhou (rede/timeout/erro)
+   * e por isso as posições ficaram sem `currentPrice`/`currentValue`.
+   * Opcional para compatibilidade com clientes/serializações antigas.
+   */
+  quotesUnavailable?: boolean;
 }
 
 export type AlertRuleType = 'PRICE_ABOVE' | 'PRICE_BELOW' | 'CHANGE_PCT' | 'ALLOCATION_PCT';

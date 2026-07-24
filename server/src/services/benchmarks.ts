@@ -72,7 +72,7 @@ export async function getPortfolioReturnAndEarliestDate(userId: number): Promise
       if (pos.quantity > 0) activeTickers.push(ticker);
     }
 
-    const quotes = await fetchQuotes(activeTickers);
+    const { quotes } = await fetchQuotes(activeTickers);
     const summary = buildPortfolioSummary(positionMap, quotes);
     return { pct: summary.totalProfitLossPct, earliestDate };
   } catch {

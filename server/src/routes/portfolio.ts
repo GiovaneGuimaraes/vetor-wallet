@@ -35,8 +35,8 @@ router.get(
       if (pos.quantity > 0) activeTickers.push(ticker);
     }
 
-    const quotes = await fetchQuotes(activeTickers);
-    const summary = buildPortfolioSummary(positionMap, quotes);
+    const { quotes, failed } = await fetchQuotes(activeTickers);
+    const summary = buildPortfolioSummary(positionMap, quotes, failed);
 
     res.json(summary);
   }),
