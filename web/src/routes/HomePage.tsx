@@ -1,7 +1,13 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { FixedExpense, Goal, IncomeSource, SavingsSummary } from '@vetor-wallet/shared';
 import { useShellContext } from '../layout/ShellContext';
+import { getFixedExpenses, getGoals, getIncomeSources, getSavings } from '../api';
+import { computeGoalsSummary, computeStockTotals, sumAmounts } from './homeMetrics';
+import './home.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtPct = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
 
 interface LayerCardConfig {
   key: string;
@@ -22,36 +28,126 @@ const LAYER_CARDS: LayerCardConfig[] = [
 ];
 
 /**
- * Rota `/home` (T-004): hero + grid de cards de layer. Conteúdo real (dados
- * de renda/despesas/poupança/metas) é escopo de T-008..T-013; aqui só a
- * estrutura de navegação e o valor agregado das carteiras de ações (dado já
- * disponível hoje via `/api/portfolio`).
+ * Rota `/home` (T-008, evoluindo o shell entregue pela T-004): hero de
+ * patrimônio (ações via ShellContext + saldo de poupança) com renda/despesas/
+ * sobra do mês, e grid de cards de layer com o valor real de cada um
+ * (renda, despesas, poupança, ações, metas — cripto segue mock "em breve").
+ * Agregações não triviais vivem em `homeMetrics.ts` (função pura, testável
+ * quando o web tiver runner — issue #6).
  */
 export function HomePage() {
   const navigate = useNavigate();
   const { walletSummaries } = useShellContext();
 
-  const totalInvested = Object.values(walletSummaries).reduce((acc, s) => acc + s.totalInvested, 0);
-  const totalCurrent = Object.values(walletSummaries).reduce(
-    (acc, s) => acc + (s.totalCurrentValue ?? s.totalInvested),
-    0,
-  );
+  const [income, setIncome] = useState<IncomeSource[]>([]);
+  const [expenses, setExpenses] = useState<FixedExpense[]>([]);
+  const [savingsSummary, setSavingsSummary] = useState<SavingsSummary | null>(null);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      // Promise.allSettled (em vez de Promise.all): se uma das 4 chamadas
+      // falhar, as demais ainda populam seus cards — só o card cuja fonte
+      // falhou fica com o valor anterior (0/—) e um aviso genérico aparece.
+      const [incomeRes, expensesRes, savingsRes, goalsRes] = await Promise.allSettled([
+        getIncomeSources(),
+        getFixedExpenses(),
+        getSavings(),
+        getGoals(),
+      ]);
+      if (cancelled) return;
+
+      if (incomeRes.status === 'fulfilled') setIncome(incomeRes.value);
+      if (expensesRes.status === 'fulfilled') setExpenses(expensesRes.value);
+      if (savingsRes.status === 'fulfilled') setSavingsSummary(savingsRes.value.summary);
+      if (goalsRes.status === 'fulfilled') setGoals(goalsRes.value);
+
+      const failures = [incomeRes, expensesRes, savingsRes, goalsRes].filter(
+        (r): r is PromiseRejectedResult => r.status === 'rejected',
+      );
+      if (failures.length > 0) {
+        const first = failures[0].reason;
+        setError(first instanceof Error ? first.message : 'Falha ao carregar alguns dados da home');
+      }
+      setLoading(false);
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const stockTotals = computeStockTotals(Object.values(walletSummaries));
+  const incomeTotal = sumAmounts(income);
+  const expensesTotal = sumAmounts(expenses);
+  const monthlyBalance = incomeTotal - expensesTotal;
+  const savingsBalance = savingsSummary?.balance ?? 0;
+  const goalsSummary = computeGoalsSummary(goals);
+  const patrimonioTotal = stockTotals.current + savingsBalance;
+
+  const dash = '—';
+
+  const cardValue = (key: string): string => {
+    switch (key) {
+      case 'renda':
+        return fmtCur.format(incomeTotal);
+      case 'despesas':
+        return fmtCur.format(expensesTotal);
+      case 'poupanca':
+        return fmtCur.format(savingsBalance);
+      case 'acoes':
+        return fmtCur.format(stockTotals.current);
+      case 'metas':
+        return goalsSummary.count === 0
+          ? dash
+          : goalsSummary.aggregatePct !== null
+            ? `${fmtPct.format(goalsSummary.aggregatePct)}%`
+            : `${goalsSummary.count}`;
+      default:
+        return dash;
+    }
+  };
 
   return (
-    <div>
+    <div className="vw-home">
       <div className="vw-hero-card vw-rise" style={{ ['--vw-rise-i' as string]: 0 }}>
         <p className="vw-hero-total-label">Patrimônio total</p>
-        <p className="vw-hero-total-value">{fmtCur.format(totalCurrent)}</p>
+        <p className="vw-hero-total-value">
+          {fmtCur.format(patrimonioTotal)}
+          {stockTotals.hasMissingQuote && (
+            <span
+              className="vw-home-quote-flag"
+              title="Cotação indisponível para uma ou mais carteiras — usando o valor investido como referência"
+            >
+              *
+            </span>
+          )}
+        </p>
         <div className="vw-hero-metrics">
           <div>
-            <p className="vw-hero-metric-label">Investido</p>
-            <p className="vw-hero-metric-value">{fmtCur.format(totalInvested)}</p>
+            <p className="vw-hero-metric-label">Renda</p>
+            <p className="vw-hero-metric-value">{fmtCur.format(incomeTotal)}</p>
           </div>
           <div>
-            <p className="vw-hero-metric-label">Resultado</p>
-            <p className="vw-hero-metric-value">{fmtCur.format(totalCurrent - totalInvested)}</p>
+            <p className="vw-hero-metric-label">Despesas</p>
+            <p className="vw-hero-metric-value">{fmtCur.format(expensesTotal)}</p>
+          </div>
+          <div>
+            <p className="vw-hero-metric-label">Sobra do mês</p>
+            <p className="vw-hero-metric-value">{fmtCur.format(monthlyBalance)}</p>
           </div>
         </div>
+        {loading && <p className="vw-home-status">Carregando dados dos seus layers…</p>}
+        {error && !loading && (
+          <p className="vw-home-status vw-home-status--error">
+            Alguns valores podem estar desatualizados: {error}
+          </p>
+        )}
       </div>
 
       <div className="vw-layer-grid">
@@ -65,11 +161,7 @@ export function HomePage() {
           >
             <p className="vw-layer-card-name">{card.name}</p>
             <p className="vw-layer-card-desc">{card.desc}</p>
-            {card.key === 'acoes' ? (
-              <p className="vw-layer-card-value">{fmtCur.format(totalCurrent)}</p>
-            ) : (
-              <p className="vw-layer-card-value">—</p>
-            )}
+            <p className="vw-layer-card-value">{cardValue(card.key)}</p>
             {card.chip && <span className="vw-layer-card-chip">{card.chip}</span>}
             <img
               src={`/layers/${card.mascot}`}
