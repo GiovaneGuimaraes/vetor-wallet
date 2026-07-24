@@ -120,14 +120,28 @@ export function OperationForm({ onSubmit }: Props) {
 
         <div>
           <span className={label}>Tipo</span>
-          <select
-            className={field}
-            value={type}
-            onChange={(e) => setType(e.target.value as OperationType)}
+          <div
+            role="group"
+            aria-label="Tipo de operação"
+            className="flex bg-canvas border border-edge rounded-full p-0.5"
           >
-            <option value="BUY">Compra</option>
-            <option value="SELL">Venda</option>
-          </select>
+            {(['BUY', 'SELL'] as OperationType[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setType(t)}
+                aria-pressed={type === t}
+                className="flex-1 text-xs font-medium py-1.5 rounded-full transition-colors cursor-pointer"
+                style={
+                  type === t
+                    ? { background: 'var(--btn-1)', color: 'var(--btn-ink)' }
+                    : { color: 'var(--color-dim)' }
+                }
+              >
+                {t === 'BUY' ? 'Compra' : 'Venda'}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div>

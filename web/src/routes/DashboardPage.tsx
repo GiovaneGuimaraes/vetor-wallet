@@ -6,22 +6,26 @@ import {
   deleteOperation,
   getPortfolio,
   getAlertRules,
-  getBenchmarks,
 } from '../api';
 import { OperationForm } from '../components/OperationForm';
 import { OperationsList } from '../components/OperationsList';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { CsvImport } from '../components/CsvImport';
 import { AlertsPanel } from '../components/AlertsPanel';
-import { BenchmarkComparison } from '../components/BenchmarkComparison';
 import { evaluateAlerts, type TriggeredAlert } from '../utils/alerts';
 import { useShellContext } from '../layout/ShellContext';
-import type { NewOperation, Operation, PortfolioSummary, AlertRule, BenchmarkData } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, AlertRule } from '@vetor-wallet/shared';
 
 /**
- * Rota `/dash/:id` (T-004): dashboard da carteira de ações — mesma
+ * Rota `/dash/:id` (T-004/T-013): dashboard da carteira de ações — mesma
  * funcionalidade que existia em App.tsx (tela única), agora auto-contida e
  * disparada pelo id da URL em vez de estado local `activeWallet`/`screen`.
+ *
+ * T-013 (design v4, tela 5): removidos do render os gráficos de
+ * evolução/alocação/comparativo e o `BenchmarkComparison` — o serviço e a
+ * rota `/api/benchmarks` do server permanecem intactos no backend, só saem
+ * da UI (o front deixou de chamar `getBenchmarks()`, que não é usado por
+ * nenhuma outra tela deste ciclo).
  */
 export function DashboardPage() {
   const { id } = useParams<{ id: string }>();
@@ -32,7 +36,6 @@ export function DashboardPage() {
 
   const [operations, setOperations] = useState<Operation[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
-  const [benchmarks, setBenchmarks] = useState<BenchmarkData | null>(null);
   const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState<TriggeredAlert[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -50,7 +53,6 @@ export function DashboardPage() {
       setPortfolio(port);
       setAlertRules(rules);
       setTriggeredAlerts(evaluateAlerts(rules, port));
-      getBenchmarks().then(setBenchmarks).catch(() => null);
     } catch (err) {
       setApiError(err instanceof Error ? err.message : 'Erro ao conectar com a API');
     } finally {
@@ -130,7 +132,6 @@ export function DashboardPage() {
             </div>
           )}
           <PortfolioDashboard summary={portfolio} walletColor={wallet?.color} />
-          {benchmarks && <BenchmarkComparison data={benchmarks} />}
           <OperationsList operations={operations} onDelete={handleDelete} />
         </>
       )}

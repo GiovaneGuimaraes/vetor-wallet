@@ -1,0 +1,55 @@
+/* ------------------------------------------------------------------ */
+/* Dashboard da carteira v4 (T-013)                                     */
+/*                                                                      */
+/* Estilos próprios da tabela de posições em /dash/:id — handoff        */
+/* design_handoff_vetor_wallet_refactor/README.md, tela 5. Sem gráficos */
+/* (removidos do design); tabela de 7 colunas com linhas 13px,          */
+/* padding 13/22px e hover translúcido sobre `--raised-rgb`.            */
+/* ------------------------------------------------------------------ */
+
+.vw-positions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.vw-positions-table th {
+  padding: 0 22px 12px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+}
+
+.vw-positions-table th:first-child {
+  text-align: left;
+}
+
+.vw-positions-table td {
+  padding: 13px 22px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  border-top: 1px solid rgba(var(--edge-rgb), 0.3);
+}
+
+.vw-positions-table td:first-child {
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.vw-positions-row {
+  transition: background-color 0.12s ease;
+}
+
+.vw-positions-row:hover {
+  background-color: rgba(var(--raised-rgb), 0.55);
+}
+
+.vw-positions-table-wrap {
+  overflow-x: auto;
+}
