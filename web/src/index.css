@@ -1,53 +1,35 @@
+/* Fonte: Geist (Google Fonts), fallback system-ui. Precisa vir antes de */
+/* qualquer regra que não seja @charset/@layer (exigência de @import).  */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400..800&display=swap');
 @import 'tailwindcss';
 
 /* ------------------------------------------------------------------ */
-/* Paleta 60-30-10 (T-001)                                             */
+/* Design tokens v4 (T-003)                                            */
 /*                                                                      */
-/* Regra aplicada às cores de TEMA (fora da conta: verde/vermelho/      */
-/* amarelo de sentimento, que são semânticas e não fazem parte da       */
-/* proporção 60-30-10 — ver seção "Sentiment" abaixo).                  */
+/* Tema neutro estilo biip.club: light mode branco/preto/cinzas         */
+/* neutros, dark mode com as cores opostas. Substitui a paleta areia    */
+/* (T-001). Fonte de verdade:                                          */
+/* design_handoff_vetor_wallet_refactor/README.md → seção "Design       */
+/* Tokens".                                                             */
 /*                                                                      */
-/* Decisão: mantém-se o tom areia (#e3d5b8 no dark / #a8814f no light)  */
-/* como cor de DESTAQUE (10%). É a identidade visual já estabelecida do */
-/* produto (usada em CTAs, links e no logo/branding), então vira a cor  */
-/* de menor proporção e maior saliência — exatamente o papel do "10"    */
-/* na regra 60-30-10 — em vez de trocada por outro tom.                 */
-/*                                                                      */
-/*   60% — DOMINANTE  → --color-canvas                                  */
-/*          Cor de fundo da aplicação (body, telas). É a superfície     */
-/*          que ocupa a maior área visual da UI.                        */
-/*                                                                      */
-/*   30% — SECUNDÁRIA → --color-card-1 / --color-card-2 / --color-card  */
-/*          --color-surface / --color-raised / --color-edge            */
-/*          Cards, painéis, navegação e bordas — camadas "elevadas"     */
-/*          sobre o fundo dominante.                                    */
-/*                                                                      */
-/*   10% — DESTAQUE   → --color-accent / --color-accent-2 /             */
-/*          --color-accent-hover                                       */
-/*          CTAs, botões primários, links e realces pontuais (o tom     */
-/*          areia da marca).                                            */
-/*                                                                      */
-/*   (fora da conta) — TEXTO → --color-ink / --color-dim / --color-mid  */
-/*          Cores de texto sobre as superfícies acima; não competem     */
-/*          por área de tela como fundo, por isso não entram na conta   */
-/*          60-30-10 (que trata de superfícies/elementos, não tipo).    */
+/* Aplicado via classe `.light` / `.dark` no <html>, light por padrão   */
+/* (ver web/src/theme.ts para a mecânica de aplicação/persistência).    */
 /* ------------------------------------------------------------------ */
 @theme {
-  /* --- Dark defaults (Tailwind utilities: bg-canvas, text-ink, etc.) --- */
-  --color-canvas:       #0f0e0b;   /* 60% dominante */
-  --color-card-1:       #1a1712;   /* 30% secundária */
-  --color-card-2:       #12100c;   /* 30% secundária */
-  --color-card:         #1a1712;   /* 30% secundária — alias → card-1 */
-  --color-surface:      #211d16;   /* 30% secundária — alias → raised */
-  --color-raised:       #211d16;   /* 30% secundária */
-  --color-edge:         #2b261d;   /* 30% secundária — bordas */
-  --color-ink:          #ece5d6;   /* texto — fora da conta 60-30-10 */
-  --color-dim:          #7d7364;   /* texto — fora da conta 60-30-10 */
-  --color-mid:          #b3a892;   /* texto — fora da conta 60-30-10 */
-  --color-accent:       #e3d5b8;   /* 10% destaque (tom areia da marca) */
-  --color-accent-2:     #e9dcc0;   /* 10% destaque */
-  --color-accent-hover: #d4c3a0;   /* 10% destaque — accent escurecido para hover */
-  /* Sentiment — semântico, unchanged across themes, fora da conta 60-30-10 */
+  --color-canvas:       #fcfcfc;
+  --color-card-1:       #ffffff;
+  --color-card-2:       #fafafa;
+  --color-card:         #ffffff;   /* alias → card-1 */
+  --color-surface:      #f2f2f0;   /* alias → raised */
+  --color-raised:       #f2f2f0;
+  --color-edge:         #ebebe9;
+  --color-ink:          #141414;
+  --color-dim:          #a3a3a0;
+  --color-mid:          #666663;
+  --color-accent:       #141414;   /* accent É o ink (neutro, sem cor) */
+  --color-accent-2:     #000000;
+  --color-accent-hover: #000000;
+  /* Sentiment — semântico, inalterado entre temas */
   --color-up:   #10b981;
   --color-down: #f43f5e;
   --color-warn: #f59e0b;
@@ -55,59 +37,97 @@
 
 /* ------------------------------------------------------------------ */
 /* Custom properties (not Tailwind utilities)                          */
-/* Mesma proporção 60-30-10 acima, em variáveis não-Tailwind usadas     */
-/* diretamente em CSS/inline styles (gradientes, rgba, etc.)           */
+/* Mesmos tokens acima, em variáveis não-Tailwind usadas diretamente    */
+/* em CSS/inline styles (rgba, gradientes de botão, etc.)               */
 /* ------------------------------------------------------------------ */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  --card-1:      #1a1712;   /* 30% secundária */
-  --card-2:      #12100c;   /* 30% secundária */
-  --raised-rgb:  33, 29, 22;    /* 30% secundária (rgb de --color-raised) */
-  --edge-rgb:    43, 38, 29;    /* 30% secundária (rgb de --color-edge) */
-  --accent-rgb:  227, 213, 184; /* 10% destaque (rgb de --color-accent) */
-  --btn-1:       #f2e7cd;   /* 10% destaque — gradiente de botão primário */
-  --btn-2:       #d9c49c;   /* 10% destaque — gradiente de botão primário */
-  --btn-ink:     #1a1610;   /* texto sobre botão de destaque */
-  --header-bg:   rgba(15, 14, 11, 0.8);   /* 60% dominante (canvas translúcido) */
-  --leather-1:   #242019;   /* 30% secundária */
+  --card-1:      #ffffff;
+  --card-2:      #fafafa;
+  --raised-rgb:  235, 235, 232;
+  --edge-rgb:    180, 180, 175;
+  --accent-rgb:  20, 20, 20;
+  --btn-1:       #171717;
+  --btn-2:       #000000;
+  --btn-ink:     #ffffff;
+  --header-bg:   rgba(252, 252, 252, 0.85);
+  --leather-1:   #f2f2f0;   /* superfície elevada — sem couro/gradiente no tema neutro */
+  --up-rgb:      16, 185, 129;
+  --down-rgb:    244, 63, 94;
+  --warn-rgb:    245, 158, 11;
+
+  /* Formas base (handoff: "Tipografia e formas") */
+  --radius-input:      10px;
+  --radius-card:        16px;
+  --radius-card-cartao: 20px;
+  --radius-pill:        99px;
 }
 
 /* ------------------------------------------------------------------ */
-/* Light theme overrides                                               */
-/* Mesma proporção 60-30-10 do dark, com valores claros.                */
-/* --color-accent muda para um areia mais escuro/saturado (#a8814f)     */
-/* para manter contraste de destaque (10%) sobre fundo claro.           */
+/* Light theme — explícito (mesmos valores do :root, para permitir       */
+/* alternância via classe mesmo quando nenhuma preferência de sistema     */
+/* está em jogo)                                                        */
 /* ------------------------------------------------------------------ */
 html.light {
   color-scheme: light;
 
-  /* Tailwind @theme overrides */
-  --color-canvas:       #f4efe5;   /* 60% dominante */
-  --color-card-1:       #fffdf8;   /* 30% secundária */
-  --color-card-2:       #faf5ea;   /* 30% secundária */
-  --color-card:         #fffdf8;   /* 30% secundária */
-  --color-surface:      #ece5d5;   /* 30% secundária */
-  --color-raised:       #ece5d5;   /* 30% secundária */
-  --color-edge:         #e0d8c5;   /* 30% secundária — bordas */
-  --color-ink:          #2b251a;   /* texto — fora da conta 60-30-10 */
-  --color-dim:          #9a9080;   /* texto — fora da conta 60-30-10 */
-  --color-mid:          #6b6250;   /* texto — fora da conta 60-30-10 */
-  --color-accent:       #a8814f;   /* 10% destaque (tom areia da marca, escurecido p/ contraste) */
-  --color-accent-2:     #8a6a3f;   /* 10% destaque */
-  --color-accent-hover: #8a6a3f;   /* 10% destaque */
+  --color-canvas:       #fcfcfc;
+  --color-card-1:       #ffffff;
+  --color-card-2:       #fafafa;
+  --color-card:         #ffffff;
+  --color-surface:      #f2f2f0;
+  --color-raised:       #f2f2f0;
+  --color-edge:         #ebebe9;
+  --color-ink:          #141414;
+  --color-dim:          #a3a3a0;
+  --color-mid:          #666663;
+  --color-accent:       #141414;
+  --color-accent-2:     #000000;
+  --color-accent-hover: #000000;
 
-  /* Custom property overrides */
-  --card-1:     #fffdf8;   /* 30% secundária */
-  --card-2:     #faf5ea;   /* 30% secundária */
-  --raised-rgb: 214, 204, 184;   /* 30% secundária (rgb de --color-raised) */
-  --edge-rgb:   150, 138, 114;   /* 30% secundária (rgb de --color-edge) */
-  --accent-rgb: 168, 129, 79;    /* 10% destaque (rgb de --color-accent) */
-  --btn-1:      #b99668;   /* 10% destaque — gradiente de botão primário */
-  --btn-2:      #a37f4e;   /* 10% destaque — gradiente de botão primário */
-  --btn-ink:    #fff;      /* texto sobre botão de destaque */
-  --header-bg:  rgba(246, 241, 231, 0.85);   /* 60% dominante (canvas translúcido) */
-  --leather-1:  #f1e9d8;   /* 30% secundária */
+  --card-1:     #ffffff;
+  --card-2:     #fafafa;
+  --raised-rgb: 235, 235, 232;
+  --edge-rgb:   180, 180, 175;
+  --accent-rgb: 20, 20, 20;
+  --btn-1:      #171717;
+  --btn-2:      #000000;
+  --btn-ink:    #ffffff;
+  --header-bg:  rgba(252, 252, 252, 0.85);
+  --leather-1:  #f2f2f0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Dark theme — cores opostas                                          */
+/* ------------------------------------------------------------------ */
+html.dark {
+  color-scheme: dark;
+
+  --color-canvas:       #0a0a0a;
+  --color-card-1:       #161616;
+  --color-card-2:       #121212;
+  --color-card:         #161616;
+  --color-surface:      #222222;
+  --color-raised:       #222222;
+  --color-edge:         #282828;
+  --color-ink:          #f5f5f4;
+  --color-dim:          #8b8b88;
+  --color-mid:          #c0c0bd;
+  --color-accent:       #f5f5f4;
+  --color-accent-2:     #ffffff;
+  --color-accent-hover: #ffffff;
+
+  --card-1:     #161616;
+  --card-2:     #121212;
+  --raised-rgb: 34, 34, 34;
+  --edge-rgb:   40, 40, 40;
+  --accent-rgb: 245, 245, 244;
+  --btn-1:      #f5f5f4;
+  --btn-2:      #e2e2e0;
+  --btn-ink:    #111111;
+  --header-bg:  rgba(10, 10, 10, 0.85);
+  --leather-1:  #222222;
 }
 
 /* ------------------------------------------------------------------ */
@@ -129,6 +149,7 @@ body {
   background-color: var(--color-canvas);
   color: var(--color-ink);
   font-family:
+    'Geist',
     system-ui,
     -apple-system,
     'Segoe UI',
@@ -136,6 +157,109 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* ------------------------------------------------------------------ */
+/* Tipografia e formas base (handoff: "Tipografia e formas")           */
+/* ------------------------------------------------------------------ */
+
+/* Números — alinhamento tabular em qualquer contexto (Tailwind expõe a */
+/* utilitária `tabular-nums`; esta classe cobre elementos fora do reach  */
+/* de utilitárias, ex. conteúdo gerado/estilo inline legado).           */
+.tabular-nums,
+.vw-number {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Label 11px/600/uppercase/letter-spacing .08em/cor dim */
+.vw-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-dim);
+}
+
+/* Wordmark "vetor" — weight 800, letter-spacing -.02em, cor ink */
+.vw-wordmark {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+}
+
+/* Pill — botões e chips (radius 99px) */
+.vw-pill {
+  border-radius: var(--radius-pill);
+}
+
+/* Cards planos */
+.vw-card {
+  border-radius: var(--radius-card);
+}
+
+.vw-card-cartao {
+  border-radius: var(--radius-card-cartao);
+}
+
+/* Inputs: fundo canvas, borda edge, radius 10px, focus accent + halo */
+.vw-input,
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='number'],
+input[type='date'],
+select,
+textarea {
+  background-color: var(--color-canvas);
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-input);
+  color: var(--color-ink);
+  font-family: inherit;
+}
+
+.vw-input:focus,
+input[type='text']:focus,
+input[type='email']:focus,
+input[type='password']:focus,
+input[type='number']:focus,
+input[type='date']:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
+}
+
+/* Botão primário: fundo btn-1 plano, hover btn-2 + leve elevação */
+.vw-btn-primary {
+  background: var(--btn-1);
+  color: var(--btn-ink);
+  border: 0;
+  border-radius: var(--radius-pill);
+  transition:
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.vw-btn-primary:hover:not(:disabled) {
+  background: var(--btn-2);
+  transform: translateY(-1px);
+}
+
+/* Botão fantasma: fundo raised translúcido, borda edge, pill */
+.vw-btn-ghost {
+  background: rgba(var(--raised-rgb), 0.6);
+  border: 1px solid var(--color-edge);
+  color: var(--color-ink);
+  border-radius: var(--radius-pill);
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.vw-btn-ghost:hover:not(:disabled) {
+  border-color: var(--color-ink);
+  color: var(--color-ink);
 }
 
 /* ------------------------------------------------------------------ */
@@ -171,12 +295,12 @@ select option {
 }
 
 input[type='date']::-webkit-calendar-picker-indicator {
-  filter: invert(0.6) brightness(1.2);
+  filter: none;
   cursor: pointer;
 }
 
-html.light input[type='date']::-webkit-calendar-picker-indicator {
-  filter: none;
+html.dark input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(0.6) brightness(1.2);
   cursor: pointer;
 }
 
