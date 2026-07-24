@@ -25,6 +25,7 @@ describe('import routes — CSV SELL validation', () => {
     const { initDb } = await import('../db');
     const { default: authRouter } = await import('../auth/router');
     const { default: importRouter } = await import('./import');
+    const { default: walletsRouter } = await import('./wallets');
     const { errorHandler } = await import('../middleware/errorHandler');
 
     await initDb();
@@ -42,6 +43,7 @@ describe('import routes — CSV SELL validation', () => {
     );
     app.use('/api/auth', authRouter);
     app.use('/api/import', importRouter);
+    app.use('/api/wallets', walletsRouter);
     app.use(errorHandler);
 
     agentA = request.agent(app);
@@ -85,5 +87,46 @@ describe('import routes — CSV SELL validation', () => {
     expect(res.status).toBe(200);
     expect(res.body.imported).toBe(1);
     expect(res.body.errors).toHaveLength(0);
+  });
+
+  it('rejects a SELL that exceeds the position of the target wallet even when the sum across all wallets would cover it', async () => {
+    // wallet A gets 50 shares of ITSA4, wallet B gets 50 shares of ITSA4 — sum across
+    // both wallets is 100, but neither wallet alone holds enough for a 100-share SELL.
+    const walletA = await agentA.post('/api/wallets').send({ name: 'Carteira A' });
+    const walletB = await agentA.post('/api/wallets').send({ name: 'Carteira B' });
+    const walletAId = walletA.body.id;
+    const walletBId = walletB.body.id;
+
+    const buyA = await agentA
+      .post(`/api/import?walletId=${walletAId}`)
+      .type('text/csv')
+      .send('ticker,type,quantity,price,date\nITSA4,BUY,50,10,2024-02-01');
+    expect(buyA.body.imported).toBe(1);
+
+    const buyB = await agentA
+      .post(`/api/import?walletId=${walletBId}`)
+      .type('text/csv')
+      .send('ticker,type,quantity,price,date\nITSA4,BUY,50,10,2024-02-01');
+    expect(buyB.body.imported).toBe(1);
+
+    // SELL of 100 exceeds wallet A's own position (50) — must be rejected even though
+    // the sum across all of the user's wallets (100) would cover it.
+    const sellA = await agentA
+      .post(`/api/import?walletId=${walletAId}`)
+      .type('text/csv')
+      .send('ticker,type,quantity,price,date\nITSA4,SELL,100,12,2024-02-02');
+    expect(sellA.status).toBe(200);
+    expect(sellA.body.imported).toBe(0);
+    expect(sellA.body.errors).toHaveLength(1);
+    expect(sellA.body.errors[0].error).toMatch(/posicao/i);
+
+    // a SELL within wallet A's own position (50) is accepted.
+    const sellOk = await agentA
+      .post(`/api/import?walletId=${walletAId}`)
+      .type('text/csv')
+      .send('ticker,type,quantity,price,date\nITSA4,SELL,50,12,2024-02-03');
+    expect(sellOk.status).toBe(200);
+    expect(sellOk.body.imported).toBe(1);
+    expect(sellOk.body.errors).toHaveLength(0);
   });
 });
