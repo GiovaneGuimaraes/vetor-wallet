@@ -1,0 +1,28 @@
+/*
+ * Estilos próprios da Home v4 (T-008). Não mexe em App.css/index.css
+ * (propriedade de outras tarefas em paralelo) — apenas overrides escopados
+ * em `.vw-home` e classes novas usadas só nesta rota.
+ */
+
+.vw-home .vw-layer-grid {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.vw-home-quote-flag {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-dim);
+  margin-left: 6px;
+  cursor: help;
+  vertical-align: super;
+}
+
+.vw-home-status {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--color-dim);
+}
+
+.vw-home-status--error {
+  color: #d17a6f;
+}
