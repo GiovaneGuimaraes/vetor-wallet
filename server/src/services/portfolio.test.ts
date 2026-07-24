@@ -152,4 +152,29 @@ describe('buildPortfolioSummary', () => {
     expect(summary.totalCurrentValue).toBe(0);
     expect(summary.totalProfitLoss).toBe(0);
   });
+
+  // ── quotesUnavailable (T-015: sinal explícito de falha na busca de cotações) ──
+
+  it('sets quotesUnavailable=true when the quotes fetch failed', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 100, 30)]);
+    const summary = buildPortfolioSummary(map, new Map(), true);
+
+    expect(summary.quotesUnavailable).toBe(true);
+    expect(summary.positions[0].currentValue).toBeNull();
+  });
+
+  it('omits quotesUnavailable when the quotes fetch succeeded', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 100, 30)]);
+    const quotes = new Map([['PETR4', 35]]);
+    const summary = buildPortfolioSummary(map, quotes, false);
+
+    expect(summary.quotesUnavailable).toBeUndefined();
+  });
+
+  it('omits quotesUnavailable by default when the third argument is not passed', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 100, 30)]);
+    const summary = buildPortfolioSummary(map, new Map());
+
+    expect(summary.quotesUnavailable).toBeUndefined();
+  });
 });

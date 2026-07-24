@@ -195,8 +195,14 @@ export function PortfolioDashboard({ summary, walletColor = '#e3d5b8' }: Props) 
     );
   }
 
-  const { positions, totalInvested, totalCurrentValue, totalProfitLoss, totalProfitLossPct } =
-    summary;
+  const {
+    positions,
+    totalInvested,
+    totalCurrentValue,
+    totalProfitLoss,
+    totalProfitLossPct,
+    quotesUnavailable,
+  } = summary;
 
   const hasUnavailableQuotes = positions.some((p) => p.currentPrice === null);
   const unavailableTickers = positions
@@ -209,16 +215,17 @@ export function PortfolioDashboard({ summary, walletColor = '#e3d5b8' }: Props) 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Warning banner */}
-      {hasUnavailableQuotes && (
+      {/* Warning banner — distingue falha na busca (quotesUnavailable, sinalizado
+          pelo server) de um ticker pontualmente sem cotação na resposta. */}
+      {quotesUnavailable ? (
         <div
           style={{
-            background: 'rgba(245,158,11,.08)',
-            border: '1px solid rgba(245,158,11,.3)',
+            background: 'color-mix(in srgb, var(--color-warn) 10%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--color-warn) 40%, transparent)',
             borderRadius: 12,
             padding: '12px 16px',
             fontSize: 13,
-            color: 'var(--color-ink)',
+            color: 'var(--color-warn)',
             display: 'flex',
             gap: 8,
             alignItems: 'flex-start',
@@ -226,14 +233,36 @@ export function PortfolioDashboard({ summary, walletColor = '#e3d5b8' }: Props) 
         >
           <span style={{ flexShrink: 0 }}>⚠</span>
           <span>
-            Cotações indisponíveis para {unavailableTickers}. Valor atual e resultado não podem
-            ser calculados para{' '}
-            {positions.filter((p) => p.currentPrice === null).length === 1
-              ? 'esse ativo'
-              : 'esses ativos'}
-            . A brapi.dev pode estar fora do ar ou o limite da API foi atingido.
+            Não foi possível buscar as cotações na brapi.dev agora. Valor atual e resultado podem
+            estar desatualizados até a próxima tentativa.
           </span>
         </div>
+      ) : (
+        hasUnavailableQuotes && (
+          <div
+            style={{
+              background: 'rgba(245,158,11,.08)',
+              border: '1px solid rgba(245,158,11,.3)',
+              borderRadius: 12,
+              padding: '12px 16px',
+              fontSize: 13,
+              color: 'var(--color-ink)',
+              display: 'flex',
+              gap: 8,
+              alignItems: 'flex-start',
+            }}
+          >
+            <span style={{ flexShrink: 0 }}>⚠</span>
+            <span>
+              Cotações indisponíveis para {unavailableTickers}. Valor atual e resultado não podem
+              ser calculados para{' '}
+              {positions.filter((p) => p.currentPrice === null).length === 1
+                ? 'esse ativo'
+                : 'esses ativos'}
+              . A brapi.dev pode estar fora do ar ou o limite da API foi atingido.
+            </span>
+          </div>
+        )
       )}
 
       {/* Summary cards — 3 cols: Valor atual, Investido, Resultado */}

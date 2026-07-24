@@ -24,6 +24,8 @@ export function computeStockTotals(summaries: PortfolioSummary[]): StockTotals {
   for (const summary of summaries) {
     invested += summary.totalInvested;
     if (summary.totalCurrentValue === null) {
+      // summary.quotesUnavailable (quando presente) confirma que foi uma falha
+      // na busca de cotações na brapi — não apenas um ticker sem preço.
       hasMissingQuote = true;
       current += summary.totalInvested;
     } else {
