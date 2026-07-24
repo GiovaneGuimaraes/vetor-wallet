@@ -15,6 +15,8 @@ import walletsRouter from './routes/wallets';
 import adminRouter from './routes/admin';
 import incomeRouter from './routes/income';
 import expensesRouter from './routes/expenses';
+import savingsRouter from './routes/savings';
+import goalsRouter from './routes/goals';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -50,6 +52,8 @@ app.use('/api/benchmarks', benchmarksRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/income', incomeRouter);
 app.use('/api/expenses', expensesRouter);
+app.use('/api/savings', savingsRouter);
+app.use('/api/goals', goalsRouter);
 
 app.use(errorHandler);
 

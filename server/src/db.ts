@@ -128,6 +128,29 @@ export async function initDb() {
     )
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS savings_entries (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    INTEGER NOT NULL REFERENCES users(id),
+      type       TEXT    NOT NULL CHECK(type IN ('DEPOSIT', 'WITHDRAW', 'YIELD')),
+      amount     REAL    NOT NULL,
+      date       TEXT    NOT NULL,
+      note       TEXT    NOT NULL DEFAULT '',
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS goals (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id        INTEGER NOT NULL REFERENCES users(id),
+      name           TEXT    NOT NULL,
+      target_amount  REAL    NOT NULL,
+      current_amount REAL    NOT NULL DEFAULT 0,
+      created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
   // Add user_id column to existing tables (idempotent — ignored if already present)
   for (const sql of [
     'ALTER TABLE operations ADD COLUMN user_id INTEGER REFERENCES users(id)',

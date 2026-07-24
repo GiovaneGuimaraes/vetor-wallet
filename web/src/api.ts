@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, FixedExpense, NewFixedExpense } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, FixedExpense, NewFixedExpense, SavingsEntry, NewSavingsEntry, SavingsSummary, Goal, NewGoal, GoalUpdate } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -237,4 +237,69 @@ export async function createFixedExpense(expense: NewFixedExpense): Promise<Fixe
 export async function deleteFixedExpense(id: number): Promise<void> {
   const res = await apiFetch(`/api/expenses/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Falha ao remover despesa fixa');
+}
+
+// ── Poupança / reserva ────────────────────────────────────────────────────────
+
+export async function getSavings(): Promise<{ entries: SavingsEntry[]; summary: SavingsSummary }> {
+  const res = await apiFetch('/api/savings');
+  if (!res.ok) throw new Error('Falha ao buscar lançamentos de poupança');
+  return res.json();
+}
+
+export async function createSavingsEntry(entry: NewSavingsEntry): Promise<SavingsEntry> {
+  const res = await apiFetch('/api/savings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao criar lançamento de poupança');
+  }
+  return res.json();
+}
+
+export async function deleteSavingsEntry(id: number): Promise<void> {
+  const res = await apiFetch(`/api/savings/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Falha ao remover lançamento de poupança');
+}
+
+// ── Metas ─────────────────────────────────────────────────────────────────────
+
+export async function getGoals(): Promise<Goal[]> {
+  const res = await apiFetch('/api/goals');
+  if (!res.ok) throw new Error('Falha ao buscar metas');
+  return res.json();
+}
+
+export async function createGoal(goal: NewGoal): Promise<Goal> {
+  const res = await apiFetch('/api/goals', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(goal),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao criar meta');
+  }
+  return res.json();
+}
+
+export async function updateGoal(id: number, update: GoalUpdate): Promise<Goal> {
+  const res = await apiFetch(`/api/goals/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(update),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao atualizar meta');
+  }
+  return res.json();
+}
+
+export async function deleteGoal(id: number): Promise<void> {
+  const res = await apiFetch(`/api/goals/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Falha ao remover meta');
 }

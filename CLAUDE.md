@@ -152,6 +152,13 @@ Todas as rotas abaixo (exceto `/api/auth/*`) exigem sessão autenticada via cook
 | `GET` | `/api/expenses` | Lista despesas fixas do usuário |
 | `POST` | `/api/expenses` | Cria despesa fixa |
 | `DELETE` | `/api/expenses/:id` | Remove despesa fixa |
+| `GET` | `/api/savings` | Lista lançamentos de poupança/reserva e um `summary` (saldo, total de aportes, total de rendimento) |
+| `POST` | `/api/savings` | Cria lançamento de poupança (`DEPOSIT`, `WITHDRAW` ou `YIELD`) |
+| `DELETE` | `/api/savings/:id` | Remove lançamento de poupança |
+| `GET` | `/api/goals` | Lista metas financeiras do usuário |
+| `POST` | `/api/goals` | Cria meta financeira |
+| `PATCH` | `/api/goals/:id` | Atualiza parcialmente uma meta (`name`/`target_amount`/`current_amount`) |
+| `DELETE` | `/api/goals/:id` | Remove meta financeira |
 
 ---
 
@@ -240,6 +247,29 @@ CREATE TABLE IF NOT EXISTS fixed_expenses (
   category   TEXT    NOT NULL DEFAULT '',
   amount     REAL    NOT NULL,
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Lançamentos de poupança/reserva (livro de lançamentos; saldo é derivado no server:
+-- DEPOSIT + YIELD − WITHDRAW). Sem vínculo com wallet.
+CREATE TABLE IF NOT EXISTS savings_entries (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  type       TEXT    NOT NULL CHECK(type IN ('DEPOSIT', 'WITHDRAW', 'YIELD')),
+  amount     REAL    NOT NULL,
+  date       TEXT    NOT NULL,   -- YYYY-MM-DD
+  note       TEXT    NOT NULL DEFAULT '',
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Metas financeiras com progresso manual (current_amount não é recalculado
+-- automaticamente a partir de savings_entries)
+CREATE TABLE IF NOT EXISTS goals (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id        INTEGER NOT NULL REFERENCES users(id),
+  name           TEXT    NOT NULL,
+  target_amount  REAL    NOT NULL,
+  current_amount REAL    NOT NULL DEFAULT 0,
+  created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 ```
 

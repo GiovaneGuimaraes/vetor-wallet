@@ -155,3 +155,50 @@ export interface NewFixedExpense {
   category?: string;
   amount: number;
 }
+
+export type SavingsEntryType = 'DEPOSIT' | 'WITHDRAW' | 'YIELD';
+
+export interface SavingsEntry {
+  id: number;
+  user_id: number;
+  type: SavingsEntryType;
+  amount: number;
+  date: string;
+  note: string;
+  created_at: string;
+}
+
+export interface NewSavingsEntry {
+  type: SavingsEntryType;
+  amount: number;
+  date: string;
+  note?: string;
+}
+
+export interface SavingsSummary {
+  balance: number;
+  totalDeposits: number;
+  totalYield: number;
+  totalWithdrawals: number;
+}
+
+export interface Goal {
+  id: number;
+  user_id: number;
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  created_at: string;
+}
+
+export interface NewGoal {
+  name: string;
+  target_amount: number;
+  current_amount?: number;
+}
+
+export interface GoalUpdate {
+  name?: string;
+  target_amount?: number;
+  current_amount?: number;
+}
