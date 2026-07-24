@@ -295,17 +295,17 @@ Driver: `@libsql/client` (libsql/SQLite). Sem ORM; queries são SQL puro.
 Toda mudança em código de produto — server ou web — deve vir acompanhada de um teste automatizado que cobre o comportamento novo ou alterado, **ou** de uma justificativa explícita de por que testes não se aplicam.
 
 ```bash
-# server (Vitest — já configurado)
+# server (Vitest)
 pnpm --filter vetor-wallet-server test
 
-# web — runner ainda não configurado (pendente issue #6)
-# até lá, lógica isolável deve ser extraída para funções puras e testada via server
+# web (Vitest — ambiente node, para funções puras extraídas de componentes)
+pnpm --filter vetor-wallet-web test
 ```
 
 | Pacote | Padrão | Exemplo existente |
 |---|---|---|
 | `server` | `server/src/**/*.test.ts` | `server/src/services/hourlyInsights.test.ts` |
-| `web` | `web/src/**/*.test.ts` | — (pendente setup de runner) |
+| `web` | `web/src/**/*.test.ts` | `web/src/routes/homeMetrics.test.ts` |
 
 **Não exigem teste novo:** ajustes de estilo/layout, refatoração sem mudança de comportamento, documentação.
 

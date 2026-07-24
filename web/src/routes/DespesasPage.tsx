@@ -1,33 +1,10 @@
 import { useEffect, useState } from 'react';
 import { createFixedExpense, deleteFixedExpense, getFixedExpenses } from '../api';
 import type { FixedExpense } from '@vetor-wallet/shared';
+import { groupByCategory } from './expensesGrouping';
 import './layers.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-const SEM_CATEGORIA = 'Sem categoria';
-
-interface CategoryGroup {
-  category: string;
-  items: FixedExpense[];
-  total: number;
-}
-
-function groupByCategory(items: FixedExpense[]): CategoryGroup[] {
-  const map = new Map<string, FixedExpense[]>();
-  for (const item of items) {
-    const key = item.category.trim() || SEM_CATEGORIA;
-    const bucket = map.get(key) ?? [];
-    bucket.push(item);
-    map.set(key, bucket);
-  }
-  return Array.from(map.entries())
-    .map(([category, groupItems]) => ({
-      category,
-      items: groupItems,
-      total: groupItems.reduce((acc, i) => acc + i.amount, 0),
-    }))
-    .sort((a, b) => a.category.localeCompare(b.category, 'pt-BR'));
-}
 
 /**
  * Rota `/despesas` (T-009): total do mês + lista de despesas fixas agrupada
