@@ -30,28 +30,6 @@
 >
 > **Ondas de paralelismo**: Onda A = T-003, T-004, T-006 (independentes entre si). Onda B = T-005, T-007. Onda C = T-008…T-013 (dependem da shell T-004 e dos backends; ver "Depende de" de cada uma).
 
-### T-005 — Landing + Login v4 (`/`)
-- **Status**: EM_ANDAMENTO (executor delegado em 2026-07-24; T-003/T-004 já na `main`)
-- **Prioridade**: P1
-- **Depende de**: T-003, T-004 (mergeadas)
-- **Branch/worktree**: `giovane/t-005-landing-login-v4` (worktree isolado)
-- **Contexto**: handoff, tela 1. Evoluir `AuthPage.tsx`, não reescrever do zero.
-- **Escopo**: grid `1.5fr 1fr` gap 20px max-width 980px centrado vertical, empilha <860px. Card esquerdo: logo (mascote receitas 44px + "vetor" 24px), H1 34px "Sua vida financeira, organizada em camadas.", parágrafo mid, lista de 4 funções com mascotes 34px (Renda e despesas, Poupança, Ações, Metas). Card direito: form email+senha, botão primário full-width, alternância login/cadastro via link (fluxo de auth existente em `api.ts` intacto). Rodapé "Cotações via brapi.dev · dados criptografados".
-- **Fora de escopo**: mudanças no backend de auth; telas pós-login.
-- **Critério de aceite**: login e cadastro funcionam como hoje contra o server; layout confere com o protótipo em desktop e empilha <860px sem overflow; build web ok. Justificativa de teste: mudança visual sobre fluxo existente — web sem runner.
-- **Resultado**: —
-
-### T-007 — Backend: layers Poupança/Reserva e Metas (schema + rotas + tipos + testes)
-- **Status**: EM_ANDAMENTO (executor delegado em 2026-07-24; T-006 já na `main`)
-- **Prioridade**: P1
-- **Depende de**: T-006 (mergeada)
-- **Branch/worktree**: `giovane/t-007-backend-poupanca-metas` (worktree isolado)
-- **Contexto**: idem T-006, para os layers Poupança e Metas.
-- **Escopo**: tabelas `savings_entries` (id, user_id, type TEXT CHECK IN ('DEPOSIT','WITHDRAW','YIELD'), amount REAL, date TEXT YYYY-MM-DD, note TEXT DEFAULT '', created_at) — saldo é derivado da soma — e `goals` (id, user_id, name, target_amount REAL, current_amount REAL DEFAULT 0, created_at). Rotas com `requireAuth`: `GET/POST /api/savings`, `DELETE /api/savings/:id`, `GET/POST /api/goals`, `PATCH /api/goals/:id` (atualizar current_amount/name/target), `DELETE /api/goals/:id`. Tipos em `shared/src/index.ts`; funções fetch em `web/src/api.ts`. Mesmo padrão da T-006.
-- **Fora de escopo**: UI; cálculo automático de rendimento CDI (dica CDI no front é texto estático).
-- **Critério de aceite**: mesmos requisitos de teste da T-006 (isolamento por usuário, 401, 400, CRUD) + teste do saldo derivado de savings (soma DEPOSIT + YIELD − WITHDRAW se exposto em GET); `pnpm --filter vetor-wallet-server test` verde; `CLAUDE.md` atualizado.
-- **Resultado**: —
-
 ### T-008 — Home v4 (`/home`): hero de patrimônio + grid de cards de layers com mascote no hover
 - **Status**: PENDENTE
 - **Prioridade**: P1
@@ -121,6 +99,16 @@
 ## Concluídas
 
 > Autorização permanente do humano (2026-07-24, via chat): orquestrador abre as PRs e faz o merge automático (resolvendo conflitos); revisão humana passa a ser a posteriori sobre as PRs.
+
+### T-007 — Backend: layers Poupança/Reserva e Metas (schema + rotas + tipos + testes)
+- **Status**: CONCLUIDA e MERGEADA — PR [#51](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/51) (2026-07-24)
+- **Branch**: `giovane/t-007-backend-poupanca-metas`
+- **Resultado**: tabelas `savings_entries` (livro DEPOSIT/WITHDRAW/YIELD, saldo derivado) e `goals`; rotas `/api/savings` (GET com summary calculado no server: balance/totalDeposits/totalYield/totalWithdrawals), `/api/goals` (PATCH parcial); 7 tipos em `shared/`, 7 funções fetch em `api.ts`, `CLAUDE.md` atualizado. 26 testes novos (goals 15, savings 11); suíte 13 arquivos / 118 testes verde; build ok. Revisor: APROVADA, 0 bloqueantes ("zero regressões, zero desvio de escopo"). Ressalva futura: teste explícito de summary para usuário sem lançamentos.
+
+### T-005 — Landing + Login v4 (`/`)
+- **Status**: CONCLUIDA e MERGEADA — PR [#50](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/50) (2026-07-24; inclui commit `d1dd385` do orquestrador corrigindo comentário do `ThemeToggleButton`, ressalva do revisor)
+- **Branch**: `giovane/t-005-landing-login-v4`
+- **Resultado**: `AuthPage.tsx` reescrita no layout do handoff (grid 1.5fr/1fr, card de apresentação com mascotes + card de login, rodapé brapi.dev) usando os primitivos das T-003/T-004; toggle de tema unificado no `ThemeToggleButton`; estilos em `App.css` (`.vw-landing-*`), `index.css` e backend intocados. Fluxo de auth preservado. Revisor: APROVADA, 0 bloqueantes — fidelidade conferida linha a linha; mascotes verificados via dev server (HTTP 200). Ressalva em aberto: **validação visual humana em 360/860px** (revisor validou por CSS/HTTP, sem screenshot). Pendência para T-012: toggle inline do `WalletSelector` ainda a unificar.
 
 ### T-006 — Backend: layers Renda mensal e Despesas fixas (schema + rotas + tipos + testes)
 - **Status**: CONCLUIDA e MERGEADA — PR [#49](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/49) (2026-07-24)
