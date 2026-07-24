@@ -1,13 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Goal, PortfolioSummary } from '@vetor-wallet/shared';
-import { computeGoalsSummary, computeStockTotals, sumAmounts } from '../../../web/src/routes/homeMetrics';
-
-/**
- * `homeMetrics.ts` vive em `web/src/routes/` (T-008 — Home v4) porque é
- * consumido pela HomePage do frontend, mas é lógica pura sem dependência de
- * DOM/React, então é testada aqui via Vitest do server, seguindo a política
- * de testes do CLAUDE.md (`web` ainda não tem test runner — issue #6).
- */
+import { computeGoalsSummary, computeStockTotals, sumAmounts } from './homeMetrics';
 
 function makeSummary(overrides: Partial<PortfolioSummary> = {}): PortfolioSummary {
   return {
