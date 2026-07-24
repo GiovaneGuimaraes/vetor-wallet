@@ -318,8 +318,8 @@ pnpm --filter vetor-wallet-server test
 ### `DATABASE_URL` para o CLI e futuro Turso
 `server/src/db.ts` usa `process.cwd()/data/wallet.db` por padrão. O CLI roda em `cli/`, então precisa de `DATABASE_URL=file:../server/data/wallet.db` no `cli/.env`. Quando o projeto migrar para Turso, basta apontar `DATABASE_URL` para a URL remota em ambos os ambientes.
 
-### SELL sem validação de saldo
-`portfolio.ts` usa `Math.max(0, newQty)` — vender mais do que se possui trunca silenciosamente a quantidade a zero, sem rejeitar a operação.
+### Validação de SELL contra a posição atual
+`POST /api/operations` e `POST /api/import` (CSV) rejeitam com `400` qualquer SELL que exceda a posição consolidada **atual** do ticker (soma de todas as operações já registradas naquela carteira/usuário, independente da data da nova operação — não há validação por data histórica; um SELL retroativo é validado contra a posição de hoje). A checagem usa `wouldExceedPosition`/`getPositionQuantity` em `services/portfolio.ts`, reaproveitando o mesmo `buildPositionMap` do cálculo de preço médio (sem duplicar lógica). No CSV, a rejeição é **por linha**: linhas de SELL inválidas entram no relatório de erros (`CsvImportResult.errors`, com número da linha) e o restante do arquivo é importado normalmente. `applyOperation` mantém `Math.max(0, newQty)` como cláusula de defesa (não como validação) — dados históricos podem já conter vendas a descoberto gravadas antes desta validação existir, e o cálculo de posição não pode quebrar/ficar negativo ao processá-los.
 
 ### Sessões não persistem no restart
 `express-session` usa **MemoryStore** — sessões são perdidas quando o servidor reinicia. Aceitável para uso local; para produção, migrar para Redis store ou AWS Cognito.
