@@ -23,19 +23,26 @@
 
 ## Tarefas ativas
 
-_(vazio — ciclo 3 concluído e processo encerrado pelo humano em 2026-07-24. Próximo ciclo: começar pela "Fila do ciclo 4" abaixo.)_
+_(vazio — Onda A do ciclo 4 concluída em 2026-07-24; aguardando decisões do humano para T-020/T-021 e ordenação das demais candidatas.)_
 
-## Fila do ciclo 4 (registrada no encerramento — PENDENTE, não delegada)
+## Ciclo 4 — Onda A CONCLUÍDA E MERGEADA (2026-07-24)
+
+> Humano ativou modo auto (orquestrador sequencia tarefas, PRs e merges automáticos, reporta ao fim). T-019 + T-016 executadas em paralelo (worktrees isoladas), ambas APROVADAS pelo revisor com 0 bloqueantes e mergeadas (PRs #61 e #62). Sanidade final na `main` (`60011b0`): server 147 testes (15 arquivos) + web 19 testes (3 arquivos) verdes. Próximas: T-020/T-021 bloqueadas por decisão do humano (`TODO-HUMANO.md`).
 
 ### T-016 — P&L diário real nos cards de carteira (via `quote_snapshots`)
-_(item completo mais abaixo, na seção do ciclo 3 — transferido; primeira da fila)_
+- **Status**: CONCLUIDA e MERGEADA — PR [#62](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/62) (2026-07-24). Revisor: APROVADA, 0 bloqueantes — cálculo confere com manual em testes, SQL parametrizado, retrocompatibilidade de `buildPortfolioSummary` via parâmetro opcional, chip com fallback correto. Entrega: `computeDayProfitLoss` (pura) + `getPreviousCloseSnapshots` + `dayProfitLoss`/`dayProfitLossPct` no `PortfolioSummary` + chip "hoje"/fallback "total" no `WalletSelector` (`walletChip.ts` puro com testes). Semântica conservadora: qualquer ticker ativo sem snapshot anterior ou cotações falhas → campos null. Ressalva pré-existente registrada: `date(captured_at)` UTC vs data BRT em `snapshots.ts` (padrão antigo, candidata futura).
+- **Branch/worktree**: `giovane/t-016-pnl-diario` (commit `793b321`)
+_(item completo mais abaixo, na seção do ciclo 3 — transferido)_
 
 ### T-019 — Validar SELL do import CSV por `wallet_id`
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA e MERGEADA — PR [#61](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/61) (2026-07-24). Revisor: APROVADA, 0 bloqueantes — filtro parametrizado, comportamento sem `walletId` preservado, teste multi-carteira cobre o critério (SELL 100 rejeitado com 50+50 entre carteiras; SELL 50 aceito). Suíte server: 133 testes. Ressalva não bloqueante pré-existente: `Number(req.query.walletId)` sem validação de NaN (mesmo padrão de `operations.ts`) — candidata a limpeza futura.
+- **Branch/worktree**: `giovane/t-019-sell-csv-wallet` (commit `fdc3a0b`)
 - **Prioridade**: P1 (lacuna de corretude encontrada pelo revisor da T-014)
 - **Contexto**: `server/src/routes/import.ts` valida SELL contra a posição somada de TODAS as carteiras do usuário (a query não filtra por `wallet_id`, ao contrário de `operations.ts`). Usuário com múltiplas carteiras pode importar um SELL que excede a posição da carteira alvo sem rejeição.
 - **Escopo**: filtrar a query de posição do import por `wallet_id` quando informado; teste de rota cobrindo o cenário multi-carteira; revisar o texto correspondente no `CLAUDE.md`.
 - **Critério de aceite**: CSV com SELL que excede a posição da carteira alvo (mas coberto pela soma das carteiras) é rejeitado por linha; suíte verde.
+
+## Fila restante do ciclo 4 (bloqueada por decisão do humano — ver `TODO-HUMANO.md`)
 
 ### T-020 — Logo oficial no header e na AuthPage (residual da antiga prioridade 4)
 - **Status**: PENDENTE
