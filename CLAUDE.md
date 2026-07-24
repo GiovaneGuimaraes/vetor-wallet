@@ -146,6 +146,12 @@ Todas as rotas abaixo (exceto `/api/auth/*`) exigem sessão autenticada via cook
 | `DELETE` | `/api/alerts/:id` | Remove alerta |
 | `GET` | `/api/benchmarks` | Retorno CDI e Ibovespa no período |
 | `GET` | `/api/tickers` | Busca tickers disponíveis na brapi |
+| `GET` | `/api/income` | Lista fontes de renda mensal do usuário |
+| `POST` | `/api/income` | Cria fonte de renda mensal |
+| `DELETE` | `/api/income/:id` | Remove fonte de renda mensal |
+| `GET` | `/api/expenses` | Lista despesas fixas do usuário |
+| `POST` | `/api/expenses` | Cria despesa fixa |
+| `DELETE` | `/api/expenses/:id` | Remove despesa fixa |
 
 ---
 
@@ -214,6 +220,26 @@ CREATE TABLE IF NOT EXISTS alert_rules (
   active    INTEGER NOT NULL DEFAULT 1,
   user_id   INTEGER REFERENCES users(id),
   created_at TEXT   NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Fontes de renda mensal (itens fixos cadastrados, não lançamentos datados)
+CREATE TABLE IF NOT EXISTS income_sources (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  name       TEXT    NOT NULL,
+  type       TEXT    NOT NULL DEFAULT 'OUTRO' CHECK(type IN ('SALARIO', 'FREELA', 'OUTRO')),
+  amount     REAL    NOT NULL,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Despesas fixas mensais (itens fixos cadastrados, não lançamentos datados)
+CREATE TABLE IF NOT EXISTS fixed_expenses (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  name       TEXT    NOT NULL,
+  category   TEXT    NOT NULL DEFAULT '',
+  amount     REAL    NOT NULL,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 ```
 

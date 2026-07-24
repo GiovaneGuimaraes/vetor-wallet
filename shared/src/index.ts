@@ -123,3 +123,35 @@ export interface NewWallet {
   description?: string;
   color?: string;
 }
+
+export type IncomeSourceType = 'SALARIO' | 'FREELA' | 'OUTRO';
+
+export interface IncomeSource {
+  id: number;
+  user_id: number;
+  name: string;
+  type: IncomeSourceType;
+  amount: number;
+  created_at: string;
+}
+
+export interface NewIncomeSource {
+  name: string;
+  type?: IncomeSourceType;
+  amount: number;
+}
+
+export interface FixedExpense {
+  id: number;
+  user_id: number;
+  name: string;
+  category: string;
+  amount: number;
+  created_at: string;
+}
+
+export interface NewFixedExpense {
+  name: string;
+  category?: string;
+  amount: number;
+}

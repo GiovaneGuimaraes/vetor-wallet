@@ -7,8 +7,12 @@
     <script>
       try {
         var t = localStorage.getItem('vw-theme');
-        if (t === 'light') document.documentElement.classList.add('light');
-      } catch (e) {}
+        var theme = t === 'dark' ? 'dark' : 'light';
+        document.documentElement.classList.add(theme);
+        document.documentElement.style.colorScheme = theme;
+      } catch (e) {
+        document.documentElement.classList.add('light');
+      }
     </script>
   </head>
   <body>

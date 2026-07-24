@@ -106,6 +106,28 @@ export async function initDb() {
     )
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS income_sources (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    INTEGER NOT NULL REFERENCES users(id),
+      name       TEXT    NOT NULL,
+      type       TEXT    NOT NULL DEFAULT 'OUTRO' CHECK(type IN ('SALARIO', 'FREELA', 'OUTRO')),
+      amount     REAL    NOT NULL,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS fixed_expenses (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    INTEGER NOT NULL REFERENCES users(id),
+      name       TEXT    NOT NULL,
+      category   TEXT    NOT NULL DEFAULT '',
+      amount     REAL    NOT NULL,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
   // Add user_id column to existing tables (idempotent — ignored if already present)
   for (const sql of [
     'ALTER TABLE operations ADD COLUMN user_id INTEGER REFERENCES users(id)',

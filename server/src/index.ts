@@ -13,6 +13,8 @@ import tickersRouter from './routes/tickers';
 import snapshotsRouter from './routes/snapshots';
 import walletsRouter from './routes/wallets';
 import adminRouter from './routes/admin';
+import incomeRouter from './routes/income';
+import expensesRouter from './routes/expenses';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -46,6 +48,8 @@ app.use('/api/import', importRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/benchmarks', benchmarksRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/income', incomeRouter);
+app.use('/api/expenses', expensesRouter);
 
 app.use(errorHandler);
 
