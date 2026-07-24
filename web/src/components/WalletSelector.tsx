@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import type { User, Wallet, PortfolioSummary, NewWallet } from '@vetor-wallet/shared';
 import { ThemeToggleButton } from './ThemeToggleButton';
+import { resolveWalletChip } from './walletChip';
 
 const WALLET_PALETTE = ['#e3d5b8', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4'];
 
@@ -51,9 +52,14 @@ function WalletCard({ wallet, index, summary, onClick }: WalletCardProps) {
   const tiltActive = hovered && !prefersReducedMotion;
 
   const currentValue = summary?.totalCurrentValue ?? summary?.totalInvested ?? 0;
-  const profitLossPct = summary?.totalProfitLossPct ?? 0;
   const nAtivos = summary?.positions.length ?? 0;
-  const isProfit = profitLossPct >= 0;
+
+  // T-016: prioriza o P&L do dia (via quote_snapshots) quando disponível;
+  // cai no P&L total rotulado quando não há snapshot de fechamento anterior
+  // para algum ticker ativo (ver PortfolioSummary.dayProfitLossPct).
+  const chip = resolveWalletChip(summary);
+  const { pct: displayPct, label: chipLabel, isProfit } = chip;
+  const hasDayData = chipLabel === 'hoje';
 
   // Allocation bar segments
   const segments = (summary?.positions ?? [])
@@ -120,17 +126,21 @@ function WalletCard({ wallet, index, summary, onClick }: WalletCardProps) {
       </p>
 
       {/* Bottom row: P&L pill + asset count.
-          Nota (T-012): o modelo de dados atual (PortfolioSummary) só expõe
-          P&L acumulado desde o início da carteira, não a variação do dia —
-          não há preço de fechamento do dia anterior armazenado. Por isso o
-          chip usa o P&L total com o rótulo "total" explícito, em vez de
-          aparentar ser a variação diária. */}
+          T-016: quando há snapshot de fechamento anterior para todos os
+          tickers ativos, o chip mostra o P&L do dia ("hoje"). Sem isso
+          (ticker sem snapshot, ou cotações indisponíveis), cai no fallback
+          de P&L total desde o início da carteira, com rótulo "total"
+          explícito (comportamento original da T-012). */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px', marginBottom: '6px', position: 'relative', zIndex: 1 }}>
         <span
-          title="P&L total desde o início da carteira (variação diária ainda não é derivável dos dados atuais)"
+          title={
+            hasDayData
+              ? 'P&L do dia, com base no fechamento anterior (quote_snapshots)'
+              : 'P&L total desde o início da carteira (P&L do dia ainda não disponível para esta carteira)'
+          }
           style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '99px', background: isProfit ? 'rgba(16,185,129,0.14)' : 'rgba(244,63,94,0.14)', color: isProfit ? '#10b981' : '#f43f5e', lineHeight: '18px' }}
         >
-          {fmtPct(profitLossPct)} total
+          {fmtPct(displayPct)} {chipLabel}
         </span>
         <span style={{ fontSize: '12px', color: 'var(--color-mid)', fontVariantNumeric: 'tabular-nums' }}>
           {nAtivos} {nAtivos === 1 ? 'ativo' : 'ativos'}

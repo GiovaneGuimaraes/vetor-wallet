@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { buildPositionMap, buildPortfolioSummary, wouldExceedPosition } from './portfolio';
+import {
+  buildPositionMap,
+  buildPortfolioSummary,
+  wouldExceedPosition,
+  computeDayProfitLoss,
+} from './portfolio';
 import type { Operation } from '@vetor-wallet/shared';
 
 function op(
@@ -176,5 +181,117 @@ describe('buildPortfolioSummary', () => {
     const summary = buildPortfolioSummary(map, new Map());
 
     expect(summary.quotesUnavailable).toBeUndefined();
+  });
+
+  // ── dayProfitLoss / dayProfitLossPct (T-016) ────────────────────────────────
+
+  it('computes dayProfitLoss from known snapshots — quantity × (current - previousClose)', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 100, 30)]);
+    const quotes = new Map([['PETR4', 35]]);
+    const previousCloses = new Map([['PETR4', 32]]);
+
+    const summary = buildPortfolioSummary(map, quotes, false, previousCloses);
+
+    // manual: 100 * (35 - 32) = 300; previousValue = 100 * 32 = 3200 → 9.375%
+    expect(summary.dayProfitLoss).toBe(300);
+    expect(summary.dayProfitLossPct).toBeCloseTo(9.375, 3);
+  });
+
+  it('aggregates dayProfitLoss across multiple tickers', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 100, 30), op('VALE3', 'BUY', 50, 80)]);
+    const quotes = new Map([
+      ['PETR4', 35],
+      ['VALE3', 78],
+    ]);
+    const previousCloses = new Map([
+      ['PETR4', 32],
+      ['VALE3', 80],
+    ]);
+
+    const summary = buildPortfolioSummary(map, quotes, false, previousCloses);
+
+    // PETR4: 100*(35-32)=300; VALE3: 50*(78-80)=-100 → total 200
+    // previousValue = 100*32 + 50*80 = 3200 + 4000 = 7200 → 200/7200*100
+    expect(summary.dayProfitLoss).toBe(200);
+    expect(summary.dayProfitLossPct).toBeCloseTo((200 / 7200) * 100, 5);
+  });
+
+  it('dayProfitLoss is null when a ticker has no previous-close snapshot', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 100, 30)]);
+    const quotes = new Map([['PETR4', 35]]);
+
+    const summary = buildPortfolioSummary(map, quotes, false, new Map());
+
+    expect(summary.dayProfitLoss).toBeNull();
+    expect(summary.dayProfitLossPct).toBeNull();
+  });
+
+  it('dayProfitLoss is null when quotes are unavailable, even with snapshots present', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 100, 30)]);
+    const previousCloses = new Map([['PETR4', 32]]);
+
+    const summary = buildPortfolioSummary(map, new Map(), true, previousCloses);
+
+    expect(summary.dayProfitLoss).toBeNull();
+    expect(summary.dayProfitLossPct).toBeNull();
+  });
+
+  it('dayProfitLoss is null when there are no active tickers', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 100, 30), op('PETR4', 'SELL', 100, 50)]);
+    const summary = buildPortfolioSummary(map, new Map(), false, new Map());
+
+    expect(summary.dayProfitLoss).toBeNull();
+    expect(summary.dayProfitLossPct).toBeNull();
+  });
+
+  it('defaults dayProfitLoss to null when previousCloses argument is omitted', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 100, 30)]);
+    const quotes = new Map([['PETR4', 35]]);
+    const summary = buildPortfolioSummary(map, quotes);
+
+    expect(summary.dayProfitLoss).toBeNull();
+    expect(summary.dayProfitLossPct).toBeNull();
+  });
+});
+
+// ── computeDayProfitLoss (unit, isolated from buildPortfolioSummary) ─────────
+
+describe('computeDayProfitLoss', () => {
+  it('matches manual calculation with known snapshots', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 200, 20)]);
+    const quotes = new Map([['PETR4', 22]]);
+    const previousCloses = new Map([['PETR4', 21]]);
+
+    const result = computeDayProfitLoss(map, quotes, previousCloses, false);
+
+    // 200 * (22 - 21) = 200; previousValue = 200 * 21 = 4200
+    expect(result.dayProfitLoss).toBe(200);
+    expect(result.dayProfitLossPct).toBeCloseTo((200 / 4200) * 100, 5);
+  });
+
+  it('returns null pct (not division by zero) when previous value is zero', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 100, 30)]);
+    const quotes = new Map([['PETR4', 35]]);
+    const previousCloses = new Map([['PETR4', 0]]);
+
+    const result = computeDayProfitLoss(map, quotes, previousCloses, false);
+
+    expect(result.dayProfitLoss).toBe(3500);
+    expect(result.dayProfitLossPct).toBeNull();
+  });
+
+  it('returns null when quotesFailed is true', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 100, 30)]);
+    const result = computeDayProfitLoss(map, new Map(), new Map([['PETR4', 30]]), true);
+
+    expect(result.dayProfitLoss).toBeNull();
+    expect(result.dayProfitLossPct).toBeNull();
+  });
+
+  it('returns null when the current quote for an active ticker is missing', () => {
+    const map = buildPositionMap([op('PETR4', 'BUY', 100, 30)]);
+    const result = computeDayProfitLoss(map, new Map(), new Map([['PETR4', 30]]), false);
+
+    expect(result.dayProfitLoss).toBeNull();
   });
 });

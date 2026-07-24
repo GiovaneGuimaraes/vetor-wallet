@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { fetchQuotes } from '../services/quotes';
 import { buildPositionMap, buildPortfolioSummary } from '../services/portfolio';
+import { getPreviousCloseSnapshots, getBRTDate } from '../services/snapshots';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import type { Operation } from '@vetor-wallet/shared';
@@ -36,7 +37,11 @@ router.get(
     }
 
     const { quotes, failed } = await fetchQuotes(activeTickers);
-    const summary = buildPortfolioSummary(positionMap, quotes, failed);
+
+    const todayISO = getBRTDate().toISOString().split('T')[0];
+    const previousCloses = await getPreviousCloseSnapshots(activeTickers, todayISO);
+
+    const summary = buildPortfolioSummary(positionMap, quotes, failed, previousCloses);
 
     res.json(summary);
   }),

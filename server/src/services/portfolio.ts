@@ -46,10 +46,53 @@ export function wouldExceedPosition(
   return sellQuantity > getPositionQuantity(positionMap, ticker);
 }
 
+/**
+ * Computes the portfolio's day P&L (variação frente ao fechamento anterior).
+ *
+ * Only tickers with a positive current position count. Returns null fields when:
+ * - the quotes fetch failed, or
+ * - there are no active tickers, or
+ * - any active ticker is missing either a current quote or a previous-close
+ *   snapshot (T-016: "sem snapshot → campo null").
+ */
+export function computeDayProfitLoss(
+  positionMap: Map<string, PositionEntry>,
+  currentQuotes: Map<string, number>,
+  previousCloses: Map<string, number>,
+  quotesFailed = false,
+): { dayProfitLoss: number | null; dayProfitLossPct: number | null } {
+  if (quotesFailed) return { dayProfitLoss: null, dayProfitLossPct: null };
+
+  const activeTickers: string[] = [];
+  for (const [ticker, pos] of positionMap.entries()) {
+    if (pos.quantity > 0) activeTickers.push(ticker);
+  }
+  if (activeTickers.length === 0) return { dayProfitLoss: null, dayProfitLossPct: null };
+
+  let previousValue = 0;
+  let currentValue = 0;
+
+  for (const ticker of activeTickers) {
+    const pos = positionMap.get(ticker)!;
+    const previousClose = previousCloses.get(ticker);
+    const currentPrice = currentQuotes.get(ticker);
+    if (previousClose === undefined || currentPrice === undefined) {
+      return { dayProfitLoss: null, dayProfitLossPct: null };
+    }
+    previousValue += pos.quantity * previousClose;
+    currentValue += pos.quantity * currentPrice;
+  }
+
+  const dayProfitLoss = currentValue - previousValue;
+  const dayProfitLossPct = previousValue > 0 ? (dayProfitLoss / previousValue) * 100 : null;
+  return { dayProfitLoss, dayProfitLossPct };
+}
+
 export function buildPortfolioSummary(
   positionMap: Map<string, PositionEntry>,
   quotes: Map<string, number>,
   quotesFailed = false,
+  previousCloses: Map<string, number> = new Map(),
 ): PortfolioSummary {
   const activeTickers: string[] = [];
   for (const [ticker, pos] of positionMap.entries()) {
@@ -103,12 +146,21 @@ export function buildPortfolioSummary(
       ? (totalProfitLoss / totalInvested) * 100
       : null;
 
+  const { dayProfitLoss, dayProfitLossPct } = computeDayProfitLoss(
+    positionMap,
+    quotes,
+    previousCloses,
+    quotesFailed,
+  );
+
   return {
     positions,
     totalInvested,
     totalCurrentValue,
     totalProfitLoss,
     totalProfitLossPct,
+    dayProfitLoss,
+    dayProfitLossPct,
     ...(quotesFailed ? { quotesUnavailable: true } : {}),
   };
 }
