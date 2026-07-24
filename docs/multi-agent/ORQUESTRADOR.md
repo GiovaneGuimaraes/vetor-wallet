@@ -24,7 +24,7 @@ Do `CLAUDE.md > Pontos de atenção`:
 
 > Atualize esta lista com aprovação do humano quando o contexto mudar. Registre a mudança no `TODO-HUMANO.md` se precisar de decisão.
 
-0. **[ATUAL — pedido do humano em 2026-07-24] Refactor "Vetor Wallet v4" multi-layer**
+0. **[CONCLUÍDA em 2026-07-24 — PRs #47–#56 mergeadas] Refactor "Vetor Wallet v4" multi-layer**
    Elevar o app para carteira financeira completa em layers — Renda mensal, Despesas
    fixas, Poupança/Reserva, Metas, Criptomoedas (mock) e Ações — com o design do
    handoff `design_handoff_vetor_wallet_refactor/` (estilo biip.club, light/dark,

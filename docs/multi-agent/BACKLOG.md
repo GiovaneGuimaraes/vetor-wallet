@@ -23,7 +23,11 @@
 
 ## Tarefas ativas
 
-> **Ciclo 2 — Refactor "Vetor Wallet v4" (handoff `design_handoff_vetor_wallet_refactor/`)**
+_(vazio — ciclo 2 concluído em 2026-07-24; ver seção abaixo. Próximo ciclo: reavaliar prioridades no `ORQUESTRADOR.md`.)_
+
+## Ciclo 2 — CONCLUÍDO E MERGEADO (2026-07-24)
+
+> **Refactor "Vetor Wallet v4" (handoff `design_handoff_vetor_wallet_refactor/`)** — 11 tarefas (T-003 a T-013), todas revisadas, aprovadas e mergeadas via PRs #47–#56. Sanidade final na `main`: 128 testes verdes (14 arquivos) + build completo. Detalhes por tarefa abaixo (status atualizado em cada bloco).
 > Pedido direto do humano (2026-07-24): elevar o app de "carteira de ações" para carteira financeira completa em **layers**: Renda mensal, Despesas fixas, Poupança/Reserva, Metas, Criptomoedas (mock "em breve") e Ações (existente). Visual novo estilo biip.club (neutro, light/dark, fonte Geist, mascotes por layer). Fonte de verdade do design: `design_handoff_vetor_wallet_refactor/README.md` + protótipo `Vetor Wallet v4.dc.html` (referência visual, NÃO copiar código).
 >
 > **Correção ao handoff**: ele afirma que os modelos de renda/despesas/poupança/metas "já existem no server" — **não existem**. T-006/T-007 criam esse backend.
@@ -31,7 +35,7 @@
 > **Ondas de paralelismo**: Onda A = T-003, T-004, T-006 (independentes entre si). Onda B = T-005, T-007. Onda C = T-008…T-013 (dependem da shell T-004 e dos backends; ver "Depende de" de cada uma).
 
 ### T-008 — Home v4 (`/home`): hero de patrimônio + grid de cards de layers com mascote no hover
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA e MERGEADA — PR [#56](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/56). Histórico: REPROVADA na 1ª revisão (lógica de cálculo em `homeMetrics.ts` sem teste — CLAUDE.md exige e prescreve testar funções puras do web via Vitest do server); executor corrigiu (10 testes em `server/src/services/homeMetrics.test.ts`, `Promise.allSettled` por card, `exclude` de testes no build de produção do server) → APROVADA na re-revisão. Suíte foi a 128 testes.
 - **Prioridade**: P1
 - **Depende de**: T-003, T-004, T-006, T-007
 - **Branch/worktree**: —
@@ -42,10 +46,10 @@
 - **Resultado**: —
 
 ### T-009 — Telas dos layers Renda (`/renda`) e Despesas (`/despesas`)
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA e MERGEADA — PR [#54](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/54) (APROVADA pelo revisor, 0 bloqueantes; executor fez smoke test real contra o server dev; orquestrador resolveu conflito de rotas do `App.tsx` com a T-010 e removeu `LayerPlaceholderPage` órfão)
 - **Prioridade**: P1
 - **Depende de**: T-003, T-004, T-006
-- **Branch/worktree**: —
+- **Branch/worktree**: `giovane/t-009-telas-renda-despesas`
 - **Contexto**: handoff, tela 3. Conteúdo enxuto, alto nível, sem gráficos pesados.
 - **Escopo**: **Renda**: total do mês + lista de fontes (nome, tipo, valor) + form de adição + excluir. **Despesas**: total + lista por categoria (sem barras de progresso) + form + excluir. Componentes novos em `web/src/components/` consumindo as funções de `api.ts` da T-006; header com mascote e título/subtítulo do layer (via shell T-004); formatação pt-BR/BRL; estados vazio/carregando/erro.
 - **Fora de escopo**: edição inline; recorrência; gráficos.
@@ -53,10 +57,10 @@
 - **Resultado**: —
 
 ### T-010 — Telas dos layers Poupança (`/poupanca`) e Metas (`/metas`)
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA e MERGEADA — PR [#53](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/53) (APROVADA pelo revisor, 0 bloqueantes: summary direto do server, clamp de 100% na barra de metas, decimais pt-BR, erros 400 exibidos)
 - **Prioridade**: P1
 - **Depende de**: T-003, T-004, T-007
-- **Branch/worktree**: —
+- **Branch/worktree**: `giovane/t-010-telas-poupanca-metas`
 - **Contexto**: handoff, tela 3.
 - **Escopo**: **Poupança**: saldo, aportes, rendimento (derivados dos lançamentos da T-007) + form de lançamento + dica CDI em card de texto simples. **Metas**: lista de metas com nome, alvo, atual, % em barra fina + form de criação + atualização de progresso (PATCH) + excluir. Mesmos padrões da T-009.
 - **Fora de escopo**: cálculo automático de rendimento; gráficos.
@@ -64,7 +68,7 @@
 - **Resultado**: —
 
 ### T-011 — Tela Cripto mock (`/cripto`) "em breve"
-- **Status**: PENDENTE (**provavelmente já satisfeita** — a T-004 entregou `CriptoPage.tsx` completa e fiel ao handoff segundo o revisor; validar visualmente após o merge da T-004 e então marcar CONCLUIDA ou abrir só o ajuste residual)
+- **Status**: CONCLUIDA — satisfeita pela T-004 (PR #48): `CriptoPage.tsx` com mascote 130px, "Estamos trabalhando nisso", texto dim e botão fantasma de volta, conferida pelo revisor da T-004 como fiel ao handoff. Sem PR própria.
 - **Prioridade**: P2
 - **Depende de**: T-003, T-004
 - **Branch/worktree**: —
@@ -75,10 +79,10 @@
 - **Resultado**: —
 
 ### T-012 — Carteiras de ações v4 (`/carteiras`): cards estilo cartão de crédito
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA e MERGEADA — PR [#52](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/52) (APROVADA; grosso do escopo já vinha da T-004 — este diff unificou o último toggle de tema inline no `ThemeToggleButton` e rotulou o chip de P&L como "total" com tooltip, pois P&L diário não é derivável do modelo atual. Candidata a tarefa futura: P&L diário via `quote_snapshots`)
 - **Prioridade**: P1
 - **Depende de**: T-003, T-004
-- **Branch/worktree**: —
+- **Branch/worktree**: `giovane/t-012-carteiras-v4`
 - **Contexto**: handoff, tela 4. Evolui o `WalletSelector.tsx` atual para uma página própria.
 - **Escopo**: página com cards radius 20px, gradiente sutil "leather", nome da carteira, valor total e P&L do dia (dados de `/api/wallets` + `/api/portfolio`); card fantasma "+ Nova carteira" abrindo o fluxo de criação existente; clique no card → `/dash/:id`.
 - **Fora de escopo**: editar/excluir carteira (se não existir hoje); mudanças no backend de wallets.
@@ -86,10 +90,10 @@
 - **Resultado**: —
 
 ### T-013 — Dashboard da carteira v4 (`/dash/:id`): stats, tabela de 7 colunas, form de operação — sem gráficos
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA e MERGEADA — PR [#55](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/55) (APROVADA, 0 bloqueantes: tabela de exatamente 7 colunas conferida, gráficos e BenchmarkComparison fora do render com arquivos/rotas do server intactos, segmented pill acessível, CsvImport/AlertsPanel preservados)
 - **Prioridade**: P1
 - **Depende de**: T-003, T-004
-- **Branch/worktree**: —
+- **Branch/worktree**: `giovane/t-013-dashboard-v4`
 - **Contexto**: handoff, tela 5. Evoluir `PortfolioDashboard.tsx`/`OperationForm.tsx`/`OperationsList.tsx` — o design **remove** os gráficos de evolução/alocação/comparativo.
 - **Escopo**: 3 cards de stats (Valor atual, Investido, Resultado com chip %); tabela de posições com exatamente 7 colunas (Ticker, Qtd, PM, Cotação, Valor atual, Resultado, %), linhas 13px padding 13/22px hover `rgba(raised,.55)`, sem linha expansível; form de operação em card (ticker, qtd, preço, data, segmented compra/venda) mantendo `TickerCombobox`; remover do render os gráficos e o `BenchmarkComparison` (manter arquivos/rotas do server intactos — só sai da UI); cores up/down no P&L; tabular-nums.
 - **Fora de escopo**: mudanças em `portfolio.ts` do server; validação de SELL (dívida conhecida, fora deste ciclo); alertas e import CSV (manter acessíveis onde estão ou registrar no `TODO-HUMANO.md` se o design não prevê lugar para eles).

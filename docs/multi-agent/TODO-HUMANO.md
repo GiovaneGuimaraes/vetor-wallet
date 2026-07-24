@@ -18,6 +18,18 @@
 
 ## Abertos
 
+### [2026-07-24] Ciclo 2 concluído — validação visual final do app v4
+- **Origem**: orquestrador (fechamento do ciclo 2)
+- **Bloqueia**: nada — o app v4 já está na `main` (PRs #47–#56)
+- **Pergunta/pendência**: rode `pnpm dev` e navegue o fluxo completo (landing → home → cada layer → carteiras → dashboard) em light/dark e em 360/768px. Revisores validaram por análise estática, build e HTTP — nenhuma captura de tela foi feita. Pontos específicos citados nas revisões: landing em <860px, tabela do dashboard em 360px, hover dos mascotes na home. Divergências visuais viram tarefas residuais no próximo ciclo.
+- **Resposta do humano**: _(preencher)_
+
+### [2026-07-24] Candidatas para o próximo ciclo (decisão de prioridade)
+- **Origem**: orquestrador
+- **Bloqueia**: nada — define o ciclo 3
+- **Pergunta/pendência**: candidatas identificadas durante o ciclo 2: (a) P&L diário real nos cards de carteira (derivar de `quote_snapshots` — hoje o chip mostra P&L total rotulado); (b) test runner no web (issue #6 — o workaround de testar funções puras via server funcionou, mas tem limite); (c) dívidas antigas do `ORQUESTRADOR.md` (SELL sem validação de saldo, falha silenciosa de cotações, admin ampliado, logo oficial/favicon — a antiga prioridade 4 não foi tocada no v4); (d) backend de cripto (tela é mock). Ordene ou proponha outras.
+- **Resposta do humano**: _(preencher)_
+
 ### [2026-07-24] Onda A completa — decidir estratégia de integração antes da Onda B
 - **Origem**: orquestrador (ciclo 2)
 - **Bloqueia**: Onda B (T-005, T-007) e todas as seguintes
