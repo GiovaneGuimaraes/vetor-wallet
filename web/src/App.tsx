@@ -6,6 +6,8 @@ import type { ShellContext } from './layout/ShellContext';
 import { LandingRoute } from './routes/LandingRoute';
 import { HomePage } from './routes/HomePage';
 import { LayerPlaceholderPage } from './routes/LayerPlaceholderPage';
+import { PoupancaPage } from './routes/PoupancaPage';
+import { MetasPage } from './routes/MetasPage';
 import { CriptoPage } from './routes/CriptoPage';
 import { CarteirasPage } from './routes/CarteirasPage';
 import { DashboardPage } from './routes/DashboardPage';
@@ -133,14 +135,8 @@ export default function App() {
           path="/despesas"
           element={<LayerPlaceholderPage title="Despesas" subtitle="Gastos por categoria" />}
         />
-        <Route
-          path="/poupanca"
-          element={<LayerPlaceholderPage title="Poupança" subtitle="Saldo, aportes e rendimento" />}
-        />
-        <Route
-          path="/metas"
-          element={<LayerPlaceholderPage title="Metas" subtitle="Progresso dos seus objetivos" />}
-        />
+        <Route path="/poupanca" element={<PoupancaPage />} />
+        <Route path="/metas" element={<MetasPage />} />
         <Route path="/cripto" element={<CriptoPage />} />
         <Route path="/carteiras" element={<CarteirasPage />} />
         <Route path="/dash/:id" element={<DashboardPage />} />
