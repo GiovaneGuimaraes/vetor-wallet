@@ -310,10 +310,50 @@ interface Props {
   onLogout: () => void;
   theme: 'dark' | 'light';
   onToggle: () => void;
+  /**
+   * T-004: quando renderizado dentro do shell v4 (rota `/carteiras`), o
+   * header próprio deste componente (logo + toggle + sair) é omitido — o
+   * `AppShell` já cobre essa função com a logo dinâmica por layer.
+   */
+  embedded?: boolean;
 }
 
-export function WalletSelector({ user, wallets, walletSummaries, onSelect, onCreateWallet, onLogout, theme, onToggle }: Props) {
+export function WalletSelector({ user, wallets, walletSummaries, onSelect, onCreateWallet, onLogout, theme, onToggle, embedded }: Props) {
   const [showCreate, setShowCreate] = useState(false);
+
+  const grid = (
+    <>
+      <div className="screen">
+        <h1 style={{ margin: 0, fontSize: '26px', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--color-ink)' }}>Suas carteiras</h1>
+        <p style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--color-dim)' }}>Selecione uma carteira para acessar seu dashboard</p>
+      </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px', marginTop: '28px' }}>
+          {wallets.map((wallet, index) => (
+            <div key={wallet.id} className={`rise d${Math.min(index + 1, 5)}`}>
+              <WalletCard wallet={wallet} index={index} summary={walletSummaries[wallet.id]} onClick={() => onSelect(wallet)} />
+            </div>
+          ))}
+          <div className={`rise d${Math.min(wallets.length + 1, 5)}`}>
+            <NewWalletCard onClick={() => setShowCreate(true)} />
+          </div>
+        </div>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <>
+        {grid}
+        {showCreate && (
+          <CreateWalletModal
+            onClose={() => setShowCreate(false)}
+            onCreate={async (data) => { await onCreateWallet(data); setShowCreate(false); }}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-canvas" style={{ background: `radial-gradient(80% 50% at 50% -10%, rgba(var(--accent-rgb), .08), transparent 60%), var(--color-canvas)` }}>
@@ -336,21 +376,7 @@ export function WalletSelector({ user, wallets, walletSummaries, onSelect, onCre
       </header>
 
       <main className="wallet-selector-main" style={{ maxWidth: '1120px', margin: '0 auto', padding: '56px 32px 64px' }}>
-        <div className="screen">
-          <h1 style={{ margin: 0, fontSize: '26px', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--color-ink)' }}>Suas carteiras</h1>
-          <p style={{ margin: '6px 0 0', fontSize: '14px', color: 'var(--color-dim)' }}>Selecione uma carteira para acessar seu dashboard</p>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px', marginTop: '28px' }}>
-          {wallets.map((wallet, index) => (
-            <div key={wallet.id} className={`rise d${Math.min(index + 1, 5)}`}>
-              <WalletCard wallet={wallet} index={index} summary={walletSummaries[wallet.id]} onClick={() => onSelect(wallet)} />
-            </div>
-          ))}
-          <div className={`rise d${Math.min(wallets.length + 1, 5)}`}>
-            <NewWalletCard onClick={() => setShowCreate(true)} />
-          </div>
-        </div>
+        {grid}
       </main>
 
       {showCreate && (
