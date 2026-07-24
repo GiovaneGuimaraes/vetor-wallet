@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, FixedExpense, NewFixedExpense } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -185,4 +185,56 @@ export async function importCsv(csvText: string, walletId?: number): Promise<Csv
     throw new Error(err.error ?? 'Falha ao importar CSV');
   }
   return res.json();
+}
+
+// ── Renda mensal ──────────────────────────────────────────────────────────────
+
+export async function getIncomeSources(): Promise<IncomeSource[]> {
+  const res = await apiFetch('/api/income');
+  if (!res.ok) throw new Error('Falha ao buscar fontes de renda');
+  return res.json();
+}
+
+export async function createIncomeSource(income: NewIncomeSource): Promise<IncomeSource> {
+  const res = await apiFetch('/api/income', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(income),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao criar fonte de renda');
+  }
+  return res.json();
+}
+
+export async function deleteIncomeSource(id: number): Promise<void> {
+  const res = await apiFetch(`/api/income/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Falha ao remover fonte de renda');
+}
+
+// ── Despesas fixas ────────────────────────────────────────────────────────────
+
+export async function getFixedExpenses(): Promise<FixedExpense[]> {
+  const res = await apiFetch('/api/expenses');
+  if (!res.ok) throw new Error('Falha ao buscar despesas fixas');
+  return res.json();
+}
+
+export async function createFixedExpense(expense: NewFixedExpense): Promise<FixedExpense> {
+  const res = await apiFetch('/api/expenses', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(expense),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao criar despesa fixa');
+  }
+  return res.json();
+}
+
+export async function deleteFixedExpense(id: number): Promise<void> {
+  const res = await apiFetch(`/api/expenses/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Falha ao remover despesa fixa');
 }
