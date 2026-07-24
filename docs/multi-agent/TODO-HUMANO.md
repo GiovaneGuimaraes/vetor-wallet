@@ -18,6 +18,12 @@
 
 ## Abertos
 
+### [2026-07-24] Ciclo 3 encerrado — decisões para o ciclo 4
+- **Origem**: orquestrador (encerramento do processo a pedido do humano)
+- **Bloqueia**: início do ciclo 4
+- **Pergunta/pendência**: (1) Ordenar a "Fila do ciclo 4" do `BACKLOG.md` — recomendação do orquestrador: T-019 primeiro (lacuna de corretude: SELL do CSV não valida por carteira), depois T-016 (P&L diário); (2) decidir a T-020: no header do app v4 valem os mascotes por layer (design atual) — a logo oficial entra onde? Só na landing/auth, ou substitui os mascotes?; (3) T-021 (validação de SELL por data histórica) vale o custo?
+- **Resposta do humano**: _(preencher)_
+
 ### [2026-07-24] Ciclo 2 concluído — validação visual final do app v4
 - **Origem**: orquestrador (fechamento do ciclo 2)
 - **Bloqueia**: nada — o app v4 já está na `main` (PRs #47–#56)

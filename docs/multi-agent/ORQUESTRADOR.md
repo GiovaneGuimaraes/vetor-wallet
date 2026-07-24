@@ -22,6 +22,8 @@ Do `CLAUDE.md > Pontos de atenção`:
 
 ## Prioridades (ordem atual)
 
+> **Estado em 2026-07-24 (encerramento do ciclo 3)**: ciclos 2 (app v4 multi-layer, PRs #47–#56) e 3 (robustez, PRs #57–#60) concluídos e mergeados. Suíte: server 132 testes + web 13 testes (runner novo, issue #6 fechável). Próximo ciclo começa pela **"Fila do ciclo 4" no `BACKLOG.md`** (T-019 corretude do SELL em CSV multi-carteira; T-016 P&L diário; T-020/T-021 dependem de decisão do humano — ver `TODO-HUMANO.md`).
+
 > Atualize esta lista com aprovação do humano quando o contexto mudar. Registre a mudança no `TODO-HUMANO.md` se precisar de decisão.
 
 0. **[CONCLUÍDA em 2026-07-24 — PRs #47–#56 mergeadas] Refactor "Vetor Wallet v4" multi-layer**

@@ -23,12 +23,46 @@
 
 ## Tarefas ativas
 
-> **Ciclo 3 — Robustez e dívidas técnicas (iniciado em 2026-07-24 a pedido do humano)**
+_(vazio — ciclo 3 concluído e processo encerrado pelo humano em 2026-07-24. Próximo ciclo: começar pela "Fila do ciclo 4" abaixo.)_
+
+## Fila do ciclo 4 (registrada no encerramento — PENDENTE, não delegada)
+
+### T-016 — P&L diário real nos cards de carteira (via `quote_snapshots`)
+_(item completo mais abaixo, na seção do ciclo 3 — transferido; primeira da fila)_
+
+### T-019 — Validar SELL do import CSV por `wallet_id`
+- **Status**: PENDENTE
+- **Prioridade**: P1 (lacuna de corretude encontrada pelo revisor da T-014)
+- **Contexto**: `server/src/routes/import.ts` valida SELL contra a posição somada de TODAS as carteiras do usuário (a query não filtra por `wallet_id`, ao contrário de `operations.ts`). Usuário com múltiplas carteiras pode importar um SELL que excede a posição da carteira alvo sem rejeição.
+- **Escopo**: filtrar a query de posição do import por `wallet_id` quando informado; teste de rota cobrindo o cenário multi-carteira; revisar o texto correspondente no `CLAUDE.md`.
+- **Critério de aceite**: CSV com SELL que excede a posição da carteira alvo (mas coberto pela soma das carteiras) é rejeitado por linha; suíte verde.
+
+### T-020 — Logo oficial no header e na AuthPage (residual da antiga prioridade 4)
+- **Status**: PENDENTE
+- **Prioridade**: P3
+- **Contexto**: a T-018 entregou favicon/head com a `logo-vetor-wallet.png`; falta decidir/exibir a logo oficial junto ao wordmark nas telas (hoje o header usa os mascotes por layer, decisão do design v4 — pode ser que a logo oficial fique só na landing/auth). **Decisão de UX pendente do humano**: mascotes vs logo oficial no header.
+- **Escopo**: conforme decisão do humano no `TODO-HUMANO.md`.
+
+### T-021 — Validação de SELL por data histórica (avaliar)
+- **Status**: PENDENTE (avaliar se vale o custo)
+- **Prioridade**: P3
+- **Contexto**: ressalva do revisor da T-014: a validação atual usa a posição consolidada ATUAL; um SELL retroativo pode criar histórico com posição negativa em datas intermediárias (documentado como decisão consciente no `CLAUDE.md`).
+- **Escopo**: validar a posição na data da operação (e nas datas seguintes). Custo/benefício a decidir.
+
+### Outras candidatas (do `TODO-HUMANO.md`, aguardando ordenação do humano)
+- Ampliar `/admin` (antiga prioridade 3 do `ORQUESTRADOR.md`).
+- Backend de criptomoedas (tela é mock).
+- Sessões persistentes (MemoryStore → store real) e agendador do job de insights (Lambda/EventBridge) — dívidas de produção conhecidas.
+
+## Ciclo 3 — CONCLUÍDO E MERGEADO (2026-07-24)
+
+> **Robustez e dívidas técnicas** — 4 tarefas executadas (T-014, T-015, T-017, T-018), todas revisadas, aprovadas e mergeadas via PRs #57–#60; T-016 transferida para o ciclo 4 (humano pediu encerramento). Sanidade final na `main`: server 132 testes (15 arquivos) + web 13 testes (2 arquivos) + build completo verdes; porta 3001 livre.
+> Incidente resolvido no início do ciclo: server "quebrando" era processo órfão de smoke test segurando a porta 3001 (`EADDRINUSE`) — morto; regra operacional adicionada aos prompts de executor (encerrar servidores dev e confirmar porta livre).
 > Humano validou o app v4 ("deu bom"). Incidente diagnosticado e resolvido pelo orquestrador antes do ciclo: server "quebrando" era processo órfão de smoke test (worktree da T-009) segurando a porta 3001 → `EADDRINUSE`; processo morto, server da `main` sobe limpo. Lição operacional: executores NÃO devem deixar servidores dev rodando ao terminar.
 > Ondas: A = T-014, T-015, T-017, T-018 (independentes). B = T-016 (toca `portfolio.ts`/tipos como T-014/T-015 — em série).
 
 ### T-014 — Rejeitar venda maior que a posição (validação de SELL)
-- **Status**: EM_ANDAMENTO (executor delegado em 2026-07-24)
+- **Status**: CONCLUIDA e MERGEADA — PR [#57](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/57). Descoberta confirmada pelo revisor via git log: a validação JÁ EXISTIA (`wouldExceedPosition`, desde `7e93d66`) e a dívida do CLAUDE.md estava desatualizada; o diff entrega 8 testes de rota (operations 5, import 3) + doc corrigida. Lacuna pré-existente achada pelo revisor → **T-019** na fila do ciclo 4 (CSV não filtra por wallet_id); semântica temporal → **T-021**.
 - **Prioridade**: P1
 - **Depende de**: —
 - **Branch/worktree**: `giovane/t-014-validacao-sell`
@@ -39,7 +73,7 @@
 - **Resultado**: —
 
 ### T-015 — Sinalizar falha de cotações em vez de falhar silenciosamente
-- **Status**: EM_ANDAMENTO (executor delegado em 2026-07-24)
+- **Status**: CONCLUIDA e MERGEADA — PR [#59](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/59) (APROVADA, 0 bloqueantes: `fetchQuotes` → `{quotes, failed}`, `PortfolioSummary.quotesUnavailable?` opcional, banner warn no dashboard com fallback antigo preservado, benchmarks ajustado; 9 testes novos)
 - **Prioridade**: P1
 - **Depende de**: —
 - **Branch/worktree**: `giovane/t-015-sinal-falha-cotacoes`
@@ -50,7 +84,7 @@
 - **Resultado**: —
 
 ### T-017 — Test runner no web (issue #6)
-- **Status**: EM_ANDAMENTO (executor delegado em 2026-07-24)
+- **Status**: CONCLUIDA e MERGEADA — PR [#58](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/58) (APROVADA: Vitest no web, 10 testes de homeMetrics migrados byte-a-byte do server, `groupByCategory` extraído com 3 testes novos; web 13 testes / server sem os migrados; CLAUDE.md atualizado — **issue #6 fechável**)
 - **Prioridade**: P2
 - **Depende de**: —
 - **Branch/worktree**: `giovane/t-017-web-test-runner`
@@ -61,7 +95,7 @@
 - **Resultado**: —
 
 ### T-018 — Favicon e identidade no `<head>` (título, meta, ícone)
-- **Status**: EM_ANDAMENTO (executor delegado em 2026-07-24)
+- **Status**: CONCLUIDA e MERGEADA — PR [#60](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/60) (APROVADA: favicon 32px + apple-touch-icon 180px gerados da logo oficial `logo-vetor-wallet.png` — decisão fundamentada na prioridade 4 do ORQUESTRADOR.md; title/description/theme-color; pré-paint intocado; ressalva `sizes` corrigida pelo orquestrador. Residual da logo nas telas → **T-020**)
 - **Prioridade**: P3
 - **Depende de**: —
 - **Branch/worktree**: `giovane/t-018-favicon-head`
@@ -72,7 +106,7 @@
 - **Resultado**: —
 
 ### T-016 — P&L diário real nos cards de carteira (via `quote_snapshots`)
-- **Status**: PENDENTE (Onda B — depende de T-014/T-015 por tocar `services/portfolio.ts` e tipos compartilhados)
+- **Status**: PENDENTE — **transferida para o próximo ciclo** (humano pediu encerramento do processo em 2026-07-24; ciclo 3 termina com a Onda A. Primeira candidata da fila do ciclo 4; depende de T-014/T-015 por tocar `services/portfolio.ts` e tipos compartilhados)
 - **Prioridade**: P2
 - **Depende de**: T-014, T-015
 - **Branch/worktree**: —
