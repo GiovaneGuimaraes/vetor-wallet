@@ -11,16 +11,7 @@ import { CarteirasPage } from './routes/CarteirasPage';
 import { DashboardPage } from './routes/DashboardPage';
 import { AdminRoute } from './routes/AdminRoute';
 import type { User, Wallet, PortfolioSummary, NewWallet } from '@vetor-wallet/shared';
-
-function resolveInitialTheme(): 'dark' | 'light' {
-  try {
-    const stored = localStorage.getItem('vw-theme');
-    if (stored === 'light' || stored === 'dark') return stored;
-  } catch {
-    /* noop */
-  }
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
+import { getStoredTheme, setTheme as applyAndPersistTheme, type Theme } from './theme';
 
 /**
  * Shell v4 (T-004): estrutura de navegação por rotas (`react-router-dom` v7)
@@ -35,25 +26,18 @@ function resolveInitialTheme(): 'dark' | 'light' {
  */
 export default function App() {
   const navigate = useNavigate();
-  const [theme, setTheme] = useState<'dark' | 'light'>(resolveInitialTheme);
+  // Mecânica de tema centralizada em web/src/theme.ts (T-003); a aplicação
+  // inicial no <html> acontece em main.tsx (initTheme) e no pré-paint do
+  // index.html — aqui só espelhamos o valor em estado para re-render.
+  const [theme, setTheme] = useState<Theme>(getStoredTheme);
   const [user, setUser] = useState<User | null | 'loading'>('loading');
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [walletSummaries, setWalletSummaries] = useState<Record<number, PortfolioSummary>>({});
 
-  // Sync theme class on mount and on change
-  useEffect(() => {
-    document.documentElement.classList.toggle('light', theme === 'light');
-  }, [theme]);
-
   function toggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark';
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
-    document.documentElement.classList.toggle('light', next === 'light');
-    try {
-      localStorage.setItem('vw-theme', next);
-    } catch {
-      /* noop */
-    }
+    applyAndPersistTheme(next);
   }
 
   // Listen for 401s from any API call and redirect to login
