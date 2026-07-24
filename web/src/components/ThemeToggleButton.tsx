@@ -1,7 +1,7 @@
 /**
- * Toggle de tema circular (sol/lua) reutilizável entre header do shell v4 e
- * outras telas legadas (AuthPage/WalletSelector já têm sua própria versão
- * inline — mantidas como estão para não invadir escopo de outras tarefas).
+ * Toggle de tema circular (sol/lua) reutilizável — usado no header do shell v4
+ * e na AuthPage. `WalletSelector` ainda tem uma versão inline própria,
+ * pendente de unificação na T-012.
  */
 interface Props {
   theme: 'dark' | 'light';
