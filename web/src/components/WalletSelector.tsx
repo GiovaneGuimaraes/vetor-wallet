@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { User, Wallet, PortfolioSummary, NewWallet } from '@vetor-wallet/shared';
+import { ThemeToggleButton } from './ThemeToggleButton';
 
 const WALLET_PALETTE = ['#e3d5b8', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4'];
 
@@ -20,35 +21,11 @@ function hexToRgb(hex: string): string {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-
-function ThemeToggle({ theme, onToggle }: { theme: 'dark' | 'light'; onToggle: () => void }) {
-  return (
-    <button
-      onClick={onToggle}
-      title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
-      style={{
-        width: '32px', height: '32px', border: '1px solid var(--color-edge)',
-        borderRadius: '99px', background: 'transparent', cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: 'var(--color-dim)', transition: 'color .2s, border-color .2s',
-        padding: 0,
-      }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-ink)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-accent)'; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-dim)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-edge)'; }}
-    >
-      {theme === 'dark' ? (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
-        </svg>
-      ) : (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
-        </svg>
-      )}
-    </button>
-  );
-}
+//
+// Nota (T-012): o toggle de tema inline que existia aqui foi unificado com
+// `ThemeToggleButton` (compartilhado com o header do shell v4 e a AuthPage).
+// Em uso `embedded` (rota `/carteiras`) o toggle nem é renderizado — quem
+// cobre essa função é o header do `AppShell`.
 
 function WalletIcon({ color }: { color: string }) {
   return (
@@ -142,10 +119,18 @@ function WalletCard({ wallet, index, summary, onClick }: WalletCardProps) {
         {fmtCur.format(currentValue)}
       </p>
 
-      {/* Bottom row: P&L pill + asset count */}
+      {/* Bottom row: P&L pill + asset count.
+          Nota (T-012): o modelo de dados atual (PortfolioSummary) só expõe
+          P&L acumulado desde o início da carteira, não a variação do dia —
+          não há preço de fechamento do dia anterior armazenado. Por isso o
+          chip usa o P&L total com o rótulo "total" explícito, em vez de
+          aparentar ser a variação diária. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px', marginBottom: '6px', position: 'relative', zIndex: 1 }}>
-        <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '99px', background: isProfit ? 'rgba(16,185,129,0.14)' : 'rgba(244,63,94,0.14)', color: isProfit ? '#10b981' : '#f43f5e', lineHeight: '18px' }}>
-          {fmtPct(profitLossPct)}
+        <span
+          title="P&L total desde o início da carteira (variação diária ainda não é derivável dos dados atuais)"
+          style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '99px', background: isProfit ? 'rgba(16,185,129,0.14)' : 'rgba(244,63,94,0.14)', color: isProfit ? '#10b981' : '#f43f5e', lineHeight: '18px' }}
+        >
+          {fmtPct(profitLossPct)} total
         </span>
         <span style={{ fontSize: '12px', color: 'var(--color-mid)', fontVariantNumeric: 'tabular-nums' }}>
           {nAtivos} {nAtivos === 1 ? 'ativo' : 'ativos'}
@@ -363,7 +348,7 @@ export function WalletSelector({ user, wallets, walletSummaries, onSelect, onCre
             Vetor Wallet
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <ThemeToggle theme={theme} onToggle={onToggle} />
+            <ThemeToggleButton theme={theme} onToggle={onToggle} />
             <span className="hidden sm:inline" style={{ fontSize: '12px', color: 'var(--color-dim)' }}>{user.email}</span>
             <button onClick={onLogout} style={{ background: 'none', border: 'none', color: 'var(--color-dim)', fontSize: '13px', cursor: 'pointer', padding: '4px 0', fontFamily: 'inherit', transition: 'color .2s' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-ink)'; }}
