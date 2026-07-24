@@ -54,6 +54,9 @@ export function computeGoalsSummary(goals: Goal[]): GoalsSummary {
     count: goals.length,
     totalTarget,
     totalCurrent,
+    // aggregatePct fica null (em vez de dividir por zero) quando não há metas
+    // ou quando todas têm target_amount 0 — nesses casos a HomePage cai para
+    // exibir a contagem de metas no card em vez de um percentual sem sentido.
     aggregatePct: totalTarget > 0 ? (totalCurrent / totalTarget) * 100 : null,
   };
 }

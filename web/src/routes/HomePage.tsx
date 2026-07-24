@@ -50,25 +50,30 @@ export function HomePage() {
     let cancelled = false;
 
     async function load() {
-      try {
-        const [incomeRes, expensesRes, savingsRes, goalsRes] = await Promise.all([
-          getIncomeSources(),
-          getFixedExpenses(),
-          getSavings(),
-          getGoals(),
-        ]);
-        if (cancelled) return;
-        setIncome(incomeRes);
-        setExpenses(expensesRes);
-        setSavingsSummary(savingsRes.summary);
-        setGoals(goalsRes);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Falha ao carregar dados da home');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+      // Promise.allSettled (em vez de Promise.all): se uma das 4 chamadas
+      // falhar, as demais ainda populam seus cards — só o card cuja fonte
+      // falhou fica com o valor anterior (0/—) e um aviso genérico aparece.
+      const [incomeRes, expensesRes, savingsRes, goalsRes] = await Promise.allSettled([
+        getIncomeSources(),
+        getFixedExpenses(),
+        getSavings(),
+        getGoals(),
+      ]);
+      if (cancelled) return;
+
+      if (incomeRes.status === 'fulfilled') setIncome(incomeRes.value);
+      if (expensesRes.status === 'fulfilled') setExpenses(expensesRes.value);
+      if (savingsRes.status === 'fulfilled') setSavingsSummary(savingsRes.value.summary);
+      if (goalsRes.status === 'fulfilled') setGoals(goalsRes.value);
+
+      const failures = [incomeRes, expensesRes, savingsRes, goalsRes].filter(
+        (r): r is PromiseRejectedResult => r.status === 'rejected',
+      );
+      if (failures.length > 0) {
+        const first = failures[0].reason;
+        setError(first instanceof Error ? first.message : 'Falha ao carregar alguns dados da home');
       }
+      setLoading(false);
     }
 
     load();
