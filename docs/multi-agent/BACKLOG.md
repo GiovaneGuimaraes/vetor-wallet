@@ -23,9 +23,134 @@
 
 ## Tarefas ativas
 
-_(vazio — próximo ciclo popula a partir das prioridades do `ORQUESTRADOR.md`; candidata: tarefa de redesign visual real, ver ressalva do revisor na T-001)_
+> **Ciclo 2 — Refactor "Vetor Wallet v4" (handoff `design_handoff_vetor_wallet_refactor/`)**
+> Pedido direto do humano (2026-07-24): elevar o app de "carteira de ações" para carteira financeira completa em **layers**: Renda mensal, Despesas fixas, Poupança/Reserva, Metas, Criptomoedas (mock "em breve") e Ações (existente). Visual novo estilo biip.club (neutro, light/dark, fonte Geist, mascotes por layer). Fonte de verdade do design: `design_handoff_vetor_wallet_refactor/README.md` + protótipo `Vetor Wallet v4.dc.html` (referência visual, NÃO copiar código).
+>
+> **Correção ao handoff**: ele afirma que os modelos de renda/despesas/poupança/metas "já existem no server" — **não existem**. T-006/T-007 criam esse backend.
+>
+> **Ondas de paralelismo**: Onda A = T-003, T-004, T-006 (independentes entre si). Onda B = T-005, T-007. Onda C = T-008…T-013 (dependem da shell T-004 e dos backends; ver "Depende de" de cada uma).
 
-## Concluídas (aguardando merge — aprovação humana pendente)
+### T-005 — Landing + Login v4 (`/`)
+- **Status**: EM_ANDAMENTO (executor delegado em 2026-07-24; T-003/T-004 já na `main`)
+- **Prioridade**: P1
+- **Depende de**: T-003, T-004 (mergeadas)
+- **Branch/worktree**: `giovane/t-005-landing-login-v4` (worktree isolado)
+- **Contexto**: handoff, tela 1. Evoluir `AuthPage.tsx`, não reescrever do zero.
+- **Escopo**: grid `1.5fr 1fr` gap 20px max-width 980px centrado vertical, empilha <860px. Card esquerdo: logo (mascote receitas 44px + "vetor" 24px), H1 34px "Sua vida financeira, organizada em camadas.", parágrafo mid, lista de 4 funções com mascotes 34px (Renda e despesas, Poupança, Ações, Metas). Card direito: form email+senha, botão primário full-width, alternância login/cadastro via link (fluxo de auth existente em `api.ts` intacto). Rodapé "Cotações via brapi.dev · dados criptografados".
+- **Fora de escopo**: mudanças no backend de auth; telas pós-login.
+- **Critério de aceite**: login e cadastro funcionam como hoje contra o server; layout confere com o protótipo em desktop e empilha <860px sem overflow; build web ok. Justificativa de teste: mudança visual sobre fluxo existente — web sem runner.
+- **Resultado**: —
+
+### T-007 — Backend: layers Poupança/Reserva e Metas (schema + rotas + tipos + testes)
+- **Status**: EM_ANDAMENTO (executor delegado em 2026-07-24; T-006 já na `main`)
+- **Prioridade**: P1
+- **Depende de**: T-006 (mergeada)
+- **Branch/worktree**: `giovane/t-007-backend-poupanca-metas` (worktree isolado)
+- **Contexto**: idem T-006, para os layers Poupança e Metas.
+- **Escopo**: tabelas `savings_entries` (id, user_id, type TEXT CHECK IN ('DEPOSIT','WITHDRAW','YIELD'), amount REAL, date TEXT YYYY-MM-DD, note TEXT DEFAULT '', created_at) — saldo é derivado da soma — e `goals` (id, user_id, name, target_amount REAL, current_amount REAL DEFAULT 0, created_at). Rotas com `requireAuth`: `GET/POST /api/savings`, `DELETE /api/savings/:id`, `GET/POST /api/goals`, `PATCH /api/goals/:id` (atualizar current_amount/name/target), `DELETE /api/goals/:id`. Tipos em `shared/src/index.ts`; funções fetch em `web/src/api.ts`. Mesmo padrão da T-006.
+- **Fora de escopo**: UI; cálculo automático de rendimento CDI (dica CDI no front é texto estático).
+- **Critério de aceite**: mesmos requisitos de teste da T-006 (isolamento por usuário, 401, 400, CRUD) + teste do saldo derivado de savings (soma DEPOSIT + YIELD − WITHDRAW se exposto em GET); `pnpm --filter vetor-wallet-server test` verde; `CLAUDE.md` atualizado.
+- **Resultado**: —
+
+### T-008 — Home v4 (`/home`): hero de patrimônio + grid de cards de layers com mascote no hover
+- **Status**: PENDENTE
+- **Prioridade**: P1
+- **Depende de**: T-003, T-004, T-006, T-007
+- **Branch/worktree**: —
+- **Contexto**: handoff, tela 2 — porta de entrada do app multi-layer. **Atualização 2026-07-24**: a T-004 já entregou `web/src/routes/HomePage.tsx` com hero (dados de ações) e grid de cards com hover de mascote, aprovada pelo revisor — esta tarefa deve **evoluir esse arquivo** (integrar dados de renda/despesas/poupança das T-006/T-007 no hero e nos cards), não recriar.
+- **Escopo**: hero com "Patrimônio total" 30px (soma: valor atual das ações via `/api/portfolio` + saldo de poupança; cotação nula → usar investido como fallback e sinalizar) + Renda / Despesas / Sobra do mês (renda − despesas) 20px com labels. Grid `repeat(auto-fit, minmax(300px,1fr))` gap 16px com 6 cards: Renda mensal, Despesas, Poupança, Ações, Criptomoedas (chip "em breve", valor "—"), Metas — nome 15px, descrição 12px dim, valor 22px tabular, chip pill de status, clique navega. Mascote oculto que sobe no hover: `right:14px; bottom:-16px; height:128px`, `opacity .3s ease` + `transform .35s cubic-bezier(.2,.9,.3,1.3)` de `translateY(14px) rotate(4deg)` a `translateY(0) rotate(0)`; card `position:relative; overflow:hidden`. Formatação pt-BR/BRL.
+- **Fora de escopo**: telas dos layers; endpoint agregado novo no server (agregação no front nesta fase).
+- **Critério de aceite**: com dados criados via API nos 4 novos layers + uma carteira de ações, hero e cards exibem valores corretos (conferíveis manualmente); hover revela mascote com a animação; clique em cada card navega ao layer; build web ok. Se a agregação do patrimônio virar função pura não trivial, extraí-la e apontar onde será testada quando o runner do web existir (issue #6).
+- **Resultado**: —
+
+### T-009 — Telas dos layers Renda (`/renda`) e Despesas (`/despesas`)
+- **Status**: PENDENTE
+- **Prioridade**: P1
+- **Depende de**: T-003, T-004, T-006
+- **Branch/worktree**: —
+- **Contexto**: handoff, tela 3. Conteúdo enxuto, alto nível, sem gráficos pesados.
+- **Escopo**: **Renda**: total do mês + lista de fontes (nome, tipo, valor) + form de adição + excluir. **Despesas**: total + lista por categoria (sem barras de progresso) + form + excluir. Componentes novos em `web/src/components/` consumindo as funções de `api.ts` da T-006; header com mascote e título/subtítulo do layer (via shell T-004); formatação pt-BR/BRL; estados vazio/carregando/erro.
+- **Fora de escopo**: edição inline; recorrência; gráficos.
+- **Critério de aceite**: criar/listar/excluir fontes de renda e despesas funciona ponta a ponta contra o server; totais batem com a soma dos itens; layout confere com protótipo em desktop e 360px; build web ok. Justificativa de teste: UI sobre API já testada na T-006; web sem runner.
+- **Resultado**: —
+
+### T-010 — Telas dos layers Poupança (`/poupanca`) e Metas (`/metas`)
+- **Status**: PENDENTE
+- **Prioridade**: P1
+- **Depende de**: T-003, T-004, T-007
+- **Branch/worktree**: —
+- **Contexto**: handoff, tela 3.
+- **Escopo**: **Poupança**: saldo, aportes, rendimento (derivados dos lançamentos da T-007) + form de lançamento + dica CDI em card de texto simples. **Metas**: lista de metas com nome, alvo, atual, % em barra fina + form de criação + atualização de progresso (PATCH) + excluir. Mesmos padrões da T-009.
+- **Fora de escopo**: cálculo automático de rendimento; gráficos.
+- **Critério de aceite**: fluxos ponta a ponta funcionam contra o server; % da meta = atual/alvo correto e limitado a 100% na barra; layout ok em desktop e 360px; build web ok. Justificativa de teste: UI sobre API testada na T-007.
+- **Resultado**: —
+
+### T-011 — Tela Cripto mock (`/cripto`) "em breve"
+- **Status**: PENDENTE (**provavelmente já satisfeita** — a T-004 entregou `CriptoPage.tsx` completa e fiel ao handoff segundo o revisor; validar visualmente após o merge da T-004 e então marcar CONCLUIDA ou abrir só o ajuste residual)
+- **Prioridade**: P2
+- **Depende de**: T-003, T-004
+- **Branch/worktree**: —
+- **Contexto**: handoff, tela 3 (Cripto) — sem backend, tela estática.
+- **Escopo**: card centralizado com mascote cripto 130px, título "Estamos trabalhando nisso" 20px, texto explicativo dim e botão fantasma "Voltar ao início" (→ `/home`). Chip "em breve" no card da home já coberto na T-008.
+- **Fora de escopo**: qualquer funcionalidade/backend de cripto.
+- **Critério de aceite**: tela renderiza conforme protótipo nos dois temas; botão volta à home; build web ok. Justificativa de teste: tela estática.
+- **Resultado**: —
+
+### T-012 — Carteiras de ações v4 (`/carteiras`): cards estilo cartão de crédito
+- **Status**: PENDENTE
+- **Prioridade**: P1
+- **Depende de**: T-003, T-004
+- **Branch/worktree**: —
+- **Contexto**: handoff, tela 4. Evolui o `WalletSelector.tsx` atual para uma página própria.
+- **Escopo**: página com cards radius 20px, gradiente sutil "leather", nome da carteira, valor total e P&L do dia (dados de `/api/wallets` + `/api/portfolio`); card fantasma "+ Nova carteira" abrindo o fluxo de criação existente; clique no card → `/dash/:id`.
+- **Fora de escopo**: editar/excluir carteira (se não existir hoje); mudanças no backend de wallets.
+- **Critério de aceite**: carteiras existentes aparecem com valores corretos; criar carteira funciona; navegação para o dashboard da carteira funciona; layout ok em 360px; build web ok. Justificativa de teste: UI sobre APIs existentes.
+- **Resultado**: —
+
+### T-013 — Dashboard da carteira v4 (`/dash/:id`): stats, tabela de 7 colunas, form de operação — sem gráficos
+- **Status**: PENDENTE
+- **Prioridade**: P1
+- **Depende de**: T-003, T-004
+- **Branch/worktree**: —
+- **Contexto**: handoff, tela 5. Evoluir `PortfolioDashboard.tsx`/`OperationForm.tsx`/`OperationsList.tsx` — o design **remove** os gráficos de evolução/alocação/comparativo.
+- **Escopo**: 3 cards de stats (Valor atual, Investido, Resultado com chip %); tabela de posições com exatamente 7 colunas (Ticker, Qtd, PM, Cotação, Valor atual, Resultado, %), linhas 13px padding 13/22px hover `rgba(raised,.55)`, sem linha expansível; form de operação em card (ticker, qtd, preço, data, segmented compra/venda) mantendo `TickerCombobox`; remover do render os gráficos e o `BenchmarkComparison` (manter arquivos/rotas do server intactos — só sai da UI); cores up/down no P&L; tabular-nums.
+- **Fora de escopo**: mudanças em `portfolio.ts` do server; validação de SELL (dívida conhecida, fora deste ciclo); alertas e import CSV (manter acessíveis onde estão ou registrar no `TODO-HUMANO.md` se o design não prevê lugar para eles).
+- **Critério de aceite**: registrar compra/venda atualiza a tabela; valores idênticos aos do dashboard atual para a mesma carteira (sem regressão de cálculo); tabela com scroll próprio em 360px sem overflow da página; build web ok. Justificativa de teste: UI sobre serviços já testados (`portfolio.test.ts`); nenhum cálculo novo no front.
+- **Resultado**: —
+
+## Concluídas
+
+> Autorização permanente do humano (2026-07-24, via chat): orquestrador abre as PRs e faz o merge automático (resolvendo conflitos); revisão humana passa a ser a posteriori sobre as PRs.
+
+### T-006 — Backend: layers Renda mensal e Despesas fixas (schema + rotas + tipos + testes)
+- **Status**: CONCLUIDA e MERGEADA — PR [#49](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/49) (2026-07-24)
+- **Prioridade**: P1
+- **Depende de**: —
+- **Branch/worktree**: `giovane/t-006-backend-renda-despesas`
+- **Contexto**: primeiros backends dos novos layers (ciclo 2); modelagem por `user_id` sem vínculo com wallet (default do orquestrador, informativo no `TODO-HUMANO.md`).
+- **Escopo**: tabelas `income_sources` e `fixed_expenses`; rotas `GET/POST/DELETE /api/income` e `/api/expenses` com `requireAuth`; tipos em `shared/`; funções fetch em `web/src/api.ts`; `CLAUDE.md` atualizado.
+- **Critério de aceite**: (cumprido) 18 testes novos cobrindo criação, listagem isolada por usuário, exclusão, 404 cross-user, 401 e 400s; suíte inteira verde (11 arquivos, 92 testes); `pnpm build` completo sem erro.
+- **Resultado**: 9 arquivos tocados (`db.ts`, `routes/income.ts`+teste, `routes/expenses.ts`+teste, `index.ts`, `shared/src/index.ts`, `web/src/api.ts`, `CLAUDE.md`). Revisor: APROVADA, zero bloqueantes — verificou isolamento rigoroso (`user_id` só de `res.locals`, DELETE cross-user retorna 404 sem vazar existência, SQL 100% parametrizado), validação completa de input e docs fiéis. Ressalva não bloqueante: os testes novos são os primeiros de rota Express+DB real do repo e usam `import()` dinâmico em `beforeAll` para setar `DATABASE_URL` antes do load de `db.ts` (necessário por hoisting de imports; revisor confirmou solução sólida) — **padrão a reutilizar na T-007** e a documentar futuramente.
+
+### T-004 — Shell do app v4: rotas por layer, header sticky com logo dinâmica, animação de entrada
+- **Status**: CONCLUIDA e MERGEADA — PR [#48](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/48) (2026-07-24; inclui commit `f3a555d` do orquestrador reconciliando o stub de tema com o `theme.ts` da T-003)
+- **Prioridade**: P1
+- **Depende de**: — (paralela a T-003)
+- **Branch/worktree**: `giovane/t-004-shell-rotas-v4` (commit `0dadf55`)
+- **Contexto**: estrutura de navegação do v4 (ciclo 2, handoff "Screens/Views").
+- **Escopo**: rotas `/`, `/home`, `/renda`, `/despesas`, `/poupanca`, `/metas`, `/cripto`, `/carteiras`, `/dash/:id` com react-router v7; guards de autenticação; header sticky com logo (mascote por rota) + saudação + toggle de tema + sair; animação fade+rise reutilizável; placeholders nas rotas de layer.
+- **Critério de aceite**: (cumprido) navegação completa com header persistente e logo correta; redirect de rota protegida sem sessão; dashboard de ações sem regressão em `/dash/:id`; build verde. Teste dispensado (navegação/UI, web sem runner).
+- **Resultado**: `App.tsx` refatorado para roteamento; novos `layout/` (AppShell, ProtectedShell, ShellContext, mascots, LoadingScreen) e `routes/` (LandingRoute, HomePage, LayerPlaceholderPage, CriptoPage, CarteirasPage, DashboardPage, AdminRoute); `WalletSelector` ganhou modo `embedded`; `ThemeToggleButton` novo; `/admin` preservado com guard de role. Revisor: APROVADA, sem bloqueantes — verificou map mascote→rota exato, guards sem loop/flash, e que `DashboardPage` reproduz fielmente o fluxo antigo de refresh (operações, CSV, alertas, benchmarks). Ressalvas: (1) stub de tema em `App.tsx:15-23,44-57` duplica o `theme.ts` da T-003 (mesma chave `vw-theme`, comportamento não divergente) — **reconciliar no merge: `theme.ts` vira fonte única**; (2) `ThemeToggleButton` coexiste com toggles antigos de `AuthPage`/`WalletSelector` — unificar nas T-005/T-012; (3) executor adiantou `HomePage` (T-008) e `CriptoPage` (T-011) além do placeholder — enxutos e fiéis ao handoff, T-008/T-011 ajustadas em função disso.
+
+### T-003 — Design tokens v4: tema light/dark neutro, fonte Geist e mascotes
+- **Status**: CONCLUIDA e MERGEADA — PR [#47](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/47) (2026-07-24)
+- **Prioridade**: P1
+- **Depende de**: —
+- **Branch/worktree**: `giovane/t-003-design-tokens-v4`
+- **Contexto**: base visual do refactor v4 (ciclo 2) — tokens do handoff `design_handoff_vetor_wallet_refactor/README.md`.
+- **Escopo**: tokens light/dark do handoff em `web/src/index.css` (@theme Tailwind v4 + custom properties), mecânica de tema (`.light`/`.dark` no `<html>`, `localStorage['vw-theme']`, `color-scheme`), fonte Geist, tipografia/formas base, mascotes em `web/public/layers/`.
+- **Critério de aceite**: (cumprido) troca de classe no `<html>` troca o tema inteiro; persistência após reload; mascotes servidos em `/layers/*.png`; build web verde. Teste dispensado (visual/CSS, web sem runner — issue #6).
+- **Resultado**: Arquivos: `web/src/index.css` (reescrito — valores do handoff conferidos hex a hex pelo revisor, nomes de variáveis antigos preservados: nenhum componente precisou de edição), `web/src/theme.ts` (novo — get/set/toggle/init), `web/src/main.tsx` (initTheme), `web/index.html` (pré-paint default light, sem flash), `web/public/layers/*.png` (6 mascotes). Build + lint verdes; PNGs verificados via HTTP 200. Revisor: APROVADA, sem bloqueantes. Ressalvas não bloqueantes: (1) o próprio handoff tem hex vs rgb divergentes para `raised`/`edge` — executor seguiu os hex, consistentes; (2) alias duplicado `--color-surface`/`--color-raised` herdado de antes, limpeza futura. Pendência de integração: reconciliar com o stub de tema criado pela T-004 (usar `theme.ts` como fonte única no merge).
 
 ### T-001 — Aplicar paleta 60-30-10 via CSS custom properties
 - **Status**: CONCLUIDA (revisada e APROVADA; merge aguarda aprovação humana)

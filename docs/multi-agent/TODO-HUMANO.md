@@ -18,6 +18,30 @@
 
 ## Abertos
 
+### [2026-07-24] Onda A completa — decidir estratégia de integração antes da Onda B
+- **Origem**: orquestrador (ciclo 2)
+- **Bloqueia**: Onda B (T-005, T-007) e todas as seguintes
+- **Pergunta/pendência**: T-003, T-004 e T-006 estão concluídas e APROVADAS pelo revisor, cada uma na própria branch. A Onda B depende do código delas, e executores partem da `main`. Opções: **(a)** aprovar merge das 3 branches na `main` agora (orquestrador abre as PRs; nota: T-003+T-004 juntas mudam o visual/navegação da main imediatamente); **(b) [recomendada]** autorizar branch de integração `v4-integracao` — orquestrador consolida as 3 branches nela (resolvendo o conflito conhecido do stub de tema T-004 × `theme.ts` T-003), executores das próximas ondas partem dela, e a `main` só recebe o v4 completo no fim do ciclo, numa única revisão final sua.
+- **Resposta do humano**: (via chat, 2026-07-24) opção (a), com autorização **permanente**: orquestrador sempre abre as PRs e faz o merge automático delas, resolvendo conflitos; revisão humana a posteriori. Perguntas operacionais de integração não bloqueiam mais o loop. Executado: PRs #47, #48, #49 mergeadas na `main`; conflito de tema reconciliado (`f3a555d`); suíte (92 testes) e build verdes na `main`.
+
+### [2026-07-24] Modelagem dos novos layers (renda/despesas/poupança/metas) — decisões do orquestrador
+- **Origem**: orquestrador (ciclo 2, T-006/T-007)
+- **Bloqueia**: nada — apenas informativo; contestável antes da execução
+- **Pergunta/pendência**: o handoff de design não define modelo de dados (e afirma incorretamente que o backend já existe). Defaults adotados: (a) registros dos layers pertencem ao **usuário**, sem vínculo com `wallet_id` (carteiras seguem sendo só de ações); (b) renda e despesas são **valores mensais fixos cadastrados** (fontes/itens), não lançamentos datados; (c) poupança é um **livro de lançamentos** (DEPOSIT/WITHDRAW/YIELD) com saldo derivado; (d) metas têm `current_amount` atualizado manualmente. Contestar qualquer default aqui antes de aprovar merge das T-006/T-007.
+- **Resposta do humano**: _(preencher)_
+
+### [2026-07-24] Destino de Alertas, Import CSV e Comparativo CDI/Ibovespa no design v4
+- **Origem**: orquestrador (ciclo 2, T-013)
+- **Bloqueia**: nada por ora — T-013 mantém os arquivos e rotas, só remove gráficos da UI
+- **Pergunta/pendência**: o protótipo v4 não prevê lugar para AlertsPanel, CsvImport nem BenchmarkComparison no dashboard. Opções: (a) mantê-los no dashboard em cards abaixo do form, adaptados ao visual novo; (b) escondê-los neste ciclo e redesenhar depois; (c) descontinuar comparativo/gráficos de vez. T-013 seguirá com (a) para alertas/import e removerá só os gráficos, salvo resposta diferente.
+- **Resposta do humano**: _(preencher)_
+
+### [2026-07-24] Antiga prioridade 2 (métricas reais nos gráficos) ficou obsoleta?
+- **Origem**: orquestrador (ciclo 2)
+- **Bloqueia**: nada — define backlog futuro
+- **Pergunta/pendência**: o design v4 remove os gráficos de evolução/sparklines do dashboard, tornando a prioridade "métricas reais nos gráficos" sem objeto. Confirmar cancelamento ou indicar onde os gráficos voltam no futuro.
+- **Resposta do humano**: _(preencher)_
+
 ### [2026-07-19] Aprovar paleta 60-30-10 (T-001)
 - **Origem**: orquestrador (relato do executor da T-001)
 - **Bloqueia**: merge da PR [#44](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/44)

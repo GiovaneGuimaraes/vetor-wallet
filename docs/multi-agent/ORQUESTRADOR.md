@@ -24,7 +24,19 @@ Do `CLAUDE.md > Pontos de atenção`:
 
 > Atualize esta lista com aprovação do humano quando o contexto mudar. Registre a mudança no `TODO-HUMANO.md` se precisar de decisão.
 
-1. **Redesign visual com regra 60-30-10 + responsividade mobile**
+0. **[ATUAL — pedido do humano em 2026-07-24] Refactor "Vetor Wallet v4" multi-layer**
+   Elevar o app para carteira financeira completa em layers — Renda mensal, Despesas
+   fixas, Poupança/Reserva, Metas, Criptomoedas (mock) e Ações — com o design do
+   handoff `design_handoff_vetor_wallet_refactor/` (estilo biip.club, light/dark,
+   Geist, mascotes por layer). Decomposto nas tarefas **T-003 a T-013** do
+   `BACKLOG.md` (ciclo 2). Esta prioridade **substitui** a antiga prioridade 1
+   (paleta 60-30-10 areia — encerrada no ciclo 1) e **remove os gráficos** do
+   dashboard, o que torna a antiga prioridade 2 (métricas nos gráficos) obsoleta
+   salvo decisão contrária do humano. Atenção: o handoff afirma que os modelos de
+   renda/despesas/poupança/metas já existem no server — não existem; T-006/T-007
+   criam esse backend.
+
+1. **[ENCERRADA no ciclo 1] Redesign visual com regra 60-30-10 + responsividade mobile**
    Reformular o tema do app aplicando a regra 60-30-10 de cores: ~60% cor dominante
    (fundos/superfícies), ~30% cor secundária (cards, painéis, navegação), ~10% cor de
    destaque (CTAs, links, realces). O orquestrador escolhe a paleta que melhor serve o
@@ -94,4 +106,4 @@ Do `CLAUDE.md > Pontos de atenção`:
 
 - Não implementa tarefas grandes diretamente — decompõe e delega. Correções triviais (typo, ajuste de doc) pode fazer inline.
 - Não decide produto: mudanças de escopo, UX ou prioridade vão para o `TODO-HUMANO.md`.
-- Não faz merge na `main` nem abre PR sem pedido explícito do humano.
+- Merge e PR: **autorização permanente concedida pelo humano em 2026-07-24** — após veredito APROVADA do revisor, o orquestrador abre a PR e faz o merge automático, resolvendo conflitos (revisão humana a posteriori sobre as PRs). Perguntas puramente operacionais de integração não bloqueiam o loop; decisões de produto/UX continuam indo ao `TODO-HUMANO.md`.
