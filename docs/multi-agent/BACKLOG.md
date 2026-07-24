@@ -23,7 +23,64 @@
 
 ## Tarefas ativas
 
-_(vazio — ciclo 2 concluído em 2026-07-24; ver seção abaixo. Próximo ciclo: reavaliar prioridades no `ORQUESTRADOR.md`.)_
+> **Ciclo 3 — Robustez e dívidas técnicas (iniciado em 2026-07-24 a pedido do humano)**
+> Humano validou o app v4 ("deu bom"). Incidente diagnosticado e resolvido pelo orquestrador antes do ciclo: server "quebrando" era processo órfão de smoke test (worktree da T-009) segurando a porta 3001 → `EADDRINUSE`; processo morto, server da `main` sobe limpo. Lição operacional: executores NÃO devem deixar servidores dev rodando ao terminar.
+> Ondas: A = T-014, T-015, T-017, T-018 (independentes). B = T-016 (toca `portfolio.ts`/tipos como T-014/T-015 — em série).
+
+### T-014 — Rejeitar venda maior que a posição (validação de SELL)
+- **Status**: EM_ANDAMENTO (executor delegado em 2026-07-24)
+- **Prioridade**: P1
+- **Depende de**: —
+- **Branch/worktree**: `giovane/t-014-validacao-sell`
+- **Contexto**: dívida conhecida do `CLAUDE.md`/`ORQUESTRADOR.md`: `portfolio.ts` usa `Math.max(0, newQty)` — vender mais do que se possui trunca silenciosamente para zero em vez de rejeitar.
+- **Escopo**: em `POST /api/operations` (e no import CSV, se aplicável), validar no server: para SELL, a quantidade vendida não pode exceder a posição do ticker na carteira/usuário na data considerada (usar o cálculo de posição existente em `services/portfolio.ts`); exceder → 400 com mensagem clara. Remover/ajustar o truncamento `Math.max(0, newQty)` conforme fizer sentido após a validação. Exibir o erro no form do front (o `OperationForm` já mostra erros da API). Atualizar "Pontos de atenção" do `CLAUDE.md` (remover a dívida).
+- **Fora de escopo**: short selling; edição de operações; UI além de exibir o erro existente.
+- **Critério de aceite**: testes de rota: SELL válido passa; SELL > posição retorna 400 e não grava; SELL igual à posição zera; CSV com SELL inválido rejeita a linha ou o arquivo com mensagem (documentar a escolha); suíte inteira verde.
+- **Resultado**: —
+
+### T-015 — Sinalizar falha de cotações em vez de falhar silenciosamente
+- **Status**: EM_ANDAMENTO (executor delegado em 2026-07-24)
+- **Prioridade**: P1
+- **Depende de**: —
+- **Branch/worktree**: `giovane/t-015-sinal-falha-cotacoes`
+- **Contexto**: dívida conhecida: `fetchQuotes` retorna `Map` vazio em qualquer erro de rede/API; a UI mostra `null` sem avisar.
+- **Escopo**: `services/quotes.ts` distingue "sem cotação para o ticker" de "falha na busca" (ex.: retorno `{ quotes, failed: boolean|tickersFalhos }`); `GET /api/portfolio` propaga um campo `quotesUnavailable`/equivalente no `PortfolioSummary` (tipo em `shared/`); front (dashboard e home) exibe aviso discreto quando cotações indisponíveis (a home já tem a flag `*` de fallback — integrar). Testes: mock de falha da brapi → summary com flag; mock ok → sem flag.
+- **Fora de escopo**: retry/cache de cotações; mudanças no layout além do aviso.
+- **Critério de aceite**: com brapi inacessível (mock), `GET /api/portfolio` responde 200 com flag e o dashboard mostra o aviso; suíte inteira verde; `CLAUDE.md` "Pontos de atenção" atualizado.
+- **Resultado**: —
+
+### T-017 — Test runner no web (issue #6)
+- **Status**: EM_ANDAMENTO (executor delegado em 2026-07-24)
+- **Prioridade**: P2
+- **Depende de**: —
+- **Branch/worktree**: `giovane/t-017-web-test-runner`
+- **Contexto**: web nunca teve runner; o ciclo 2 contornou testando funções puras via Vitest do server (`server/src/services/homeMetrics.test.ts` importa de `web/src/`). Fechar a issue #6.
+- **Escopo**: configurar Vitest no pacote `web` (script `test`, config coerente com Vite/ESM; jsdom só se necessário — começar por funções puras); migrar `homeMetrics.test.ts` do server para `web/src/routes/homeMetrics.test.ts` (e remover o `exclude` do `server/tsconfig.json` se ficar sem uso — verificar); escrever ao menos 1 teste novo de função pura existente do web para provar o setup; atualizar `CLAUDE.md` (política de testes: padrão web agora ativo) e raiz `package.json` se houver script agregador.
+- **Fora de escopo**: testes de componente/E2E; cobertura ampla (vem nas próximas tarefas).
+- **Critério de aceite**: `pnpm --filter vetor-wallet-web test` verde com os testes migrados+novo; `pnpm --filter vetor-wallet-server test` continua verde (nada perdido na migração); builds ok.
+- **Resultado**: —
+
+### T-018 — Favicon e identidade no `<head>` (título, meta, ícone)
+- **Status**: EM_ANDAMENTO (executor delegado em 2026-07-24)
+- **Prioridade**: P3
+- **Depende de**: —
+- **Branch/worktree**: `giovane/t-018-favicon-head`
+- **Contexto**: resquício da antiga prioridade 4: o app v4 usa os mascotes como logo nas telas, mas o favicon/`<title>` do `index.html` seguem os defaults do Vite.
+- **Escopo**: gerar favicon a partir do mascote `receitas-t.png` (PNG 32/180 + `apple-touch-icon`; formato simples, sem pipeline novo), `<title>` "vetor wallet", `meta description` e `theme-color` coerentes com os tokens (light/dark). Conferir se existe `logo-vetor-wallet.png` no repo e decidir entre ele e o mascote (documentar a escolha no relatório).
+- **Fora de escopo**: mudanças nas telas; manifest PWA.
+- **Critério de aceite**: favicon visível no dev server e no build; sem regressão no pré-paint de tema do `index.html`; build web ok. Teste dispensado (asset/HTML estático).
+- **Resultado**: —
+
+### T-016 — P&L diário real nos cards de carteira (via `quote_snapshots`)
+- **Status**: PENDENTE (Onda B — depende de T-014/T-015 por tocar `services/portfolio.ts` e tipos compartilhados)
+- **Prioridade**: P2
+- **Depende de**: T-014, T-015
+- **Branch/worktree**: —
+- **Contexto**: limitação encontrada na T-012: os cards de carteira mostram P&L total rotulado, porque não há fechamento do dia anterior no modelo. Os `quote_snapshots` diários existem e permitem derivar.
+- **Escopo**: server calcula, por carteira, o valor da posição ao fechamento anterior usando o último `quote_snapshot` de cada ticker antes de hoje (tickers sem snapshot → P&L diário indisponível para a carteira, sinalizar); expor no `PortfolioSummary` (ex.: `dayProfitLoss`, `dayProfitLossPct`, nullable) com teste de cálculo; `WalletSelector` troca o chip "total" pelo P&L do dia quando disponível (mantém fallback "total" rotulado quando não).
+- **Fora de escopo**: backfill de snapshots; mudanças no job de captura.
+- **Critério de aceite**: teste com snapshots conhecidos → P&L diário bate com cálculo manual; sem snapshot → campo null e chip cai no fallback; suíte verde.
+- **Resultado**: —
 
 ## Ciclo 2 — CONCLUÍDO E MERGEADO (2026-07-24)
 
