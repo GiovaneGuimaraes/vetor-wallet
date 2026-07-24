@@ -83,10 +83,14 @@ router.post(
     let positionMap = new Map<string, { quantity: number; avgPrice: number }>();
     if (tickers.length > 0) {
       const placeholders = tickers.map(() => '?').join(',');
-      const existing = await db.execute({
-        sql: `SELECT * FROM operations WHERE ticker IN (${placeholders}) AND user_id = ? ORDER BY date ASC, created_at ASC`,
-        args: [...tickers, userId],
-      });
+      let sql = `SELECT * FROM operations WHERE ticker IN (${placeholders}) AND user_id = ?`;
+      const args: (string | number)[] = [...tickers, userId];
+      if (walletId !== null) {
+        sql += ' AND wallet_id = ?';
+        args.push(walletId);
+      }
+      sql += ' ORDER BY date ASC, created_at ASC';
+      const existing = await db.execute({ sql, args });
       positionMap = buildPositionMap(existing.rows as unknown as Operation[]);
     }
 
