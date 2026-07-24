@@ -6,6 +6,8 @@ import type { ShellContext } from './layout/ShellContext';
 import { LandingRoute } from './routes/LandingRoute';
 import { HomePage } from './routes/HomePage';
 import { LayerPlaceholderPage } from './routes/LayerPlaceholderPage';
+import { RendaPage } from './routes/RendaPage';
+import { DespesasPage } from './routes/DespesasPage';
 import { CriptoPage } from './routes/CriptoPage';
 import { CarteirasPage } from './routes/CarteirasPage';
 import { DashboardPage } from './routes/DashboardPage';
@@ -125,14 +127,8 @@ export default function App() {
         }
       >
         <Route path="/home" element={<HomePage />} />
-        <Route
-          path="/renda"
-          element={<LayerPlaceholderPage title="Renda" subtitle="Fontes de receita do mês" />}
-        />
-        <Route
-          path="/despesas"
-          element={<LayerPlaceholderPage title="Despesas" subtitle="Gastos por categoria" />}
-        />
+        <Route path="/renda" element={<RendaPage />} />
+        <Route path="/despesas" element={<DespesasPage />} />
         <Route
           path="/poupanca"
           element={<LayerPlaceholderPage title="Poupança" subtitle="Saldo, aportes e rendimento" />}
