@@ -43,6 +43,16 @@ export interface PortfolioSummary {
    * Opcional para compatibilidade com clientes/serializações antigas.
    */
   quotesUnavailable?: boolean;
+  /**
+   * P&L do dia (variação frente ao fechamento anterior), derivado do último
+   * `quote_snapshot` de cada ticker anterior a hoje. `null`/ausente quando
+   * algum ticker ativo não tem snapshot de fechamento anterior ou quando as
+   * cotações atuais não estão disponíveis — nesse caso o cliente deve cair
+   * no fallback de P&L total (T-016).
+   */
+  dayProfitLoss?: number | null;
+  /** Percentual correspondente a `dayProfitLoss` sobre o valor de fechamento anterior. */
+  dayProfitLossPct?: number | null;
 }
 
 export type AlertRuleType = 'PRICE_ABOVE' | 'PRICE_BELOW' | 'CHANGE_PCT' | 'ALLOCATION_PCT';
