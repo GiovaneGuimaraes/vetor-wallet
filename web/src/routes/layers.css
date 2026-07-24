@@ -1,0 +1,204 @@
+/*
+ * Estilos das telas de layer Renda (/renda) e Despesas (/despesas) — T-009.
+ * Consome os tokens/classes globais existentes (.vw-input, .vw-btn-primary,
+ * .vw-btn-ghost, .vw-hero-card, .vw-page-header em index.css/App.css) sem
+ * editá-los. Classes próprias prefixadas `.vw-layerpage-*` para não colidir
+ * com `.vw-layer-card` (grid da Home, T-004) nem com o CSS de outras
+ * tarefas em paralelo (T-010: poupança/metas).
+ */
+
+.vw-layerpage-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .vw-layerpage-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.vw-layerpage-card {
+  border-radius: var(--radius-card, 16px);
+  padding: 20px;
+  background: linear-gradient(180deg, var(--card-1), var(--card-2));
+  border: 1px solid var(--color-edge);
+  min-width: 0;
+}
+
+.vw-layerpage-card-title {
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.vw-layerpage-state {
+  font-size: 13px;
+  color: var(--color-dim);
+  padding: 12px 0;
+}
+
+.vw-layerpage-error {
+  font-size: 13px;
+  color: var(--color-down);
+  padding: 8px 0;
+}
+
+.vw-layerpage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vw-layerpage-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 4px;
+  border-bottom: 1px solid rgba(var(--edge-rgb), 0.5);
+}
+
+.vw-layerpage-list li:last-child .vw-layerpage-item {
+  border-bottom: none;
+}
+
+.vw-layerpage-item-main {
+  min-width: 0;
+}
+
+.vw-layerpage-item-name {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vw-layerpage-item-tag {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--color-dim);
+}
+
+.vw-layerpage-item-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.vw-layerpage-item-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.vw-layerpage-delete-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 99px;
+  border: 1px solid var(--color-edge);
+  background: transparent;
+  color: var(--color-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.vw-layerpage-delete-btn:hover:not(:disabled) {
+  color: var(--color-down);
+  border-color: var(--color-down);
+}
+
+.vw-layerpage-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.vw-layerpage-group {
+  margin-bottom: 18px;
+}
+
+.vw-layerpage-group:last-child {
+  margin-bottom: 0;
+}
+
+.vw-layerpage-group-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.vw-layerpage-group-name {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-dim);
+}
+
+.vw-layerpage-group-total {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-mid);
+  font-variant-numeric: tabular-nums;
+}
+
+.vw-layerpage-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vw-layerpage-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vw-layerpage-field label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-dim);
+}
+
+.vw-layerpage-field input,
+.vw-layerpage-field select {
+  height: 38px;
+  padding: 0 12px;
+  font-size: 13px;
+  width: 100%;
+}
+
+.vw-layerpage-submit {
+  height: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.vw-layerpage-submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

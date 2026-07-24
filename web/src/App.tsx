@@ -5,7 +5,8 @@ import { ProtectedShell } from './layout/ProtectedShell';
 import type { ShellContext } from './layout/ShellContext';
 import { LandingRoute } from './routes/LandingRoute';
 import { HomePage } from './routes/HomePage';
-import { LayerPlaceholderPage } from './routes/LayerPlaceholderPage';
+import { RendaPage } from './routes/RendaPage';
+import { DespesasPage } from './routes/DespesasPage';
 import { PoupancaPage } from './routes/PoupancaPage';
 import { MetasPage } from './routes/MetasPage';
 import { CriptoPage } from './routes/CriptoPage';
@@ -127,14 +128,8 @@ export default function App() {
         }
       >
         <Route path="/home" element={<HomePage />} />
-        <Route
-          path="/renda"
-          element={<LayerPlaceholderPage title="Renda" subtitle="Fontes de receita do mês" />}
-        />
-        <Route
-          path="/despesas"
-          element={<LayerPlaceholderPage title="Despesas" subtitle="Gastos por categoria" />}
-        />
+        <Route path="/renda" element={<RendaPage />} />
+        <Route path="/despesas" element={<DespesasPage />} />
         <Route path="/poupanca" element={<PoupancaPage />} />
         <Route path="/metas" element={<MetasPage />} />
         <Route path="/cripto" element={<CriptoPage />} />
