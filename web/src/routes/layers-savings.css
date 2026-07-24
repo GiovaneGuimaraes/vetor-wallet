@@ -1,0 +1,347 @@
+/* ------------------------------------------------------------------ */
+/* Layers Poupança (/poupanca) e Metas (/metas) — T-010                */
+/*                                                                      */
+/* Reaproveita tokens/classes base de App.css (.vw-card, .vw-input,     */
+/* .vw-btn-primary, .vw-btn-ghost, .vw-page-header, .vw-hero-card etc.) */
+/* sem alterá-las. Este arquivo só acrescenta classes novas, escopadas  */
+/* com o prefixo `vw-savings-*` / `vw-goal-*` para evitar colisão com   */
+/* outras tarefas em paralelo (T-008/T-009/T-011).                     */
+/* ------------------------------------------------------------------ */
+
+/* ── Estados comuns (loading / erro / vazio) ────────────────────────── */
+.vw-state-box {
+  border-radius: var(--radius-card, 16px);
+  border: 1px solid var(--color-edge);
+  background: var(--color-card-1);
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--color-dim);
+  font-size: 14px;
+}
+
+.vw-state-box.vw-state-error {
+  color: var(--color-down);
+  border-color: rgba(var(--down-rgb), 0.35);
+  background: rgba(var(--down-rgb), 0.06);
+}
+
+/* ── Resumo (Poupança) ──────────────────────────────────────────────── */
+.vw-savings-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 640px) {
+  .vw-savings-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+.vw-savings-summary-card {
+  border-radius: var(--radius-card, 16px);
+  padding: 18px 20px;
+  background: linear-gradient(180deg, var(--card-1), var(--card-2));
+  border: 1px solid var(--color-edge);
+}
+
+.vw-savings-summary-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-dim);
+  margin: 0 0 8px;
+}
+
+.vw-savings-summary-value {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.vw-savings-summary-value.vw-value-up { color: var(--color-up); }
+.vw-savings-summary-value.vw-value-down { color: var(--color-down); }
+
+/* ── Dica CDI ────────────────────────────────────────────────────────── */
+.vw-cdi-tip {
+  border-radius: var(--radius-card, 16px);
+  border: 1px solid var(--color-edge);
+  background: rgba(var(--raised-rgb), 0.5);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--color-mid);
+  line-height: 1.5;
+}
+
+.vw-cdi-tip strong {
+  color: var(--color-ink);
+}
+
+/* ── Formulários (Poupança / Metas) ─────────────────────────────────── */
+.vw-form-card {
+  border-radius: var(--radius-card, 16px);
+  border: 1px solid var(--color-edge);
+  background: var(--color-card-1);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.vw-form-title {
+  margin: 0 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.vw-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.vw-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vw-form-field label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-dim);
+}
+
+.vw-form-field input,
+.vw-form-field select {
+  height: 38px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.vw-form-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.vw-form-actions .vw-btn-primary {
+  padding: 9px 22px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vw-form-error {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--color-down);
+}
+
+/* ── Lista de lançamentos (Poupança) ────────────────────────────────── */
+.vw-savings-list {
+  border-radius: var(--radius-card, 16px);
+  border: 1px solid var(--color-edge);
+  background: var(--color-card-1);
+  overflow: hidden;
+}
+
+.vw-savings-entry-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-edge);
+}
+
+.vw-savings-entry-row:last-child {
+  border-bottom: none;
+}
+
+.vw-savings-entry-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.vw-savings-entry-badge.vw-badge-deposit {
+  background: rgba(var(--up-rgb), 0.12);
+  color: var(--color-up);
+}
+
+.vw-savings-entry-badge.vw-badge-withdraw {
+  background: rgba(var(--down-rgb), 0.12);
+  color: var(--color-down);
+}
+
+.vw-savings-entry-badge.vw-badge-yield {
+  background: rgba(var(--warn-rgb), 0.14);
+  color: var(--color-warn);
+}
+
+.vw-savings-entry-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.vw-savings-entry-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vw-savings-entry-date {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--color-dim);
+}
+
+.vw-savings-entry-amount {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .vw-savings-entry-row {
+    flex-wrap: wrap;
+    padding: 12px 14px;
+  }
+
+  .vw-savings-entry-amount {
+    order: 4;
+    width: 100%;
+    padding-left: calc(11px + 20px);
+  }
+}
+
+/* ── Botão de excluir (compartilhado) ───────────────────────────────── */
+.vw-delete-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 99px;
+  border: 1px solid var(--color-edge);
+  background: transparent;
+  color: var(--color-dim);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.vw-delete-btn:hover {
+  border-color: var(--color-down);
+  color: var(--color-down);
+}
+
+/* ── Metas ───────────────────────────────────────────────────────────── */
+.vw-goals-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.vw-goal-card {
+  border-radius: var(--radius-card, 16px);
+  border: 1px solid var(--color-edge);
+  background: linear-gradient(180deg, var(--card-1), var(--card-2));
+  padding: 18px 20px;
+}
+
+.vw-goal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.vw-goal-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.vw-goal-amounts {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--color-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.vw-goal-amounts strong {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.vw-goal-progress-track {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--color-edge);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.vw-goal-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--color-accent);
+  transition: width 0.3s ease;
+}
+
+.vw-goal-progress-fill.vw-goal-complete {
+  background: var(--color-up);
+}
+
+.vw-goal-progress-pct {
+  margin: 0 0 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.vw-goal-update-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.vw-goal-update-row input {
+  flex: 1;
+  height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.vw-goal-update-row button {
+  flex-shrink: 0;
+  height: 34px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
