@@ -1,0 +1,10 @@
+# Normaliza fim de linha para LF no repositório (evita diffs espúrios de CRLF
+# em ambientes Windows com core.autocrlf=true — achado da T-028).
+* text=auto eol=lf
+
+# Binários
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
