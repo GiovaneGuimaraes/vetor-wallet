@@ -2,6 +2,7 @@ import { createClient } from '@libsql/client';
 import path from 'path';
 import fs from 'fs';
 import { normalizeCategory } from './services/categories';
+import { cleanupExpiredSessions } from './auth/sessionStore';
 
 // DATABASE_URL overrides the default local SQLite path.
 // Use it when running from a different cwd (e.g. the cli package) or when
@@ -295,15 +296,10 @@ export async function initDb() {
 
   // Varredura de limpeza no boot: remove sessões expiradas de execuções
   // anteriores que nunca mais serão lidas (o lazy-delete do Store só limpa o
-  // que é efetivamente consultado em `get`). `expires_at` é gravado como ISO
-  // string pelo SqliteSessionStore (auth/sessionStore.ts) — comparado aqui
-  // via parâmetro (também ISO), nunca contra `datetime('now')` do SQLite:
-  // os dois formatos têm separadores diferentes ('T' vs ' ') e comparar um
-  // contra o outro quebraria a ordenação lexicográfica dentro do mesmo dia.
-  await db.execute({
-    sql: 'DELETE FROM sessions WHERE expires_at <= ?',
-    args: [new Date().toISOString()],
-  });
+  // que é efetivamente consultado em `get`). Lógica extraída para
+  // `cleanupExpiredSessions` (auth/sessionStore.ts) para ser testada
+  // diretamente (T-046), sem precisar iniciar o server inteiro.
+  await cleanupExpiredSessions(db);
 
   await normalizeExistingCategories();
 }
