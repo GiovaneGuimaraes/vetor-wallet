@@ -18,6 +18,7 @@ function entry(category: string, amount: number, date: string, id = 1): ExpenseE
     category,
     amount,
     date,
+    recurring_id: null,
     created_at: '2026-07-01 00:00:00',
   };
 }

@@ -5,10 +5,12 @@ import {
   deleteBudget,
   deleteExpenseEntry,
   deleteFixedExpense,
+  endRecurringExpense,
   getBudgets,
   getExpenseEntries,
   getExpenseEntriesSummary,
   getFixedExpenses,
+  getRecurringExpenses,
   updateExpenseEntry,
   updateFixedExpense,
   upsertBudget,
@@ -20,7 +22,14 @@ import type {
   ExpenseMonthSummaryItem,
   FixedExpense,
   FixedExpenseUpdate,
+  RecurringExpense,
 } from '@vetor-wallet/shared';
+import {
+  activeRecurrences,
+  formatRecurrenceDay,
+  isRecurringOccurrence,
+  totalRecurring,
+} from './recurrence';
 import { diffEditableFields, hasEdits, parseMoneyInput } from './inlineEdit';
 import { groupByCategory } from './expensesGrouping';
 import {
@@ -123,6 +132,14 @@ export function DespesasPage() {
     ExpenseMonthSummaryItem[] | 'loading' | 'error'
   >('loading');
 
+  // T-035: recorrências mensais. O checkbox do form de lançamento cria uma
+  // (`recurring: true` no POST); esta lista é a gestão mínima para encerrá-las.
+  const [entryRecurring, setEntryRecurring] = useState(false);
+  const [recurrences, setRecurrences] = useState<RecurringExpense[] | 'loading' | 'error'>(
+    'loading',
+  );
+  const [endingRecurrenceId, setEndingRecurrenceId] = useState<number | null>(null);
+
   const [budgets, setBudgets] = useState<CategoryBudget[] | 'loading' | 'error'>('loading');
   const [budgetCategory, setBudgetCategory] = useState('');
   const [budgetAmount, setBudgetAmount] = useState('');
@@ -160,6 +177,15 @@ export function DespesasPage() {
     }
   }, []);
 
+  const refreshRecurrences = useCallback(async () => {
+    setRecurrences('loading');
+    try {
+      setRecurrences(await getRecurringExpenses());
+    } catch {
+      setRecurrences('error');
+    }
+  }, []);
+
   const refreshEntries = useCallback(async (month: string) => {
     latestRequestedMonthRef.current = month;
     setEntries('loading');
@@ -180,7 +206,8 @@ export function DespesasPage() {
     refresh();
     refreshBudgets();
     refreshHistory();
-  }, [refresh, refreshBudgets, refreshHistory]);
+    refreshRecurrences();
+  }, [refresh, refreshBudgets, refreshHistory, refreshRecurrences]);
 
   useEffect(() => {
     refreshEntries(monthKey);
@@ -189,6 +216,7 @@ export function DespesasPage() {
   const list = Array.isArray(expenses) ? expenses : [];
   const entryList = Array.isArray(entries) ? entries : [];
   const budgetList = Array.isArray(budgets) ? budgets : [];
+  const recurrenceList = Array.isArray(recurrences) ? activeRecurrences(recurrences) : [];
   const totals = computeMonthTotals(list, entryList);
   const groups = groupByCategory(list);
   const budgetProgress = computeBudgetProgress(budgetList, list, entryList);
@@ -431,6 +459,9 @@ export function DespesasPage() {
         category: entryCategory.trim(),
         amount: parsedAmount,
         date: entryDate,
+        // T-035: cria também o template mensal; o dia da recorrência é o dia
+        // desta data (o server ajusta para meses curtos ao materializar).
+        ...(entryRecurring ? { recurring: true } : {}),
       });
       // Um lançamento salvo com data fora do mês exibido não entra nesta lista.
       if (created.date.slice(0, 7) === monthKey) {
@@ -446,6 +477,10 @@ export function DespesasPage() {
       // Novo lançamento muda o total variável do mês em que caiu — revalida o
       // histórico para não ficar com um valor desatualizado na tela.
       refreshHistory();
+      if (entryRecurring) {
+        setEntryRecurring(false);
+        refreshRecurrences();
+      }
     } catch (err) {
       setEntryFormError(err instanceof Error ? err.message : 'Falha ao criar lançamento');
     } finally {
@@ -463,6 +498,23 @@ export function DespesasPage() {
       refreshEntries(monthKey);
     } finally {
       setDeletingEntryId(null);
+    }
+  }
+
+  /**
+   * Encerra a recorrência (T-035): para de gerar ocorrências futuras. As já
+   * materializadas continuam na lista de lançamentos — por isso não é preciso
+   * recarregar `entries` aqui.
+   */
+  async function handleEndRecurrence(id: number) {
+    setEndingRecurrenceId(id);
+    try {
+      await endRecurringExpense(id);
+      setRecurrences((prev) => (Array.isArray(prev) ? prev.filter((r) => r.id !== id) : prev));
+    } catch {
+      refreshRecurrences();
+    } finally {
+      setEndingRecurrenceId(null);
     }
   }
 
@@ -589,6 +641,67 @@ export function DespesasPage() {
                     </span>
                     <span className="vw-history-item-value">{fmtCur.format(row.total)}</span>
                   </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+
+      <div className="vw-layerpage-card vw-recurrence-card">
+        <h2 className="vw-layerpage-card-title">
+          Recorrências mensais
+          {recurrenceList.length > 0 && (
+            <span className="vw-layerpage-card-aside">
+              {fmtCur.format(totalRecurring(recurrenceList))}/mês
+            </span>
+          )}
+        </h2>
+
+        {recurrences === 'loading' && <p className="vw-layerpage-state">Carregando…</p>}
+        {recurrences === 'error' && (
+          <p className="vw-layerpage-error">Não foi possível carregar suas recorrências.</p>
+        )}
+        {Array.isArray(recurrences) && recurrenceList.length === 0 && (
+          <p className="vw-layerpage-state">
+            Nenhuma recorrência ativa. Marque “Repetir todo mês” ao criar um lançamento.
+          </p>
+        )}
+
+        {recurrenceList.length > 0 && (
+          <>
+            <p className="vw-history-hint">
+              A ocorrência de cada mês é criada quando você abre aquele mês, e depois pode ser
+              editada ou excluída como um lançamento comum. Encerrar não apaga as já criadas.
+            </p>
+            <ul className="vw-layerpage-list">
+              {recurrenceList.map((recurrence) => (
+                <li key={recurrence.id}>
+                  <div className="vw-layerpage-item">
+                    <div className="vw-layerpage-item-main">
+                      <p className="vw-layerpage-item-name">{recurrence.description}</p>
+                      <p className="vw-layerpage-item-tag">
+                        {formatRecurrenceDay(recurrence.day_of_month)}
+                        {formatCategoryLabel(recurrence.category)
+                          ? ` · ${formatCategoryLabel(recurrence.category)}`
+                          : ''}
+                      </p>
+                    </div>
+                    <div className="vw-layerpage-item-right">
+                      <span className="vw-layerpage-item-value">
+                        {fmtCur.format(recurrence.amount)}
+                      </span>
+                      <button
+                        type="button"
+                        className="vw-layerpage-edit-cancel vw-recurrence-end-btn"
+                        onClick={() => handleEndRecurrence(recurrence.id)}
+                        disabled={endingRecurrenceId === recurrence.id}
+                        title="Parar de gerar ocorrências futuras"
+                      >
+                        {endingRecurrenceId === recurrence.id ? 'Encerrando…' : 'Encerrar'}
+                      </button>
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -934,7 +1047,17 @@ export function DespesasPage() {
                   <li key={entry.id}>
                     <div className="vw-layerpage-item">
                       <div className="vw-layerpage-item-main">
-                        <p className="vw-layerpage-item-name">{entry.description}</p>
+                        <p className="vw-layerpage-item-name">
+                          {entry.description}
+                          {isRecurringOccurrence(entry) && (
+                            <span
+                              className="vw-recurrence-badge"
+                              title="Gerado por uma recorrência mensal"
+                            >
+                              ↻ recorrente
+                            </span>
+                          )}
+                        </p>
                         <p className="vw-layerpage-item-tag">
                           {formatDayMonth(entry.date)}
                           {formatCategoryLabel(entry.category)
@@ -1017,6 +1140,20 @@ export function DespesasPage() {
                 onChange={(e) => setEntryDate(e.target.value)}
               />
             </div>
+            <label className="vw-recurrence-checkbox" htmlFor="lancamento-recorrente">
+              <input
+                id="lancamento-recorrente"
+                type="checkbox"
+                checked={entryRecurring}
+                onChange={(e) => setEntryRecurring(e.target.checked)}
+              />
+              <span>
+                Repetir todo mês
+                <span className="vw-recurrence-checkbox-hint">
+                  Gera este lançamento nos próximos meses, no mesmo dia.
+                </span>
+              </span>
+            </label>
             {entryFormError && <p className="vw-layerpage-error">{entryFormError}</p>}
             <button
               type="submit"
