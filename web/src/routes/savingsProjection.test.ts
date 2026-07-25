@@ -3,6 +3,7 @@ import type { SavingsEntry, SavingsEntryType } from '@vetor-wallet/shared';
 import {
   RATE_SAMPLE_MONTHS,
   deriveMonthlyRatePct,
+  formatDecimalInput,
   parseMonthsInput,
   parseNonNegativeInput,
   projectSavings,
@@ -49,6 +50,11 @@ describe('projectSavings', () => {
 
   it('valor inicial 0 é simulação válida e rende 0', () => {
     expect(projectSavings(0, 1.5, 24)).toEqual({ futureValue: 0, totalYield: 0 });
+  });
+
+  it('curto-circuita inicial 0 mesmo com taxa/prazo extremos que estourariam Math.pow', () => {
+    // Sem o curto-circuito, 0 × Infinity = NaN faria isto devolver null.
+    expect(projectSavings(0, 100, 5000)).toEqual({ futureValue: 0, totalYield: 0 });
   });
 
   it('suporta taxa alta', () => {
@@ -172,6 +178,25 @@ describe('deriveMonthlyRatePct', () => {
     expect(deriveMonthlyRatePct(entries)).toBe(0.2333);
   });
 
+  it('exclui o mês corrente (incompleto) da amostra', () => {
+    const entries = [
+      makeEntry('DEPOSIT', 1000, dayIn(-2, 5)),
+      makeEntry('YIELD', 10, dayIn(-1, 28)), // mês fechado: base 1000 → 1%
+      // Rendimento parcial do mês em curso, muito menor por ainda não ter
+      // terminado — se entrasse na média, achataria a taxa para baixo.
+      makeEntry('YIELD', 1, dayIn(0, 5)),
+    ];
+    expect(deriveMonthlyRatePct(entries)).toBe(1);
+  });
+
+  it('devolve null quando só há rendimento no mês corrente', () => {
+    const entries = [
+      makeEntry('DEPOSIT', 1000, dayIn(-1, 1)),
+      makeEntry('YIELD', 5, dayIn(0, 5)),
+    ];
+    expect(deriveMonthlyRatePct(entries)).toBeNull();
+  });
+
   it('a taxa derivada alimenta projectSavings', () => {
     const entries = [
       makeEntry('DEPOSIT', 1000, dayIn(-2, 5)),
@@ -202,6 +227,24 @@ describe('parseNonNegativeInput', () => {
     expect(parseNonNegativeInput('abc')).toBeNull();
     expect(parseNonNegativeInput('-1')).toBeNull();
     expect(parseNonNegativeInput('Infinity')).toBeNull();
+  });
+});
+
+describe('formatDecimalInput', () => {
+  it('formata com vírgula decimal e o número de casas pedido', () => {
+    expect(formatDecimalInput(1234.5, 2)).toBe('1234,50');
+    expect(formatDecimalInput(0, 2)).toBe('0,00');
+    expect(formatDecimalInput(0.233333, 4)).toBe('0,2333');
+  });
+
+  it('arredonda ao número de casas pedido', () => {
+    expect(formatDecimalInput(1.005, 2)).toBe('1,00'); // ruído de float é aceito
+    expect(formatDecimalInput(1.999, 2)).toBe('2,00');
+  });
+
+  it('o resultado é aceito de volta por parseNonNegativeInput', () => {
+    const formatted = formatDecimalInput(1500.7, 2);
+    expect(parseNonNegativeInput(formatted)).toBe(1500.7);
   });
 });
 
