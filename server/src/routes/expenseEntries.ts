@@ -5,7 +5,7 @@ import { requireAuth } from '../auth/middleware';
 import type { NewExpenseEntry, ExpenseEntryUpdate } from '@vetor-wallet/shared';
 import { normalizeCategory } from '../services/categories';
 import {
-  markMonthMaterialized,
+  createRecurringExpenseEntry,
   materializeRecurringExpenses,
 } from '../services/recurringExpenses';
 
@@ -222,8 +222,13 @@ router.post(
     // ANTES da ocorrência (ela precisa do `recurring_id`) e o mês do próprio
     // lançamento já entra no livro-razão de meses gerados — senão o primeiro
     // GET desse mês materializaria uma segunda cópia idêntica.
-    let recurringId: number | null = null;
+    //
+    // T-045: as três escritas (template + reserva do mês + primeira
+    // ocorrência) rodam numa única transação (`createRecurringExpenseEntry`)
+    // — uma falha entre elas não pode deixar template órfão nem mês reservado
+    // sem lançamento. Ver doc da função em services/recurringExpenses.ts.
     const entryMonth = date.slice(0, 7);
+    let newId: number;
     if (recurring === true) {
       // O piso da materialização é o mês de CRIAÇÃO, não o mês do lançamento:
       // marcar como recorrente um lançamento com data passada (caminho normal
@@ -234,42 +239,29 @@ router.post(
       // quando o lançamento acontece.
       const startMonth = entryMonth > currentMonth() ? entryMonth : currentMonth();
 
-      const createdRecurrence = await db.execute({
-        sql: `INSERT INTO recurring_expenses
-                (user_id, description, category, amount, day_of_month, start_month)
-              VALUES (?, ?, ?, ?, ?, ?)`,
-        args: [
-          userId,
-          description.trim(),
-          normalizedCategory,
-          amount,
-          recurringDay,
-          startMonth,
-        ],
+      const created = await createRecurringExpenseEntry({
+        userId,
+        description: description.trim(),
+        category: normalizedCategory,
+        amount,
+        date,
+        dayOfMonth: recurringDay,
+        startMonth,
+        entryMonth,
       });
-      recurringId = Number(createdRecurrence.lastInsertRowid ?? 0);
-      if (!recurringId) {
-        // Sem id não há como vincular a ocorrência: gravar `recurring_id = 0`
-        // deixaria o lançamento apontando para um template inexistente.
-        throw new Error('T-035: falha ao criar a recorrência (lastInsertRowid ausente)');
-      }
-      // Marca o mês do LANÇAMENTO, não `startMonth`: num cadastro retroativo os
-      // dois divergem e marcar o mês corrente suprimiria a ocorrência que a
-      // recorrência deve gerar agora. Marcar um mês anterior a `start_month` é
-      // inofensivo (ele nunca seria gerado de todo modo).
-      await markMonthMaterialized(recurringId, entryMonth);
+      newId = created.entryId;
+    } else {
+      const insert = await db.execute({
+        sql: `INSERT INTO expense_entries (user_id, description, category, amount, date, recurring_id)
+              VALUES (?, ?, ?, ?, ?, ?)`,
+        args: [userId, description.trim(), normalizedCategory, amount, date, null],
+      });
+      newId = Number(insert.lastInsertRowid ?? 0);
     }
 
-    const insert = await db.execute({
-      sql: `INSERT INTO expense_entries (user_id, description, category, amount, date, recurring_id)
-            VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [userId, description.trim(), normalizedCategory, amount, date, recurringId],
-    });
-
-    const newId = insert.lastInsertRowid ?? 0;
     const row = await db.execute({
       sql: 'SELECT * FROM expense_entries WHERE id = ?',
-      args: [Number(newId)],
+      args: [newId],
     });
     res.status(201).json(row.rows[0]);
   }),

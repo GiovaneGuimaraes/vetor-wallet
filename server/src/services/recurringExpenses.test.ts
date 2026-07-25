@@ -74,3 +74,178 @@ describe('recurring expenses date helpers (T-035)', () => {
     expect(occurrenceDate('2026-05', 5)).toBe('2026-05-05');
   });
 });
+
+// ── T-045: isUniqueViolation exercitada diretamente ─────────────────────────
+// Antes só era exercitada indiretamente via a corrida simulada em
+// `materializeRecurringExpenses`. Aqui testamos a função isolada com os
+// formatos de erro que ela precisa distinguir.
+describe('isUniqueViolation (T-045)', () => {
+  let isUniqueViolation: (err: unknown) => boolean;
+
+  beforeAll(async () => {
+    ({ isUniqueViolation } = await import('./recurringExpenses'));
+  });
+
+  it('recognizes SQLITE_CONSTRAINT_UNIQUE by code', () => {
+    expect(isUniqueViolation({ code: 'SQLITE_CONSTRAINT_UNIQUE' })).toBe(true);
+  });
+
+  it('recognizes SQLITE_CONSTRAINT_PRIMARYKEY by code', () => {
+    expect(isUniqueViolation({ code: 'SQLITE_CONSTRAINT_PRIMARYKEY' })).toBe(true);
+  });
+
+  it('recognizes a UNIQUE constraint failure by message when code is absent', () => {
+    expect(isUniqueViolation(new Error('UNIQUE constraint failed: recurring_expense_months.recurring_id, recurring_expense_months.month'))).toBe(
+      true,
+    );
+  });
+
+  it('does not treat a foreign key violation as a unique violation', () => {
+    expect(isUniqueViolation({ code: 'SQLITE_CONSTRAINT_FOREIGNKEY' })).toBe(false);
+  });
+
+  it('does not treat a generic/NOT NULL constraint error as a unique violation', () => {
+    expect(isUniqueViolation({ code: 'SQLITE_CONSTRAINT_NOTNULL' })).toBe(false);
+    expect(isUniqueViolation(new Error('NOT NULL constraint failed: expense_entries.date'))).toBe(
+      false,
+    );
+  });
+
+  it('does not treat an unrelated error as a unique violation', () => {
+    expect(isUniqueViolation(new Error('network timeout'))).toBe(false);
+    expect(isUniqueViolation(null)).toBe(false);
+    expect(isUniqueViolation(undefined)).toBe(false);
+  });
+});
+
+// ── T-045: criação transacional do lançamento recorrente ────────────────────
+// A criação com `recurring: true` grava três coisas — o template
+// (recurring_expenses), a reserva do mês (recurring_expense_months) e a
+// primeira ocorrência (expense_entries) — no MESMO `db.transaction('write')`
+// (ver createRecurringExpenseEntry). Estes testes usam o banco real (não um
+// mock) para provar que uma falha na ÚLTIMA escrita não deixa as duas
+// anteriores gravadas — o cenário de "template órfão"/"mês reservado sem
+// lançamento" que motivou a tarefa.
+describe('createRecurringExpenseEntry (T-045)', () => {
+  let createRecurringExpenseEntry: (params: {
+    userId: number;
+    description: string;
+    category: string;
+    amount: number;
+    date: string;
+    dayOfMonth: number;
+    startMonth: string;
+    entryMonth: string;
+  }) => Promise<{ entryId: number; recurringId: number }>;
+  let db: typeof import('../db').db;
+  let userId: number;
+
+  beforeAll(async () => {
+    ({ createRecurringExpenseEntry } = await import('./recurringExpenses'));
+    ({ db } = await import('../db'));
+    const { initDb } = await import('../db');
+    await initDb();
+
+    const created = await db.execute({
+      sql: "INSERT INTO users (email, password_hash) VALUES (?, 'x')",
+      args: ['recurring-tx-test@test.com'],
+    });
+    userId = Number(created.lastInsertRowid);
+  });
+
+  it('commits all three writes atomically on success', async () => {
+    const result = await createRecurringExpenseEntry({
+      userId,
+      description: 'Assinatura OK',
+      category: 'casa',
+      amount: 29.9,
+      date: '2026-08-10',
+      dayOfMonth: 10,
+      startMonth: '2026-08',
+      entryMonth: '2026-08',
+    });
+
+    expect(result.recurringId).toBeGreaterThan(0);
+    expect(result.entryId).toBeGreaterThan(0);
+
+    const recurrence = await db.execute({
+      sql: 'SELECT id FROM recurring_expenses WHERE id = ?',
+      args: [result.recurringId],
+    });
+    expect(recurrence.rows.length).toBe(1);
+
+    const month = await db.execute({
+      sql: 'SELECT id FROM recurring_expense_months WHERE recurring_id = ? AND month = ?',
+      args: [result.recurringId, '2026-08'],
+    });
+    expect(month.rows.length).toBe(1);
+
+    const entry = await db.execute({
+      sql: 'SELECT recurring_id FROM expense_entries WHERE id = ?',
+      args: [result.entryId],
+    });
+    expect(entry.rows.length).toBe(1);
+    expect(Number(entry.rows[0].recurring_id)).toBe(result.recurringId);
+  });
+
+  it('leaves no orphan template or month reservation when the final write fails', async () => {
+    const description = 'Assinatura que vai falhar';
+
+    // `date: null` viola o NOT NULL de expense_entries.date na TERCEIRA
+    // escrita da transação — depois de o template e a reserva do mês já
+    // terem sido executados (mas não commitados) na mesma transação. Se o
+    // rollback não cobrisse as escritas anteriores, o template e o mês
+    // reservado ficariam órfãos mesmo com o lançamento nunca existindo.
+    await expect(
+      createRecurringExpenseEntry({
+        userId,
+        description,
+        category: 'casa',
+        amount: 10,
+        date: null as unknown as string,
+        dayOfMonth: 5,
+        startMonth: '2026-09',
+        entryMonth: '2026-09',
+      }),
+    ).rejects.toThrow();
+
+    const recurrence = await db.execute({
+      sql: 'SELECT id FROM recurring_expenses WHERE description = ?',
+      args: [description],
+    });
+    expect(recurrence.rows.length).toBe(0);
+
+    const months = await db.execute({
+      sql: `SELECT recurring_expense_months.id AS id
+            FROM recurring_expense_months
+            JOIN recurring_expenses ON recurring_expenses.id = recurring_expense_months.recurring_id
+            WHERE recurring_expenses.description = ?`,
+      args: [description],
+    });
+    expect(months.rows.length).toBe(0);
+
+    const entries = await db.execute({
+      sql: 'SELECT id FROM expense_entries WHERE description = ?',
+      args: [description],
+    });
+    expect(entries.rows.length).toBe(0);
+  });
+
+  it('still works after a previous failed attempt (transaction is fully released)', async () => {
+    // Reforça que o `tx.close()` no `finally` de fato libera a transação
+    // anterior — sem isso, uma tentativa subsequente ficaria travada
+    // esperando a transação de escrita anterior (o libsql serializa
+    // transações de escrita).
+    const result = await createRecurringExpenseEntry({
+      userId,
+      description: 'Assinatura depois da falha',
+      category: 'casa',
+      amount: 15,
+      date: '2026-09-05',
+      dayOfMonth: 5,
+      startMonth: '2026-09',
+      entryMonth: '2026-09',
+    });
+    expect(result.entryId).toBeGreaterThan(0);
+  });
+});
