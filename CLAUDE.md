@@ -152,6 +152,9 @@ Todas as rotas abaixo (exceto `/api/auth/*`) exigem sessão autenticada via cook
 | `GET` | `/api/expenses` | Lista despesas fixas do usuário |
 | `POST` | `/api/expenses` | Cria despesa fixa |
 | `DELETE` | `/api/expenses/:id` | Remove despesa fixa |
+| `GET` | `/api/expense-entries` | Lista lançamentos de despesas variáveis de um mês — query `?month=YYYY-MM` (default: mês corrente). Responde `{ month, entries }` |
+| `POST` | `/api/expense-entries` | Cria lançamento de despesa variável (`description`, `category?`, `amount`, `date`) |
+| `DELETE` | `/api/expense-entries/:id` | Remove lançamento de despesa variável |
 | `GET` | `/api/savings` | Lista lançamentos de poupança/reserva e um `summary` (saldo, total de aportes, total de rendimento) |
 | `POST` | `/api/savings` | Cria lançamento de poupança (`DEPOSIT`, `WITHDRAW` ou `YIELD`) |
 | `DELETE` | `/api/savings/:id` | Remove lançamento de poupança |
@@ -249,6 +252,20 @@ CREATE TABLE IF NOT EXISTS fixed_expenses (
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Lançamentos de despesas variáveis (gastos datados do dia a dia; a visão mensal
+-- filtra por substr(date, 1, 7) = 'YYYY-MM'). Distinto de fixed_expenses, que
+-- não tem data e vale para todo mês.
+CREATE TABLE IF NOT EXISTS expense_entries (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id),
+  description TEXT    NOT NULL,
+  category    TEXT    NOT NULL DEFAULT '',
+  amount      REAL    NOT NULL,
+  date        TEXT    NOT NULL,   -- YYYY-MM-DD
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_expense_entries_user_date ON expense_entries(user_id, date);
+
 -- Lançamentos de poupança/reserva (livro de lançamentos; saldo é derivado no server:
 -- DEPOSIT + YIELD − WITHDRAW). Sem vínculo com wallet.
 CREATE TABLE IF NOT EXISTS savings_entries (
@@ -320,6 +337,9 @@ pnpm --filter vetor-wallet-web test
 
 ### Validação de SELL contra a posição atual
 `POST /api/operations` e `POST /api/import` (CSV) rejeitam com `400` qualquer SELL que exceda a posição consolidada **atual** do ticker **na carteira alvo** (soma das operações já registradas naquele `wallet_id`/usuário quando `wallet_id`/`walletId` é informado — independente da data da nova operação; não há validação por data histórica, um SELL retroativo é validado contra a posição de hoje). Ambas as rotas filtram a query de posição por `wallet_id` quando o parâmetro é informado (`wallet_id` no body de `/api/operations`, `walletId` na query string de `/api/import`); sem esse filtro, um usuário com múltiplas carteiras poderia importar/registrar um SELL que excede a posição da carteira alvo mas é coberto pela soma de todas as carteiras. A checagem usa `wouldExceedPosition`/`getPositionQuantity` em `services/portfolio.ts`, reaproveitando o mesmo `buildPositionMap` do cálculo de preço médio (sem duplicar lógica). No CSV, a rejeição é **por linha**: linhas de SELL inválidas entram no relatório de erros (`CsvImportResult.errors`, com número da linha) e o restante do arquivo é importado normalmente. `applyOperation` mantém `Math.max(0, newQty)` como cláusula de defesa (não como validação) — dados históricos podem já conter vendas a descoberto gravadas antes desta validação existir, e o cálculo de posição não pode quebrar/ficar negativo ao processá-los.
+
+### Despesas fixas × lançamentos variáveis
+O layer `/despesas` soma **duas** fontes diferentes: `fixed_expenses` (itens fixos mensais, **sem data** — valem integralmente para qualquer mês exibido) e `expense_entries` (gastos datados, filtrados por mês). O **total do mês exibido é fixas + variáveis daquele mês** — calculado por `computeMonthTotals` em `web/src/routes/expenseMonth.ts` (função pura, testada), não inline no componente. A navegação de mês é estado local da `DespesasPage`: trocar o mês recarrega só os lançamentos (`GET /api/expense-entries?month=`), pois as fixas não dependem do mês. Consequência esperada: navegar para um mês passado/futuro não altera a parcela de fixas do total — não há histórico de quando uma despesa fixa passou a existir. O filtro mensal no server usa `substr(date, 1, 7) = ?` (compatível com o índice `idx_expense_entries_user_date` apenas parcialmente — se a tabela crescer muito, trocar por range `date >= ? AND date < ?`). O mês default é calculado no fuso local do processo (`currentMonth`), não em UTC, para não virar o mês antes da hora no BRT.
 
 ### Sessões não persistem no restart
 `express-session` usa **MemoryStore** — sessões são perdidas quando o servidor reinicia. Aceitável para uso local; para produção, migrar para Redis store ou AWS Cognito.
