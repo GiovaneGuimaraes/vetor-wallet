@@ -61,13 +61,13 @@ function toEntryDraft(entry: IncomeEntry): EntryDraft {
 }
 
 /**
- * Rota `/renda`: visão mensal com duas seções — "Fontes fixas"
- * (`income_sources`, sem data, valem para todo mês exibido) e "Rendas do mês"
+ * Rota `/renda`: visão mensal com duas seções — "Renda fixa do mês"
+ * (`income_sources`, sem data, valem para todo mês exibido) e "Renda variável do mês"
  * (`income_entries`, datadas, filtradas por mês no server — T-036).
  * O total do hero é fixas + variáveis do mês exibido; a navegação ‹ / › troca
  * o mês e recarrega apenas as rendas variáveis.
  *
- * T-031: fontes fixas e rendas do mês têm modo de edição no item da lista
+ * T-031: renda fixa do mês e renda variável do mês têm modo de edição no item da lista
  * (lápis → campos preenchidos → salvar/cancelar), via `PATCH /api/income/:id` e
  * `PATCH /api/income-entries/:id` com apenas os campos alterados.
  */
@@ -388,7 +388,7 @@ export function RendaPage() {
     <div>
       <div className="vw-page-header">
         <h1 className="vw-page-title">Renda</h1>
-        <p className="vw-page-subtitle">Fontes fixas e rendas avulsas do mês</p>
+        <p className="vw-page-subtitle">Renda fixa e renda variável do mês</p>
       </div>
 
       <div className="vw-hero-card">
@@ -423,7 +423,7 @@ export function RendaPage() {
       <div className="vw-layerpage-grid">
         <div className="vw-layerpage-card">
           <h2 className="vw-layerpage-card-title">
-            Fontes fixas
+            Renda fixa do mês
             {!fixedFailed && <span className="vw-layerpage-card-aside">{fixedDisplay}</span>}
           </h2>
 
@@ -539,7 +539,7 @@ export function RendaPage() {
             </ul>
           )}
           <p className="vw-history-hint">
-            Fontes fixas não têm data — valem integralmente para qualquer mês exibido.
+            Renda fixa não tem data — vale integralmente para qualquer mês exibido.
           </p>
         </div>
 
@@ -585,7 +585,7 @@ export function RendaPage() {
 
         <div className="vw-layerpage-card">
           <h2 className="vw-layerpage-card-title">
-            Rendas do mês
+            Renda variável do mês
             {!variableFailed && <span className="vw-layerpage-card-aside">{variableDisplay}</span>}
           </h2>
 
