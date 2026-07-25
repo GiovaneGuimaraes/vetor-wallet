@@ -120,4 +120,20 @@ describe('operations routes — SELL validation', () => {
       .send('{"ticker":"ITUB4","type":"BUY","quantity":10,"price":-1e999,"date":"2024-03-01"}');
     expect(res.status).toBe(400);
   });
+
+  // T-043: DATE_RE sozinho aceita datas com formato válido mas que não
+  // existem no calendário — o helper isValidIsoDate rejeita as duas.
+  it('rejects a date that does not exist on the calendar (2026-02-30) (400)', async () => {
+    const res = await agentA
+      .post('/api/operations')
+      .send({ ticker: 'ITUB4', type: 'BUY', quantity: 10, price: 30, date: '2026-02-30' });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a nonexistent month (2026-13-01) (400)', async () => {
+    const res = await agentA
+      .post('/api/operations')
+      .send({ ticker: 'ITUB4', type: 'BUY', quantity: 10, price: 30, date: '2026-13-01' });
+    expect(res.status).toBe(400);
+  });
 });

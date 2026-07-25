@@ -95,6 +95,14 @@ describe('savings routes', () => {
     expect(res.status).toBe(400);
   });
 
+  // T-043: formato válido mas dia/mês inexistente no calendário.
+  it('rejects creation with a nonexistent calendar date (2026-02-30) (400)', async () => {
+    const res = await agentA
+      .post('/api/savings')
+      .send({ type: 'DEPOSIT', amount: 100, date: '2026-02-30' });
+    expect(res.status).toBe(400);
+  });
+
   it('creates a savings entry', async () => {
     const res = await agentA
       .post('/api/savings')
@@ -250,6 +258,12 @@ describe('savings routes', () => {
     it('rejects PATCH with malformed date (400)', async () => {
       const id = await newEntry();
       const res = await agentA.patch(`/api/savings/${id}`).send({ date: '01/03/2025' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with a nonexistent calendar date (2026-13-01) (400)', async () => {
+      const id = await newEntry();
+      const res = await agentA.patch(`/api/savings/${id}`).send({ date: '2026-13-01' });
       expect(res.status).toBe(400);
     });
 
@@ -599,6 +613,16 @@ describe('savings routes', () => {
       const res = await agent
         .post('/api/savings/transfer-to-goal')
         .send({ goalId, amount: 10, date: '01/01/2026' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects a nonexistent calendar date (2026-02-30) (400)', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      await deposit(agent, 500);
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 10, date: '2026-02-30' });
       expect(res.status).toBe(400);
     });
 

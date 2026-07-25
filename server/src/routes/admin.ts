@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../auth/middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { runHourlyInsightsJob, type InsightJobResult } from '../services/hourlyInsights';
+import { isValidIsoDate } from '../services/dates';
 
 export function summariseResults(results: InsightJobResult[]) {
   return {
@@ -20,7 +21,7 @@ router.post(
   requireAdmin,
   asyncHandler(async (req: Request, res: Response) => {
     const { date } = req.body as { date?: string };
-    if (date !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    if (date !== undefined && !isValidIsoDate(date)) {
       res.status(400).json({ error: 'Formato de data inválido — esperado YYYY-MM-DD' });
       return;
     }

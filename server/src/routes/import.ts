@@ -5,6 +5,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { buildPositionMap, applyOperation, wouldExceedPosition } from '../services/portfolio';
 import { getUnknownTickers } from '../services/tickers';
+import { isValidIsoDate } from '../services/dates';
 import type { NewOperation, CsvRowError, CsvImportResult, Operation } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -42,7 +43,7 @@ function parseRows(body: string): { rows: ParsedRow[]; errors: CsvRowError[] } {
     if (!Number.isFinite(quantity) || quantity <= 0) colErrors.push('quantidade inválida');
     const price = parseFloat(priceStr);
     if (!Number.isFinite(price) || price <= 0) colErrors.push('preço inválido');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) colErrors.push('data inválida (use YYYY-MM-DD)');
+    if (!isValidIsoDate(date)) colErrors.push('data inválida (use YYYY-MM-DD)');
 
     if (colErrors.length > 0) {
       errors.push({ line: lineNum, raw, error: colErrors.join('; ') });

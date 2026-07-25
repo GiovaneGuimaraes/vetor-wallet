@@ -8,11 +8,11 @@ import type { NewIncomeEntry, IncomeEntryUpdate } from '@vetor-wallet/shared';
 // helper para um service exigiria editar `expenseEntries.ts`, e mexer em
 // despesas está fora do escopo da T-036.
 import { currentMonth } from './expenseEntries';
+import { isValidIsoDate } from '../services/dates';
 
 const router = Router();
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 router.use(requireAuth);
 
@@ -64,7 +64,7 @@ router.post(
       res.status(400).json({ error: 'amount deve ser um número maior que 0' });
       return;
     }
-    if (!date || typeof date !== 'string' || !DATE_RE.test(date)) {
+    if (!date || typeof date !== 'string' || !isValidIsoDate(date)) {
       res.status(400).json({ error: 'date inválida (use YYYY-MM-DD)' });
       return;
     }
@@ -109,7 +109,7 @@ router.patch(
       res.status(400).json({ error: 'amount deve ser um número maior que 0' });
       return;
     }
-    if (date !== undefined && (typeof date !== 'string' || !DATE_RE.test(date))) {
+    if (date !== undefined && (typeof date !== 'string' || !isValidIsoDate(date))) {
       res.status(400).json({ error: 'date inválida (use YYYY-MM-DD)' });
       return;
     }
