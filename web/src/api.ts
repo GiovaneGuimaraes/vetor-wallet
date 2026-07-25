@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, FixedExpense, NewFixedExpense, ExpenseEntry, NewExpenseEntry, SavingsEntry, NewSavingsEntry, SavingsSummary, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -208,6 +208,23 @@ export async function createIncomeSource(income: NewIncomeSource): Promise<Incom
   return res.json();
 }
 
+/** Edição parcial (T-031): só os campos informados são alterados. */
+export async function updateIncomeSource(
+  id: number,
+  update: IncomeSourceUpdate,
+): Promise<IncomeSource> {
+  const res = await apiFetch(`/api/income/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(update),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao atualizar fonte de renda');
+  }
+  return res.json();
+}
+
 export async function deleteIncomeSource(id: number): Promise<void> {
   const res = await apiFetch(`/api/income/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Falha ao remover fonte de renda');
@@ -230,6 +247,23 @@ export async function createFixedExpense(expense: NewFixedExpense): Promise<Fixe
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
     throw new Error(err.error ?? 'Falha ao criar despesa fixa');
+  }
+  return res.json();
+}
+
+/** Edição parcial (T-031). `category` volta normalizada pelo server (T-028). */
+export async function updateFixedExpense(
+  id: number,
+  update: FixedExpenseUpdate,
+): Promise<FixedExpense> {
+  const res = await apiFetch(`/api/expenses/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(update),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao atualizar despesa fixa');
   }
   return res.json();
 }
@@ -267,6 +301,26 @@ export async function createExpenseEntry(entry: NewExpenseEntry): Promise<Expens
   return res.json();
 }
 
+/**
+ * Edição parcial (T-031). Editar `date` pode mover o lançamento para outro mês
+ * — quem exibe a lista mensal deve tirar o item quando a nova data sai do mês.
+ */
+export async function updateExpenseEntry(
+  id: number,
+  update: ExpenseEntryUpdate,
+): Promise<ExpenseEntry> {
+  const res = await apiFetch(`/api/expense-entries/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(update),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao atualizar lançamento de despesa');
+  }
+  return res.json();
+}
+
 export async function deleteExpenseEntry(id: number): Promise<void> {
   const res = await apiFetch(`/api/expense-entries/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Falha ao remover lançamento de despesa');
@@ -289,6 +343,27 @@ export async function createSavingsEntry(entry: NewSavingsEntry): Promise<Saving
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
     throw new Error(err.error ?? 'Falha ao criar lançamento de poupança');
+  }
+  return res.json();
+}
+
+/**
+ * Edição parcial (T-031). `goalId` ausente preserva o vínculo com a meta,
+ * `null` desvincula e um id revincula. Mudar o tipo para `YIELD` num lançamento
+ * vinculado é rejeitado com 400 pelo server (T-024).
+ */
+export async function updateSavingsEntry(
+  id: number,
+  update: SavingsEntryUpdate,
+): Promise<SavingsEntry> {
+  const res = await apiFetch(`/api/savings/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(update),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao atualizar lançamento de poupança');
   }
   return res.json();
 }

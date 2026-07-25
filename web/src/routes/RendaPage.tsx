@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
-import { createIncomeSource, deleteIncomeSource, getIncomeSources } from '../api';
-import type { IncomeSource, IncomeSourceType } from '@vetor-wallet/shared';
+import {
+  createIncomeSource,
+  deleteIncomeSource,
+  getIncomeSources,
+  updateIncomeSource,
+} from '../api';
+import type { IncomeSource, IncomeSourceType, IncomeSourceUpdate } from '@vetor-wallet/shared';
+import { diffEditableFields, hasEdits, parseMoneyInput } from './inlineEdit';
 import './layers.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -11,11 +17,26 @@ const TYPE_LABELS: Record<IncomeSourceType, string> = {
   OUTRO: 'Outro',
 };
 
+/** Campos editáveis de uma fonte de renda, na representação do form (T-031). */
+interface EditDraft {
+  name: string;
+  type: IncomeSourceType;
+  amount: string;
+}
+
+function toDraft(source: IncomeSource): EditDraft {
+  return { name: source.name, type: source.type, amount: String(source.amount) };
+}
+
 /**
  * Rota `/renda` (T-009): total do mês (soma das fontes) + lista de fontes de
  * renda (nome, tipo, valor) + form de adição + exclusão. Consome
  * `/api/income` (T-006/T-007) via `web/src/api.ts`. Header com mascote e
  * título/subtítulo do layer já vêm do shell (T-004) — aqui só o conteúdo.
+ *
+ * T-031: cada item da lista tem modo de edição (lápis → campos preenchidos →
+ * salvar/cancelar) que dispara `PATCH /api/income/:id` só com os campos
+ * alterados.
  */
 export function RendaPage() {
   const [sources, setSources] = useState<IncomeSource[] | 'loading' | 'error'>('loading');
@@ -25,6 +46,11 @@ export function RendaPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   async function refresh() {
     setSources('loading');
@@ -70,6 +96,64 @@ export function RendaPage() {
     }
   }
 
+  function startEdit(source: IncomeSource) {
+    setEditingId(source.id);
+    setEditDraft(toDraft(source));
+    setEditError(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditDraft(null);
+    setEditError(null);
+  }
+
+  async function handleEditSubmit(e: React.FormEvent, source: IncomeSource) {
+    e.preventDefault();
+    if (!editDraft) return;
+    setEditError(null);
+
+    if (!editDraft.name.trim()) {
+      setEditError('Informe um nome para a fonte de renda.');
+      return;
+    }
+    const parsedAmount = parseMoneyInput(editDraft.amount);
+    if (parsedAmount === null) {
+      setEditError('Informe um valor válido maior que zero.');
+      return;
+    }
+
+    // Só os campos alterados vão no PATCH; sem mudança nenhuma, fecha o modo de
+    // edição sem chamar a API (um PATCH vazio responderia 400).
+    const diff = diffEditableFields(toDraft(source), {
+      ...editDraft,
+      name: editDraft.name.trim(),
+      amount: String(parsedAmount),
+    });
+    if (!hasEdits(diff)) {
+      cancelEdit();
+      return;
+    }
+
+    const update: IncomeSourceUpdate = {};
+    if (diff.name !== undefined) update.name = diff.name;
+    if (diff.type !== undefined) update.type = diff.type;
+    if (diff.amount !== undefined) update.amount = parsedAmount;
+
+    setSavingEdit(true);
+    try {
+      const saved = await updateIncomeSource(source.id, update);
+      setSources((prev) =>
+        Array.isArray(prev) ? prev.map((s) => (s.id === saved.id ? saved : s)) : prev,
+      );
+      cancelEdit();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Falha ao atualizar fonte de renda');
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
   async function handleDelete(id: number) {
     setDeletingId(id);
     try {
@@ -109,29 +193,106 @@ export function RendaPage() {
           )}
           {Array.isArray(sources) && sources.length > 0 && (
             <ul className="vw-layerpage-list">
-              {sources.map((s) => (
-                <li key={s.id}>
-                  <div className="vw-layerpage-item">
-                    <div className="vw-layerpage-item-main">
-                      <p className="vw-layerpage-item-name">{s.name}</p>
-                      <p className="vw-layerpage-item-tag">{TYPE_LABELS[s.type]}</p>
+              {sources.map((s) =>
+                editingId === s.id && editDraft ? (
+                  <li key={s.id}>
+                    <form
+                      className="vw-layerpage-item-edit"
+                      onSubmit={(e) => handleEditSubmit(e, s)}
+                    >
+                      <div className="vw-layerpage-edit-grid">
+                        <div className="vw-layerpage-field">
+                          <label htmlFor={`renda-edit-nome-${s.id}`}>Nome</label>
+                          <input
+                            id={`renda-edit-nome-${s.id}`}
+                            type="text"
+                            value={editDraft.name}
+                            disabled={savingEdit}
+                            onChange={(e) => setEditDraft({ ...editDraft, name: e.target.value })}
+                          />
+                        </div>
+                        <div className="vw-layerpage-field">
+                          <label htmlFor={`renda-edit-tipo-${s.id}`}>Tipo</label>
+                          <select
+                            id={`renda-edit-tipo-${s.id}`}
+                            value={editDraft.type}
+                            disabled={savingEdit}
+                            onChange={(e) =>
+                              setEditDraft({ ...editDraft, type: e.target.value as IncomeSourceType })
+                            }
+                          >
+                            <option value="SALARIO">Salário</option>
+                            <option value="FREELA">Freelance</option>
+                            <option value="OUTRO">Outro</option>
+                          </select>
+                        </div>
+                        <div className="vw-layerpage-field">
+                          <label htmlFor={`renda-edit-valor-${s.id}`}>Valor</label>
+                          <input
+                            id={`renda-edit-valor-${s.id}`}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editDraft.amount}
+                            disabled={savingEdit}
+                            onChange={(e) => setEditDraft({ ...editDraft, amount: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      {editError && <p className="vw-layerpage-error">{editError}</p>}
+                      <div className="vw-layerpage-edit-actions">
+                        <button
+                          type="button"
+                          className="vw-layerpage-edit-cancel"
+                          onClick={cancelEdit}
+                          disabled={savingEdit}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          className="vw-btn-primary vw-layerpage-edit-save"
+                          disabled={savingEdit}
+                        >
+                          {savingEdit ? 'Salvando…' : 'Salvar'}
+                        </button>
+                      </div>
+                    </form>
+                  </li>
+                ) : (
+                  <li key={s.id}>
+                    <div className="vw-layerpage-item">
+                      <div className="vw-layerpage-item-main">
+                        <p className="vw-layerpage-item-name">{s.name}</p>
+                        <p className="vw-layerpage-item-tag">{TYPE_LABELS[s.type]}</p>
+                      </div>
+                      <div className="vw-layerpage-item-right">
+                        <span className="vw-layerpage-item-value">{fmtCur.format(s.amount)}</span>
+                        <button
+                          type="button"
+                          className="vw-layerpage-edit-btn"
+                          onClick={() => startEdit(s)}
+                          disabled={editingId !== null || deletingId === s.id}
+                          aria-label={`Editar ${s.name}`}
+                          title="Editar"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          type="button"
+                          className="vw-layerpage-delete-btn"
+                          onClick={() => handleDelete(s.id)}
+                          disabled={deletingId === s.id || editingId !== null}
+                          aria-label={`Remover ${s.name}`}
+                          title="Remover"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
-                    <div className="vw-layerpage-item-right">
-                      <span className="vw-layerpage-item-value">{fmtCur.format(s.amount)}</span>
-                      <button
-                        type="button"
-                        className="vw-layerpage-delete-btn"
-                        onClick={() => handleDelete(s.id)}
-                        disabled={deletingId === s.id}
-                        aria-label={`Remover ${s.name}`}
-                        title="Remover"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                ),
+              )}
             </ul>
           )}
         </div>
