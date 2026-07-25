@@ -21,6 +21,7 @@ import { diffEditableFields, hasEdits, parseMoneyInput } from './inlineEdit';
 // de renda reusa os mesmos (nada duplicado aqui).
 import { currentMonthKey, formatDayMonth, formatMonthLabel, shiftMonth } from './expenseMonth';
 import { computeIncomeMonthTotals } from './incomeMonth';
+import { MonthFetchGuard } from './monthFetch';
 import './layers.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -92,6 +93,10 @@ export function RendaPage() {
   // fetches concorrentes por mês; a última chamada DISPARADA (não a última a
   // resolver) é a que deve valer.
   const latestRequestedMonthRef = useRef<string>(currentMonthKey());
+  // Dedupe de fetches concorrentes do mesmo mês (T-049) — complementa a guarda
+  // acima, que decide qual resposta VALE; esta decide se um novo fetch deve
+  // ser disparado quando já há um em andamento para o mesmo mês.
+  const entriesFetchGuardRef = useRef(new MonthFetchGuard());
   const [entryDescription, setEntryDescription] = useState('');
   const [entryAmount, setEntryAmount] = useState('');
   const [entryDate, setEntryDate] = useState(() => defaultEntryDate(currentMonthKey()));
@@ -113,6 +118,11 @@ export function RendaPage() {
   }, []);
 
   const refreshEntries = useCallback(async (month: string) => {
+    // T-049: se já há um fetch em andamento para este MESMO mês, não dispara
+    // outro — evita requests duplicados (ex.: cliques rápidos que resolvem no
+    // mesmo mês, ou o efeito reexecutando duas vezes em StrictMode).
+    if (entriesFetchGuardRef.current.isInFlight(month)) return;
+    entriesFetchGuardRef.current.start(month);
     latestRequestedMonthRef.current = month;
     setEntries('loading');
     try {
@@ -125,6 +135,8 @@ export function RendaPage() {
     } catch {
       if (latestRequestedMonthRef.current !== month) return;
       setEntries('error');
+    } finally {
+      entriesFetchGuardRef.current.finish(month);
     }
   }, []);
 

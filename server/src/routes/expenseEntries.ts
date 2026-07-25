@@ -66,6 +66,7 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const rawMonths = req.query.months;
+    const rawEndMonth = req.query.endMonth;
 
     let months = DEFAULT_SUMMARY_MONTHS;
     if (rawMonths !== undefined) {
@@ -82,17 +83,35 @@ router.get(
       }
     }
 
-    const endMonth = currentMonth();
+    // T-049: `endMonth` deixa o cliente ancorar a janela no PRÓPRIO fuso (o
+    // padrão continua sendo o mês corrente do server — `currentMonth()`).
+    // Mesma validação de formato de `month` em `GET /?month=`.
+    let endMonth = currentMonth();
+    if (rawEndMonth !== undefined) {
+      if (typeof rawEndMonth !== 'string' || !MONTH_RE.test(rawEndMonth)) {
+        res.status(400).json({ error: 'endMonth inválido (use YYYY-MM)' });
+        return;
+      }
+      endMonth = rawEndMonth;
+    }
     const startMonth = shiftMonthKey(endMonth, -(months - 1));
 
-    // T-035: o histórico tem de refletir as recorrências dos meses da janela,
-    // então materializa antes de agregar. A janela termina no mês corrente —
-    // aqui nunca se gera mês futuro (isso só acontece em GET /?month=).
+    // T-035/T-049: o histórico tem de refletir as recorrências dos meses da
+    // janela, então materializa antes de agregar. Antes da T-049 a janela
+    // terminava sempre no mês corrente do SERVER, então nunca incluía mês
+    // futuro; agora que o cliente pode informar `endMonth`, um `endMonth`
+    // futuro entraria na janela — por isso o mesmo teto de horizonte usado em
+    // `GET /?month=` é aplicado aqui: meses além dele ainda são agregados
+    // (o SELECT abaixo não tem teto), apenas não geram ocorrência nova.
     const windowMonths: string[] = [];
     for (let i = 0; i < months; i += 1) {
       windowMonths.push(shiftMonthKey(startMonth, i));
     }
-    await materializeRecurringExpenses(userId, windowMonths);
+    const horizonLimit = shiftMonthKey(currentMonth(), MATERIALIZATION_HORIZON_MONTHS);
+    const materializableMonths = windowMonths.filter((m) => m <= horizonLimit);
+    if (materializableMonths.length > 0) {
+      await materializeRecurringExpenses(userId, materializableMonths);
+    }
 
     const result = await db.execute({
       sql: `SELECT substr(date, 1, 7) as month, SUM(amount) as total FROM expense_entries

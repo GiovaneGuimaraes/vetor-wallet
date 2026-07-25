@@ -381,11 +381,20 @@ export async function deleteExpenseEntry(id: number): Promise<void> {
 
 /**
  * Histórico mensal (T-033): total de lançamentos variáveis por mês, dos
- * últimos `months` meses até o corrente (default 6, cap 24 no server).
- * Meses sem lançamentos não vêm na resposta — ver `buildMonthlyHistory`.
+ * últimos `months` meses até `endMonth` (default: mês corrente do SERVER;
+ * cap 24 meses). Meses sem lançamentos não vêm na resposta — ver
+ * `buildMonthlyHistory`. `endMonth` (T-049) deixa o cliente ancorar a janela
+ * no PRÓPRIO fuso em vez do fuso do processo do server — ver `DespesasPage`,
+ * que envia `currentMonthKey()`.
  */
-export async function getExpenseEntriesSummary(months?: number): Promise<ExpenseMonthSummaryResponse> {
-  const qs = months !== undefined ? `?months=${months}` : '';
+export async function getExpenseEntriesSummary(
+  months?: number,
+  endMonth?: string,
+): Promise<ExpenseMonthSummaryResponse> {
+  const params = new URLSearchParams();
+  if (months !== undefined) params.set('months', String(months));
+  if (endMonth !== undefined) params.set('endMonth', endMonth);
+  const qs = params.toString() ? `?${params.toString()}` : '';
   const res = await apiFetch(`/api/expense-entries/summary${qs}`);
   if (!res.ok) throw new Error('Falha ao buscar histórico de despesas');
   return res.json();

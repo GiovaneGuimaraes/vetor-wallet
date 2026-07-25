@@ -502,5 +502,162 @@ describe('expense entries routes', () => {
       const res = await agentA.get('/api/expense-entries/summary?months=24');
       expect(res.status).toBe(200);
     });
+
+    // ── T-049: `endMonth` explícito ───────────────────────────────────────
+    describe('endMonth (T-049)', () => {
+      it('rejects a malformed endMonth (400)', async () => {
+        const malformed = await agentA.get('/api/expense-entries/summary?endMonth=2026-13');
+        expect(malformed.status).toBe(400);
+
+        const junk = await agentA.get('/api/expense-entries/summary?endMonth=julho');
+        expect(junk.status).toBe(400);
+      });
+
+      it('defaults endMonth to the current month when omitted', async () => {
+        const agentH = request.agent(app);
+        await agentH
+          .post('/api/auth/register')
+          .send({ email: 'expense-entries-summary-h@test.com', password: 'password123' });
+
+        const month = currentMonth();
+        await agentH
+          .post('/api/expense-entries')
+          .send({ description: 'Mês corrente H', amount: 42, date: `${month}-05` });
+
+        const withDefault = await agentH.get('/api/expense-entries/summary?months=1');
+        const withExplicit = await agentH.get(
+          `/api/expense-entries/summary?months=1&endMonth=${month}`,
+        );
+        expect(withDefault.status).toBe(200);
+        expect(withExplicit.status).toBe(200);
+        expect(withDefault.body).toEqual(withExplicit.body);
+      });
+
+      it('anchors the window on a client-provided endMonth instead of the server month', async () => {
+        const agentI = request.agent(app);
+        await agentI
+          .post('/api/auth/register')
+          .send({ email: 'expense-entries-summary-i@test.com', password: 'password123' });
+
+        const month = currentMonth();
+        const prevMonth = shiftMonthKey(month, -1);
+        await agentI
+          .post('/api/expense-entries')
+          .send({ description: 'Mês anterior I', amount: 77, date: `${prevMonth}-05` });
+        await agentI
+          .post('/api/expense-entries')
+          .send({ description: 'Mês corrente I', amount: 33, date: `${month}-05` });
+
+        // Pedindo a janela de 1 mês terminando no mês ANTERIOR, o mês corrente
+        // não deve aparecer — a janela é ancorada em `endMonth`, não no mês
+        // corrente do server.
+        const res = await agentI.get(
+          `/api/expense-entries/summary?months=1&endMonth=${prevMonth}`,
+        );
+        expect(res.status).toBe(200);
+        const months = (res.body.months as { month: string; total: number }[]).map(
+          (m) => m.month,
+        );
+        expect(months).toEqual([prevMonth]);
+        expect(months).not.toContain(month);
+      });
+
+      it('does not materialize a recurring occurrence beyond the horizon for a future endMonth', async () => {
+        const agentJ = request.agent(app);
+        await agentJ
+          .post('/api/auth/register')
+          .send({ email: 'expense-entries-summary-j@test.com', password: 'password123' });
+
+        const month = currentMonth();
+        // Cria uma recorrência mensal (nasce acoplada a este lançamento).
+        const created = await agentJ.post('/api/expense-entries').send({
+          description: 'Assinatura J',
+          amount: 19.9,
+          date: `${month}-05`,
+          recurring: true,
+        });
+        expect(created.status).toBe(201);
+
+        // Um `endMonth` muito além do horizonte de materialização não deve
+        // gerar ocorrências indefinidamente à frente — mesma proteção que já
+        // existia para `GET /?month=`. A janela pedida é de 1 mês terminando
+        // exatamente em `farFuture`, então, se a ocorrência tivesse sido
+        // materializada ali, ela apareceria na resposta.
+        const farFuture = shiftMonthKey(month, 200);
+        const res = await agentJ.get(
+          `/api/expense-entries/summary?months=1&endMonth=${farFuture}`,
+        );
+        expect(res.status).toBe(200);
+        expect(res.body.months).toEqual([]);
+      });
+
+      it('materializes exactly the future months within the window when endMonth is future but within the horizon', async () => {
+        const agentK = request.agent(app);
+        await agentK
+          .post('/api/auth/register')
+          .send({ email: 'expense-entries-summary-k@test.com', password: 'password123' });
+
+        const month = currentMonth();
+        const created = await agentK.post('/api/expense-entries').send({
+          description: 'Assinatura K',
+          amount: 15,
+          date: `${month}-05`,
+          recurring: true,
+        });
+        expect(created.status).toBe(201);
+
+        // Janela de 3 meses terminando 3 meses à frente do corrente:
+        // [mês+1, mês+2, mês+3] — todos dentro do horizonte (12 meses).
+        const plus1 = shiftMonthKey(month, 1);
+        const plus2 = shiftMonthKey(month, 2);
+        const plus3 = shiftMonthKey(month, 3);
+
+        const res = await agentK.get(`/api/expense-entries/summary?months=3&endMonth=${plus3}`);
+        expect(res.status).toBe(200);
+        const byMonth = new Map(
+          (res.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total]),
+        );
+        // Os 3 meses futuros da janela foram materializados com a ocorrência
+        // da recorrência (nenhum mês passado/corrente é inventado, pois a
+        // janela pedida não os inclui).
+        expect(byMonth.get(plus1)).toBe(15);
+        expect(byMonth.get(plus2)).toBe(15);
+        expect(byMonth.get(plus3)).toBe(15);
+        expect(byMonth.has(month)).toBe(false);
+      });
+
+      it('materializes only the months of the window up to the horizon, not beyond it', async () => {
+        const agentL = request.agent(app);
+        await agentL
+          .post('/api/auth/register')
+          .send({ email: 'expense-entries-summary-l@test.com', password: 'password123' });
+
+        const month = currentMonth();
+        const created = await agentL.post('/api/expense-entries').send({
+          description: 'Assinatura L',
+          amount: 25,
+          date: `${month}-05`,
+          recurring: true,
+        });
+        expect(created.status).toBe(201);
+
+        // Janela de 3 meses terminando em mês+14: [mês+12, mês+13, mês+14].
+        // O teto de horizonte é mês+12 — só esse mês da janela é
+        // materializado; mês+13 e mês+14 ficam sem a ocorrência (ausentes da
+        // resposta, já que não há lançamento nenhum ali).
+        const plus12 = shiftMonthKey(month, 12);
+        const plus13 = shiftMonthKey(month, 13);
+        const plus14 = shiftMonthKey(month, 14);
+
+        const res = await agentL.get(`/api/expense-entries/summary?months=3&endMonth=${plus14}`);
+        expect(res.status).toBe(200);
+        const byMonth = new Map(
+          (res.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total]),
+        );
+        expect(byMonth.get(plus12)).toBe(25);
+        expect(byMonth.has(plus13)).toBe(false);
+        expect(byMonth.has(plus14)).toBe(false);
+      });
+    });
   });
 });
