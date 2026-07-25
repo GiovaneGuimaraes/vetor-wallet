@@ -41,7 +41,7 @@ _(Ciclo 6: Ondas A e B CONCLUÍDAS E MERGEADAS — PRs #69–#73; sanidade na `m
 - **Resultado**: —
 
 ### T-034 — Sessões persistentes (login sobrevive a restart do server)
-- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25 — Onda C)
+- **Status**: CONCLUIDA e MERGEADA — PR [#74](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/74) (2026-07-25). Revisor Opus: APROVADA, 0 bloqueantes — conferiu no fonte do express-session que o roundtrip do cookie é reidratado por `Store.createSession`; upsert/touch/comparações ISO verificados; tabela sem superfície HTTP; `data` nunca logado. `SqliteSessionStore` sem dependência nova; teste de integração "restart" com 2ª instância real. Docblock contraditório (achado nº1) corrigido pelo orquestrador antes do merge (`97be0d1`). Sugestões registradas: teste direto da varredura de boot (logout em massa seria o pior cenário); double-callback teórico se o callback lançar síncrono; `maxAge <= 0` cai no fallback 24h em vez de expirar; `expires_at` corrompido deveria ser fail-closed. Server 300 testes / web 95 / build verdes. Modelos: executor Sonnet, revisor Opus 5.
 - **Prioridade**: P2
 - **Complexidade**: média (infra de sessão; revisor Opus por tocar auth)
 - **Depende de**: —
