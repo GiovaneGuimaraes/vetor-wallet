@@ -19,10 +19,14 @@ process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
 describe('operations routes — SELL validation', () => {
   let app: Express;
+  let db: typeof import('../db').db;
   let agentA: ReturnType<typeof request.agent>;
+  let userAId: number;
 
   beforeAll(async () => {
-    const { initDb } = await import('../db');
+    const dbModule = await import('../db');
+    const { initDb } = dbModule;
+    db = dbModule.db;
     const { default: authRouter } = await import('../auth/router');
     const { default: operationsRouter } = await import('./operations');
     const { errorHandler } = await import('../middleware/errorHandler');
@@ -45,7 +49,10 @@ describe('operations routes — SELL validation', () => {
     app.use(errorHandler);
 
     agentA = request.agent(app);
-    await agentA.post('/api/auth/register').send({ email: 'ops-a@test.com', password: 'password123' });
+    const reg = await agentA
+      .post('/api/auth/register')
+      .send({ email: 'ops-a@test.com', password: 'password123' });
+    userAId = reg.body.id;
   });
 
   it('rejects SELL for a ticker with no position at all (400)', async () => {
@@ -135,5 +142,76 @@ describe('operations routes — SELL validation', () => {
       .post('/api/operations')
       .send({ ticker: 'ITUB4', type: 'BUY', quantity: 10, price: 30, date: '2026-13-01' });
     expect(res.status).toBe(400);
+  });
+
+  // T-050: carteira única — o escopo é o usuário e `wallet_id` do body é ignorado.
+  it('ignores wallet_id from the body — the operation is born in the default wallet, even when the id belongs to another user', async () => {
+    // carteira de OUTRO usuário, criada direto no banco
+    await db.execute({
+      sql: "INSERT INTO users (email, password_hash) VALUES ('ops-intruder@test.com', 'x')",
+      args: [],
+    });
+    const other = await db.execute({
+      sql: 'SELECT id FROM users WHERE email = ?',
+      args: ['ops-intruder@test.com'],
+    });
+    const otherUserId = Number(other.rows[0].id);
+    const otherWallet = await db.execute({
+      sql: 'INSERT INTO wallets (user_id, name) VALUES (?, ?)',
+      args: [otherUserId, 'Carteira alheia'],
+    });
+    const otherWalletId = Number(otherWallet.lastInsertRowid);
+
+    const res = await agentA.post('/api/operations').send({
+      ticker: 'BBAS3',
+      type: 'BUY',
+      quantity: 10,
+      price: 20,
+      date: '2024-04-01',
+      wallet_id: otherWalletId,
+    });
+    expect(res.status).toBe(201);
+    expect(Number(res.body.wallet_id)).not.toBe(otherWalletId);
+
+    const { findDefaultWallet } = await import('../services/wallets');
+    const own = await findDefaultWallet(userAId);
+    expect(Number(res.body.wallet_id)).toBe(Number(own?.id));
+  });
+
+  it('validates SELL against ALL of the user operations, including a legacy row in another wallet', async () => {
+    // linha legada: 40 ações de EGIE3 numa segunda carteira do próprio usuário
+    const legacyWallet = await db.execute({
+      sql: 'INSERT INTO wallets (user_id, name) VALUES (?, ?)',
+      args: [userAId, 'Carteira legada'],
+    });
+    const legacyWalletId = Number(legacyWallet.lastInsertRowid);
+    await db.execute({
+      sql: 'INSERT INTO operations (ticker, type, quantity, price, date, user_id, wallet_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      args: ['EGIE3', 'BUY', 40, 40, '2024-05-01', userAId, legacyWalletId],
+    });
+
+    // 60 na carteira padrão pela rota → consolidado de 100
+    await agentA
+      .post('/api/operations')
+      .send({ ticker: 'EGIE3', type: 'BUY', quantity: 60, price: 41, date: '2024-05-02' });
+
+    // um SELL de 100 é coberto pelo consolidado (40 + 60), mesmo espalhado entre carteiras
+    const ok = await agentA
+      .post('/api/operations')
+      .send({ ticker: 'EGIE3', type: 'SELL', quantity: 100, price: 45, date: '2024-05-03' });
+    expect(ok.status).toBe(201);
+
+    // e o excedente segue rejeitado
+    const over = await agentA
+      .post('/api/operations')
+      .send({ ticker: 'EGIE3', type: 'SELL', quantity: 1, price: 45, date: '2024-05-04' });
+    expect(over.status).toBe(400);
+  });
+
+  it('ignores ?walletId= on GET — the list is always the user consolidated history', async () => {
+    const all = await agentA.get('/api/operations');
+    const filtered = await agentA.get('/api/operations?walletId=999999');
+    expect(filtered.body.length).toBe(all.body.length);
+    expect(all.body.length).toBeGreaterThan(0);
   });
 });

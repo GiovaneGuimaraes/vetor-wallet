@@ -4,29 +4,24 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { buildPositionMap, wouldExceedPosition } from '../services/portfolio';
 import { isValidIsoDate } from '../services/dates';
+import { getOrCreateDefaultWallet } from '../services/wallets';
 import type { NewOperation, Operation } from '@vetor-wallet/shared';
 
 const router = Router();
 
 router.use(requireAuth);
 
+// Carteira única (T-050): o escopo é o USUÁRIO. `?walletId=` é ignorado —
+// a lista é sempre consolidada, inclusive sobre carteiras legadas.
 router.get(
   '/',
-  asyncHandler(async (req: Request, res: Response) => {
+  asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const { walletId } = req.query;
 
-    let sql = 'SELECT * FROM operations WHERE user_id = ?';
-    const args: (number | string)[] = [userId];
-
-    if (walletId !== undefined) {
-      sql += ' AND wallet_id = ?';
-      args.push(Number(walletId));
-    }
-
-    sql += ' ORDER BY date DESC, created_at DESC';
-
-    const result = await db.execute({ sql, args });
+    const result = await db.execute({
+      sql: 'SELECT * FROM operations WHERE user_id = ? ORDER BY date DESC, created_at DESC',
+      args: [userId],
+    });
     res.json(result.rows);
   }),
 );
@@ -35,7 +30,9 @@ router.post(
   '/',
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const { ticker, type, quantity, price, date, wallet_id } = req.body as Partial<NewOperation & { wallet_id?: number | null }>;
+    // `wallet_id` do body é IGNORADO (T-050): a operação sempre nasce na carteira
+    // padrão do usuário. Fecha de quebra o buraco de gravar numa carteira alheia.
+    const { ticker, type, quantity, price, date } = req.body as Partial<NewOperation>;
 
     if (!ticker || typeof ticker !== 'string' || !ticker.trim()) {
       res.status(400).json({ error: 'ticker e obrigatorio' });
@@ -61,17 +58,11 @@ router.post(
     const tickerUp = ticker.trim().toUpperCase();
 
     if (type === 'SELL') {
-      let sellCheckSql = 'SELECT * FROM operations WHERE ticker = ? AND user_id = ?';
-      const sellCheckArgs: (string | number)[] = [tickerUp, userId];
-
-      if (wallet_id !== undefined && wallet_id !== null) {
-        sellCheckSql += ' AND wallet_id = ?';
-        sellCheckArgs.push(wallet_id);
-      }
-
-      sellCheckSql += ' ORDER BY date ASC, created_at ASC';
-
-      const existing = await db.execute({ sql: sellCheckSql, args: sellCheckArgs });
+      // Sem filtro de carteira (T-050): a posição é o consolidado do usuário.
+      const existing = await db.execute({
+        sql: 'SELECT * FROM operations WHERE ticker = ? AND user_id = ? ORDER BY date ASC, created_at ASC',
+        args: [tickerUp, userId],
+      });
       const positionMap = buildPositionMap(existing.rows as unknown as Operation[]);
       if (wouldExceedPosition(positionMap, tickerUp, quantity)) {
         res.status(400).json({ error: 'venda maior que a posicao atual' });
@@ -79,9 +70,11 @@ router.post(
       }
     }
 
+    const walletId = await getOrCreateDefaultWallet(userId);
+
     const insert = await db.execute({
       sql: 'INSERT INTO operations (ticker, type, quantity, price, date, user_id, wallet_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      args: [tickerUp, type, quantity, price, date, userId, wallet_id ?? null],
+      args: [tickerUp, type, quantity, price, date, userId, walletId],
     });
 
     const newId = insert.lastInsertRowid ?? 0;

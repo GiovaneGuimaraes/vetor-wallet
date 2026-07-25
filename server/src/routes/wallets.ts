@@ -2,44 +2,32 @@ import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { countWallets, getOrCreateDefaultWallet } from '../services/wallets';
 import type { NewWallet } from '@vetor-wallet/shared';
 
 const router = Router();
 
 router.use(requireAuth);
 
-// GET /api/wallets — lista carteiras do usuário; lazy-cria "Carteira B3 pessoal" se nenhuma existir
+// GET /api/wallets — lista as carteiras do usuário; lazy-cria a padrão se nenhuma existir.
+// Bases legadas com 2+ carteiras continuam listando todas (T-050).
 router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    let result = await db.execute({
-      sql: 'SELECT * FROM wallets WHERE user_id = ? ORDER BY created_at ASC',
+
+    await getOrCreateDefaultWallet(userId);
+
+    const result = await db.execute({
+      sql: 'SELECT * FROM wallets WHERE user_id = ? ORDER BY created_at ASC, id ASC',
       args: [userId],
     });
-
-    if (result.rows.length === 0) {
-      // Lazy migration: criar carteira padrão e adotar operações existentes
-      const ins = await db.execute({
-        sql: 'INSERT INTO wallets (user_id, name, description, color) VALUES (?, ?, ?, ?)',
-        args: [userId, 'Carteira B3 pessoal', 'Ações · longo prazo', '#e3d5b8'],
-      });
-      const walletId = Number(ins.lastInsertRowid);
-      await db.execute({
-        sql: 'UPDATE operations SET wallet_id = ? WHERE user_id = ? AND wallet_id IS NULL',
-        args: [walletId, userId],
-      });
-      result = await db.execute({
-        sql: 'SELECT * FROM wallets WHERE user_id = ? ORDER BY created_at ASC',
-        args: [userId],
-      });
-    }
 
     res.json(result.rows);
   }),
 );
 
-// POST /api/wallets
+// POST /api/wallets — carteira única (T-050): só cria se o usuário ainda não tiver nenhuma.
 router.post(
   '/',
   asyncHandler(async (req: Request, res: Response) => {
@@ -48,6 +36,11 @@ router.post(
 
     if (!name?.trim()) {
       res.status(400).json({ error: 'name é obrigatório' });
+      return;
+    }
+
+    if ((await countWallets(userId)) > 0) {
+      res.status(400).json({ error: 'Você já tem uma carteira de ações' });
       return;
     }
 
@@ -65,23 +58,7 @@ router.post(
   }),
 );
 
-// DELETE /api/wallets/:id
-router.delete(
-  '/:id',
-  asyncHandler(async (req: Request, res: Response) => {
-    const userId = res.locals.userId as number;
-    const result = await db.execute({
-      sql: 'DELETE FROM wallets WHERE id = ? AND user_id = ?',
-      args: [req.params.id, userId],
-    });
-
-    if (result.rowsAffected === 0) {
-      res.status(404).json({ error: 'Carteira não encontrada' });
-      return;
-    }
-
-    res.status(204).send();
-  }),
-);
+// DELETE /api/wallets/:id foi removido na T-050 — com carteira única não há o que
+// apagar (e a FK de operations impediria apagar uma carteira com histórico).
 
 export default router;
