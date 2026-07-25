@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, RecurringExpense, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, IncomeEntry, NewIncomeEntry, IncomeEntryUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, RecurringExpense, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -228,6 +228,59 @@ export async function updateIncomeSource(
 export async function deleteIncomeSource(id: number): Promise<void> {
   const res = await apiFetch(`/api/income/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Falha ao remover fonte de renda');
+}
+
+// ── Lançamentos de renda variável ─────────────────────────────────────────────
+
+/**
+ * Lista as rendas variáveis de um mês (`YYYY-MM`) — T-036. Sem `month`, o
+ * server usa o mês corrente e devolve qual mês respondeu.
+ */
+export async function getIncomeEntries(
+  month?: string,
+): Promise<{ month: string; entries: IncomeEntry[] }> {
+  const qs = month ? `?month=${encodeURIComponent(month)}` : '';
+  const res = await apiFetch(`/api/income-entries${qs}`);
+  if (!res.ok) throw new Error('Falha ao buscar rendas do mês');
+  return res.json();
+}
+
+export async function createIncomeEntry(entry: NewIncomeEntry): Promise<IncomeEntry> {
+  const res = await apiFetch('/api/income-entries', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao criar renda do mês');
+  }
+  return res.json();
+}
+
+/**
+ * Edição parcial (padrão T-031). Editar `date` pode mover o lançamento para
+ * outro mês — quem exibe a lista mensal deve tirar o item da lista.
+ */
+export async function updateIncomeEntry(
+  id: number,
+  update: IncomeEntryUpdate,
+): Promise<IncomeEntry> {
+  const res = await apiFetch(`/api/income-entries/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(update),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao atualizar renda do mês');
+  }
+  return res.json();
+}
+
+export async function deleteIncomeEntry(id: number): Promise<void> {
+  const res = await apiFetch(`/api/income-entries/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Falha ao remover renda do mês');
 }
 
 // ── Despesas fixas ────────────────────────────────────────────────────────────
