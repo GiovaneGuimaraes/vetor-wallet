@@ -118,6 +118,24 @@ export async function initDb() {
     )
   `);
 
+  // T-036: renda avulsa datada (freela pontual, venda, bônus) — espelho de
+  // expense_entries para o layer Renda. Distinta de income_sources, que é um
+  // item fixo mensal sem data e vale para todo mês exibido.
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS income_entries (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id     INTEGER NOT NULL REFERENCES users(id),
+      description TEXT    NOT NULL,
+      amount      REAL    NOT NULL,
+      date        TEXT    NOT NULL,
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  await db.execute(
+    'CREATE INDEX IF NOT EXISTS idx_income_entries_user_date ON income_entries(user_id, date)',
+  );
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS fixed_expenses (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
