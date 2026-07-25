@@ -1,8 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ExpenseEntry, FixedExpense, Goal, IncomeSource, SavingsSummary } from '@vetor-wallet/shared';
+import type {
+  ExpenseEntry,
+  FixedExpense,
+  Goal,
+  IncomeEntry,
+  IncomeSource,
+  SavingsSummary,
+} from '@vetor-wallet/shared';
 import { useShellContext } from '../layout/ShellContext';
-import { getExpenseEntries, getFixedExpenses, getGoals, getIncomeSources, getSavings } from '../api';
+import {
+  getExpenseEntries,
+  getFixedExpenses,
+  getGoals,
+  getIncomeEntries,
+  getIncomeSources,
+  getSavings,
+} from '../api';
 import { computeGoalsSummary, computeMonthCashFlow, computeStockTotals, sumAmounts } from './homeMetrics';
 import { currentMonthKey } from './expenseMonth';
 import './home.css';
@@ -45,6 +59,9 @@ export function HomePage() {
   // null = ainda não carregado ou a busca falhou — computeMonthCashFlow cai
   // para a sobra estimada (renda − fixas) nesse caso, em vez de NaN.
   const [variableEntries, setVariableEntries] = useState<ExpenseEntry[] | null>(null);
+  // T-036: rendas variáveis do mês corrente. Mesma semântica de null da linha
+  // acima — computeMonthCashFlow soma 0 e sinaliza incomeEntriesLoaded=false.
+  const [variableIncomeEntries, setVariableIncomeEntries] = useState<IncomeEntry[] | null>(null);
   const [savingsSummary, setSavingsSummary] = useState<SavingsSummary | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,22 +74,33 @@ export function HomePage() {
       // Promise.allSettled (em vez de Promise.all): se uma das chamadas
       // falhar, as demais ainda populam seus cards — só o card cuja fonte
       // falhou fica com o valor anterior (0/—) e um aviso genérico aparece.
-      const [incomeRes, expensesRes, entriesRes, savingsRes, goalsRes] = await Promise.allSettled([
-        getIncomeSources(),
-        getFixedExpenses(),
-        getExpenseEntries(currentMonthKey()),
-        getSavings(),
-        getGoals(),
-      ]);
+      const [incomeRes, incomeEntriesRes, expensesRes, entriesRes, savingsRes, goalsRes] =
+        await Promise.allSettled([
+          getIncomeSources(),
+          getIncomeEntries(currentMonthKey()),
+          getFixedExpenses(),
+          getExpenseEntries(currentMonthKey()),
+          getSavings(),
+          getGoals(),
+        ]);
       if (cancelled) return;
 
       if (incomeRes.status === 'fulfilled') setIncome(incomeRes.value);
+      if (incomeEntriesRes.status === 'fulfilled')
+        setVariableIncomeEntries(incomeEntriesRes.value.entries);
       if (expensesRes.status === 'fulfilled') setExpenses(expensesRes.value);
       if (entriesRes.status === 'fulfilled') setVariableEntries(entriesRes.value.entries);
       if (savingsRes.status === 'fulfilled') setSavingsSummary(savingsRes.value.summary);
       if (goalsRes.status === 'fulfilled') setGoals(goalsRes.value);
 
-      const failures = [incomeRes, expensesRes, entriesRes, savingsRes, goalsRes].filter(
+      const failures = [
+        incomeRes,
+        incomeEntriesRes,
+        expensesRes,
+        entriesRes,
+        savingsRes,
+        goalsRes,
+      ].filter(
         (r): r is PromiseRejectedResult => r.status === 'rejected',
       );
       if (failures.length > 0) {
@@ -89,9 +117,16 @@ export function HomePage() {
   }, []);
 
   const stockTotals = computeStockTotals(Object.values(walletSummaries));
-  const incomeTotal = sumAmounts(income);
+  const fixedIncomeTotal = sumAmounts(income);
   const fixedExpensesTotal = sumAmounts(expenses);
-  const cashFlow = computeMonthCashFlow(incomeTotal, fixedExpensesTotal, variableEntries);
+  const cashFlow = computeMonthCashFlow(
+    fixedIncomeTotal,
+    fixedExpensesTotal,
+    variableEntries,
+    variableIncomeEntries,
+  );
+  // Renda do mês exibida nos cards = fixas + variáveis do mês (T-036).
+  const incomeTotal = cashFlow.incomeTotal;
   const savingsBalance = savingsSummary?.balance ?? 0;
   const goalsSummary = computeGoalsSummary(goals);
   const patrimonioTotal = stockTotals.current + savingsBalance;
@@ -146,11 +181,12 @@ export function HomePage() {
           <div>
             <p className="vw-hero-metric-label">Sobra do mês</p>
             <p className="vw-hero-metric-value">{fmtCur.format(cashFlow.realBalance)}</p>
-            {/* entriesLoaded só é avaliado após o primeiro carregamento (!loading) — nos
-                primeiros ms de qualquer carregamento variableEntries ainda é null, o que não
-                significa falha. Sem o gate por loading, o aviso de estimativa piscava sempre,
-                mesmo quando a busca ia ter sucesso (T-030). */}
-            {!loading && !cashFlow.entriesLoaded ? (
+            {/* As flags de load só são avaliadas após o primeiro carregamento (!loading) — nos
+                primeiros ms de qualquer carregamento variableEntries/variableIncomeEntries ainda
+                são null, o que não significa falha. Sem o gate por loading, o aviso de estimativa
+                piscava sempre, mesmo quando a busca ia ter sucesso (T-030). T-036: qualquer um dos
+                dois lados que falhe deixa a sobra real parcial, então o aviso cobre os dois. */}
+            {!loading && (!cashFlow.entriesLoaded || !cashFlow.incomeEntriesLoaded) ? (
               <p className="vw-hero-metric-sublabel vw-hero-metric-sublabel--warn">
                 ⚠ Estimativa (sem lançamentos do mês)
               </p>

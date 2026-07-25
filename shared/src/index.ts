@@ -168,6 +168,41 @@ export interface IncomeSourceUpdate {
   amount?: number;
 }
 
+/**
+ * Lançamento de renda variável (renda avulsa datada: freela pontual, venda,
+ * bônus), distinto de `IncomeSource` — que é uma fonte fixa mensal sem data.
+ * Ver T-036; é o espelho de `ExpenseEntry` no layer Renda, sem categoria e
+ * sem recorrência (fora de escopo).
+ */
+export interface IncomeEntry {
+  id: number;
+  user_id: number;
+  description: string;
+  amount: number;
+  /** YYYY-MM-DD */
+  date: string;
+  created_at: string;
+}
+
+export interface NewIncomeEntry {
+  description: string;
+  amount: number;
+  /** YYYY-MM-DD */
+  date: string;
+}
+
+/**
+ * Payload parcial de `PATCH /api/income-entries/:id` (T-036, padrão T-031).
+ * Todos os campos opcionais, mas ao menos um deve vir — corpo sem nenhum campo
+ * conhecido responde 400. Editar `date` pode mover o lançamento para outro mês.
+ */
+export interface IncomeEntryUpdate {
+  description?: string;
+  amount?: number;
+  /** YYYY-MM-DD */
+  date?: string;
+}
+
 export interface FixedExpense {
   id: number;
   user_id: number;

@@ -26,6 +26,9 @@ server/src/
 │   ├── snapshots.ts  # GET /api/snapshots/:ticker — histórico diário de preços
 │   ├── alerts.ts     # CRUD de alertas (filtrado por user_id)
 │   ├── import.ts     # importação CSV (filtrado por user_id)
+│   ├── incomeEntries.ts # CRUD de renda variável datada com visão mensal
+│   │                 # (T-036) — espelho de expenseEntries.ts sem recorrência
+│   │                 # nem categoria; reusa currentMonth de expenseEntries.ts
 │   ├── recurringExpenses.ts # gestão dos templates de recorrência (T-035):
 │   │                 # lista ativas e encerra (soft); criação é acoplada ao
 │   │                 # POST /api/expense-entries com recurring: true
