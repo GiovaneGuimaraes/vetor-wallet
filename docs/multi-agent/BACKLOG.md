@@ -24,9 +24,13 @@
 
 ## Tarefas ativas
 
-_(Ciclo 5, Onda A em andamento — T-022, T-024, T-026, T-027 delegadas em 2026-07-24; ver seção do ciclo 5 abaixo. Onda B (T-023, T-025) aguarda integração da T-022. T-020/T-021 do ciclo 4 seguem em espera por decisão do humano.)_
+_(vazio — Ciclo 5 CONCLUÍDO E MERGEADO em 2026-07-25, PRs #63–#68. T-020/T-021 do ciclo 4 seguem em espera por decisão do humano.)_
 
-## Ciclo 5 — Melhorias dos layers básicos (EM ANDAMENTO — Onda A delegada em 2026-07-24)
+## Ciclo 5 — Melhorias dos layers básicos — CONCLUÍDO E MERGEADO (2026-07-25)
+
+> 6 tarefas executadas em 2 ondas (A: T-022, T-024, T-026, T-027 em paralelo; B: T-023, T-025 após integração da T-022), todas revisadas, aprovadas e mergeadas via PRs #63–#68. Sanidade final na `main` (`39ba7d0`): server 190 testes (18 arquivos) + web 63 testes (7 arquivos) + build completo verdes.
+> **Primeiro ciclo com roteamento de modelos**: executores Opus 5 nas tarefas altas (T-022, T-024), Sonnet nas médias/baixas; revisores Opus nas que tocam dinheiro (T-022, T-023, T-024, T-025). 1 reprovação no ciclo inteiro (T-027, auto-criação espúria em falha de rede — corrigida na 1ª re-entrega, sem precisar escalar executor). Incidente do orquestrador: marcador de conflito residual no CLAUDE.md ao integrar a T-024, detectado pelo revisor Opus da T-023 e corrigido (`0c0cd84`) — lição: conferir `git diff --check`/grep de marcadores após toda resolução manual.
+> Candidatas geradas pelas revisões (não urgentes): normalização de categoria entre Despesas/Lançamentos/Orçamentos (case-sensitive hoje); `Number.isFinite` em `amount` em todas as rotas de dinheiro (aceitam `Infinity` — dívida do repo inteiro); guarda de resposta obsoleta na navegação de mês da DespesasPage; semântica do retorno a MANUAL quando o último vínculo de meta é apagado; `Promise.all` da PoupancaPage derruba a tela se só `/api/goals` falhar; polimentos do sublabel de estimativa na Home.
 
 > Pedido do humano (2026-07-24): melhorar os layers básicos (Renda, Despesas, Poupança, Metas — **fora** Ações e Cripto), usando como referência apps de wallet existentes: **Mobills** (metas financeiras, controle de gastos), **Organizze** (simplicidade, visão mensal, múltiplas contas) e **Wallet/BudgetBakers** (orçamento flexível por categoria). Diretriz vigente: melhorar funções básicas antes de cripto/ações. Open Finance/sincronização bancária ficou **fora** — inviável no escopo local atual (exigiria credenciais, agregador pago e infraestrutura).
 >
@@ -47,7 +51,7 @@ _(Ciclo 5, Onda A em andamento — T-022, T-024, T-026, T-027 delegadas em 2026-
 - **Resultado**: —
 
 ### T-023 — Orçamento mensal por categoria com barra de progresso
-- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25 após merge da T-022)
+- **Status**: CONCLUIDA e MERGEADA — PR [#68](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/68) (2026-07-25). Revisor Opus: APROVADA, 0 bloqueantes — verificou com `@libsql/client` real que o upsert de um usuário não toca a linha do outro e que o DDL é idempotente; percentual real preservado com clamp só visual. 9 testes de rota + 7 de função pura. Sugestões não bloqueantes registradas: (1) `Number.isFinite` em `amount` (aceita `Infinity` — mesmo padrão de `goals.ts`, corrigir juntos); (2) teste de upsert cross-user com MESMA categoria; (3) comentário do índice diz "expression-based" mas é composto simples; (4) **normalização de categoria entre as 3 telas** (case-sensitive hoje — pegadinha de usabilidade mais provável, candidata a tarefa futura); (5) barra pode piscar valor subestimado durante loading; (6) `fmtPct` arredonda 99,6%→"100%" sem cor de alerta; (7) revisor detectou marcador de conflito residual no CLAUDE.md da main (erro do orquestrador na integração da T-024) — corrigido em `0c0cd84` antes deste merge. Conflito de CLAUDE.md com T-025 resolvido na integração (`4691525`). Modelos: executor Sonnet, revisor Opus 5.
 - **Prioridade**: P2
 - **Complexidade**: média (padrão CRUD existente + 1 cálculo puro; revisor Opus por tocar dinheiro)
 - **Depende de**: T-022 (mergeada — PR #64)
