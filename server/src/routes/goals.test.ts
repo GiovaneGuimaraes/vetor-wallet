@@ -26,6 +26,7 @@ describe('goals routes', () => {
     const { initDb } = await import('../db');
     const { default: authRouter } = await import('../auth/router');
     const { default: goalsRouter } = await import('./goals');
+    const { default: savingsRouter } = await import('./savings');
     const { errorHandler } = await import('../middleware/errorHandler');
 
     await initDb();
@@ -43,6 +44,7 @@ describe('goals routes', () => {
     );
     app.use('/api/auth', authRouter);
     app.use('/api/goals', goalsRouter);
+    app.use('/api/savings', savingsRouter);
     app.use(errorHandler);
 
     agentA = request.agent(app);
@@ -161,5 +163,161 @@ describe('goals routes', () => {
 
     const del = await agentA.delete(`/api/goals/${id}`);
     expect(del.status).toBe(404);
+  });
+
+  // ── T-024: progresso derivado de lançamentos de poupança vinculados ────────
+  describe('progresso derivado de aportes vinculados (T-024)', () => {
+    async function fetchGoal(agent: ReturnType<typeof request.agent>, id: number) {
+      const list = await agent.get('/api/goals');
+      return list.body.find((g: { id: number }) => g.id === id);
+    }
+
+    async function newGoal(name: string, target = 1000) {
+      const created = await agentA.post('/api/goals').send({ name, target_amount: target });
+      return created.body.id as number;
+    }
+
+    it('goal without linked entries keeps the manual current_amount', async () => {
+      const id = await newGoal('Manual pura');
+      await agentA.patch(`/api/goals/${id}`).send({ current_amount: 250 });
+
+      const goal = await fetchGoal(agentA, id);
+      expect(goal).toMatchObject({
+        current_amount: 250,
+        progress_source: 'MANUAL',
+        linked_entries_count: 0,
+      });
+    });
+
+    it('derives current_amount from a linked DEPOSIT', async () => {
+      const id = await newGoal('Viagem vinculada');
+      const entry = await agentA
+        .post('/api/savings')
+        .send({ type: 'DEPOSIT', amount: 100, date: '2025-02-01', goalId: id });
+      expect(entry.status).toBe(201);
+      expect(entry.body.goal_id).toBe(id);
+
+      const goal = await fetchGoal(agentA, id);
+      expect(goal).toMatchObject({
+        current_amount: 100,
+        progress_source: 'LINKED_SAVINGS',
+        linked_entries_count: 1,
+      });
+    });
+
+    it('subtracts linked WITHDRAW from the derived progress', async () => {
+      const id = await newGoal('Aporte e retirada');
+      await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 100, date: '2025-02-01', goalId: id });
+      await agentA.post('/api/savings').send({ type: 'WITHDRAW', amount: 30, date: '2025-02-02', goalId: id });
+
+      const goal = await fetchGoal(agentA, id);
+      expect(goal.current_amount).toBe(70);
+      expect(goal.progress_source).toBe('LINKED_SAVINGS');
+      expect(goal.linked_entries_count).toBe(2);
+    });
+
+    it('ignores unlinked entries and the manual value once linked entries exist', async () => {
+      const created = await agentA.post('/api/goals').send({ name: 'Manual ignorado', target_amount: 1000, current_amount: 900 });
+      const id = created.body.id;
+      await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 40, date: '2025-02-03', goalId: id });
+      await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 5000, date: '2025-02-03' });
+
+      const goal = await fetchGoal(agentA, id);
+      expect(goal.current_amount).toBe(40);
+    });
+
+    it('floors derived progress at 0 when linked withdrawals exceed deposits', async () => {
+      const id = await newGoal('Retirada maior');
+      await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 50, date: '2025-02-04', goalId: id });
+      await agentA.post('/api/savings').send({ type: 'WITHDRAW', amount: 80, date: '2025-02-05', goalId: id });
+
+      const goal = await fetchGoal(agentA, id);
+      expect(goal.current_amount).toBe(0);
+    });
+
+    it('reflects the deletion of a linked entry (derived, not materialized)', async () => {
+      const id = await newGoal('Apagar aporte');
+      const first = await agentA
+        .post('/api/savings')
+        .send({ type: 'DEPOSIT', amount: 100, date: '2025-02-06', goalId: id });
+      await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 25, date: '2025-02-07', goalId: id });
+
+      expect((await fetchGoal(agentA, id)).current_amount).toBe(125);
+
+      const del = await agentA.delete(`/api/savings/${first.body.id}`);
+      expect(del.status).toBe(204);
+
+      const goal = await fetchGoal(agentA, id);
+      expect(goal.current_amount).toBe(25);
+      expect(goal.linked_entries_count).toBe(1);
+    });
+
+    it('rejects PATCH of current_amount on a goal with linked entries (400)', async () => {
+      const id = await newGoal('Bloqueada');
+      await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 10, date: '2025-02-08', goalId: id });
+
+      const res = await agentA.patch(`/api/goals/${id}`).send({ current_amount: 999 });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/automaticamente/i);
+
+      expect((await fetchGoal(agentA, id)).current_amount).toBe(10);
+    });
+
+    it('still allows PATCH of name/target_amount on a goal with linked entries', async () => {
+      const id = await newGoal('Renomear vinculada');
+      await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 10, date: '2025-02-09', goalId: id });
+
+      const res = await agentA.patch(`/api/goals/${id}`).send({ name: 'Renomeada', target_amount: 2000 });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        name: 'Renomeada',
+        target_amount: 2000,
+        current_amount: 10,
+        progress_source: 'LINKED_SAVINGS',
+      });
+    });
+
+    it('returns 404 when linking a savings entry to another user goal', async () => {
+      const otherGoal = await agentB.post('/api/goals').send({ name: 'Meta da B', target_amount: 500 });
+
+      const res = await agentA
+        .post('/api/savings')
+        .send({ type: 'DEPOSIT', amount: 100, date: '2025-02-10', goalId: otherGoal.body.id });
+      expect(res.status).toBe(404);
+
+      const goal = await fetchGoal(agentB, otherGoal.body.id);
+      expect(goal.current_amount).toBe(0);
+      expect(goal.progress_source).toBe('MANUAL');
+    });
+
+    it('rejects linking a YIELD entry to a goal (400)', async () => {
+      const id = await newGoal('Sem rendimento');
+      const res = await agentA
+        .post('/api/savings')
+        .send({ type: 'YIELD', amount: 10, date: '2025-02-11', goalId: id });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects a non-integer goalId (400)', async () => {
+      const res = await agentA
+        .post('/api/savings')
+        .send({ type: 'DEPOSIT', amount: 10, date: '2025-02-12', goalId: 'abc' });
+      expect(res.status).toBe(400);
+    });
+
+    it('unlinks savings entries when the goal is deleted (entry survives)', async () => {
+      const id = await newGoal('Meta removida');
+      const entry = await agentA
+        .post('/api/savings')
+        .send({ type: 'DEPOSIT', amount: 60, date: '2025-02-13', goalId: id });
+
+      const del = await agentA.delete(`/api/goals/${id}`);
+      expect(del.status).toBe(204);
+
+      const savings = await agentA.get('/api/savings');
+      const kept = savings.body.entries.find((e: { id: number }) => e.id === entry.body.id);
+      expect(kept).toBeTruthy();
+      expect(kept.goal_id).toBeNull();
+    });
   });
 });

@@ -85,6 +85,12 @@ describe('savings routes', () => {
     expect(res.body).toMatchObject({ type: 'DEPOSIT', amount: 1000, date: '2025-01-01', note: 'Aporte inicial' });
   });
 
+  it('leaves goal_id null when goalId is omitted (T-024)', async () => {
+    const res = await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 42, date: '2025-01-10' });
+    expect(res.status).toBe(201);
+    expect(res.body.goal_id).toBeNull();
+  });
+
   it('defaults note to empty string when omitted', async () => {
     const res = await agentA.post('/api/savings').send({ type: 'YIELD', amount: 10, date: '2025-01-02' });
     expect(res.status).toBe(201);

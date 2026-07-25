@@ -156,11 +156,11 @@ Todas as rotas abaixo (exceto `/api/auth/*`) exigem sessão autenticada via cook
 | `POST` | `/api/expense-entries` | Cria lançamento de despesa variável (`description`, `category?`, `amount`, `date`) |
 | `DELETE` | `/api/expense-entries/:id` | Remove lançamento de despesa variável |
 | `GET` | `/api/savings` | Lista lançamentos de poupança/reserva e um `summary` (saldo, total de aportes, total de rendimento) |
-| `POST` | `/api/savings` | Cria lançamento de poupança (`DEPOSIT`, `WITHDRAW` ou `YIELD`) |
+| `POST` | `/api/savings` | Cria lançamento de poupança (`DEPOSIT`, `WITHDRAW` ou `YIELD`); aceita `goalId` opcional para vincular a uma meta |
 | `DELETE` | `/api/savings/:id` | Remove lançamento de poupança |
-| `GET` | `/api/goals` | Lista metas financeiras do usuário |
+| `GET` | `/api/goals` | Lista metas financeiras do usuário, com `current_amount` derivado quando há lançamentos vinculados |
 | `POST` | `/api/goals` | Cria meta financeira |
-| `PATCH` | `/api/goals/:id` | Atualiza parcialmente uma meta (`name`/`target_amount`/`current_amount`) |
+| `PATCH` | `/api/goals/:id` | Atualiza parcialmente uma meta (`name`/`target_amount`/`current_amount`); `current_amount` é rejeitado com `400` em metas com lançamentos vinculados |
 | `DELETE` | `/api/goals/:id` | Remove meta financeira |
 
 ---
@@ -277,9 +277,15 @@ CREATE TABLE IF NOT EXISTS savings_entries (
   note       TEXT    NOT NULL DEFAULT '',
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+-- ALTER idempotente: goal_id INTEGER REFERENCES goals(id)
+--   vínculo opcional com uma meta (T-024). NULL = sem vínculo. Apenas
+--   DEPOSIT/WITHDRAW podem ser vinculados.
+-- INDEX idx_savings_entries_goal (user_id, goal_id)
 
--- Metas financeiras com progresso manual (current_amount não é recalculado
--- automaticamente a partir de savings_entries)
+-- Metas financeiras. `current_amount` é o valor MANUAL de fallback: quando a
+-- meta tem lançamentos de poupança vinculados (savings_entries.goal_id), o
+-- valor exposto pela API é DERIVADO desses lançamentos e esta coluna deixa de
+-- ser lida (nem é materializada — ver "Progresso de metas").
 CREATE TABLE IF NOT EXISTS goals (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id        INTEGER NOT NULL REFERENCES users(id),
@@ -338,8 +344,24 @@ pnpm --filter vetor-wallet-web test
 ### Validação de SELL contra a posição atual
 `POST /api/operations` e `POST /api/import` (CSV) rejeitam com `400` qualquer SELL que exceda a posição consolidada **atual** do ticker **na carteira alvo** (soma das operações já registradas naquele `wallet_id`/usuário quando `wallet_id`/`walletId` é informado — independente da data da nova operação; não há validação por data histórica, um SELL retroativo é validado contra a posição de hoje). Ambas as rotas filtram a query de posição por `wallet_id` quando o parâmetro é informado (`wallet_id` no body de `/api/operations`, `walletId` na query string de `/api/import`); sem esse filtro, um usuário com múltiplas carteiras poderia importar/registrar um SELL que excede a posição da carteira alvo mas é coberto pela soma de todas as carteiras. A checagem usa `wouldExceedPosition`/`getPositionQuantity` em `services/portfolio.ts`, reaproveitando o mesmo `buildPositionMap` do cálculo de preço médio (sem duplicar lógica). No CSV, a rejeição é **por linha**: linhas de SELL inválidas entram no relatório de erros (`CsvImportResult.errors`, com número da linha) e o restante do arquivo é importado normalmente. `applyOperation` mantém `Math.max(0, newQty)` como cláusula de defesa (não como validação) — dados históricos podem já conter vendas a descoberto gravadas antes desta validação existir, e o cálculo de posição não pode quebrar/ficar negativo ao processá-los.
 
+### Progresso de metas: manual ou derivado dos aportes vinculados (T-024)
+Uma meta tem **duas origens possíveis** de `current_amount`, sinalizadas pelo campo `progress_source` (`'MANUAL' | 'LINKED_SAVINGS'`) que a API devolve junto de `linked_entries_count`:
+
+- **`MANUAL`** — nenhum `savings_entries.goal_id` aponta para a meta. `current_amount` é a coluna da tabela `goals`, editável via `PATCH /api/goals/:id`. É o comportamento pré-T-024 e continua valendo para todas as metas históricas (retrocompatibilidade: nenhuma migração de dados foi feita).
+- **`LINKED_SAVINGS`** — existe ao menos um lançamento vinculado. `current_amount` é **derivado** (`SUM(DEPOSIT) − SUM(WITHDRAW)` dos lançamentos vinculados, piso 0, arredondado em centavos) e o `PATCH` de `current_amount` responde `400` explicativo — evita duas fontes de verdade. `name`/`target_amount` continuam editáveis.
+
+Pontos de projeto:
+
+- O valor derivado **não é materializado** em `goals.current_amount`: é calculado a cada leitura em `services/goals.ts`. Consequência desejada: `DELETE /api/savings/:id` de um lançamento vinculado já reflete no progresso, sem job de recálculo.
+- `listGoalsWithProgress` faz **duas queries** (metas + `GROUP BY goal_id` agregando os lançamentos do usuário) — nada de N+1 por meta.
+- **`YIELD` não pode ser vinculado**: `POST /api/savings` com `goalId` num lançamento de rendimento responde `400`. Rateio de rendimento entre metas está fora de escopo, então "lançamento vinculado" ≡ `DEPOSIT`/`WITHDRAW` e a semântica de "meta derivada" não fica ambígua.
+- `goalId` de meta de outro usuário → `404` (mesmo padrão das outras rotas isoladas por `user_id`).
+- `savings_entries.goal_id` é **FOREIGN KEY e o libsql aplica a constraint**: `DELETE /api/goals/:id` precisa desvincular (`SET goal_id = NULL`) antes de apagar a meta — na ordem inversa o delete falha com `SQLITE_CONSTRAINT_FOREIGNKEY`. Os lançamentos sobrevivem (o saldo da poupança não muda), só perdem o vínculo.
+- O saldo da poupança (`SavingsSummary`) **ignora** o vínculo: um aporte vinculado a meta continua somando no saldo/total de aportes. Meta é uma *visão* sobre os lançamentos, não um cofre separado.
+
 ### Despesas fixas × lançamentos variáveis
 O layer `/despesas` soma **duas** fontes diferentes: `fixed_expenses` (itens fixos mensais, **sem data** — valem integralmente para qualquer mês exibido) e `expense_entries` (gastos datados, filtrados por mês). O **total do mês exibido é fixas + variáveis daquele mês** — calculado por `computeMonthTotals` em `web/src/routes/expenseMonth.ts` (função pura, testada), não inline no componente. A navegação de mês é estado local da `DespesasPage`: trocar o mês recarrega só os lançamentos (`GET /api/expense-entries?month=`), pois as fixas não dependem do mês. Consequência esperada: navegar para um mês passado/futuro não altera a parcela de fixas do total — não há histórico de quando uma despesa fixa passou a existir. O filtro mensal no server usa `substr(date, 1, 7) = ?` (compatível com o índice `idx_expense_entries_user_date` apenas parcialmente — se a tabela crescer muito, trocar por range `date >= ? AND date < ?`). O mês default é calculado no fuso local do processo (`currentMonth`), não em UTC, para não virar o mês antes da hora no BRT.
+>>>>>>> origin/main
 
 ### Sessões não persistem no restart
 `express-session` usa **MemoryStore** — sessões são perdidas quando o servidor reinicia. Aceitável para uso local; para produção, migrar para Redis store ou AWS Cognito.
