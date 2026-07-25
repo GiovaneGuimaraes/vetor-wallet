@@ -52,10 +52,13 @@ vetor-wallet/
     │   ├── routes/          # páginas do app v4 (HomePage, DespesasPage, RendaPage,
     │   │                    # PoupancaPage, MetasPage, DashboardPage…) + módulos de
     │   │                    # funções puras testáveis (homeMetrics, expenseMonth,
-    │   │                    # inlineEdit, savingsTransfer… com *.test.ts ao lado)
-    │   ├── layout/          # AppShell, ProtectedShell, LoadingScreen, mascots
+    │   │                    # inlineEdit, savingsTransfer, walletFlow… com
+    │   │                    # *.test.ts ao lado). Sem CarteirasPage (T-050b)
+    │   ├── layout/          # AppShell, ProtectedShell, ShellContext, LoadingScreen,
+    │   │                    # mascots
     │   ├── components/      # OperationForm, OperationsList, PortfolioDashboard,
-    │   │                    # AuthPage, AdminPage… (AlertsPanel/CsvImport fora da UI)
+    │   │                    # AuthPage, AdminPage… (AlertsPanel/CsvImport fora da UI;
+    │   │                    # WalletSelector/walletChip removidos na T-050b)
     │   └── utils/           # alerts.ts
     ├── .env.example
     └── tsconfig.json        # strict, noEmit, moduleResolution: bundler
@@ -438,7 +441,7 @@ pnpm --filter vetor-wallet-web test
 ### `DATABASE_URL` para o CLI e futuro Turso
 `server/src/db.ts` usa `process.cwd()/data/wallet.db` por padrão. O CLI roda em `cli/`, então precisa de `DATABASE_URL=file:../server/data/wallet.db` no `cli/.env`. Quando o projeto migrar para Turso, basta apontar `DATABASE_URL` para a URL remota em ambos os ambientes.
 
-### Carteira única de ações (T-050)
+### Carteira única de ações (T-050 server, T-050b web)
 Decisão do humano (2026-07-25): "remover a lógica que permite o user ter mais de uma carteira". O modelo adotado é **"escopo = usuário; a carteira virou só um rótulo"** — nada é apagado nem escondido.
 
 - **`POST /api/wallets` recusa a segunda carteira** com `400` (a validação de `name` continua vindo antes). O usuário já **nasce** com a carteira padrão: `createUser` (`auth/service.ts`) chama `getOrCreateDefaultWallet`, e uma falha ali é logada mas **não derruba o registro** — o lazy-create do `GET /api/wallets` segue como rede de segurança.
@@ -447,7 +450,17 @@ Decisão do humano (2026-07-25): "remover a lógica que permite o user ter mais 
 - **Semântica do legado**: as leituras (`GET /api/operations`, `GET /api/portfolio`) agregam **todas** as operações do usuário. Numa base com 2+ carteiras, o P&L exibido passa a ser o **consolidado** delas — nenhuma operação some, mas o número muda. A alternativa (mostrar só a carteira mais antiga) esconderia operações reais e foi rejeitada; a decisão está registrada no `TODO-HUMANO.md`.
 - **`walletId`/`wallet_id` do cliente é ignorado** nas três rotas de dados (query string em operations/portfolio/import, body em `POST /api/operations`). Isso é retrocompatível — o web atual continua funcionando enviando o parâmetro — e fecha de quebra um buraco: o `wallet_id` do body era gravado sem checagem de posse, então dava para registrar uma operação numa carteira de **outro** usuário.
 - **`services/wallets.ts`** concentra `DEFAULT_WALLET`, `findDefaultWallet` (mais antiga: `ORDER BY created_at ASC, id ASC` — desempate por `id` porque `created_at` tem resolução de segundos), `countWallets` e `getOrCreateDefaultWallet`. Este último também adota as operações órfãs (`UPDATE operations SET wallet_id = ? WHERE user_id = ? AND wallet_id IS NULL`, dado de antes de `wallets` existir) e relê a mais antiga depois do INSERT, para que dois requests simultâneos convirjam para a mesma carteira em vez de cada um usar a sua.
-- **Fora de escopo**: remover `wallet_id` do schema, qualquer migração destrutiva do legado e a metade web (T-050b).
+**A metade web (T-050b)** — o usuário deixou de ver o conceito de "várias carteiras" em qualquer lugar da UI:
+
+- **Nenhuma chamada de API manda carteira.** `getOperations`/`createOperation`/`getPortfolio`/`importCsv` (`web/src/api.ts`) perderam o parâmetro `walletId?` e o `wallet_id` do body. `getWallets`/`createWallet` **ficam** — é por elas que o rótulo chega e que o auto-create de exceção acontece.
+- **O `ShellContext` virou singular**: `wallet: Wallet | null` e `walletSummary: PortfolioSummary | null` no lugar de `wallets: Wallet[]`/`walletSummaries: Record<number, …>`; `onSelectWallet`/`onCreateWallet` saíram (não há mais tela que os dispare). `refreshWallet` faz `getWallets()` → `resolvePrimaryWallet` → **um** `getPortfolio()` — antes era um portfolio por carteira em `Promise.allSettled`. O `getPortfolio` vai em `try` próprio: falhar a cotação não invalida o rótulo que acabou de carregar.
+- **`decideWalletFlow` (`web/src/routes/walletFlow.ts`) foi reescrita** de "criar/redirecionar/listar/erro" para um estado de carteira única: `(wallet, loaded, hadLoadError) → 'loading' | 'error' | 'create' | 'ready'`. **A invariante da T-027 foi preservada**: `hadLoadError && !wallet` ⇒ `'error'`, **nunca** `'create'` — `wallet === null` por falha de rede é indistinguível de "usuário sem carteira", e criar automaticamente nesse caso mascararia a carteira real atrás de uma "Principal" espúria (achado bloqueante do revisor na T-027). Se já há carteira de uma carga anterior, uma falha seguinte não é ambígua → `'ready'`.
+- **`resolvePrimaryWallet(wallets)`** (mesmo arquivo, função pura testada) é o espelho no web do `findDefaultWallet` do server: a carteira é a de **menor `id`** (monotônico ⇒ a mais antiga; não depende da ordem em que a lista chegou, e evita o `created_at` de resolução de segundos). Numa base legada com 2+ carteiras isso escolhe **só o rótulo** — o dashboard segue mostrando o consolidado, porque o server agrega por usuário.
+- **O auto-create foi internalizado em `App.tsx`** (com o `creatingRef` que vivia na `CarteirasPage`, contra loop de POSTs enquanto a criação está em voo). É caminho de exceção: desde a T-050a o `createUser` já cria a padrão e o `GET /api/wallets` faz lazy-create, então usuário novo chega em `'ready'` sem criar uma segunda.
+- **Rotas**: `/dash` (sem param) é o dashboard. `/dash/:id` e `/carteiras` respondem `<Navigate to="/dash" replace />` — bookmarks antigos não quebram. O card "Ações" da Home aponta para `/dash`.
+- **`DashboardPage` sem `useParams`**: a carteira vem do contexto e o chip do topo virou **rótulo estático** (nome + cor, sem `onClick`) — não há para onde trocar. O estado `'error'` mostra um "Tentar novamente" (`refreshWallet`) ao lado do rótulo, mas **não bloqueia** o resto da tela: operações e portfolio são do usuário e não dependem do rótulo ter carregado.
+- **Arquivos removidos**: `routes/CarteirasPage.tsx`, `components/WalletSelector.tsx`, `components/walletChip.ts(+test)` e as regras `.wallet-selector-*` de `App.css`. Divergência **consciente** do precedente da T-026 ("tirar do render, manter o arquivo"): ali a UI podia voltar num redesign; aqui o humano pediu a remoção da *lógica* multi-carteira, e o git preserva a história.
+- **Fora de escopo**: remover `wallet_id` do schema, qualquer migração destrutiva do legado, e tirar `Wallet`/`NewWallet` de `shared/` (ainda usados por `getWallets`/`createWallet`).
 
 ### Validação de SELL contra a posição atual
 `POST /api/operations` e `POST /api/import` (CSV) rejeitam com `400` qualquer SELL que exceda a posição consolidada **atual** do ticker **do usuário** — soma de todas as operações já registradas por ele, sem nenhum filtro de carteira (T-050), e independente da data da nova operação; não há validação por data histórica, um SELL retroativo é validado contra a posição de hoje. Numa base legada com 2+ carteiras, um SELL coberto pela **soma** delas é aceito (antes da T-050 era rejeitado por não caber na carteira alvo) — coerente com o escopo virar o usuário. A checagem usa `wouldExceedPosition`/`getPositionQuantity` em `services/portfolio.ts`, reaproveitando o mesmo `buildPositionMap` do cálculo de preço médio (sem duplicar lógica). No CSV, a rejeição é **por linha**: linhas de SELL inválidas entram no relatório de erros (`CsvImportResult.errors`, com número da linha) e o restante do arquivo é importado normalmente. `applyOperation` mantém `Math.max(0, newQty)` como cláusula de defesa (não como validação) — dados históricos podem já conter vendas a descoberto gravadas antes desta validação existir, e o cálculo de posição não pode quebrar/ficar negativo ao processá-los.

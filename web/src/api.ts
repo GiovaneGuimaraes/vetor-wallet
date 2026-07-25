@@ -101,18 +101,22 @@ export async function createWallet(wallet: NewWallet): Promise<Wallet> {
 
 // ── Operations ────────────────────────────────────────────────────────────────
 
-export async function getOperations(walletId?: number): Promise<Operation[]> {
-  const qs = walletId ? `?walletId=${walletId}` : '';
-  const res = await apiFetch(`/api/operations${qs}`);
+/**
+ * T-050b: sem parâmetro de carteira. O escopo das operações é o USUÁRIO —
+ * o server ignora `?walletId=` desde a T-050a e agrega tudo.
+ */
+export async function getOperations(): Promise<Operation[]> {
+  const res = await apiFetch('/api/operations');
   if (!res.ok) throw new Error('Falha ao buscar operações');
   return res.json();
 }
 
-export async function createOperation(op: NewOperation, walletId?: number): Promise<Operation> {
+/** T-050b: sem `wallet_id` — a operação nasce sempre na carteira padrão. */
+export async function createOperation(op: NewOperation): Promise<Operation> {
   const res = await apiFetch('/api/operations', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...op, wallet_id: walletId }),
+    body: JSON.stringify(op),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
@@ -126,9 +130,9 @@ export async function deleteOperation(id: number): Promise<void> {
   if (!res.ok) throw new Error('Falha ao remover operação');
 }
 
-export async function getPortfolio(walletId?: number): Promise<PortfolioSummary> {
-  const qs = walletId ? `?walletId=${walletId}` : '';
-  const res = await apiFetch(`/api/portfolio${qs}`);
+/** T-050b: consolidado do usuário — sem filtro de carteira (ver T-050a). */
+export async function getPortfolio(): Promise<PortfolioSummary> {
+  const res = await apiFetch('/api/portfolio');
   if (!res.ok) throw new Error('Falha ao buscar carteira');
   return res.json();
 }
@@ -173,9 +177,9 @@ export async function getSnapshots(ticker: string, from?: string, to?: string): 
   return res.json();
 }
 
-export async function importCsv(csvText: string, walletId?: number): Promise<CsvImportResult> {
-  const qs = walletId ? `?walletId=${walletId}` : '';
-  const res = await apiFetch(`/api/import${qs}`, {
+/** T-050b: sem `?walletId=` — o server grava na carteira padrão do usuário. */
+export async function importCsv(csvText: string): Promise<CsvImportResult> {
+  const res = await apiFetch('/api/import', {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain' },
     body: csvText,
