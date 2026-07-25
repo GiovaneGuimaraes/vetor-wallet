@@ -10,17 +10,17 @@ Carteira financeira pessoal para um único usuário real (Giovane), organizada e
 - **Monorepo pnpm**: `shared` (tipos, types-only), `server` (Express + libsql, SQL puro), `web` (Vite + React), `cli` (job de insights horários).
 - **Testes**: Vitest no `server` e no `web` (funções puras, ambiente node). Contagem atual da suíte: ver "Estado atual" abaixo (evita número duplicado desatualizando aqui).
 
-## Estado atual (2026-07-25, fim do ciclo 8)
+## Estado atual (2026-07-25, fim do ciclo 9)
 
-- Ciclos 1–8 concluídos e mergeados (PRs #44–#83) — resumo por ciclo no `BACKLOG.md`, detalhes no `BACKLOG-ARQUIVO.md`. Suíte: 411 server + 171 web.
-- Ciclo 8 (pedidos diretos do humano, pré-"próxima onda"): Despesas na landing, simulador de previsão de rendimento em `/poupanca`, transferência poupança→meta com conceito de "saldo livre" (`POST /api/savings/transfer-to-goal`), labels de `/renda` renomeadas.
+- Ciclos 1–9 concluídos e mergeados (PRs #44–#92) — resumo por ciclo no `BACKLOG.md`, detalhes no `BACKLOG-ARQUIVO.md`. Suíte: 460 server + 177 web.
+- Ciclo 9 (aprovado pelo humano em 2026-07-25): colheita das revisões dos ciclos 5–8 (refinos do simulador e da transferência, higiene de fetch mensal + `endMonth`), endurecimento (validação de data de calendário em todas as rotas, POST recorrente transacional, `AND user_id` nos UPDATEs de PATCH, robustez de sessões) e **carteira única de ações** (T-050a/b, pedido do humano — `POST /api/wallets` → 400 com carteira existente, `walletId` ignorado, SELL contra o consolidado, web sem `CarteirasPage`/`WalletSelector`).
 - **Modo auto ativo** (autorização permanente do humano, 2026-07-24): após APROVADA do revisor, o orquestrador abre PR e faz merge automático, resolvendo conflitos; revisão humana a posteriori. Decisões de produto/UX continuam indo ao `TODO-HUMANO.md`.
-- Dívidas de produção restantes: agendador do job de insights (Lambda/EventBridge); Alertas/Import CSV sem UI (aguardando redesign). Sessões já persistem no SQLite (T-034).
-- Direções dadas pelo humano: melhorar funções básicas antes de cripto/ações; sem gráficos no dashboard/home; carteira única como fluxo padrão.
+- Dívidas de produção restantes: agendador do job de insights (Lambda/EventBridge); Alertas/Import CSV sem UI (aguardando redesign). Sessões persistem no SQLite (T-034, endurecidas na T-046).
+- Direções dadas pelo humano: melhorar funções básicas antes de cripto/ações; sem gráficos no dashboard/home; carteira única implementada (T-050).
 
 ## Prioridade vigente
 
-**Aguardando a "próxima onda" anunciada pelo humano** (ciclo 8 encerrou os pedidos pré-onda). Enquanto isso: candidatas listadas no `BACKLOG.md` (inclui colheita das revisões T-040/T-041) + decisões paradas no `TODO-HUMANO.md` (T-020/T-021).
+**Ciclo 9 encerrado — aguardando direcionamento do humano para o ciclo 10.** Item aberto no `TODO-HUMANO.md`: P&L consolidado para base legada com 2+ carteiras (default adotado na T-050, contestável). Enquanto isso: candidatas no `BACKLOG.md` (colheita das revisões do ciclo 9) + decisões paradas (T-020/T-021).
 
 > Atualize esta seção a cada ciclo. Mudança de prioridade que envolva produto → `TODO-HUMANO.md`.
 

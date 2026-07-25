@@ -479,3 +479,27 @@ Suíte ao fim: 411 server + 171 web. Onda A (T-039/T-040/T-042 em paralelo + spi
 ### T-041 — Poupança: transferir saldo para uma meta — PR #83. Spike Plan/Opus + executor Opus + revisor Opus: APROVADA, 0 bloqueantes, 5 sugestões em Candidatas. POST /api/savings/transfer-to-goal: par atômico (db.batch) WITHDRAW sem vínculo + DEPOSIT vinculado, transfer_group UUID (ALTER idempotente); validação contra saldo livre (saldo − Σ max(0, net por meta), centavos); SavingsSummary intocado; UI: 4º card "Saldo livre", card de transferência, selo ⇄, aviso meta MANUAL, link em /metas com ?meta=. +41 testes server, +26 web.
 
 ### T-042 — Renda: renomear labels das seções mensais — PR #81. Executor Haiku, revisor Sonnet: APROVADA, 0 bloqueantes. "Fontes fixas" → "Renda fixa do mês", "Rendas do mês" → "Renda variável do mês", subtitle/JSDoc/hint coerentes. Sem teste novo (copy).
+
+## Ciclo 9 — Colheita das revisões + endurecimento + carteira única — CONCLUÍDO E MERGEADO (2026-07-25)
+
+PRs #84–#92. Suíte ao fim: 460 server + 177 web. Ondas: 1 (T-044/T-046/T-047 paralelas) → 2 (T-048/T-049) → 3 (T-045) → 4 (T-043) → 5 (T-050a/T-050b, pedido do humano "faça isso depois").
+
+### T-044 — `AND user_id` no UPDATE final de todos os PATCH — PR #85. Executor Sonnet, revisor Opus: APROVADA, 0 bloqueantes (teste de mutação confirmou a ordem dos parâmetros). 6 rotas; `recurringExpenses.ts` já filtrava. Sugestões em Candidatas (spy de `db.execute`; re-SELECT final sem `AND user_id`).
+
+### T-046 — Robustez de sessões — PR #86. Executor Sonnet, revisor Opus: APROVADA, 0 bloqueantes. `cleanupExpiredSessions` extraída/testada; fail-closed p/ `expires_at` corrompido; `maxAge <= 0` expira imediatamente. CLAUDE.md anotado na integração. +4 testes.
+
+### T-047 — Refinos do simulador (colheita T-040) — PR #84. Executor Sonnet, revisor Sonnet: APROVADA, 0 bloqueantes. Curto-circuito `initial === 0`; `formatDecimalInput` (vírgula, 2/4 casas); mês corrente fora da amostra de `deriveMonthlyRatePct`. +6 testes.
+
+### T-048 — Refinos da transferência (colheita T-041) — PR #87. Executor Sonnet, revisor Opus: APROVADA, 0 bloqueantes. `validateTransfer` devolve o parseado; 201 tipado com `SavingsTransferResult`; `buildSummary` em centavos (mesma aritmética de `computeBalance`); `isoDaysAgo` local; CLAUDE.md formato. Sugestões em Candidatas.
+
+### T-049 — Higiene do fetch mensal + `endMonth` — PR #88. Executor Sonnet, revisor Opus: REPROVADA 1ª rodada (CLAUDE.md contraditório na seção T-035 + lacuna de teste positivo), corrigida, APROVADA. `MonthFetchGuard` (dedupe); fim do flicker do histórico; `/summary?endMonth=` ancorado no fuso do cliente com teto de horizonte por mês da janela. +6 server, +6 web.
+
+### T-045 — POST recorrente transacional + `isUniqueViolation` — PR #89. Executor Sonnet, revisor Opus: APROVADA, 0 bloqueantes (verificou o driver libsql). `createRecurringExpenseEntry` com `db.transaction('write')` interativa (batch não expõe lastInsertRowid intermediário); rollback via `finally { tx.close() }`; `markMonthMaterialized` (dead code perigoso) removida nos acabamentos. +9 testes.
+
+### T-043 — Validação de data real em todas as rotas — PR #90. Executor Sonnet, revisor Opus: APROVADA, 0 bloqueantes (helper validado em 2 fusos extremos, incl. regra secular do bissexto). `isValidIsoDate` (`services/dates.ts`) em operations/income-entries/expense-entries/savings/transfer-to-goal/import(por linha)/admin. +18 testes.
+
+### T-050 (spike) — Plan/Opus: modelo "escopo = usuário, carteira vira rótulo"; corte em T-050a/T-050b; pergunta do P&L consolidado p/ legado registrada no TODO-HUMANO (default adotado).
+
+### T-050a — Server: invariante de carteira única — PR #91. Executor Opus, revisor Opus: APROVADA, 0 bloqueantes (varredura de `wallet_id` residual zerada). `services/wallets.ts` (`getOrCreateDefaultWallet`, sem UNIQUE por causa do legado); `POST /api/wallets` → 400 com carteira existente; `DELETE` removido; `walletId` ignorado nas 3 rotas de dados (fecha buraco de posse do `wallet_id` do body); SELL contra o consolidado; `createUser` cria a padrão; canário da T-019 convertido. +11 testes.
+
+### T-050b — Web: fluxo de carteira única — PR #92. Executor Opus, revisor Opus: APROVADA, 0 bloqueantes (traçou os 4 caminhos do auto-create; zero referências mortas). `api.ts` sem `walletId`; `walletFlow` reescrito (invariante T-027 estrutural) + `resolvePrimaryWallet`; `ShellContext`/`App` singulares; `/dash` com redirects de `/dash/:id` e `/carteiras`; removidos `CarteirasPage`/`WalletSelector`/`walletChip(+test)` (divergência consciente do precedente T-026). Suíte web 183 → 177.
