@@ -60,8 +60,16 @@ export function computeFreeBalance(balance: number, entries: SavingsEntry[]): nu
 }
 
 /**
- * Valida o form de transferência antes do request. Devolve a mensagem de erro
- * em pt-BR ou `null` quando está tudo certo.
+ * Resultado de `validateTransfer`: ou um erro em pt-BR (`amount: null`), ou o
+ * valor já parseado (`error: null`) — o chamador não precisa reconverter o
+ * texto do input, que já foi validado aqui.
+ */
+export type TransferValidation = { error: string; amount: null } | { error: null; amount: number };
+
+/**
+ * Valida o form de transferência antes do request e devolve o valor já
+ * parseado em caso de sucesso, para `PoupancaPage.handleSubmit` não converter
+ * o texto do input uma segunda vez.
  *
  * `amountRaw` é o texto do input (aceita vírgula decimal, via `parseMoneyInput`
  * — mesma regra dos demais forms de dinheiro); `goalIdRaw` é o valor do
@@ -71,16 +79,21 @@ export function validateTransfer(
   amountRaw: string,
   goalIdRaw: string,
   freeBalance: number,
-): string | null {
-  if (!goalIdRaw) return 'Escolha a meta que vai receber o valor.';
+): TransferValidation {
+  if (!goalIdRaw) return { error: 'Escolha a meta que vai receber o valor.', amount: null };
 
   const amount = parseMoneyInput(amountRaw);
-  if (amount === null) return 'Informe um valor válido, maior que zero.';
+  if (amount === null) {
+    return { error: 'Informe um valor válido, maior que zero.', amount: null };
+  }
 
   if (toCents(amount) > toCents(freeBalance)) {
-    return 'Valor acima do saldo livre da poupança (o restante já está reservado em metas).';
+    return {
+      error: 'Valor acima do saldo livre da poupança (o restante já está reservado em metas).',
+      amount: null,
+    };
   }
-  return null;
+  return { error: null, amount };
 }
 
 /**

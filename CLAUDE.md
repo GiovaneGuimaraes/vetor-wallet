@@ -181,7 +181,7 @@ Todas as rotas abaixo (exceto `/api/auth/*`) exigem sessão autenticada via cook
 | `DELETE` | `/api/recurring-expenses/:id` | Alias de encerrar (`204`). Não apaga o template nem as ocorrências já geradas |
 | `GET` | `/api/savings` | Lista lançamentos de poupança/reserva e um `summary` (saldo, total de aportes, total de rendimento) |
 | `POST` | `/api/savings` | Cria lançamento de poupança (`DEPOSIT`, `WITHDRAW` ou `YIELD`); aceita `goalId` opcional para vincular a uma meta |
-| `POST` | `/api/savings/transfer-to-goal` (T-041) | Reserva para uma meta dinheiro que já está na poupança — body `{ goalId, amount, date, note? }`. Grava um par atômico WITHDRAW (sem vínculo) + DEPOSIT (vinculado), responde `201 { withdraw, deposit }`. `400` quando o valor excede o **saldo livre**; `404` para meta de outro usuário |
+| `POST` | `/api/savings/transfer-to-goal` | Transferência poupança → meta (T-041): reserva para uma meta dinheiro que já está na poupança — body `{ goalId, amount, date, note? }`. Grava um par atômico WITHDRAW (sem vínculo) + DEPOSIT (vinculado), responde `201 { withdraw, deposit }`. `400` quando o valor excede o **saldo livre**; `404` para meta de outro usuário |
 | `PATCH` | `/api/savings/:id` | Atualiza parcialmente um lançamento (`type`/`amount`/`date`/`note`/`goalId`); `goalId: null` desvincula da meta — ver "Edição inline nos layers básicos" |
 | `DELETE` | `/api/savings/:id` | Remove lançamento de poupança |
 | `GET` | `/api/goals` | Lista metas financeiras do usuário, com `current_amount` derivado quando há lançamentos vinculados |
