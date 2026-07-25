@@ -172,6 +172,29 @@ export interface NewFixedExpense {
   amount: number;
 }
 
+/**
+ * Lançamento de despesa variável (gasto datado do dia a dia), distinto de
+ * `FixedExpense` — que é um item fixo mensal sem data. Ver T-022.
+ */
+export interface ExpenseEntry {
+  id: number;
+  user_id: number;
+  description: string;
+  category: string;
+  amount: number;
+  /** YYYY-MM-DD */
+  date: string;
+  created_at: string;
+}
+
+export interface NewExpenseEntry {
+  description: string;
+  category?: string;
+  amount: number;
+  /** YYYY-MM-DD */
+  date: string;
+}
+
 export type SavingsEntryType = 'DEPOSIT' | 'WITHDRAW' | 'YIELD';
 
 export interface SavingsEntry {

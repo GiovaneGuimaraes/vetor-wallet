@@ -1,0 +1,101 @@
+import { Router, Request, Response } from 'express';
+import { db } from '../db';
+import { asyncHandler } from '../middleware/asyncHandler';
+import { requireAuth } from '../auth/middleware';
+import type { NewExpenseEntry } from '@vetor-wallet/shared';
+
+const router = Router();
+
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Mês corrente no fuso local do processo (YYYY-MM). Usado como default de
+ * `GET /api/expense-entries` quando o cliente não informa `?month=`.
+ * `toISOString()` seria UTC e viraria o mês cedo demais no BRT (UTC-3).
+ */
+export function currentMonth(now: Date = new Date()): string {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+router.use(requireAuth);
+
+router.get(
+  '/',
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = res.locals.userId as number;
+    const rawMonth = req.query.month;
+
+    if (rawMonth !== undefined && typeof rawMonth !== 'string') {
+      res.status(400).json({ error: 'month inválido (use YYYY-MM)' });
+      return;
+    }
+    const month = rawMonth ?? currentMonth();
+    if (!MONTH_RE.test(month)) {
+      res.status(400).json({ error: 'month inválido (use YYYY-MM)' });
+      return;
+    }
+
+    const result = await db.execute({
+      sql: `SELECT * FROM expense_entries
+            WHERE user_id = ? AND substr(date, 1, 7) = ?
+            ORDER BY date DESC, created_at DESC`,
+      args: [userId, month],
+    });
+    res.json({ month, entries: result.rows });
+  }),
+);
+
+router.post(
+  '/',
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = res.locals.userId as number;
+    const { description, category = '', amount, date } = req.body as Partial<NewExpenseEntry>;
+
+    if (!description || typeof description !== 'string' || !description.trim()) {
+      res.status(400).json({ error: 'description é obrigatória' });
+      return;
+    }
+    if (typeof amount !== 'number' || Number.isNaN(amount) || amount <= 0) {
+      res.status(400).json({ error: 'amount deve ser um número maior que 0' });
+      return;
+    }
+    if (!date || typeof date !== 'string' || !DATE_RE.test(date)) {
+      res.status(400).json({ error: 'date inválida (use YYYY-MM-DD)' });
+      return;
+    }
+
+    const insert = await db.execute({
+      sql: 'INSERT INTO expense_entries (user_id, description, category, amount, date) VALUES (?, ?, ?, ?, ?)',
+      args: [userId, description.trim(), typeof category === 'string' ? category.trim() : '', amount, date],
+    });
+
+    const newId = insert.lastInsertRowid ?? 0;
+    const row = await db.execute({
+      sql: 'SELECT * FROM expense_entries WHERE id = ?',
+      args: [Number(newId)],
+    });
+    res.status(201).json(row.rows[0]);
+  }),
+);
+
+router.delete(
+  '/:id',
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = res.locals.userId as number;
+    const { id } = req.params;
+    const result = await db.execute({
+      sql: 'DELETE FROM expense_entries WHERE id = ? AND user_id = ?',
+      args: [id, userId],
+    });
+    if (result.rowsAffected === 0) {
+      res.status(404).json({ error: 'Lançamento de despesa não encontrado' });
+      return;
+    }
+    res.status(204).send();
+  }),
+);
+
+export default router;
