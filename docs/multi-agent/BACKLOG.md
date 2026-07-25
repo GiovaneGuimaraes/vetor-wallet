@@ -24,9 +24,45 @@
 
 ## Tarefas ativas
 
-_(Ciclo 6, Onda A em andamento — T-029 e T-030 delegadas em 2026-07-25; T-028 entra em série após a T-029 (mesmos arquivos de rota). Onda B (T-031 edição inline) planejada; Onda C aguarda escolha do humano. T-020/T-021 do ciclo 4 seguem em espera.)_
+_(Ciclo 6: Ondas A e B CONCLUÍDAS E MERGEADAS — PRs #69–#73; sanidade na `main`: server 292 testes + web 95 + build verdes. Onda C aprovada pelo humano em 2026-07-25 na sequência: T-033 histórico mensal → T-034 sessões persistentes → T-035 recorrência. T-033 e T-034 delegadas em paralelo (arquivos disjuntos); T-035 entra após a T-033 (mesmos arquivos). T-020/T-021 do ciclo 4 seguem em espera.)_
 
-## Ciclo 6 — Colheita das revisões + edição inline (EM ANDAMENTO — Onda A delegada em 2026-07-25)
+## Ciclo 6 — Colheita das revisões + edição inline + Onda C (EM ANDAMENTO)
+
+### T-033 — Histórico mensal no layer Despesas (últimos meses, sem gráfico)
+- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25 — Onda C)
+- **Prioridade**: P2
+- **Complexidade**: média (endpoint agregado + seção de UI; revisor Opus por tocar dinheiro)
+- **Depende de**: T-022 (mergeada)
+- **Branch/worktree**: `giovane/t-033-historico-mensal`
+- **Contexto**: escolha do humano para a Onda C. A navegação mensal da T-022 mostra um mês por vez; falta visão de tendência — total gasto nos últimos meses, no espírito da visão mensal do Organizze. Sem gráficos (decisão do humano).
+- **Escopo**: endpoint agregado `GET /api/expense-entries/summary?months=N` (default 6, cap 24) retornando total de lançamentos variáveis por mês (`GROUP BY` do prefixo YYYY-MM, meses sem lançamento → 0 ou omitidos, documentar); seção "Últimos meses" na `DespesasPage` listando mês a mês o total (fixas atuais + variáveis do mês, rotulando que as fixas são as vigentes hoje — não há histórico de fixas, comportamento documentado no CLAUDE.md); mês corrente destacado; clique num mês navega a navegação mensal existente para ele; função pura para montar as linhas com testes; testes de rota (agregação correta, isolamento por user, validação de `months`).
+- **Fora de escopo**: gráficos; histórico de despesas fixas; export.
+- **Critério de aceite**: com lançamentos conhecidos em 3 meses, a lista bate com o cálculo manual; clique navega; suíte + build verdes.
+- **Resultado**: —
+
+### T-034 — Sessões persistentes (login sobrevive a restart do server)
+- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25 — Onda C)
+- **Prioridade**: P2
+- **Complexidade**: média (infra de sessão; revisor Opus por tocar auth)
+- **Depende de**: —
+- **Branch/worktree**: `giovane/t-034-sessoes-persistentes`
+- **Contexto**: dívida conhecida do `CLAUDE.md`: `express-session` com MemoryStore perde todas as sessões a cada restart do server — o usuário é deslogado toda vez que o dev server reinicia.
+- **Escopo**: store de sessão persistente no MESMO banco SQLite/libsql já usado (tabela `sessions` criada em `initDb()`), implementando a interface `Store` do express-session sobre `@libsql/client` (get/set/destroy/touch; TTL respeitando `cookie.maxAge`; limpeza de expiradas — lazy no get ou varredura no boot, documentar); sem dependência nova de driver se possível (avaliar e justificar se precisar); config de `express-session` preservada (cookie `sid`, `secure` em produção, `SESSION_SECRET`); `CLAUDE.md` atualizado (dívida vira descrição do comportamento novo).
+- **Fora de escopo**: Redis/Cognito; mudanças no fluxo de login/registro; rotação de sessão.
+- **Critério de aceite**: teste do store (set/get/destroy/expiração) com banco temp; login → restart do server (novo processo no mesmo banco) → sessão continua válida (teste de integração ou roteiro manual documentado se restart real não for testável na suíte); suíte + build verdes.
+- **Resultado**: —
+
+### T-035 — Recorrência de lançamentos de despesa (mensal)
+- **Status**: PENDENTE (Onda C — entra após merge da T-033, mesmos arquivos)
+- **Prioridade**: P3
+- **Complexidade**: alta (schema novo + materialização idempotente — decisões de design)
+- **Depende de**: T-033
+- **Branch/worktree**: —
+- **Contexto**: escolha do humano para a Onda C (3ª da sequência). Despesa variável que se repete todo mês (assinatura, mensalidade) hoje precisa ser digitada mês a mês — ficou explicitamente fora da T-022.
+- **Escopo**: marcar um lançamento como recorrente mensal na criação/edição (tabela própria `recurring_expenses` ou flag + tabela de controle — decisão do executor, documentada); materialização **lazy e idempotente**: ao consultar um mês (GET por mês), ocorrências pendentes daquele mês são geradas uma única vez (chave única por recorrência+mês; dia do mês ajustado para meses curtos, ex.: dia 31 → último dia); encerrar recorrência (não gera futuros; ocorrências passadas ficam); UI: checkbox "repetir todo mês" no form + indicação nos itens gerados + gestão mínima (listar/encerrar recorrências ativas); testes de materialização (idempotência, mês curto, encerramento, isolamento por user).
+- **Fora de escopo**: recorrência em renda/poupança; frequências além de mensal; edição em massa de ocorrências passadas.
+- **Critério de aceite**: criar recorrência em julho → navegar para agosto gera a ocorrência 1x (re-navegar não duplica); dia 31 em fevereiro cai no último dia; encerrar para de gerar; suíte + build verdes.
+- **Resultado**: —
 
 > Aprovado pelo humano (2026-07-25): "pode seguir com a onda A". Onda A = T-029 + T-030 em paralelo (arquivos disjuntos), depois T-028 em série (conflita com T-029 nas rotas). Onda B = T-031 (edição inline, aguarda Onda A). Onda C = escolha do humano entre histórico mensal em Despesas, sessões persistentes ou recorrência de lançamentos. Humano validou o front do ciclo 5 sem erros; erros futuros viram tarefas de correção.
 
@@ -79,7 +115,7 @@ _(Ciclo 6, Onda A em andamento — T-029 e T-030 delegadas em 2026-07-25; T-028 
 - **Resultado**: —
 
 ### T-031 — Edição inline nos layers básicos (PATCH em renda/despesas/lançamentos/poupança)
-- **Status**: EM_ANDAMENTO (executor Opus 5, delegado 2026-07-25 — Onda B, após merge de T-028/T-029)
+- **Status**: CONCLUIDA e MERGEADA — PR [#73](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/73) (2026-07-25). Revisor Opus: APROVADA, 0 bloqueantes — matriz type×goalId completa (todos os quadrantes testados, revincular confere as DUAS metas), zero testes antigos alterados (numstat), CLAUDE.md fiel parágrafo a parágrafo. Semântica central: invariantes do vínculo sobre o estado resultante; `{type:'YIELD', goalId:null}` juntos convertem aporte em rendimento. Sugestões registradas: (1) UPDATE final sem `AND user_id` repetido (TOCTOU teórico, padrão de goals.ts — defesa em profundidade barata); (2) ordenação local vs server em empate de data; (3) `parseMoneyInput` com caminho morto de vírgula; (4) `current_amount` manual obsoleto ao desvincular último lançamento (pré-existente da T-024 — agora alcançável por caminho novo); (5) `DATE_RE` aceita datas inexistentes (idêntico ao POST — endurecer os dois juntos em tarefa futura). Server 291 (+57) / web 95 (+13) / build verdes. Modelos: executor Opus 5, revisor Opus 5.
 - **Prioridade**: P1
 - **Complexidade**: alta (várias rotas de dinheiro + UI de edição em 4 telas)
 - **Depende de**: T-028, T-029 (mergeadas — PRs #71 e #69)
