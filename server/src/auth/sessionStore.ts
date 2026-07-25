@@ -23,7 +23,9 @@ import type { Client } from '@libsql/client';
  *   nunca são lidas como válidas, e o único custo de manter linhas mortas até
  *   a próxima leitura é espaço em disco, aceitável para o volume do app.
  * - **Varredura no boot**: `initDb()` roda um `DELETE FROM sessions WHERE
- *   expires_at <= datetime('now')` uma vez ao iniciar, para não acumular
+ *   expires_at <= ?` com o instante atual em ISO string como parâmetro (nunca
+ *   `datetime('now')` do SQLite — o separador `T` vs espaço quebraria a
+ *   comparação lexicográfica) uma vez ao iniciar, para não acumular
  *   sessões expiradas de execuções antigas que nunca mais serão lidas (ex.:
  *   sessão de um usuário que nunca mais volta) — sem isso, o lazy-delete só
  *   limpa o que é efetivamente consultado.
