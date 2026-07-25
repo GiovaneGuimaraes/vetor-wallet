@@ -110,13 +110,13 @@ describe('computeGoalsSummary', () => {
 });
 
 describe('computeMonthCashFlow', () => {
-  it('sem lançamentos variáveis (array vazio), sobra real é igual à prevista', () => {
+  it('sem lançamentos variáveis (array vazio), sobra real é igual à prevista e entriesLoaded é true', () => {
     const result = computeMonthCashFlow(5000, 3000, []);
     expect(result).toEqual({
       expensesTotal: 3000,
       estimatedBalance: 2000,
       realBalance: 2000,
-      hasVariableEntries: true,
+      entriesLoaded: true,
     });
   });
 
@@ -126,17 +126,17 @@ describe('computeMonthCashFlow', () => {
       expensesTotal: 3500,
       estimatedBalance: 2000,
       realBalance: 1500,
-      hasVariableEntries: true,
+      entriesLoaded: true,
     });
   });
 
-  it('quando a busca de lançamentos falha (null), cai para a estimativa e sinaliza hasVariableEntries=false', () => {
+  it('quando a busca de lançamentos falha (null), cai para a estimativa e sinaliza entriesLoaded=false', () => {
     const result = computeMonthCashFlow(5000, 3000, null);
     expect(result).toEqual({
       expensesTotal: 3000,
       estimatedBalance: 2000,
       realBalance: 2000,
-      hasVariableEntries: false,
+      entriesLoaded: false,
     });
   });
 

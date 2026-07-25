@@ -50,6 +50,11 @@ const EMPTY_FORM: FormState = { type: 'DEPOSIT', amount: '', date: todayIso(), n
 export function PoupancaPage() {
   const [entries, setEntries] = useState<SavingsEntry[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  // 'error' sinaliza que só a busca de metas falhou — o select de vínculo é
+  // acessório (T-030): a tela inteira não deve cair por conta dele, então o
+  // erro fica isolado deste estado em vez de derrubar `entries`/`summary`
+  // junto num `Promise.all`.
+  const [goalsStatus, setGoalsStatus] = useState<'ok' | 'error'>('ok');
   const [summary, setSummary] = useState<SavingsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -60,12 +65,21 @@ export function PoupancaPage() {
   const refresh = useCallback(async () => {
     setError('');
     try {
-      const [data, goalsData] = await Promise.all([getSavings(), getGoals()]);
+      const data = await getSavings();
       setEntries(data.entries);
       setSummary(data.summary);
-      setGoals(goalsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao conectar com a API');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setGoals(await getGoals());
+      setGoalsStatus('ok');
+    } catch {
+      setGoals([]);
+      setGoalsStatus('error');
     } finally {
       setLoading(false);
     }
@@ -211,27 +225,38 @@ export function PoupancaPage() {
                 </div>
                 <div className="vw-form-field">
                   <label htmlFor="savings-goal">Vincular à meta (opcional)</label>
-                  <select
-                    id="savings-goal"
-                    value={form.goalId}
-                    disabled={form.type === 'YIELD' || goals.length === 0}
-                    onChange={(e) => setForm({ ...form, goalId: e.target.value })}
-                  >
-                    <option value="">Sem vínculo</option>
-                    {goals.map((goal) => (
-                      <option key={goal.id} value={String(goal.id)}>
-                        {goal.name}
-                      </option>
-                    ))}
-                  </select>
-                  {form.type === 'YIELD' ? (
-                    <span className="vw-field-hint">Rendimento não pode ser vinculado a meta.</span>
-                  ) : goals.length === 0 ? (
-                    <span className="vw-field-hint">Cadastre uma meta em /metas para vincular aportes.</span>
+                  {goalsStatus === 'error' ? (
+                    // O select de metas é acessório (T-030): se só /api/goals falhar, os
+                    // lançamentos e o form continuam funcionando normalmente (sem vínculo),
+                    // com um aviso discreto no lugar do select em vez de derrubar a tela toda.
+                    <p className="vw-field-hint vw-field-hint--warn">
+                      Não foi possível carregar suas metas — lançamentos seguem sem vínculo.
+                    </p>
                   ) : (
-                    <span className="vw-field-hint">
-                      A meta vinculada passa a calcular o progresso por estes lançamentos.
-                    </span>
+                    <>
+                      <select
+                        id="savings-goal"
+                        value={form.goalId}
+                        disabled={form.type === 'YIELD' || goals.length === 0}
+                        onChange={(e) => setForm({ ...form, goalId: e.target.value })}
+                      >
+                        <option value="">Sem vínculo</option>
+                        {goals.map((goal) => (
+                          <option key={goal.id} value={String(goal.id)}>
+                            {goal.name}
+                          </option>
+                        ))}
+                      </select>
+                      {form.type === 'YIELD' ? (
+                        <span className="vw-field-hint">Rendimento não pode ser vinculado a meta.</span>
+                      ) : goals.length === 0 ? (
+                        <span className="vw-field-hint">Cadastre uma meta em /metas para vincular aportes.</span>
+                      ) : (
+                        <span className="vw-field-hint">
+                          A meta vinculada passa a calcular o progresso por estes lançamentos.
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

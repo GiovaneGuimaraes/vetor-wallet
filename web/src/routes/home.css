@@ -32,3 +32,10 @@
   font-size: 11px;
   color: var(--color-dim);
 }
+
+/* Aviso de estimativa (T-030): mesmo padrão de --color-warn usado no banner de
+   quotesUnavailable do PortfolioDashboard, em vez de um "*" cuja explicação só
+   existia no atributo `title` (invisível em touch). */
+.vw-hero-metric-sublabel--warn {
+  color: var(--color-warn);
+}

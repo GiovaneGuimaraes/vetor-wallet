@@ -356,6 +356,11 @@
   color: var(--color-dim);
 }
 
+/* T-030: aviso de degradação parcial quando só a busca de metas falha. */
+.vw-field-hint--warn {
+  color: var(--color-warn);
+}
+
 .vw-savings-entry-goal {
   margin-left: 8px;
   font-size: 11px;

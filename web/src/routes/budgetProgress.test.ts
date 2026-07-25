@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { CategoryBudget, ExpenseEntry, FixedExpense } from '@vetor-wallet/shared';
-import { computeBudgetProgress } from './budgetProgress';
+import { computeBudgetProgress, formatBudgetPct } from './budgetProgress';
 
 function budget(category: string, amount: number, id = 1): CategoryBudget {
   return { id, user_id: 1, category, amount, created_at: '2026-07-01 00:00:00' };
@@ -88,5 +88,25 @@ describe('computeBudgetProgress', () => {
     expect(result).toHaveLength(2);
     expect(result[0]).toMatchObject({ id: 1, category: 'mercado', amount: 500, spent: 100 });
     expect(result[1]).toMatchObject({ id: 2, category: 'lazer', amount: 200, spent: 50 });
+  });
+});
+
+describe('formatBudgetPct', () => {
+  it('trunca em vez de arredondar — 99.6 vira 99, não 100 (T-030)', () => {
+    expect(formatBudgetPct(99.6)).toBe(99);
+  });
+
+  it('não sobe para 100 antes de pct realmente atingir 100', () => {
+    expect(formatBudgetPct(99.99)).toBe(99);
+    expect(formatBudgetPct(100)).toBe(100);
+  });
+
+  it('trunca a parte fracionária normalmente em outros valores', () => {
+    expect(formatBudgetPct(70.9)).toBe(70);
+    expect(formatBudgetPct(140.4)).toBe(140);
+  });
+
+  it('mantém 0 para 0%', () => {
+    expect(formatBudgetPct(0)).toBe(0);
   });
 });
