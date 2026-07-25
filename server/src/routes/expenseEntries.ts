@@ -4,6 +4,10 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import type { NewExpenseEntry, ExpenseEntryUpdate } from '@vetor-wallet/shared';
 import { normalizeCategory } from '../services/categories';
+import {
+  markMonthMaterialized,
+  materializeRecurringExpenses,
+} from '../services/recurringExpenses';
 
 const router = Router();
 
@@ -73,6 +77,15 @@ router.get(
     const endMonth = currentMonth();
     const startMonth = shiftMonthKey(endMonth, -(months - 1));
 
+    // T-035: o histórico tem de refletir as recorrências dos meses da janela,
+    // então materializa antes de agregar. A janela termina no mês corrente —
+    // aqui nunca se gera mês futuro (isso só acontece em GET /?month=).
+    const windowMonths: string[] = [];
+    for (let i = 0; i < months; i += 1) {
+      windowMonths.push(shiftMonthKey(startMonth, i));
+    }
+    await materializeRecurringExpenses(userId, windowMonths);
+
     const result = await db.execute({
       sql: `SELECT substr(date, 1, 7) as month, SUM(amount) as total FROM expense_entries
             WHERE user_id = ? AND substr(date, 1, 7) BETWEEN ? AND ?
@@ -105,6 +118,11 @@ router.get(
       return;
     }
 
+    // T-035: materialização lazy das recorrências ativas do mês consultado —
+    // inclusive meses futuros navegados. Roda antes do SELECT para que as
+    // ocorrências geradas já apareçam nesta mesma resposta.
+    await materializeRecurringExpenses(userId, [month]);
+
     const result = await db.execute({
       sql: `SELECT * FROM expense_entries
             WHERE user_id = ? AND substr(date, 1, 7) = ?
@@ -119,7 +137,14 @@ router.post(
   '/',
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const { description, category = '', amount, date } = req.body as Partial<NewExpenseEntry>;
+    const {
+      description,
+      category = '',
+      amount,
+      date,
+      recurring,
+      dayOfMonth,
+    } = req.body as Partial<NewExpenseEntry>;
 
     if (!description || typeof description !== 'string' || !description.trim()) {
       res.status(400).json({ error: 'description é obrigatória' });
@@ -134,12 +159,59 @@ router.post(
       return;
     }
 
+    if (recurring !== undefined && typeof recurring !== 'boolean') {
+      res.status(400).json({ error: 'recurring deve ser booleano' });
+      return;
+    }
+    // T-035: o dia da recorrência default é o dia do próprio lançamento.
+    // `DATE_RE` aceita dígitos fora de 01-31 (ex.: `2026-07-45`), então o dia
+    // derivado é fixado na faixa do CHECK(day_of_month BETWEEN 1 AND 31) —
+    // um valor fora dela viraria erro de constraint (500) em vez de 400.
+    let recurringDay = Math.min(Math.max(Number(date.slice(8, 10)) || 1, 1), 31);
+    if (dayOfMonth !== undefined) {
+      if (
+        typeof dayOfMonth !== 'number' ||
+        !Number.isInteger(dayOfMonth) ||
+        dayOfMonth < 1 ||
+        dayOfMonth > 31
+      ) {
+        res.status(400).json({ error: 'dayOfMonth deve ser um inteiro entre 1 e 31' });
+        return;
+      }
+      recurringDay = dayOfMonth;
+    }
+
     // Categoria é gravada na forma canônica (T-028) — ver services/categories.ts.
     const normalizedCategory = normalizeCategory(typeof category === 'string' ? category : '');
 
+    // T-035: quando o lançamento é marcado como recorrente, o template nasce
+    // ANTES da ocorrência (ela precisa do `recurring_id`) e o mês do próprio
+    // lançamento já entra no livro-razão de meses gerados — senão o primeiro
+    // GET desse mês materializaria uma segunda cópia idêntica.
+    let recurringId: number | null = null;
+    const startMonth = date.slice(0, 7);
+    if (recurring === true) {
+      const createdRecurrence = await db.execute({
+        sql: `INSERT INTO recurring_expenses
+                (user_id, description, category, amount, day_of_month, start_month)
+              VALUES (?, ?, ?, ?, ?, ?)`,
+        args: [
+          userId,
+          description.trim(),
+          normalizedCategory,
+          amount,
+          recurringDay,
+          startMonth,
+        ],
+      });
+      recurringId = Number(createdRecurrence.lastInsertRowid ?? 0);
+      await markMonthMaterialized(recurringId, startMonth);
+    }
+
     const insert = await db.execute({
-      sql: 'INSERT INTO expense_entries (user_id, description, category, amount, date) VALUES (?, ?, ?, ?, ?)',
-      args: [userId, description.trim(), normalizedCategory, amount, date],
+      sql: `INSERT INTO expense_entries (user_id, description, category, amount, date, recurring_id)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [userId, description.trim(), normalizedCategory, amount, date, recurringId],
     });
 
     const newId = insert.lastInsertRowid ?? 0;

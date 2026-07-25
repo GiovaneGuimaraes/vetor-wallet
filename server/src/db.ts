@@ -145,6 +145,51 @@ export async function initDb() {
     'CREATE INDEX IF NOT EXISTS idx_expense_entries_user_date ON expense_entries(user_id, date)',
   );
 
+  // T-035: template de despesa variável que se repete todo mês. Só o template
+  // vive aqui; as ocorrências são `expense_entries` normais (editáveis/
+  // excluíveis individualmente) materializadas sob demanda — ver
+  // services/recurringExpenses.ts.
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS recurring_expenses (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id      INTEGER NOT NULL REFERENCES users(id),
+      description  TEXT    NOT NULL,
+      category     TEXT    NOT NULL DEFAULT '',
+      amount       REAL    NOT NULL,
+      day_of_month INTEGER NOT NULL CHECK(day_of_month BETWEEN 1 AND 31),
+      start_month  TEXT    NOT NULL,
+      active       INTEGER NOT NULL DEFAULT 1,
+      ended_at     TEXT,
+      created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_recurring_expenses_user_active
+     ON recurring_expenses(user_id, active)`,
+  );
+
+  // Livro-razão de "meses já gerados" de cada recorrência (T-035). É ele — e não
+  // a existência da ocorrência em expense_entries — que torna a materialização
+  // idempotente: a linha SOBREVIVE ao delete da ocorrência, então excluir um
+  // lançamento gerado não o recria no próximo GET do mês.
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS recurring_expense_months (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      recurring_id INTEGER NOT NULL REFERENCES recurring_expenses(id),
+      month        TEXT    NOT NULL,
+      created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  // A chave única por (recorrência × mês) é o que segura a corrida de dois GETs
+  // simultâneos do mesmo mês: o INSERT OR IGNORE de um deles afeta 0 linhas e
+  // só o vencedor insere a ocorrência.
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_recurring_expense_months_unique
+     ON recurring_expense_months(recurring_id, month)`,
+  );
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS savings_entries (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -193,6 +238,10 @@ export async function initDb() {
     // T-024: vínculo opcional entre lançamento de poupança e meta financeira.
     // Metas com lançamentos vinculados passam a ter progresso derivado.
     'ALTER TABLE savings_entries ADD COLUMN goal_id INTEGER REFERENCES goals(id)',
+    // T-035: origem de uma ocorrência materializada de recorrência mensal.
+    // NULL = lançamento digitado à mão. O template nunca é apagado (encerrar
+    // é `active = 0`), então a FK nunca bloqueia um delete.
+    'ALTER TABLE expense_entries ADD COLUMN recurring_id INTEGER REFERENCES recurring_expenses(id)',
   ]) {
     try {
       await db.execute(sql);
