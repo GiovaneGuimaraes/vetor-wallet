@@ -510,3 +510,47 @@
 .vw-history-current .vw-history-item-value {
   color: var(--color-accent);
 }
+
+/* ── Recorrência mensal de despesas (T-035) ─────────────────────────────── */
+
+.vw-recurrence-card {
+  margin-bottom: 16px;
+}
+
+.vw-recurrence-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: 99px;
+  padding: 1px 8px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.vw-recurrence-end-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.vw-recurrence-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.vw-recurrence-checkbox input {
+  margin-top: 2px;
+  accent-color: var(--color-accent);
+}
+
+.vw-recurrence-checkbox-hint {
+  display: block;
+  font-size: 11px;
+  color: var(--color-dim);
+}

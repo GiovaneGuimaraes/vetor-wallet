@@ -4,6 +4,10 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import type { NewExpenseEntry, ExpenseEntryUpdate } from '@vetor-wallet/shared';
 import { normalizeCategory } from '../services/categories';
+import {
+  markMonthMaterialized,
+  materializeRecurringExpenses,
+} from '../services/recurringExpenses';
 
 const router = Router();
 
@@ -23,6 +27,14 @@ export function currentMonth(now: Date = new Date()): string {
 
 const MAX_SUMMARY_MONTHS = 24;
 const DEFAULT_SUMMARY_MONTHS = 6;
+
+/**
+ * T-035: quantos meses à frente do mês corrente um GET pode materializar
+ * ocorrências de recorrência. Navegar ‹/› alguns meses adiante é uso normal;
+ * um `?month=9999-12` não é, e sem teto escreveria ocorrências indefinidamente
+ * à frente.
+ */
+export const MATERIALIZATION_HORIZON_MONTHS = 12;
 
 /**
  * Desloca um mês `YYYY-MM` em `delta` meses, virando o ano quando necessário.
@@ -73,6 +85,15 @@ router.get(
     const endMonth = currentMonth();
     const startMonth = shiftMonthKey(endMonth, -(months - 1));
 
+    // T-035: o histórico tem de refletir as recorrências dos meses da janela,
+    // então materializa antes de agregar. A janela termina no mês corrente —
+    // aqui nunca se gera mês futuro (isso só acontece em GET /?month=).
+    const windowMonths: string[] = [];
+    for (let i = 0; i < months; i += 1) {
+      windowMonths.push(shiftMonthKey(startMonth, i));
+    }
+    await materializeRecurringExpenses(userId, windowMonths);
+
     const result = await db.execute({
       sql: `SELECT substr(date, 1, 7) as month, SUM(amount) as total FROM expense_entries
             WHERE user_id = ? AND substr(date, 1, 7) BETWEEN ? AND ?
@@ -105,6 +126,18 @@ router.get(
       return;
     }
 
+    // T-035: materialização lazy das recorrências ativas do mês consultado —
+    // inclusive meses futuros navegados. Roda antes do SELECT para que as
+    // ocorrências geradas já apareçam nesta mesma resposta.
+    //
+    // Teto de horizonte: um GET de `9999-12` não pode virar escrita de
+    // ocorrência arbitrariamente à frente (o mês pedido não é limitado por
+    // nada além do formato). Meses além do horizonte ainda são listados —
+    // apenas não geram nada.
+    if (month <= shiftMonthKey(currentMonth(), MATERIALIZATION_HORIZON_MONTHS)) {
+      await materializeRecurringExpenses(userId, [month]);
+    }
+
     const result = await db.execute({
       sql: `SELECT * FROM expense_entries
             WHERE user_id = ? AND substr(date, 1, 7) = ?
@@ -119,7 +152,14 @@ router.post(
   '/',
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const { description, category = '', amount, date } = req.body as Partial<NewExpenseEntry>;
+    const {
+      description,
+      category = '',
+      amount,
+      date,
+      recurring,
+      dayOfMonth,
+    } = req.body as Partial<NewExpenseEntry>;
 
     if (!description || typeof description !== 'string' || !description.trim()) {
       res.status(400).json({ error: 'description é obrigatória' });
@@ -134,12 +174,77 @@ router.post(
       return;
     }
 
+    if (recurring !== undefined && typeof recurring !== 'boolean') {
+      res.status(400).json({ error: 'recurring deve ser booleano' });
+      return;
+    }
+    // T-035: o dia da recorrência default é o dia do próprio lançamento.
+    // `DATE_RE` aceita dígitos fora de 01-31 (ex.: `2026-07-45`), então o dia
+    // derivado é fixado na faixa do CHECK(day_of_month BETWEEN 1 AND 31) —
+    // um valor fora dela viraria erro de constraint (500) em vez de 400.
+    let recurringDay = Math.min(Math.max(Number(date.slice(8, 10)) || 1, 1), 31);
+    if (dayOfMonth !== undefined) {
+      if (
+        typeof dayOfMonth !== 'number' ||
+        !Number.isInteger(dayOfMonth) ||
+        dayOfMonth < 1 ||
+        dayOfMonth > 31
+      ) {
+        res.status(400).json({ error: 'dayOfMonth deve ser um inteiro entre 1 e 31' });
+        return;
+      }
+      recurringDay = dayOfMonth;
+    }
+
     // Categoria é gravada na forma canônica (T-028) — ver services/categories.ts.
     const normalizedCategory = normalizeCategory(typeof category === 'string' ? category : '');
 
+    // T-035: quando o lançamento é marcado como recorrente, o template nasce
+    // ANTES da ocorrência (ela precisa do `recurring_id`) e o mês do próprio
+    // lançamento já entra no livro-razão de meses gerados — senão o primeiro
+    // GET desse mês materializaria uma segunda cópia idêntica.
+    let recurringId: number | null = null;
+    const entryMonth = date.slice(0, 7);
+    if (recurring === true) {
+      // O piso da materialização é o mês de CRIAÇÃO, não o mês do lançamento:
+      // marcar como recorrente um lançamento com data passada (caminho normal
+      // da UI — navegar para um mês passado deixa o campo de data em
+      // `${mês}-01`) não pode gerar ocorrências em meses já fechados, o que
+      // reescreveria total/orçamento/histórico daqueles meses sem o usuário
+      // ver. Data futura continua valendo como piso: a recorrência só começa
+      // quando o lançamento acontece.
+      const startMonth = entryMonth > currentMonth() ? entryMonth : currentMonth();
+
+      const createdRecurrence = await db.execute({
+        sql: `INSERT INTO recurring_expenses
+                (user_id, description, category, amount, day_of_month, start_month)
+              VALUES (?, ?, ?, ?, ?, ?)`,
+        args: [
+          userId,
+          description.trim(),
+          normalizedCategory,
+          amount,
+          recurringDay,
+          startMonth,
+        ],
+      });
+      recurringId = Number(createdRecurrence.lastInsertRowid ?? 0);
+      if (!recurringId) {
+        // Sem id não há como vincular a ocorrência: gravar `recurring_id = 0`
+        // deixaria o lançamento apontando para um template inexistente.
+        throw new Error('T-035: falha ao criar a recorrência (lastInsertRowid ausente)');
+      }
+      // Marca o mês do LANÇAMENTO, não `startMonth`: num cadastro retroativo os
+      // dois divergem e marcar o mês corrente suprimiria a ocorrência que a
+      // recorrência deve gerar agora. Marcar um mês anterior a `start_month` é
+      // inofensivo (ele nunca seria gerado de todo modo).
+      await markMonthMaterialized(recurringId, entryMonth);
+    }
+
     const insert = await db.execute({
-      sql: 'INSERT INTO expense_entries (user_id, description, category, amount, date) VALUES (?, ?, ?, ?, ?)',
-      args: [userId, description.trim(), normalizedCategory, amount, date],
+      sql: `INSERT INTO expense_entries (user_id, description, category, amount, date, recurring_id)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [userId, description.trim(), normalizedCategory, amount, date, recurringId],
     });
 
     const newId = insert.lastInsertRowid ?? 0;

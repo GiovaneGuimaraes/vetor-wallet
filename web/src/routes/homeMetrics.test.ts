@@ -10,6 +10,7 @@ function makeEntry(overrides: Partial<ExpenseEntry> = {}): ExpenseEntry {
     category: '',
     amount: 100,
     date: '2026-07-10',
+    recurring_id: null,
     created_at: '2026-07-10',
     ...overrides,
   };

@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, RecurringExpense, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -336,6 +336,28 @@ export async function getExpenseEntriesSummary(months?: number): Promise<Expense
   const res = await apiFetch(`/api/expense-entries/summary${qs}`);
   if (!res.ok) throw new Error('Falha ao buscar histórico de despesas');
   return res.json();
+}
+
+// ── Recorrências mensais de despesa (T-035) ───────────────────────────────────
+
+/**
+ * Lista as recorrências ATIVAS. Encerradas não voltam nesta lista — as
+ * ocorrências que elas já geraram continuam como lançamentos normais.
+ */
+export async function getRecurringExpenses(): Promise<RecurringExpense[]> {
+  const res = await apiFetch('/api/recurring-expenses');
+  if (!res.ok) throw new Error('Falha ao buscar recorrências');
+  return res.json();
+}
+
+/**
+ * Encerra uma recorrência: para de gerar ocorrências futuras, mantendo as já
+ * materializadas. Não há criação aqui — uma recorrência nasce em
+ * `createExpenseEntry({ recurring: true })`.
+ */
+export async function endRecurringExpense(id: number): Promise<void> {
+  const res = await apiFetch(`/api/recurring-expenses/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Falha ao encerrar recorrência');
 }
 
 // ── Poupança / reserva ────────────────────────────────────────────────────────

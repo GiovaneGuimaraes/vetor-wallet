@@ -206,6 +206,12 @@ export interface ExpenseEntry {
   amount: number;
   /** YYYY-MM-DD */
   date: string;
+  /**
+   * Recorrência mensal que gerou este lançamento (T-035), ou `null` se ele foi
+   * digitado à mão. Uma ocorrência materializada é um `expense_entries` normal:
+   * pode ser editada/excluída individualmente, e excluí-la não a recria.
+   */
+  recurring_id: number | null;
   created_at: string;
 }
 
@@ -215,6 +221,44 @@ export interface NewExpenseEntry {
   amount: number;
   /** YYYY-MM-DD */
   date: string;
+  /**
+   * T-035: `true` cria também uma recorrência mensal a partir deste lançamento
+   * (que passa a ser a ocorrência do mês de `date`). Não existe POST separado
+   * de recorrência — ver `server/src/routes/recurringExpenses.ts`.
+   */
+  recurring?: boolean;
+  /** Dia do mês das próximas ocorrências (1-31). Default: o dia de `date`. */
+  dayOfMonth?: number;
+}
+
+/**
+ * Template de recorrência mensal de despesa variável (T-035). As ocorrências
+ * são `ExpenseEntry` com `recurring_id` apontando para cá, materializadas sob
+ * demanda quando um mês é consultado.
+ */
+export interface RecurringExpense {
+  id: number;
+  user_id: number;
+  description: string;
+  category: string;
+  amount: number;
+  /** 1-31; meses curtos usam o último dia (31 → 28/29 em fevereiro). */
+  day_of_month: number;
+  /** YYYY-MM — primeiro mês elegível; meses anteriores nunca são gerados. */
+  start_month: string;
+  /** 1 = ativa, 0 = encerrada (não gera mais ocorrências). */
+  active: number;
+  /** Momento do encerramento, ou `null` enquanto ativa. */
+  ended_at: string | null;
+  created_at: string;
+}
+
+/**
+ * Corpo de `PATCH /api/recurring-expenses/:id`. Só `active: false` (encerrar) é
+ * aceito — reativar responde 400, editar o template está fora do escopo.
+ */
+export interface RecurringExpenseUpdate {
+  active?: boolean;
 }
 
 /**

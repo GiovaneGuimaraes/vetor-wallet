@@ -26,12 +26,17 @@ server/src/
 │   ├── snapshots.ts  # GET /api/snapshots/:ticker — histórico diário de preços
 │   ├── alerts.ts     # CRUD de alertas (filtrado por user_id)
 │   ├── import.ts     # importação CSV (filtrado por user_id)
+│   ├── recurringExpenses.ts # gestão dos templates de recorrência (T-035):
+│   │                 # lista ativas e encerra (soft); criação é acoplada ao
+│   │                 # POST /api/expense-entries com recurring: true
 │   ├── benchmarks.ts # CDI / Ibovespa
 │   ├── wallets.ts    # CRUD de carteiras
 │   └── tickers.ts    # busca de tickers na brapi
 ├── services/
 │   ├── portfolio.ts      # buildPositionMap, buildPortfolioSummary (lógica pura)
 │   ├── goals.ts          # progresso de metas: manual vs derivado dos aportes vinculados
+│   ├── recurringExpenses.ts # materialização lazy/idempotente das ocorrências
+│   │                        # de recorrência mensal (T-035) + helpers de data
 │   ├── quotes.ts         # fetchQuotes → brapi.dev (timeout 5s)
 │   ├── snapshots.ts      # saveSnapshot, runSnapshotJob, resolveActiveTickers, withRetry
 │   ├── hourlyInsights.ts # runHourlyInsightsJob — captura horária retroativa via brapi

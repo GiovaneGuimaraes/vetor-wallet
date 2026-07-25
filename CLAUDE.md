@@ -156,9 +156,12 @@ Todas as rotas abaixo (exceto `/api/auth/*`) exigem sessão autenticada via cook
 | `DELETE` | `/api/expenses/:id` | Remove despesa fixa |
 | `GET` | `/api/expense-entries` | Lista lançamentos de despesas variáveis de um mês — query `?month=YYYY-MM` (default: mês corrente). Responde `{ month, entries }` |
 | `GET` | `/api/expense-entries/summary` | Histórico mensal (T-033): total de lançamentos variáveis por mês — query `?months=N` (default 6, cap 24, `400` para inválido), dos últimos N meses até o corrente. Responde `{ months: [{ month, total }] }`; meses sem lançamento ficam ausentes (o cliente preenche com 0 — ver `buildMonthlyHistory`) |
-| `POST` | `/api/expense-entries` | Cria lançamento de despesa variável (`description`, `category?`, `amount`, `date`) |
+| `POST` | `/api/expense-entries` | Cria lançamento de despesa variável (`description`, `category?`, `amount`, `date`); `recurring: true` (+ `dayOfMonth?` 1-31) cria também uma recorrência mensal a partir dele (T-035) |
 | `PATCH` | `/api/expense-entries/:id` | Atualiza parcialmente um lançamento (`description`/`category`/`amount`/`date`); mudar a `date` pode mover o lançamento para outro mês |
-| `DELETE` | `/api/expense-entries/:id` | Remove lançamento de despesa variável |
+| `DELETE` | `/api/expense-entries/:id` | Remove lançamento de despesa variável (se for ocorrência de recorrência, **não** é recriada no próximo GET — ver "Recorrência de lançamentos") |
+| `GET` | `/api/recurring-expenses` | Lista as recorrências mensais **ativas** do usuário (T-035). Não há `POST` — a recorrência nasce no `POST /api/expense-entries` com `recurring: true` |
+| `PATCH` | `/api/recurring-expenses/:id` | Encerra a recorrência — único corpo aceito é `{ active: false }`; `active: true` (reativar) e corpo vazio respondem `400` |
+| `DELETE` | `/api/recurring-expenses/:id` | Alias de encerrar (`204`). Não apaga o template nem as ocorrências já geradas |
 | `GET` | `/api/savings` | Lista lançamentos de poupança/reserva e um `summary` (saldo, total de aportes, total de rendimento) |
 | `POST` | `/api/savings` | Cria lançamento de poupança (`DEPOSIT`, `WITHDRAW` ou `YIELD`); aceita `goalId` opcional para vincular a uma meta |
 | `PATCH` | `/api/savings/:id` | Atualiza parcialmente um lançamento (`type`/`amount`/`date`/`note`/`goalId`); `goalId: null` desvincula da meta — ver "Edição inline nos layers básicos" |
@@ -273,6 +276,40 @@ CREATE TABLE IF NOT EXISTS expense_entries (
   created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_expense_entries_user_date ON expense_entries(user_id, date);
+-- ALTER idempotente: recurring_id INTEGER REFERENCES recurring_expenses(id)
+--   recorrência que gerou a ocorrência (T-035). NULL = lançamento manual.
+
+-- Template de recorrência mensal de despesa variável (T-035). Só o template
+-- vive aqui; as ocorrências são expense_entries normais com recurring_id.
+-- Encerrar é SEMPRE soft (active = 0 + ended_at) — a linha nunca é apagada.
+CREATE TABLE IF NOT EXISTS recurring_expenses (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL REFERENCES users(id),
+  description  TEXT    NOT NULL,
+  category     TEXT    NOT NULL DEFAULT '',   -- normalizada (T-028)
+  amount       REAL    NOT NULL,
+  day_of_month INTEGER NOT NULL CHECK(day_of_month BETWEEN 1 AND 31),
+  start_month  TEXT    NOT NULL,   -- YYYY-MM: mês de CRIAÇÃO (ou o mês do
+                                   -- lançamento, se futuro). Meses anteriores
+                                   -- nunca são gerados — não retroage.
+  active       INTEGER NOT NULL DEFAULT 1,
+  ended_at     TEXT,               -- NULL enquanto ativa
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_recurring_expenses_user_active
+  ON recurring_expenses(user_id, active);
+
+-- Livro-razão de "meses já gerados" de cada recorrência (T-035). É a chave
+-- única daqui — e não a existência da ocorrência — que garante idempotência;
+-- a linha SOBREVIVE ao delete da ocorrência, então excluir um lançamento
+-- gerado não o recria no próximo GET.
+CREATE TABLE IF NOT EXISTS recurring_expense_months (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  recurring_id INTEGER NOT NULL REFERENCES recurring_expenses(id),
+  month        TEXT    NOT NULL,   -- YYYY-MM
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+-- UNIQUE(recurring_id, month)
 
 -- Lançamentos de poupança/reserva (livro de lançamentos; saldo é derivado no server:
 -- DEPOSIT + YIELD − WITHDRAW). Sem vínculo com wallet.
@@ -383,6 +420,24 @@ Pontos de projeto:
 
 ### Despesas fixas × lançamentos variáveis
 O layer `/despesas` soma **duas** fontes diferentes: `fixed_expenses` (itens fixos mensais, **sem data** — valem integralmente para qualquer mês exibido) e `expense_entries` (gastos datados, filtrados por mês). O **total do mês exibido é fixas + variáveis daquele mês** — calculado por `computeMonthTotals` em `web/src/routes/expenseMonth.ts` (função pura, testada), não inline no componente. A navegação de mês é estado local da `DespesasPage`: trocar o mês recarrega só os lançamentos (`GET /api/expense-entries?month=`), pois as fixas não dependem do mês. Consequência esperada: navegar para um mês passado/futuro não altera a parcela de fixas do total — não há histórico de quando uma despesa fixa passou a existir. O filtro mensal no server usa `substr(date, 1, 7) = ?` (compatível com o índice `idx_expense_entries_user_date` apenas parcialmente — se a tabela crescer muito, trocar por range `date >= ? AND date < ?`). O mês default é calculado no fuso local do processo (`currentMonth`), não em UTC, para não virar o mês antes da hora no BRT.
+
+### Recorrência de lançamentos de despesa: materialização lazy e idempotente (T-035)
+Uma despesa variável que se repete todo mês (assinatura, mensalidade) é cadastrada uma vez e as ocorrências dos meses seguintes aparecem sozinhas. As decisões de projeto:
+
+- **Modelo: template + livro-razão, ocorrências são lançamentos normais.** `recurring_expenses` guarda só o template (descrição, categoria normalizada, valor, `day_of_month`, `start_month`, `active`). Cada ocorrência é uma linha comum de `expense_entries` com `recurring_id` preenchido — logo entra nos totais, no orçamento por categoria e no histórico sem nenhum caso especial, e pode ser editada/excluída individualmente pela T-031. **Não** existe "valor efetivo herdado do template": editar a ocorrência de agosto para 175,50 não muda a de setembro (que continua saindo com o valor do template).
+- **Criação sempre acoplada ao lançamento.** Não há `POST /api/recurring-expenses`; a recorrência nasce em `POST /api/expense-entries` com `recurring: true`. Assim a **primeira ocorrência é o próprio lançamento criado**, já registrada no livro-razão — sem isso o primeiro GET do mês do lançamento geraria uma segunda cópia idêntica. `dayOfMonth` opcional sobrepõe o dia derivado de `date`.
+- **O piso (`start_month`) é o mês de CRIAÇÃO, não o mês do lançamento** — `max(mês de date, mês corrente)`. Marcar como recorrente um lançamento com data passada é caminho normal da UI (navegar para um mês passado deixa o campo de data em `${mês}-01`), e usar o mês do lançamento como piso faria o próprio handler — via o `refreshHistory()` → `/summary` que ele dispara — gerar ocorrências reais em **meses já fechados**, reescrevendo total, orçamento e histórico daqueles meses sem o usuário ver. Data **futura** continua valendo como piso: a recorrência só começa quando o lançamento acontece. O livro-razão marca o mês do **lançamento** (e não `start_month`): num cadastro retroativo os dois divergem, e marcar o mês corrente suprimiria a ocorrência que a recorrência deve gerar agora. O web espelha a regra em `recurrenceStartMonth`/`startsLaterThanEntry` (`web/src/routes/recurrence.ts`) só para avisar, no form, que a repetição vai começar no mês corrente.
+- **A idempotência é do banco, não do código.** `recurring_expense_months` tem `UNIQUE(recurring_id, month)`. A reserva do mês e o `INSERT` da ocorrência vão no **mesmo `db.batch(..., 'write')`** (transacional): se fossem escritas independentes, uma falha entre elas deixaria o mês marcado como gerado para sempre, sem ocorrência e sem caminho de reparo — indistinguível de uma ocorrência excluída de propósito. A reserva é um `INSERT` **sem** `OR IGNORE`: é a violação da chave única que sinaliza "outra request chegou primeiro", derruba o batch inteiro e faz o perdedor da corrida não inserir nada (`isUniqueViolation` distingue esse caso de qualquer outro erro de banco, que continua subindo como 500). Antes do laço, uma única query carrega os pares (recorrência, mês) já gerados — a violação é a rede de segurança contra concorrência, não o caminho normal. O perdedor pode responder aquele mês sem a ocorrência que o vencedor acabou de gravar; o GET seguinte já a mostra.
+- **Excluir uma ocorrência não a recria** — e é por isso que o controle é uma tabela própria, não um índice único sobre `expense_entries`: a chave de controle sobrevive ao `DELETE` do lançamento. Com um índice único sobre as ocorrências, apagar a ocorrência liberaria a chave e o próximo GET a materializaria de novo, tornando a exclusão impossível na prática. Consequência aceita: não há como "recuperar" uma ocorrência excluída sem criar um lançamento à mão.
+- **Onde a materialização roda**: `GET /api/expense-entries?month=` (o mês pedido) e `GET /api/expense-entries/summary` (todos os meses da janela agregada), sempre **antes** da leitura, para que as ocorrências geradas apareçam na mesma resposta. O `month` inválido é rejeitado com `400` antes de qualquer escrita. Efeito colateral desejado: a Home também chama `GET /api/expense-entries?month=` (T-025), então abrir a Home já materializa o mês corrente e a "sobra do mês" real considera as recorrências.
+- **Meses futuros são materializados** (decisão): navegar ‹/› para frente em `/despesas` mostra a assinatura que já se sabe que vai cair lá — é o que o usuário espera ao planejar. `/summary` nunca gera mês futuro porque sua janela termina no mês corrente. Há um **teto de horizonte** (`MATERIALIZATION_HORIZON_MONTHS = 12`, em `routes/expenseEntries.ts`): o `month` da query só é limitado pelo formato, então um `?month=9999-12` escreveria ocorrências indefinidamente à frente. Meses além do horizonte continuam sendo listados, apenas não geram nada.
+- **Meses anteriores a `start_month` nunca são gerados**: navegar para trás não inventa histórico, e cadastrar retroativamente não preenche os meses intermediários (coberto por teste).
+- **Dia ajustado para meses curtos**: `occurrenceDate` (em `services/recurringExpenses.ts`, função pura testada) faz `min(day_of_month, dias do mês)` — dia 31 cai em 28/02 (29/02 em ano bissexto) e em 30/04. A ocorrência nunca transborda para o mês seguinte, senão não pertenceria ao mês consultado.
+- **Encerrar é soft e para tudo o que ainda não foi gerado** — inclusive meses passados nunca visitados, não só os futuros. As ocorrências já materializadas ficam (são lançamentos comuns). `DELETE /api/recurring-expenses/:id` é alias de `PATCH { active: false }` e nunca apaga a linha: as ocorrências a referenciam por FK e o livro-razão precisa continuar existindo. Encerrar duas vezes é idempotente.
+- **Reativar responde `400`** (crie outra recorrência): reativar reabriria a janela de meses entre o encerramento e hoje, que seriam materializados de uma vez no GET seguinte.
+- **Editar o template está fora de escopo** — o `PATCH` só aceita `active`. Mudar valor/dia afetaria as ocorrências futuras e não as passadas, e a semântica dessa assimetria precisa de decisão de produto antes.
+- No web, o checkbox "Repetir todo mês" vive no form de novo lançamento; as ocorrências ganham o selo `↻ recorrente` na lista (via `isRecurringOccurrence`), e o card "Recorrências mensais" lista as ativas com botão Encerrar. Helpers puros e testados em `web/src/routes/recurrence.ts`.
+- **Fora de escopo (segue pendente)**: recorrência em renda/poupança, frequências além de mensal, edição em massa de ocorrências passadas e retroagir a recorrência para antes da criação.
 
 ### Histórico mensal sem gráfico (T-033)
 A seção "Últimos meses" em `/despesas` mostra os últimos `HISTORY_MONTHS` (6) meses — total = fixas vigentes **hoje** + variáveis daquele mês — sem nenhum gráfico (decisão do humano, `TODO-HUMANO.md`). `GET /api/expense-entries/summary?months=N` agrega só os lançamentos variáveis por mês (`GROUP BY substr(date,1,7)`); **meses sem lançamento ficam ausentes** da resposta — decisão de projeto para manter a query simples (não precisa gerar uma série completa no SQL). Quem preenche os N meses pedidos com variável = 0 é a função pura `buildMonthlyHistory` (`web/src/routes/expenseMonth.ts`, testada), que também junta o total de fixas (constante nas N linhas, pois não há histórico de fixas) e monta os rótulos via `shiftMonth`/`formatMonthLabel` já existentes de T-022 — sem duplicar essa lógica. O histórico é buscado uma vez no mount e **revalidado após criar/editar/remover um lançamento** (`refreshHistory()` nos três handlers de `expense_entries`) — sem isso, lançar/editar/apagar no mês corrente atualiza o "Total do mês" mas deixaria a linha "atual" do histórico com um valor contraditório até um reload. Não recarrega ao navegar de mês (‹/›), pois é relativo ao mês corrente real, não ao mês exibido. Cada linha é clicável: chama `applyMonth(row.month)`, a mesma função que a navegação ‹/› usa internamente (`goToMonth` virou um wrapper dela), reaproveitando o mesmo `monthKey`/side effects (recalcula a data default do form e cancela edição aberta).
