@@ -36,6 +36,7 @@ export default function App() {
   const [user, setUser] = useState<User | null | 'loading'>('loading');
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [walletsLoaded, setWalletsLoaded] = useState(false);
+  const [walletsLoadError, setWalletsLoadError] = useState(false);
   const [walletSummaries, setWalletSummaries] = useState<Record<number, PortfolioSummary>>({});
 
   function toggleTheme() {
@@ -65,9 +66,25 @@ export default function App() {
       const summaries: Record<number, PortfolioSummary> = {};
       results.forEach((r) => { if (r.status === 'fulfilled') summaries[r.value.id] = r.value.s; });
       setWalletSummaries(summaries);
+      // T-027: só sinaliza sucesso real — `walletsLoadError` fica limpo apenas
+      // quando `getWallets()` de fato resolveu, para não mascarar uma falha
+      // anterior atrás de uma tentativa que ainda nem terminou.
+      setWalletsLoadError(false);
+    } catch {
+      // T-027 (achado do revisor): NÃO tocamos em `wallets` aqui. Se essa foi
+      // a primeira carga da sessão, `wallets` permanece `[]` — e é exatamente
+      // essa ambiguidade ("[] real" vs "[] por falha de rede") que
+      // `walletsLoadError` existe para desfazer. `CarteirasPage`/
+      // `decideWalletFlow` tratam `walletsLoadError && wallets.length === 0`
+      // como estado de erro (mostra retry), nunca como "crie uma carteira
+      // Principal" — isso evitava mascarar carteiras reais atrás de uma
+      // falha transitória.
+      setWalletsLoadError(true);
     } finally {
-      // T-027: marcado mesmo em erro — senão /carteiras ficaria travada no
-      // estado "carregando" para sempre após uma falha de rede.
+      // Marcado mesmo em erro — senão /carteiras ficaria travada no estado
+      // "carregando" para sempre após uma falha de rede; a distinção entre
+      // "carregou e é zero" e "falhou ao carregar" fica por conta de
+      // `walletsLoadError`, não de `walletsLoaded`.
       setWalletsLoaded(true);
     }
   }, []);
@@ -109,6 +126,7 @@ export default function App() {
       theme,
       wallets,
       walletsLoaded,
+      walletsLoadError,
       walletSummaries,
       onCreateWallet: handleCreateWallet,
       onSelectWallet: handleSelectWallet,

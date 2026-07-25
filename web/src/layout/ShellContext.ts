@@ -17,6 +17,15 @@ export interface ShellContext {
    * carteira "Principal" espúria enquanto os dados reais não chegam.
    */
   walletsLoaded: boolean;
+  /**
+   * T-027: true quando a última tentativa de `getWallets()` falhou (erro de
+   * rede/timeout/resposta não-ok). Existe para distinguir "carregou e o
+   * usuário realmente não tem carteira nenhuma" de "falhou ao carregar" —
+   * sem essa distinção, `wallets === []` por uma falha transitória seria
+   * interpretado como "crie a carteira Principal automaticamente",
+   * mascarando carteiras reais do usuário atrás do erro.
+   */
+  walletsLoadError: boolean;
   walletSummaries: Record<number, PortfolioSummary>;
   onCreateWallet: (data: NewWallet) => Promise<void>;
   onSelectWallet: (wallet: Wallet) => void;
