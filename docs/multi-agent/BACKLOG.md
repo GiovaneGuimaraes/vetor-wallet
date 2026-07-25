@@ -31,7 +31,7 @@ _(Ciclo 6, Onda A em andamento — T-029 e T-030 delegadas em 2026-07-25; T-028 
 > Aprovado pelo humano (2026-07-25): "pode seguir com a onda A". Onda A = T-029 + T-030 em paralelo (arquivos disjuntos), depois T-028 em série (conflita com T-029 nas rotas). Onda B = T-031 (edição inline, aguarda Onda A). Onda C = escolha do humano entre histórico mensal em Despesas, sessões persistentes ou recorrência de lançamentos. Humano validou o front do ciclo 5 sem erros; erros futuros viram tarefas de correção.
 
 ### T-028 — Normalizar categoria nas 3 telas de despesas/orçamento
-- **Status**: EM_ANDAMENTO (executor Opus 5, delegado 2026-07-25 após merge da T-029)
+- **Status**: CONCLUIDA e MERGEADA — PR [#71](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/71) (2026-07-25). Revisor Opus: APROVADA, 0 bloqueantes — verificação independente com cenário mais adversarial que o do executor (5 colidentes incl. colapso de espaço interno, NFC↔NFD dobram, isolamento entre usuários, initDb 4x idempotente, zero DELETE fora de budgets — tudo empírico). Forma canônica armazenada (NFC+trim+colapso+toLocaleLowerCase pt-BR); vencedor da colisão = maior id. Sugestões registradas: (1) categoria literal "sem categoria" gera grupo duplicado com mesmo label das vazias (key React duplicada — canto raro); (2) migração destrutiva sem transação/log por grupo (`db.batch` + log forense valeria); (3) fixar por teste o caso de 3+ colidentes e colisão por colapso de espaço; (4) `formatCategoryLabel` chamado 2x na mesma expressão; (5) `category ?? ''` sem trim era o comportamento antigo — mudança colateral estritamente mais correta, registrada. Nota: alarme de CRLF era falso (blobs da main já eram CRLF); `.gitattributes` adicionado pelo orquestrador (`5387020`). Server 234 / web 82 / build e lint verdes. Modelos: executor Opus 5, revisor Opus 5.
 - **Prioridade**: P1
 - **Complexidade**: alta (migração de dados do usuário + colisão possível no UNIQUE de budgets)
 - **Depende de**: T-029 (mergeada — PR #69)
@@ -67,11 +67,11 @@ _(Ciclo 6, Onda A em andamento — T-029 e T-030 delegadas em 2026-07-25; T-028 
 - **Resultado**: —
 
 ### T-032 — Rejeitar valores não finitos no import CSV (achado do revisor da T-029)
-- **Status**: PENDENTE (pode entrar na Onda B junto da T-031 — arquivos distintos)
+- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25 — Onda B)
 - **Prioridade**: P2
 - **Complexidade**: baixa (uma rota, padrão já estabelecido pela T-029)
 - **Depende de**: —
-- **Branch/worktree**: —
+- **Branch/worktree**: `giovane/t-032-isfinite-import-csv`
 - **Contexto**: achado do revisor Opus da T-029: `server/src/routes/import.ts:41-44` usa `parseFloat` nos campos de valor do CSV — `"1e999"` vira `Infinity`, passa por `isNaN(...) || <= 0` e é gravado. Único caminho de escrita de valor monetário que ainda aceita não-finito.
 - **Escopo**: trocar a checagem por `Number.isFinite` nos campos numéricos do parse do CSV (quantity/price), rejeitando a linha com erro no relatório (`CsvImportResult.errors`), padrão das demais validações por linha; teste com CSV contendo `1e999`.
 - **Fora de escopo**: outras validações do CSV; mudanças de formato.
@@ -79,11 +79,11 @@ _(Ciclo 6, Onda A em andamento — T-029 e T-030 delegadas em 2026-07-25; T-028 
 - **Resultado**: —
 
 ### T-031 — Edição inline nos layers básicos (PATCH em renda/despesas/lançamentos/poupança)
-- **Status**: PENDENTE (Onda B — aguarda Onda A)
+- **Status**: EM_ANDAMENTO (executor Opus 5, delegado 2026-07-25 — Onda B, após merge de T-028/T-029)
 - **Prioridade**: P1
 - **Complexidade**: alta (várias rotas de dinheiro + UI de edição em 4 telas)
-- **Depende de**: T-028, T-029 (mesmos arquivos de rota e validação)
-- **Branch/worktree**: —
+- **Depende de**: T-028, T-029 (mergeadas — PRs #71 e #69)
+- **Branch/worktree**: `giovane/t-031-edicao-inline`
 - **Contexto**: hoje tudo nos layers básicos é criar/excluir — corrigir um valor exige apagar e recriar. Mobills/Organizze/Wallet têm edição em tudo. Maior função básica ausente.
 - **Escopo**: rotas `PATCH /api/income/:id`, `/api/expenses/:id`, `/api/expense-entries/:id`, `/api/savings/:id` (parciais, padrão do `PATCH /api/goals/:id`; savings vinculado a meta: editar `amount` reflete no progresso derivado — atenção à consistência); UI de edição inline (ou modal simples) nas 4 telas, reutilizando os forms existentes; validação idêntica à criação (incluindo `Number.isFinite` da T-029 e categoria normalizada da T-028); testes de rota por campo + isolamento cross-user 404.
 - **Fora de escopo**: editar operações de ações (fora dos layers básicos, decisão futura); histórico/auditoria de edições.
