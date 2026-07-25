@@ -83,7 +83,7 @@ _(Ciclo 5, Onda A em andamento — T-022, T-024, T-026, T-027 delegadas em 2026-
 - **Resultado**: —
 
 ### T-026 — Ocultar Alertas e Import CSV do dashboard (decisão "b" do humano)
-- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-24)
+- **Status**: CONCLUIDA e MERGEADA — PR [#63](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/63) (2026-07-24). Revisor: APROVADA, 0 achados — diff toca só `DashboardPage.tsx` + `CLAUDE.md`; componentes/rotas intactos; remoção de `refreshWallets` verificada sem quebra (refresh pós-operação não dependia dele). Suítes 147+19 e build verdes. Modelos: executor Sonnet, revisor Sonnet.
 - **Prioridade**: P3
 - **Complexidade**: baixa (remoção de render, arquivos e rotas intactos)
 - **Depende de**: —
