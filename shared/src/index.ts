@@ -230,6 +230,24 @@ export interface ExpenseEntryUpdate {
   date?: string;
 }
 
+/**
+ * Um item de `GET /api/expense-entries/summary` (T-033): total de
+ * lançamentos variáveis (`expense_entries`) de um mês `YYYY-MM`. Meses sem
+ * nenhum lançamento não aparecem no array — o cliente é quem preenche os N
+ * meses pedidos com 0 quando um mês não vem na resposta (ver
+ * `buildMonthlyHistory` em `web/src/routes/expenseMonth.ts`).
+ */
+export interface ExpenseMonthSummaryItem {
+  /** YYYY-MM */
+  month: string;
+  total: number;
+}
+
+export interface ExpenseMonthSummaryResponse {
+  /** Ordenado ascendente por mês. Meses sem lançamentos ficam ausentes. */
+  months: ExpenseMonthSummaryItem[];
+}
+
 export type SavingsEntryType = 'DEPOSIT' | 'WITHDRAW' | 'YIELD';
 
 export interface SavingsEntry {

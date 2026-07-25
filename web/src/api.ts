@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -324,6 +324,18 @@ export async function updateExpenseEntry(
 export async function deleteExpenseEntry(id: number): Promise<void> {
   const res = await apiFetch(`/api/expense-entries/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Falha ao remover lançamento de despesa');
+}
+
+/**
+ * Histórico mensal (T-033): total de lançamentos variáveis por mês, dos
+ * últimos `months` meses até o corrente (default 6, cap 24 no server).
+ * Meses sem lançamentos não vêm na resposta — ver `buildMonthlyHistory`.
+ */
+export async function getExpenseEntriesSummary(months?: number): Promise<ExpenseMonthSummaryResponse> {
+  const qs = months !== undefined ? `?months=${months}` : '';
+  const res = await apiFetch(`/api/expense-entries/summary${qs}`);
+  if (!res.ok) throw new Error('Falha ao buscar histórico de despesas');
+  return res.json();
 }
 
 // ── Poupança / reserva ────────────────────────────────────────────────────────
