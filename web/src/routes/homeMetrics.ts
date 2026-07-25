@@ -1,4 +1,4 @@
-import type { PortfolioSummary, Goal } from '@vetor-wallet/shared';
+import type { PortfolioSummary, Goal, ExpenseEntry } from '@vetor-wallet/shared';
 
 /**
  * Funções puras de agregação para a Home v4 (T-008). Extraídas de
@@ -38,6 +38,54 @@ export function computeStockTotals(summaries: PortfolioSummary[]): StockTotals {
 
 export function sumAmounts(items: Array<{ amount: number }>): number {
   return items.reduce((acc, item) => acc + item.amount, 0);
+}
+
+export interface MonthCashFlow {
+  /** Total de despesas do mês: fixas + lançamentos variáveis (ou só fixas quando os lançamentos não puderam ser buscados). */
+  expensesTotal: number;
+  /** Sobra prevista (estimativa estática): renda − despesas fixas. Sempre calculável. */
+  estimatedBalance: number;
+  /** Sobra real do mês: renda − despesas fixas − lançamentos variáveis do mês corrente.
+   * Igual a `estimatedBalance` quando não há lançamentos variáveis (ou quando a busca falhou). */
+  realBalance: number;
+  /** true quando os lançamentos variáveis do mês foram carregados com sucesso (mesmo que vazios).
+   * false quando a busca falhou (`variableEntries === null`) — nesse caso `realBalance` cai para a
+   * estimativa antiga (`estimatedBalance`), sinalizado na Home em vez de virar NaN. */
+  hasVariableEntries: boolean;
+}
+
+/**
+ * Fluxo de caixa real do mês corrente (T-025), a partir da renda, das despesas
+ * fixas e dos lançamentos de despesas variáveis (T-022) já filtrados pelo mês
+ * no server. `variableEntries` é `null` quando a busca desses lançamentos
+ * falhou (padrão `Promise.allSettled` da Home) — nesse caso a função cai para
+ * o comportamento anterior (sobra estimada = renda − fixas) em vez de NaN.
+ */
+export function computeMonthCashFlow(
+  incomeTotal: number,
+  fixedExpensesTotal: number,
+  variableEntries: ExpenseEntry[] | null,
+): MonthCashFlow {
+  const estimatedBalance = incomeTotal - fixedExpensesTotal;
+
+  if (variableEntries === null) {
+    return {
+      expensesTotal: fixedExpensesTotal,
+      estimatedBalance,
+      realBalance: estimatedBalance,
+      hasVariableEntries: false,
+    };
+  }
+
+  const variableTotal = sumAmounts(variableEntries);
+  const expensesTotal = fixedExpensesTotal + variableTotal;
+
+  return {
+    expensesTotal,
+    estimatedBalance,
+    realBalance: incomeTotal - expensesTotal,
+    hasVariableEntries: true,
+  };
 }
 
 export interface GoalsSummary {

@@ -26,3 +26,9 @@
 .vw-home-status--error {
   color: #d17a6f;
 }
+
+.vw-hero-metric-sublabel {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--color-dim);
+}

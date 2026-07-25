@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { FixedExpense, Goal, IncomeSource, SavingsSummary } from '@vetor-wallet/shared';
+import type { ExpenseEntry, FixedExpense, Goal, IncomeSource, SavingsSummary } from '@vetor-wallet/shared';
 import { useShellContext } from '../layout/ShellContext';
-import { getFixedExpenses, getGoals, getIncomeSources, getSavings } from '../api';
-import { computeGoalsSummary, computeStockTotals, sumAmounts } from './homeMetrics';
+import { getExpenseEntries, getFixedExpenses, getGoals, getIncomeSources, getSavings } from '../api';
+import { computeGoalsSummary, computeMonthCashFlow, computeStockTotals, sumAmounts } from './homeMetrics';
+import { currentMonthKey } from './expenseMonth';
 import './home.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -41,6 +42,9 @@ export function HomePage() {
 
   const [income, setIncome] = useState<IncomeSource[]>([]);
   const [expenses, setExpenses] = useState<FixedExpense[]>([]);
+  // null = ainda não carregado ou a busca falhou — computeMonthCashFlow cai
+  // para a sobra estimada (renda − fixas) nesse caso, em vez de NaN.
+  const [variableEntries, setVariableEntries] = useState<ExpenseEntry[] | null>(null);
   const [savingsSummary, setSavingsSummary] = useState<SavingsSummary | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,12 +54,13 @@ export function HomePage() {
     let cancelled = false;
 
     async function load() {
-      // Promise.allSettled (em vez de Promise.all): se uma das 4 chamadas
+      // Promise.allSettled (em vez de Promise.all): se uma das chamadas
       // falhar, as demais ainda populam seus cards — só o card cuja fonte
       // falhou fica com o valor anterior (0/—) e um aviso genérico aparece.
-      const [incomeRes, expensesRes, savingsRes, goalsRes] = await Promise.allSettled([
+      const [incomeRes, expensesRes, entriesRes, savingsRes, goalsRes] = await Promise.allSettled([
         getIncomeSources(),
         getFixedExpenses(),
+        getExpenseEntries(currentMonthKey()),
         getSavings(),
         getGoals(),
       ]);
@@ -63,10 +68,11 @@ export function HomePage() {
 
       if (incomeRes.status === 'fulfilled') setIncome(incomeRes.value);
       if (expensesRes.status === 'fulfilled') setExpenses(expensesRes.value);
+      if (entriesRes.status === 'fulfilled') setVariableEntries(entriesRes.value.entries);
       if (savingsRes.status === 'fulfilled') setSavingsSummary(savingsRes.value.summary);
       if (goalsRes.status === 'fulfilled') setGoals(goalsRes.value);
 
-      const failures = [incomeRes, expensesRes, savingsRes, goalsRes].filter(
+      const failures = [incomeRes, expensesRes, entriesRes, savingsRes, goalsRes].filter(
         (r): r is PromiseRejectedResult => r.status === 'rejected',
       );
       if (failures.length > 0) {
@@ -84,8 +90,8 @@ export function HomePage() {
 
   const stockTotals = computeStockTotals(Object.values(walletSummaries));
   const incomeTotal = sumAmounts(income);
-  const expensesTotal = sumAmounts(expenses);
-  const monthlyBalance = incomeTotal - expensesTotal;
+  const fixedExpensesTotal = sumAmounts(expenses);
+  const cashFlow = computeMonthCashFlow(incomeTotal, fixedExpensesTotal, variableEntries);
   const savingsBalance = savingsSummary?.balance ?? 0;
   const goalsSummary = computeGoalsSummary(goals);
   const patrimonioTotal = stockTotals.current + savingsBalance;
@@ -97,7 +103,7 @@ export function HomePage() {
       case 'renda':
         return fmtCur.format(incomeTotal);
       case 'despesas':
-        return fmtCur.format(expensesTotal);
+        return fmtCur.format(cashFlow.expensesTotal);
       case 'poupanca':
         return fmtCur.format(savingsBalance);
       case 'acoes':
@@ -135,11 +141,20 @@ export function HomePage() {
           </div>
           <div>
             <p className="vw-hero-metric-label">Despesas</p>
-            <p className="vw-hero-metric-value">{fmtCur.format(expensesTotal)}</p>
+            <p className="vw-hero-metric-value">{fmtCur.format(cashFlow.expensesTotal)}</p>
           </div>
           <div>
             <p className="vw-hero-metric-label">Sobra do mês</p>
-            <p className="vw-hero-metric-value">{fmtCur.format(monthlyBalance)}</p>
+            <p className="vw-hero-metric-value">{fmtCur.format(cashFlow.realBalance)}</p>
+            {cashFlow.hasVariableEntries ? (
+              <p className="vw-hero-metric-sublabel">
+                Prevista: {fmtCur.format(cashFlow.estimatedBalance)}
+              </p>
+            ) : (
+              <p className="vw-hero-metric-sublabel" title="Não foi possível carregar os lançamentos variáveis do mês — exibindo a sobra estimada (renda − despesas fixas)">
+                Estimativa (sem lançamentos do mês) *
+              </p>
+            )}
           </div>
         </div>
         {loading && <p className="vw-home-status">Carregando dados dos seus layers…</p>}
