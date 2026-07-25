@@ -39,9 +39,9 @@ function parseRows(body: string): { rows: ParsedRow[]; errors: CsvRowError[] } {
     if (!ticker || !/^[A-Za-z0-9]{1,10}$/.test(ticker)) colErrors.push('ticker inválido');
     if (type !== 'BUY' && type !== 'SELL') colErrors.push('tipo deve ser BUY ou SELL');
     const quantity = parseFloat(quantityStr);
-    if (isNaN(quantity) || quantity <= 0) colErrors.push('quantidade inválida');
+    if (!Number.isFinite(quantity) || quantity <= 0) colErrors.push('quantidade inválida');
     const price = parseFloat(priceStr);
-    if (isNaN(price) || price <= 0) colErrors.push('preço inválido');
+    if (!Number.isFinite(price) || price <= 0) colErrors.push('preço inválido');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) colErrors.push('data inválida (use YYYY-MM-DD)');
 
     if (colErrors.length > 0) {
