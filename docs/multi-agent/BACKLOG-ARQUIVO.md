@@ -457,3 +457,13 @@ _(item completo mais abaixo, na seÃ§Ã£o do ciclo 3 â€” transferido)_
 - **Fora de escopo**: troca de paleta/cores (T-001); framework CSS novo; mudanÃ§a de funcionalidade.
 - **CritÃ©rio de aceite**: telas legÃ­veis e operÃ¡veis em 360px, 768px e desktop sem overflow horizontal da pÃ¡gina; `pnpm --filter vetor-wallet-web build` sem erro. Justificativa de teste: mudanÃ§a de estilo/layout â€” polÃ­tica do CLAUDE.md dispensa teste novo; web ainda sem runner (issue #6).
 - **Resultado**: 8 arquivos alterados: `App.css` (antes Ã³rfÃ£o, agora importado em `main.tsx`) com safety-net `overflow-x: hidden` global e media query do WalletSelector; formulÃ¡rios (`OperationForm`, `AlertsPanel`) em coluna Ãºnica no mobile; chip da carteira ativa truncado no header (`App.tsx`); `AdminPage` empilha data+botÃ£o; `CsvImport` com `flex-wrap`. Tabelas do dashboard/operaÃ§Ãµes jÃ¡ rolavam em container prÃ³prio (verificado pelo revisor). `index.css` intocado (sem conflito com T-001). Build ok. Revisor: APROVADA; risco remanescente: `overflow-x: hidden` global pode mascarar overflow futuro â€” recomendado teste manual em navegador (360/768px) antes do merge.
+
+## Ciclo 7 — Feedback do humano pós-ciclo 6 — CONCLUÍDO E MERGEADO (2026-07-25)
+
+> Feedback do humano após validar os ciclos 5–6. 3 tarefas em 1 onda paralela (arquivos disjuntos), PRs #77–#79. Sanidade final na main: server 370 testes (26 arquivos) + web 122 (11 arquivos) + build verdes. Arrumação de repo/docs feita pelo orquestrador antes da onda: BACKLOG-ARQUIVO.md criado, ORQUESTRADOR.md reescrito, prd-writer/prd-tailwind removidos (commit 938f17b).
+
+### T-036 — Renda variável com visão mensal — PR #79. Executor Opus, revisor Opus: APROVADA, 0 bloqueantes. Tabela income_entries + rotas GET/POST/PATCH/DELETE espelhando expense-entries/T-031 (28 testes); RendaPage com navegação mensal e edição inline; Home: sobra real = (renda fixa + rendas variáveis) − despesas fixas − variáveis, sobra prevista inalterada, degradação independente por fonte. Sugestões: rótulo "Estimativa" impreciso quando só rendas falham (valor parcial correto); comentário herdado da T-025; defaultEntryDate triplicado; substr não-sargável por simetria.
+
+### T-037 — Ocultar "Orçamento do mês" — PR #78. Executor Sonnet, revisor Sonnet: APROVADA, 0 bloqueantes. Seção removida da DespesasPage (JSX conferido na íntegra), backend/testes de budgets preservados (reversível). Feedback: humano não viu utilidade no recurso da T-023.
+
+### T-038 — Logo do header clicável → /home — PR #77. Executor Sonnet, revisor Sonnet: APROVADA, 0 bloqueantes. Link SPA com aria-label, visual preservado nos dois temas.
