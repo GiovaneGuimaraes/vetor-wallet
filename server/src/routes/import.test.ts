@@ -129,4 +129,23 @@ describe('import routes — CSV SELL validation', () => {
     expect(sellOk.body.imported).toBe(1);
     expect(sellOk.body.errors).toHaveLength(0);
   });
+
+  it('rejects a row with a non-finite numeric value (1e999 parses to Infinity) while importing the other valid rows', async () => {
+    const csv = [
+      'ticker,type,quantity,price,date',
+      'BBAS3,BUY,10,20,2024-03-01', // valid
+      'BBAS3,BUY,1e999,20,2024-03-02', // quantity overflows to Infinity — rejected
+      'BBAS3,BUY,10,1e999,2024-03-03', // price overflows to Infinity — rejected
+      'BBAS3,BUY,5,25,2024-03-04', // valid
+    ].join('\n');
+
+    const res = await agentA.post('/api/import').type('text/csv').send(csv);
+    expect(res.status).toBe(200);
+    expect(res.body.imported).toBe(2);
+    expect(res.body.errors).toHaveLength(2);
+    expect(res.body.errors[0]).toMatchObject({ line: 3 });
+    expect(res.body.errors[0].error).toMatch(/quantidade inválida/);
+    expect(res.body.errors[1]).toMatchObject({ line: 4 });
+    expect(res.body.errors[1].error).toMatch(/preço inválido/);
+  });
 });
