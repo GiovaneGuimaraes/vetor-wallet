@@ -19,6 +19,7 @@ import { diffEditableFields, hasEdits, parseMoneyInput } from './inlineEdit';
 import {
   RATE_SAMPLE_MONTHS,
   deriveMonthlyRatePct,
+  formatDecimalInput,
   parseMonthsInput,
   parseNonNegativeInput,
   projectSavings,
@@ -220,12 +221,15 @@ export function PoupancaPage() {
 
   useEffect(() => {
     if (!summary || simTouched.initial) return;
-    setSim((prev) => ({ ...prev, initial: String(summary.balance) }));
+    setSim((prev) => ({ ...prev, initial: formatDecimalInput(summary.balance, 2) }));
   }, [summary, simTouched.initial]);
 
   useEffect(() => {
     if (simTouched.ratePct) return;
-    setSim((prev) => ({ ...prev, ratePct: derivedRatePct !== null ? String(derivedRatePct) : '' }));
+    setSim((prev) => ({
+      ...prev,
+      ratePct: derivedRatePct !== null ? formatDecimalInput(derivedRatePct, 4) : '',
+    }));
   }, [derivedRatePct, simTouched.ratePct]);
 
   const simInitial = parseNonNegativeInput(sim.initial);

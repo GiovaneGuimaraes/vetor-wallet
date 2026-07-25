@@ -1,4 +1,5 @@
 import type { SavingsEntry } from '@vetor-wallet/shared';
+import { currentMonthKey } from './expenseMonth';
 
 /**
  * Simulador de previsão de rendimento da poupança/reserva (T-040).
@@ -41,6 +42,12 @@ function roundCents(value: number): number {
  * `futureValue` e `totalYield` são arredondados em centavos sem divergência
  * entre si: `round((inicial + totalYield) * 100) === round(futureValue * 100)`
  * (a igualdade estrita em float não vale para valores grandes).
+ *
+ * Curto-circuito: `initial === 0` devolve `{ futureValue: 0, totalYield: 0 }`
+ * direto, sem passar pela potência — `0 × (1 + i)^n` já é 0 matematicamente,
+ * mas com taxa e/ou prazo extremos `Math.pow` pode estourar para `Infinity`
+ * antes de multiplicar por 0, e `0 × Infinity = NaN` faria a simulação
+ * devolver `null` para uma entrada perfeitamente válida (saldo zerado).
  */
 export function projectSavings(
   initial: number,
@@ -50,6 +57,8 @@ export function projectSavings(
   if (!Number.isFinite(initial) || initial < 0) return null;
   if (!Number.isFinite(monthlyRatePct) || monthlyRatePct < 0) return null;
   if (!Number.isInteger(months) || months < 0) return null;
+
+  if (initial === 0) return { futureValue: 0, totalYield: 0 };
 
   const rate = monthlyRatePct / 100;
   const futureValueRaw = initial * Math.pow(1 + rate, months);
@@ -69,7 +78,10 @@ export const RATE_SAMPLE_MONTHS = 6;
  *
  * Heurística escolhida (simples e explicável na UI):
  *
- * 1. Agrupa os lançamentos `YIELD` por mês (`YYYY-MM` de `date`).
+ * 1. Agrupa os lançamentos `YIELD` por mês (`YYYY-MM` de `date`), **exceto o
+ *    mês corrente** — ainda incompleto, seu rendimento parcial (que só cresce
+ *    ao longo do mês) achataria a média para baixo comparado aos meses
+ *    fechados que efetivamente renderam o mês inteiro.
  * 2. Para cada mês com rendimento, a **base** é o saldo vigente no início
  *    daquele mês — soma de `DEPOSIT + YIELD − WITHDRAW` de todos os
  *    lançamentos com data anterior ao primeiro dia do mês. Usar o saldo
@@ -89,11 +101,13 @@ export const RATE_SAMPLE_MONTHS = 6;
  * editável).
  */
 export function deriveMonthlyRatePct(entries: SavingsEntry[]): number | null {
+  const thisMonth = currentMonthKey();
   const yieldByMonth = new Map<string, number>();
   for (const entry of entries) {
     if (entry.type !== 'YIELD') continue;
     const month = entry.date.slice(0, 7);
     if (month.length !== 7) continue;
+    if (month === thisMonth) continue;
     yieldByMonth.set(month, (yieldByMonth.get(month) ?? 0) + entry.amount);
   }
   if (yieldByMonth.size === 0) return null;
@@ -145,4 +159,19 @@ export function parseMonthsInput(raw: string): number | null {
   const parsed = Number(trimmed);
   if (!Number.isInteger(parsed) || parsed < 0) return null;
   return parsed;
+}
+
+/**
+ * Formata um número para preencher os campos do simulador (valor inicial ou
+ * taxa derivada) com vírgula decimal — consistente com o que
+ * `parseNonNegativeInput` aceita de volta. Sem isso, o default chegava com
+ * ponto (`String(number)`), inconsistente com o resto do form em pt-BR e com
+ * o que o próprio usuário digitaria.
+ *
+ * `decimals` é 2 para o valor inicial (dinheiro) e 4 para a taxa derivada
+ * (mesma resolução de {@link deriveMonthlyRatePct}, que já teria zeros à
+ * direita descartados se arredondada em 2 casas).
+ */
+export function formatDecimalInput(value: number, decimals: number): string {
+  return value.toFixed(decimals).replace('.', ',');
 }
