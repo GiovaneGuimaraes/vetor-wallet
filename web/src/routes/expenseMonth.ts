@@ -1,4 +1,4 @@
-import type { ExpenseEntry, FixedExpense } from '@vetor-wallet/shared';
+import type { ExpenseEntry, ExpenseMonthSummaryItem, FixedExpense } from '@vetor-wallet/shared';
 
 /**
  * Funções puras da visão mensal de despesas (T-022): navegação de mês,
@@ -76,4 +76,48 @@ export function computeMonthTotals(
   const fixed = fixedExpenses.reduce((acc, e) => acc + e.amount, 0);
   const variable = entries.reduce((acc, e) => acc + e.amount, 0);
   return { fixed, variable, total: fixed + variable };
+}
+
+/** Uma linha da seção "Últimos meses" (T-033) — histórico sem gráfico. */
+export interface MonthHistoryRow {
+  /** YYYY-MM */
+  month: string;
+  label: string;
+  fixed: number;
+  variable: number;
+  total: number;
+  isCurrent: boolean;
+}
+
+/**
+ * Monta as `monthsCount` linhas do histórico mensal terminando no mês
+ * `todayMonthKey` (mais antigo primeiro, mês corrente por último), juntando
+ * o total de fixas vigente HOJE (`fixedTotal` — não há histórico de fixas,
+ * ver CLAUDE.md "Despesas fixas × lançamentos variáveis") com o total
+ * variável de `GET /api/expense-entries/summary`. Meses ausentes na resposta
+ * do endpoint (sem lançamentos) entram com variável = 0 — a UI sempre exibe
+ * os `monthsCount` meses pedidos, mesmo que o server só devolva os que têm
+ * dado.
+ */
+export function buildMonthlyHistory(
+  monthsCount: number,
+  todayMonthKey: string,
+  summary: ExpenseMonthSummaryItem[],
+  fixedTotal: number,
+): MonthHistoryRow[] {
+  const variableByMonth = new Map(summary.map((item) => [item.month, item.total]));
+  const rows: MonthHistoryRow[] = [];
+  for (let i = monthsCount - 1; i >= 0; i--) {
+    const month = shiftMonth(todayMonthKey, -i);
+    const variable = variableByMonth.get(month) ?? 0;
+    rows.push({
+      month,
+      label: formatMonthLabel(month),
+      fixed: fixedTotal,
+      variable,
+      total: fixedTotal + variable,
+      isCurrent: month === todayMonthKey,
+    });
+  }
+  return rows;
 }

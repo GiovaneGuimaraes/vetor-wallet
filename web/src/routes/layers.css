@@ -420,3 +420,74 @@
 .vw-budget-form {
   max-width: 420px;
 }
+
+/* ── Histórico "Últimos meses" (T-033) — sem gráficos, lista clicável ──── */
+.vw-history-card {
+  margin-bottom: 16px;
+}
+
+.vw-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vw-history-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.vw-history-item:hover {
+  background: rgba(var(--edge-rgb), 0.18);
+}
+
+.vw-history-item-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: capitalize;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vw-history-item-value {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.vw-history-item-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  border-radius: 99px;
+  padding: 1px 8px;
+}
+
+.vw-history-selected {
+  border-color: var(--color-ink);
+  background: rgba(var(--edge-rgb), 0.28);
+}
+
+.vw-history-current .vw-history-item-value {
+  color: var(--color-accent);
+}

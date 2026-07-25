@@ -21,7 +21,73 @@ export function currentMonth(now: Date = new Date()): string {
   return `${year}-${month}`;
 }
 
+const MAX_SUMMARY_MONTHS = 24;
+const DEFAULT_SUMMARY_MONTHS = 6;
+
+/**
+ * Desloca um mês `YYYY-MM` em `delta` meses, virando o ano quando necessário.
+ * Duplicada de propósito de `web/src/routes/expenseMonth.ts > shiftMonth` —
+ * mesmo padrão de duplicação de `services/categories.ts` (T-028): `shared/`
+ * é types-only, então cada pacote tem sua própria cópia da função de runtime.
+ */
+export function shiftMonthKey(monthKey: string, delta: number): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(monthKey);
+  if (!match) return monthKey;
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  if (monthIndex < 0 || monthIndex > 11) return monthKey;
+
+  const total = year * 12 + monthIndex + delta;
+  const newYear = Math.floor(total / 12);
+  const newMonth = total - newYear * 12;
+  return `${String(newYear).padStart(4, '0')}-${String(newMonth + 1).padStart(2, '0')}`;
+}
+
 router.use(requireAuth);
+
+// T-033: precisa vir ANTES de qualquer rota GET com `/:id` no mesmo router
+// (não há uma hoje, mas evita a armadilha de "summary" casar como um `:id`
+// se uma for adicionada no futuro). Agrega o total de lançamentos variáveis
+// por mês, dos últimos `months` meses até o mês corrente.
+router.get(
+  '/summary',
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = res.locals.userId as number;
+    const rawMonths = req.query.months;
+
+    let months = DEFAULT_SUMMARY_MONTHS;
+    if (rawMonths !== undefined) {
+      if (typeof rawMonths !== 'string' || !/^\d+$/.test(rawMonths)) {
+        res.status(400).json({ error: `months inválido (use um inteiro entre 1 e ${MAX_SUMMARY_MONTHS})` });
+        return;
+      }
+      months = Number(rawMonths);
+      if (months < 1 || months > MAX_SUMMARY_MONTHS) {
+        res
+          .status(400)
+          .json({ error: `months inválido (use um inteiro entre 1 e ${MAX_SUMMARY_MONTHS})` });
+        return;
+      }
+    }
+
+    const endMonth = currentMonth();
+    const startMonth = shiftMonthKey(endMonth, -(months - 1));
+
+    const result = await db.execute({
+      sql: `SELECT substr(date, 1, 7) as month, SUM(amount) as total FROM expense_entries
+            WHERE user_id = ? AND substr(date, 1, 7) BETWEEN ? AND ?
+            GROUP BY month
+            ORDER BY month ASC`,
+      args: [userId, startMonth, endMonth],
+    });
+
+    const monthsSummary = result.rows.map((row) => ({
+      month: String(row.month),
+      total: Number(row.total),
+    }));
+    res.json({ months: monthsSummary });
+  }),
+);
 
 router.get(
   '/',

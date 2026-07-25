@@ -30,6 +30,7 @@ describe('expense entries routes', () => {
   let agentA: ReturnType<typeof request.agent>;
   let agentB: ReturnType<typeof request.agent>;
   let currentMonth: (now?: Date) => string;
+  let shiftMonthKey: (monthKey: string, delta: number) => string;
 
   beforeAll(async () => {
     const { initDb } = await import('../db');
@@ -38,6 +39,7 @@ describe('expense entries routes', () => {
     const { errorHandler } = await import('../middleware/errorHandler');
 
     currentMonth = entriesModule.currentMonth;
+    shiftMonthKey = entriesModule.shiftMonthKey;
 
     await initDb();
 
@@ -353,5 +355,152 @@ describe('expense entries routes', () => {
 
     const stillThere = await agentB.get('/api/expense-entries?month=2026-07');
     expect((stillThere.body.entries as EntryBody[]).some((e) => e.id === id)).toBe(true);
+  });
+
+  // ── T-033: GET /api/expense-entries/summary ────────────────────────────────
+  describe('GET /api/expense-entries/summary (T-033)', () => {
+    interface SummaryItem {
+      month: string;
+      total: number;
+    }
+
+    it('returns 401 without session', async () => {
+      const res = await request(app).get('/api/expense-entries/summary');
+      expect(res.status).toBe(401);
+    });
+
+    it('aggregates entries across 3 distinct months for the requesting user', async () => {
+      const agentC = request.agent(app);
+      await agentC
+        .post('/api/auth/register')
+        .send({ email: 'expense-entries-summary-c@test.com', password: 'password123' });
+
+      const month = currentMonth();
+      const prev1 = shiftMonthKey(month, -1);
+      const prev2 = shiftMonthKey(month, -2);
+
+      await agentC
+        .post('/api/expense-entries')
+        .send({ description: 'A', amount: 100, date: `${month}-05` });
+      await agentC
+        .post('/api/expense-entries')
+        .send({ description: 'B', amount: 50, date: `${month}-10` });
+      await agentC
+        .post('/api/expense-entries')
+        .send({ description: 'C', amount: 30, date: `${prev1}-15` });
+      await agentC
+        .post('/api/expense-entries')
+        .send({ description: 'D', amount: 20, date: `${prev2}-01` });
+
+      const res = await agentC.get('/api/expense-entries/summary?months=3');
+      expect(res.status).toBe(200);
+      const byMonth = new Map(
+        (res.body.months as SummaryItem[]).map((m) => [m.month, m.total]),
+      );
+      expect(byMonth.get(month)).toBe(150);
+      expect(byMonth.get(prev1)).toBe(30);
+      expect(byMonth.get(prev2)).toBe(20);
+      // Ordenado ascendente por mês.
+      expect((res.body.months as SummaryItem[]).map((m) => m.month)).toEqual([
+        prev2,
+        prev1,
+        month,
+      ]);
+    });
+
+    it('omits months with no entries and excludes months outside the range', async () => {
+      const agentD = request.agent(app);
+      await agentD
+        .post('/api/auth/register')
+        .send({ email: 'expense-entries-summary-d@test.com', password: 'password123' });
+
+      const month = currentMonth();
+      const farBack = shiftMonthKey(month, -10);
+      await agentD
+        .post('/api/expense-entries')
+        .send({ description: 'Fora do range', amount: 999, date: `${farBack}-01` });
+
+      const res = await agentD.get('/api/expense-entries/summary?months=3');
+      expect(res.status).toBe(200);
+      expect(res.body.months).toEqual([]);
+    });
+
+    it('is isolated per user', async () => {
+      const agentF = request.agent(app);
+      const agentG = request.agent(app);
+      await agentF
+        .post('/api/auth/register')
+        .send({ email: 'expense-entries-summary-f@test.com', password: 'password123' });
+      await agentG
+        .post('/api/auth/register')
+        .send({ email: 'expense-entries-summary-g@test.com', password: 'password123' });
+
+      const month = currentMonth();
+      await agentF
+        .post('/api/expense-entries')
+        .send({ description: 'Só da F', amount: 321, date: `${month}-05` });
+
+      const resF = await agentF.get('/api/expense-entries/summary?months=1');
+      const resG = await agentG.get('/api/expense-entries/summary?months=1');
+      expect(resF.status).toBe(200);
+      expect(resG.status).toBe(200);
+
+      const byMonthF = new Map(
+        (resF.body.months as SummaryItem[]).map((m) => [m.month, m.total]),
+      );
+      const byMonthG = new Map(
+        (resG.body.months as SummaryItem[]).map((m) => [m.month, m.total]),
+      );
+      expect(byMonthF.get(month)).toBe(321);
+      expect(byMonthG.has(month)).toBe(false);
+    });
+
+    it('defaults to 6 months when months is omitted', async () => {
+      const agentE = request.agent(app);
+      await agentE
+        .post('/api/auth/register')
+        .send({ email: 'expense-entries-summary-e@test.com', password: 'password123' });
+
+      const month = currentMonth();
+      const sixthMonthBack = shiftMonthKey(month, -5);
+      const seventhMonthBack = shiftMonthKey(month, -6);
+      await agentE
+        .post('/api/expense-entries')
+        .send({ description: 'Dentro do default', amount: 10, date: `${sixthMonthBack}-01` });
+      await agentE
+        .post('/api/expense-entries')
+        .send({ description: 'Fora do default', amount: 20, date: `${seventhMonthBack}-01` });
+
+      const res = await agentE.get('/api/expense-entries/summary');
+      expect(res.status).toBe(200);
+      const months = (res.body.months as SummaryItem[]).map((m) => m.month);
+      expect(months).toContain(sixthMonthBack);
+      expect(months).not.toContain(seventhMonthBack);
+    });
+
+    it('rejects months = 0 (400)', async () => {
+      const res = await agentA.get('/api/expense-entries/summary?months=0');
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects negative months (400)', async () => {
+      const res = await agentA.get('/api/expense-entries/summary?months=-1');
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects non-numeric months (400)', async () => {
+      const res = await agentA.get('/api/expense-entries/summary?months=abc');
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects months > 24 (400)', async () => {
+      const res = await agentA.get('/api/expense-entries/summary?months=25');
+      expect(res.status).toBe(400);
+    });
+
+    it('accepts months = 24', async () => {
+      const res = await agentA.get('/api/expense-entries/summary?months=24');
+      expect(res.status).toBe(200);
+    });
   });
 });

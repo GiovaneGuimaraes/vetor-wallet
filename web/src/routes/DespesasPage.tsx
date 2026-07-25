@@ -7,6 +7,7 @@ import {
   deleteFixedExpense,
   getBudgets,
   getExpenseEntries,
+  getExpenseEntriesSummary,
   getFixedExpenses,
   updateExpenseEntry,
   updateFixedExpense,
@@ -16,18 +17,22 @@ import type {
   CategoryBudget,
   ExpenseEntry,
   ExpenseEntryUpdate,
+  ExpenseMonthSummaryItem,
   FixedExpense,
   FixedExpenseUpdate,
 } from '@vetor-wallet/shared';
 import { diffEditableFields, hasEdits, parseMoneyInput } from './inlineEdit';
 import { groupByCategory } from './expensesGrouping';
 import {
+  buildMonthlyHistory,
   computeMonthTotals,
   currentMonthKey,
   formatDayMonth,
   formatMonthLabel,
   shiftMonth,
 } from './expenseMonth';
+
+const HISTORY_MONTHS = 6;
 import { computeBudgetProgress, formatBudgetPct } from './budgetProgress';
 import { formatCategoryLabel, normalizeCategory } from './categories';
 import './layers.css';
@@ -114,6 +119,10 @@ export function DespesasPage() {
   const [entryEditError, setEntryEditError] = useState<string | null>(null);
   const [savingEntryEdit, setSavingEntryEdit] = useState(false);
 
+  const [historySummary, setHistorySummary] = useState<
+    ExpenseMonthSummaryItem[] | 'loading' | 'error'
+  >('loading');
+
   const [budgets, setBudgets] = useState<CategoryBudget[] | 'loading' | 'error'>('loading');
   const [budgetCategory, setBudgetCategory] = useState('');
   const [budgetAmount, setBudgetAmount] = useState('');
@@ -139,6 +148,18 @@ export function DespesasPage() {
     }
   }, []);
 
+  // T-033: histórico não depende do mês navegado — é sempre os últimos
+  // HISTORY_MONTHS meses até o mês corrente REAL (não o exibido na navegação).
+  const refreshHistory = useCallback(async () => {
+    setHistorySummary('loading');
+    try {
+      const data = await getExpenseEntriesSummary(HISTORY_MONTHS);
+      setHistorySummary(data.months);
+    } catch {
+      setHistorySummary('error');
+    }
+  }, []);
+
   const refreshEntries = useCallback(async (month: string) => {
     latestRequestedMonthRef.current = month;
     setEntries('loading');
@@ -158,7 +179,8 @@ export function DespesasPage() {
   useEffect(() => {
     refresh();
     refreshBudgets();
-  }, [refresh, refreshBudgets]);
+    refreshHistory();
+  }, [refresh, refreshBudgets, refreshHistory]);
 
   useEffect(() => {
     refreshEntries(monthKey);
@@ -188,13 +210,26 @@ export function DespesasPage() {
   // duas fontes carregarem.
   const budgetSourcesLoading = expenses === 'loading' || entries === 'loading';
 
-  function goToMonth(delta: number) {
-    const next = shiftMonth(monthKey, delta);
+  // Histórico "Últimos meses" (T-033): fixas vigentes HOJE (mesmas de
+  // `totals.fixed`, já que despesas fixas não têm histórico por mês) somadas
+  // ao total variável de cada mês devolvido por `GET /api/expense-entries/summary`.
+  const monthlyHistory =
+    Array.isArray(historySummary) && !fixedFailed
+      ? buildMonthlyHistory(HISTORY_MONTHS, currentMonthKey(), historySummary, totals.fixed)
+      : [];
+
+  // Troca o mês exibido na navegação mensal — usado tanto pelas setas ‹/›
+  // quanto pelo clique num mês do histórico (T-033).
+  function applyMonth(next: string) {
     setMonthKey(next);
     setEntryDate(defaultEntryDate(next));
     // A lista de lançamentos vai ser trocada — um rascunho de edição aberto
     // apontaria para um item que não está mais em tela.
     cancelEntryEdit();
+  }
+
+  function goToMonth(delta: number) {
+    applyMonth(shiftMonth(monthKey, delta));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -503,6 +538,43 @@ export function DespesasPage() {
         <p className="vw-month-breakdown">
           Fixas {fixedDisplay} + variáveis {variableDisplay}
         </p>
+      </div>
+
+      <div className="vw-layerpage-card vw-history-card">
+        <h2 className="vw-layerpage-card-title">Últimos meses</h2>
+
+        {historySummary === 'loading' && <p className="vw-layerpage-state">Carregando…</p>}
+        {historySummary === 'error' && (
+          <p className="vw-layerpage-error">Não foi possível carregar o histórico de meses.</p>
+        )}
+        {fixedFailed && historySummary !== 'loading' && historySummary !== 'error' && (
+          <p className="vw-layerpage-error">
+            Não foi possível carregar suas despesas fixas — o histórico depende delas.
+          </p>
+        )}
+
+        {monthlyHistory.length > 0 && (
+          <ul className="vw-history-list">
+            {monthlyHistory.map((row) => (
+              <li key={row.month}>
+                <button
+                  type="button"
+                  className={`vw-history-item${row.isCurrent ? ' vw-history-current' : ''}${
+                    row.month === monthKey ? ' vw-history-selected' : ''
+                  }`}
+                  onClick={() => applyMonth(row.month)}
+                  title="Fixas vigentes hoje + lançamentos variáveis daquele mês. As fixas exibidas são sempre as de hoje — não há histórico de quando uma fixa passou a existir."
+                >
+                  <span className="vw-history-item-label">
+                    {row.label}
+                    {row.isCurrent && <span className="vw-history-item-badge">atual</span>}
+                  </span>
+                  <span className="vw-history-item-value">{fmtCur.format(row.total)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="vw-layerpage-card vw-budget-card">
