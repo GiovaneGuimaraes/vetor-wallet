@@ -24,9 +24,14 @@
 
 ## Tarefas ativas
 
-_(Ciclo 6: Ondas A e B CONCLUÍDAS E MERGEADAS — PRs #69–#73; sanidade na `main`: server 292 testes + web 95 + build verdes. Onda C aprovada pelo humano em 2026-07-25 na sequência: T-033 histórico mensal → T-034 sessões persistentes → T-035 recorrência. T-033 e T-034 delegadas em paralelo (arquivos disjuntos); T-035 entra após a T-033 (mesmos arquivos). T-020/T-021 do ciclo 4 seguem em espera.)_
+_(vazio — Ciclo 6 CONCLUÍDO E MERGEADO em 2026-07-25, PRs #69–#76. T-020/T-021 do ciclo 4 seguem em espera por decisão do humano.)_
 
-## Ciclo 6 — Colheita das revisões + edição inline + Onda C (EM ANDAMENTO)
+## Ciclo 6 — Colheita das revisões + edição inline + Onda C — CONCLUÍDO E MERGEADO (2026-07-25)
+
+> 8 tarefas em 3 ondas (A: T-029/T-030 paralelas + T-028 em série; B: T-031 + T-032 paralelas; C, aprovada pelo humano: T-033/T-034 paralelas + T-035 em série), todas revisadas, aprovadas e mergeadas via PRs #69–#76. Sanidade final na `main` (`fd407e6`): server 342 testes (25 arquivos) + web 113 testes (10 arquivos) + build verdes (o ciclo começou com 217+67).
+> **Roteamento de modelos no ciclo**: executores Opus nas altas (T-028 normalização/migração, T-031 edição inline, T-035 recorrência), Sonnet nas médias/baixas; revisores Opus em tudo que toca dinheiro/auth/migração. 2 reprovações no ciclo (T-033 histórico congelado pós-mutação; T-035 materialização retroativa — esta congelada em teste e contradizendo a própria doc, só visível a revisão adversarial), ambas corrigidas na 1ª re-entrega, sem escalar executor. Revisores Opus rodaram verificações independentes (probes de corrida/rollback, cenários de migração próprios).
+> Higiene do repo no ciclo: `.gitattributes` (EOL LF) adicionado pelo orquestrador a partir de achado da T-028.
+> Candidatas geradas pelas revisões (não urgentes): validação de data real (`DATE_RE` aceita `2026-13-45` — POST e PATCH juntos); teste unitário de `isUniqueViolation`; POST de lançamento recorrente com 3 escritas não transacionais; `AND user_id` no UPDATE final dos PATCH (defesa em profundidade); dedupe de fetches concorrentes do mesmo mês; teste direto da varredura de boot das sessões; fail-closed para `expires_at` corrompido; editar template de recorrência (decisão de produto); flicker de "Carregando" no histórico; `endMonth` do cliente para o fuso do histórico.
 
 ### T-033 — Histórico mensal no layer Despesas (últimos meses, sem gráfico)
 - **Status**: CONCLUIDA e MERGEADA — PR [#75](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/75) (2026-07-25). Histórico: REPROVADA na 1ª revisão (bloqueante: histórico congelado após criar/editar/excluir lançamento — dois valores monetários contraditórios na mesma tela); executor corrigiu (`refreshHistory()` nos 3 handlers, no caminho de sucesso) + aplicou sugestões (breakdown visível, 2 testes puros, `HISTORY_MONTHS` reposicionado) → APROVADA na re-revisão. Janela de N meses consistente server/pura/UI, virada de ano coberta, `/summary` antes de `/:id`. Sugestões registradas: flicker de "Carregando" na revalidação; guarda de resposta obsoleta própria do `refreshHistory` (mesma classe do bug da T-030); fuso server×browser na virada de mês (documentado, solução futura: cliente envia `endMonth`). Pós-merge: server 310 / web 101 / build verdes. Modelos: executor Sonnet, revisor Opus 5.
@@ -53,7 +58,7 @@ _(Ciclo 6: Ondas A e B CONCLUÍDAS E MERGEADAS — PRs #69–#73; sanidade na `m
 - **Resultado**: —
 
 ### T-035 — Recorrência de lançamentos de despesa (mensal)
-- **Status**: EM_ANDAMENTO (executor Opus 5, delegado 2026-07-25 após merge da T-033)
+- **Status**: CONCLUIDA e MERGEADA — PR [#76](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/76) (2026-07-25). Histórico: REPROVADA na 1ª revisão (bloqueante: recorrência criada de lançamento com data passada materializava retroativamente meses fechados — comportamento inclusive congelado em teste, contradizendo doc e UI); executor corrigiu (`start_month = max(mês do lançamento, mês corrente)`, teste "PAST entry does not backfill", suíte reancorada em datas relativas) e aplicou TODAS as sugestões (batch transacional com `isUniqueViolation`, throw em `lastInsertRowid` degenerado, horizonte +12 meses) → APROVADA na re-revisão com 2 probes independentes do revisor contra o código compilado (rollback do batch; corrida real via Promise.all → exatamente 1 ocorrência). Design: livro-razão `recurring_expense_months` UNIQUE(recurring_id, month) que sobrevive ao delete (excluir não recria); ocorrências são entries normais (editáveis pela T-031, sem dupla contagem); criação acoplada ao POST. Sugestões remanescentes: teste unitário de `isUniqueViolation`; POST ainda com 3 escritas não transacionais. Server 342 / web 113 / build verdes. Modelos: executor Opus 5, revisor Opus 5.
 - **Prioridade**: P3
 - **Complexidade**: alta (schema novo + materialização idempotente — decisões de design)
 - **Depende de**: T-033 (mergeada — PR #75)
