@@ -2,12 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   createExpenseEntry,
   createFixedExpense,
+  deleteBudget,
   deleteExpenseEntry,
   deleteFixedExpense,
+  getBudgets,
   getExpenseEntries,
   getFixedExpenses,
+  upsertBudget,
 } from '../api';
-import type { ExpenseEntry, FixedExpense } from '@vetor-wallet/shared';
+import type { CategoryBudget, ExpenseEntry, FixedExpense } from '@vetor-wallet/shared';
 import { groupByCategory } from './expensesGrouping';
 import {
   computeMonthTotals,
@@ -16,9 +19,11 @@ import {
   formatMonthLabel,
   shiftMonth,
 } from './expenseMonth';
+import { computeBudgetProgress } from './budgetProgress';
 import './layers.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtPct = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
 
 /** Primeiro dia do mês exibido, usado como default do campo de data do form. */
 function defaultEntryDate(monthKey: string): string {
@@ -54,6 +59,22 @@ export function DespesasPage() {
   const [entrySubmitting, setEntrySubmitting] = useState(false);
   const [deletingEntryId, setDeletingEntryId] = useState<number | null>(null);
 
+  const [budgets, setBudgets] = useState<CategoryBudget[] | 'loading' | 'error'>('loading');
+  const [budgetCategory, setBudgetCategory] = useState('');
+  const [budgetAmount, setBudgetAmount] = useState('');
+  const [budgetFormError, setBudgetFormError] = useState<string | null>(null);
+  const [budgetSubmitting, setBudgetSubmitting] = useState(false);
+  const [deletingBudgetId, setDeletingBudgetId] = useState<number | null>(null);
+
+  const refreshBudgets = useCallback(async () => {
+    setBudgets('loading');
+    try {
+      setBudgets(await getBudgets());
+    } catch {
+      setBudgets('error');
+    }
+  }, []);
+
   const refresh = useCallback(async () => {
     setExpenses('loading');
     try {
@@ -75,7 +96,8 @@ export function DespesasPage() {
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    refreshBudgets();
+  }, [refresh, refreshBudgets]);
 
   useEffect(() => {
     refreshEntries(monthKey);
@@ -83,8 +105,10 @@ export function DespesasPage() {
 
   const list = Array.isArray(expenses) ? expenses : [];
   const entryList = Array.isArray(entries) ? entries : [];
+  const budgetList = Array.isArray(budgets) ? budgets : [];
   const totals = computeMonthTotals(list, entryList);
   const groups = groupByCategory(list);
+  const budgetProgress = computeBudgetProgress(budgetList, list, entryList);
 
   function goToMonth(delta: number) {
     const next = shiftMonth(monthKey, delta);
@@ -190,6 +214,49 @@ export function DespesasPage() {
     }
   }
 
+  async function handleBudgetSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setBudgetFormError(null);
+    const parsedAmount = Number(budgetAmount.replace(',', '.'));
+    if (!budgetCategory.trim()) {
+      setBudgetFormError('Informe a categoria do orçamento.');
+      return;
+    }
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setBudgetFormError('Informe um teto válido maior que zero.');
+      return;
+    }
+
+    setBudgetSubmitting(true);
+    try {
+      const saved = await upsertBudget({ category: budgetCategory.trim(), amount: parsedAmount });
+      // Upsert: substitui o registro existente da mesma categoria, se houver.
+      setBudgets((prev) => {
+        if (!Array.isArray(prev)) return [saved];
+        const others = prev.filter((b) => b.category !== saved.category);
+        return [...others, saved].sort((a, b) => a.category.localeCompare(b.category));
+      });
+      setBudgetCategory('');
+      setBudgetAmount('');
+    } catch (err) {
+      setBudgetFormError(err instanceof Error ? err.message : 'Falha ao salvar orçamento');
+    } finally {
+      setBudgetSubmitting(false);
+    }
+  }
+
+  async function handleBudgetDelete(id: number) {
+    setDeletingBudgetId(id);
+    try {
+      await deleteBudget(id);
+      setBudgets((prev) => (Array.isArray(prev) ? prev.filter((b) => b.id !== id) : prev));
+    } catch {
+      refreshBudgets();
+    } finally {
+      setDeletingBudgetId(null);
+    }
+  }
+
   return (
     <div>
       <div className="vw-page-header">
@@ -224,6 +291,83 @@ export function DespesasPage() {
         <p className="vw-month-breakdown">
           Fixas {fmtCur.format(totals.fixed)} + variáveis {fmtCur.format(totals.variable)}
         </p>
+      </div>
+
+      <div className="vw-layerpage-card vw-budget-card">
+        <h2 className="vw-layerpage-card-title">Orçamento do mês</h2>
+
+        {budgets === 'loading' && <p className="vw-layerpage-state">Carregando…</p>}
+        {budgets === 'error' && (
+          <p className="vw-layerpage-error">Não foi possível carregar seus orçamentos.</p>
+        )}
+        {Array.isArray(budgets) && budgets.length === 0 && (
+          <p className="vw-layerpage-state">Nenhum orçamento cadastrado ainda.</p>
+        )}
+
+        {budgetProgress.length > 0 && (
+          <ul className="vw-budget-list">
+            {budgetProgress.map((progress) => (
+              <li key={progress.id} className="vw-budget-item">
+                <div className="vw-budget-item-header">
+                  <span className="vw-budget-item-category">{progress.category}</span>
+                  <div className="vw-budget-item-right">
+                    <span className="vw-budget-item-amounts">
+                      {fmtCur.format(progress.spent)} de {fmtCur.format(progress.amount)}
+                    </span>
+                    <button
+                      type="button"
+                      className="vw-layerpage-delete-btn"
+                      onClick={() => handleBudgetDelete(progress.id)}
+                      disabled={deletingBudgetId === progress.id}
+                      aria-label={`Remover orçamento de ${progress.category}`}
+                      title="Remover"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+                <div className="vw-budget-progress-track">
+                  <div
+                    className={`vw-budget-progress-fill${progress.over ? ' vw-budget-over' : ''}`}
+                    style={{ width: `${progress.pctClamped}%` }}
+                  />
+                </div>
+                <p className={`vw-budget-progress-pct${progress.over ? ' vw-budget-over-text' : ''}`}>
+                  {fmtPct.format(progress.pct)}% do orçamento
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <form className="vw-layerpage-form vw-budget-form" onSubmit={handleBudgetSubmit}>
+          <div className="vw-layerpage-field">
+            <label htmlFor="orcamento-categoria">Categoria</label>
+            <input
+              id="orcamento-categoria"
+              type="text"
+              value={budgetCategory}
+              onChange={(e) => setBudgetCategory(e.target.value)}
+              placeholder="Ex.: Mercado"
+            />
+          </div>
+          <div className="vw-layerpage-field">
+            <label htmlFor="orcamento-valor">Teto mensal</label>
+            <input
+              id="orcamento-valor"
+              type="number"
+              min="0"
+              step="0.01"
+              value={budgetAmount}
+              onChange={(e) => setBudgetAmount(e.target.value)}
+              placeholder="0,00"
+            />
+          </div>
+          {budgetFormError && <p className="vw-layerpage-error">{budgetFormError}</p>}
+          <button type="submit" className="vw-btn-primary vw-layerpage-submit" disabled={budgetSubmitting}>
+            {budgetSubmitting ? 'Salvando…' : 'Salvar orçamento'}
+          </button>
+        </form>
       </div>
 
       <div className="vw-layerpage-grid">
