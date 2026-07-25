@@ -95,7 +95,7 @@ _(Ciclo 5, Onda A em andamento — T-022, T-024, T-026, T-027 delegadas em 2026-
 - **Resultado**: —
 
 ### T-027 — Modo carteira única: fluxo direto para o dashboard (decisão do humano)
-- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-24)
+- **Status**: CONCLUIDA e MERGEADA — PR [#65](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/65) (2026-07-25). Histórico: REPROVADA na 1ª revisão (bloqueante: falha de rede no primeiro `getWallets()` auto-criava carteira "Principal" espúria — `walletsLoaded=true` via `finally` com lista vazia); executor corrigiu com `walletsLoadError` no ShellContext + ação `error` em `decideWalletFlow` + tela de retry (4 testes novos no ramo de erro) → APROVADA na re-revisão. `decideWalletFlow` pura com 10 testes; escape do loop de redirect via `?manage=1`; backend intacto. Merge limpo com T-026 (mesmo `DashboardPage.tsx`); sanidade pós-merge na main: web 41 testes + build verdes. Modelos: executor Sonnet, revisor Sonnet.
 - **Prioridade**: P3
 - **Complexidade**: média (fluxo de navegação + criação automática; backend intacto)
 - **Depende de**: —
