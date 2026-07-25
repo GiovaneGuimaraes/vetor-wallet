@@ -19,8 +19,9 @@ import { db } from '../db';
  * `UNIQUE(recurring_id, month)` e é ela que registra "este mês já foi gerado".
  * Duas consequências desejadas:
  *
- * 1. Dois GETs simultâneos do mesmo mês não duplicam — o `INSERT OR IGNORE` de
- *    um deles afeta 0 linhas e só o vencedor insere a ocorrência.
+ * 1. Dois GETs simultâneos do mesmo mês não duplicam — a reserva do mês e a
+ *    ocorrência vão no mesmo batch transacional, e o perdedor da corrida tem o
+ *    batch inteiro derrubado pela violação da chave única.
  * 2. **Excluir uma ocorrência não a recria**: a chave de controle vive numa
  *    tabela própria e sobrevive ao `DELETE` do `expense_entries`. Se o controle
  *    fosse um índice único sobre as próprias ocorrências, apagar a ocorrência
@@ -50,6 +51,21 @@ export function occurrenceDate(monthKey: string, dayOfMonth: number): string {
   return `${monthKey}-${String(day).padStart(2, '0')}`;
 }
 
+/**
+ * `true` para o erro de violação do `UNIQUE(recurring_id, month)` — a corrida
+ * de duas materializações do mesmo mês. Qualquer outro erro de banco tem de
+ * continuar subindo (o handler global responde 500) em vez de virar um
+ * "outro já gerou" silencioso.
+ */
+export function isUniqueViolation(err: unknown): boolean {
+  // Só unicidade: `SQLITE_CONSTRAINT` genérico inclui FK/NOT NULL, que são bugs
+  // e não corrida — engoli-los esconderia defeito real.
+  const code = (err as { code?: unknown } | null)?.code;
+  if (code === 'SQLITE_CONSTRAINT_UNIQUE' || code === 'SQLITE_CONSTRAINT_PRIMARYKEY') return true;
+  const message = err instanceof Error ? err.message : String(err);
+  return /UNIQUE constraint failed/i.test(message);
+}
+
 export interface RecurringExpenseRow {
   id: number;
   description: string;
@@ -76,7 +92,10 @@ export async function markMonthMaterialized(recurringId: number, month: string):
  * do usuário. Idempotente e seguro sob concorrência (ver doc do módulo).
  *
  * Regras:
- * - meses anteriores a `start_month` são ignorados (recorrência não retroage);
+ * - meses anteriores a `start_month` são ignorados (recorrência não retroage).
+ *   `start_month` é o mês de CRIAÇÃO da recorrência — ou o mês do lançamento,
+ *   quando este é futuro. Ver o POST em `routes/expenseEntries.ts`: um cadastro
+ *   com data passada não pode reescrever meses já fechados;
  * - meses futuros **são** materializados: navegar para frente em `/despesas`
  *   deve mostrar a assinatura que já se sabe que vai cair lá;
  * - recorrência encerrada (`active = 0`) não gera mais nada — nem em meses
@@ -126,27 +145,43 @@ export async function materializeRecurringExpenses(
       if (month < recurrence.start_month) continue;
       if (alreadyGenerated.has(`${recurrence.id} ${month}`)) continue;
 
-      // Reserva do mês: a unicidade de (recurring_id, month) decide quem gera.
-      // `rowsAffected === 0` = outra request (ou outro processo) chegou antes.
-      const claim = await db.execute({
-        sql: 'INSERT OR IGNORE INTO recurring_expense_months (recurring_id, month) VALUES (?, ?)',
-        args: [recurrence.id, month],
-      });
-      if (claim.rowsAffected === 0) continue;
-
-      await db.execute({
-        sql: `INSERT INTO expense_entries (user_id, description, category, amount, date, recurring_id)
-              VALUES (?, ?, ?, ?, ?, ?)`,
-        args: [
-          userId,
-          recurrence.description,
-          recurrence.category,
-          recurrence.amount,
-          occurrenceDate(month, recurrence.day_of_month),
-          recurrence.id,
-        ],
-      });
-      created += 1;
+      // Reserva do mês + ocorrência no MESMO batch (transacional no libsql):
+      // se as duas escritas fossem independentes, uma falha entre elas deixaria
+      // o mês marcado como gerado para sempre, sem ocorrência e sem caminho de
+      // reparo — indistinguível de uma ocorrência excluída pelo usuário.
+      //
+      // O `INSERT` da reserva é intencionalmente SEM `OR IGNORE`: é a violação
+      // do `UNIQUE(recurring_id, month)` que sinaliza "outra request chegou
+      // primeiro", derruba o batch inteiro e faz o perdedor da corrida não
+      // inserir nada. (O perdedor pode responder aquele mês sem a ocorrência
+      // que o vencedor acabou de gravar; o GET seguinte já a mostra.)
+      try {
+        await db.batch(
+          [
+            {
+              sql: 'INSERT INTO recurring_expense_months (recurring_id, month) VALUES (?, ?)',
+              args: [recurrence.id, month],
+            },
+            {
+              sql: `INSERT INTO expense_entries
+                      (user_id, description, category, amount, date, recurring_id)
+                    VALUES (?, ?, ?, ?, ?, ?)`,
+              args: [
+                userId,
+                recurrence.description,
+                recurrence.category,
+                recurrence.amount,
+                occurrenceDate(month, recurrence.day_of_month),
+                recurrence.id,
+              ],
+            },
+          ],
+          'write',
+        );
+        created += 1;
+      } catch (err) {
+        if (!isUniqueViolation(err)) throw err;
+      }
     }
   }
 

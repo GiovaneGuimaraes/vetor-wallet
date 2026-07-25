@@ -28,6 +28,7 @@ import {
   activeRecurrences,
   formatRecurrenceDay,
   isRecurringOccurrence,
+  startsLaterThanEntry,
   totalRecurring,
 } from './recurrence';
 import { diffEditableFields, hasEdits, parseMoneyInput } from './inlineEdit';
@@ -1154,6 +1155,14 @@ export function DespesasPage() {
                 </span>
               </span>
             </label>
+            {/* A recorrência nunca retroage: com data passada ela começa no mês
+                corrente, e os meses já fechados ficam como estão. */}
+            {entryRecurring && startsLaterThanEntry(entryDate.slice(0, 7), currentMonthKey()) && (
+              <p className="vw-recurrence-checkbox-hint">
+                A data escolhida está num mês passado — a repetição começa em{' '}
+                {formatMonthLabel(currentMonthKey())} e não altera meses anteriores.
+              </p>
+            )}
             {entryFormError && <p className="vw-layerpage-error">{entryFormError}</p>}
             <button
               type="submit"

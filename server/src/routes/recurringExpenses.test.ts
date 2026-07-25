@@ -35,11 +35,27 @@ interface RecurringBody {
   ended_at: string | null;
 }
 
+/**
+ * Último dia de um `YYYY-MM`, calculado aqui de forma independente do service
+ * para as asserções de mês curto não serem tautológicas com a implementação.
+ */
+function lastDayOfMonth(monthKey: string): number {
+  const [year, month] = monthKey.split('-').map(Number);
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
 describe('recurring expenses (T-035)', () => {
   let app: Express;
   let agentA: ReturnType<typeof request.agent>;
   let agentB: ReturnType<typeof request.agent>;
   let nextEmail = 0;
+
+  // Os testes são ancorados no mês CORRENTE (e não em meses fixos como
+  // 2026-07), porque o piso de materialização é o mês de criação da
+  // recorrência: datas fixas passariam a ser "passado" com o tempo e mudariam
+  // o comportamento esperado da suíte.
+  let thisMonth: string;
+  let shift: (monthKey: string, delta: number) => string;
 
   /** Um usuário novo por cenário — recorrências são por usuário e persistem. */
   async function freshAgent() {
@@ -75,9 +91,12 @@ describe('recurring expenses (T-035)', () => {
   beforeAll(async () => {
     const { initDb } = await import('../db');
     const { default: authRouter } = await import('../auth/router');
-    const { default: entriesRouter } = await import('./expenseEntries');
+    const entriesModule = await import('./expenseEntries');
     const { default: recurringRouter } = await import('./recurringExpenses');
     const { errorHandler } = await import('../middleware/errorHandler');
+
+    thisMonth = entriesModule.currentMonth();
+    shift = entriesModule.shiftMonthKey;
 
     await initDb();
 
@@ -93,7 +112,7 @@ describe('recurring expenses (T-035)', () => {
       }),
     );
     app.use('/api/auth', authRouter);
-    app.use('/api/expense-entries', entriesRouter);
+    app.use('/api/expense-entries', entriesModule.default);
     app.use('/api/recurring-expenses', recurringRouter);
     app.use(errorHandler);
 
@@ -111,7 +130,7 @@ describe('recurring expenses (T-035)', () => {
       description: 'Assinatura',
       category: 'Streaming',
       amount: 39.9,
-      date: '2026-07-10',
+      date: `${thisMonth}-10`,
     });
 
     expect(entry.recurring_id).toBe(recurrence.id);
@@ -121,7 +140,7 @@ describe('recurring expenses (T-035)', () => {
       category: 'streaming',
       amount: 39.9,
       day_of_month: 10,
-      start_month: '2026-07',
+      start_month: thisMonth,
       active: 1,
       ended_at: null,
     });
@@ -131,7 +150,7 @@ describe('recurring expenses (T-035)', () => {
     const agent = await freshAgent();
     const created = await agent
       .post('/api/expense-entries')
-      .send({ description: 'Padaria', amount: 12, date: '2026-07-03' });
+      .send({ description: 'Padaria', amount: 12, date: `${thisMonth}-03` });
     expect(created.status).toBe(201);
     expect(created.body.recurring_id).toBe(null);
 
@@ -142,13 +161,17 @@ describe('recurring expenses (T-035)', () => {
   it('rejects non-boolean recurring and out-of-range dayOfMonth (400)', async () => {
     const badRecurring = await agentA
       .post('/api/expense-entries')
-      .send({ description: 'X', amount: 10, date: '2026-07-01', recurring: 'sim' });
+      .send({ description: 'X', amount: 10, date: `${thisMonth}-01`, recurring: 'sim' });
     expect(badRecurring.status).toBe(400);
 
     for (const dayOfMonth of [0, 32, 1.5, '10']) {
-      const res = await agentA
-        .post('/api/expense-entries')
-        .send({ description: 'X', amount: 10, date: '2026-07-01', recurring: true, dayOfMonth });
+      const res = await agentA.post('/api/expense-entries').send({
+        description: 'X',
+        amount: 10,
+        date: `${thisMonth}-01`,
+        recurring: true,
+        dayOfMonth,
+      });
       expect(res.status).toBe(400);
     }
   });
@@ -158,14 +181,15 @@ describe('recurring expenses (T-035)', () => {
     const { recurrence } = await createRecurring(agent, {
       description: 'Mensalidade',
       amount: 100,
-      date: '2026-07-03',
+      date: `${thisMonth}-03`,
       dayOfMonth: 20,
     });
     expect(recurrence.day_of_month).toBe(20);
 
-    const august = await agent.get('/api/expense-entries?month=2026-08');
-    expect(entriesOf(august).find((e) => e.recurring_id === recurrence.id)?.date).toBe(
-      '2026-08-20',
+    const next = shift(thisMonth, 1);
+    const nextRes = await agent.get(`/api/expense-entries?month=${next}`);
+    expect(entriesOf(nextRes).find((e) => e.recurring_id === recurrence.id)?.date).toBe(
+      `${next}-20`,
     );
   });
 
@@ -175,20 +199,21 @@ describe('recurring expenses (T-035)', () => {
     const { recurrence } = await createRecurring(agent, {
       description: 'Academia',
       amount: 120,
-      date: '2026-07-05',
+      date: `${thisMonth}-05`,
     });
 
-    const first = await agent.get('/api/expense-entries?month=2026-08');
+    const next = shift(thisMonth, 1);
+    const first = await agent.get(`/api/expense-entries?month=${next}`);
     expect(first.status).toBe(200);
     const firstOccurrences = entriesOf(first).filter((e) => e.recurring_id === recurrence.id);
     expect(firstOccurrences).toHaveLength(1);
     expect(firstOccurrences[0]).toMatchObject({
       description: 'Academia',
       amount: 120,
-      date: '2026-08-05',
+      date: `${next}-05`,
     });
 
-    const second = await agent.get('/api/expense-entries?month=2026-08');
+    const second = await agent.get(`/api/expense-entries?month=${next}`);
     expect(entriesOf(second).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(1);
     // O id é o mesmo — não foi gerada e substituída, foi simplesmente reusada.
     expect(entriesOf(second).find((e) => e.recurring_id === recurrence.id)?.id).toBe(
@@ -201,11 +226,11 @@ describe('recurring expenses (T-035)', () => {
     const { entry, recurrence } = await createRecurring(agent, {
       description: 'Internet',
       amount: 99,
-      date: '2026-07-08',
+      date: `${thisMonth}-08`,
     });
 
-    const july = await agent.get('/api/expense-entries?month=2026-07');
-    const occurrences = entriesOf(july).filter(
+    const current = await agent.get(`/api/expense-entries?month=${thisMonth}`);
+    const occurrences = entriesOf(current).filter(
       (e) => e.recurring_id === recurrence.id || e.id === entry.id,
     );
     expect(occurrences).toHaveLength(1);
@@ -217,33 +242,110 @@ describe('recurring expenses (T-035)', () => {
     const { recurrence } = await createRecurring(agent, {
       description: 'Nuvem',
       amount: 25,
-      date: '2026-07-09',
+      date: `${thisMonth}-09`,
     });
 
+    const target = shift(thisMonth, 2);
     const [a, b] = await Promise.all([
-      agent.get('/api/expense-entries?month=2026-09'),
-      agent.get('/api/expense-entries?month=2026-09'),
+      agent.get(`/api/expense-entries?month=${target}`),
+      agent.get(`/api/expense-entries?month=${target}`),
     ]);
+    // Um 500 aqui significaria que a violação da chave única escapou do
+    // tratamento de corrida em vez de virar "outro já gerou".
     expect(a.status).toBe(200);
     expect(b.status).toBe(200);
 
-    const after = await agent.get('/api/expense-entries?month=2026-09');
+    const after = await agent.get(`/api/expense-entries?month=${target}`);
     expect(entriesOf(after).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(1);
   });
 
+  // ── Critério de aceite: nada antes da criação ──────────────────────────────
   it('does not materialize months before the recurrence start month', async () => {
     const agent = await freshAgent();
     const { recurrence } = await createRecurring(agent, {
       description: 'Seguro',
       amount: 80,
-      date: '2026-07-15',
+      date: `${thisMonth}-15`,
     });
 
-    const june = await agent.get('/api/expense-entries?month=2026-06');
-    expect(entriesOf(june).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(0);
+    const prev = shift(thisMonth, -1);
+    const prevRes = await agent.get(`/api/expense-entries?month=${prev}`);
+    expect(entriesOf(prevRes).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(0);
 
-    const may = await agent.get('/api/expense-entries?month=2026-05');
-    expect(entriesOf(may)).toEqual([]);
+    const older = await agent.get(`/api/expense-entries?month=${shift(thisMonth, -2)}`);
+    expect(entriesOf(older)).toEqual([]);
+  });
+
+  it('a recurrence created from a PAST entry does not backfill the months in between', async () => {
+    const agent = await freshAgent();
+    const pastMonth = shift(thisMonth, -4);
+
+    const { entry, recurrence } = await createRecurring(agent, {
+      description: 'Retroativa',
+      amount: 500,
+      date: `${pastMonth}-01`,
+    });
+
+    // O piso é o mês de CRIAÇÃO, não o mês do lançamento.
+    expect(recurrence.start_month).toBe(thisMonth);
+
+    // Nenhum dos meses fechados entre o lançamento e hoje ganha ocorrência…
+    for (let delta = -4; delta <= -1; delta += 1) {
+      const month = shift(thisMonth, delta);
+      const res = await agent.get(`/api/expense-entries?month=${month}`);
+      const generated = entriesOf(res).filter(
+        (e) => e.recurring_id === recurrence.id && e.id !== entry.id,
+      );
+      expect(generated).toHaveLength(0);
+    }
+
+    // …nem via /summary, que também materializa a janela que agrega.
+    const summary = await agent.get('/api/expense-entries/summary?months=6');
+    expect(summary.status).toBe(200);
+    const byMonth = new Map(
+      (summary.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total]),
+    );
+    // Só o mês do lançamento original (500) e o mês corrente (a 1ª ocorrência).
+    expect(byMonth.get(pastMonth)).toBe(500);
+    for (let delta = -3; delta <= -1; delta += 1) {
+      expect(byMonth.has(shift(thisMonth, delta))).toBe(false);
+    }
+
+    // A partir do mês corrente, sim: é aí que a recorrência começa.
+    const current = await agent.get(`/api/expense-entries?month=${thisMonth}`);
+    expect(entriesOf(current).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(1);
+    const next = shift(thisMonth, 1);
+    const nextRes = await agent.get(`/api/expense-entries?month=${next}`);
+    expect(entriesOf(nextRes).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(1);
+  });
+
+  it('a recurrence created from a FUTURE entry starts on that future month', async () => {
+    const agent = await freshAgent();
+    const futureMonth = shift(thisMonth, 3);
+
+    const { entry, recurrence } = await createRecurring(agent, {
+      description: 'Futura',
+      amount: 60,
+      date: `${futureMonth}-07`,
+    });
+    expect(recurrence.start_month).toBe(futureMonth);
+
+    // Mês corrente e os dois meses entre hoje e o início não geram nada.
+    for (let delta = 0; delta <= 2; delta += 1) {
+      const res = await agent.get(`/api/expense-entries?month=${shift(thisMonth, delta)}`);
+      expect(entriesOf(res).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(0);
+    }
+
+    // O mês de início já tem o próprio lançamento, sem duplicar.
+    const start = await agent.get(`/api/expense-entries?month=${futureMonth}`);
+    const atStart = entriesOf(start).filter((e) => e.recurring_id === recurrence.id);
+    expect(atStart).toHaveLength(1);
+    expect(atStart[0].id).toBe(entry.id);
+
+    // E o mês seguinte ao início materializa normalmente.
+    const after = shift(futureMonth, 1);
+    const afterRes = await agent.get(`/api/expense-entries?month=${after}`);
+    expect(entriesOf(afterRes).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(1);
   });
 
   it('materializes future months navigated ahead, one occurrence per month', async () => {
@@ -251,10 +353,11 @@ describe('recurring expenses (T-035)', () => {
     const { recurrence } = await createRecurring(agent, {
       description: 'Curso',
       amount: 200,
-      date: '2026-07-12',
+      date: `${thisMonth}-12`,
     });
 
-    for (const month of ['2026-08', '2026-09', '2026-10']) {
+    for (const delta of [1, 2, 3]) {
+      const month = shift(thisMonth, delta);
       const res = await agent.get(`/api/expense-entries?month=${month}`);
       const found = entriesOf(res).filter((e) => e.recurring_id === recurrence.id);
       expect(found).toHaveLength(1);
@@ -262,30 +365,61 @@ describe('recurring expenses (T-035)', () => {
     }
   });
 
-  // ── Critério de aceite: dia 31 em fevereiro ────────────────────────────────
-  it('clamps day 31 to the last day of february (and of 30-day months)', async () => {
+  it('does not materialize beyond the future horizon (12 months ahead)', async () => {
+    const agent = await freshAgent();
+    const { recurrence } = await createRecurring(agent, {
+      description: 'Horizonte',
+      amount: 10,
+      date: `${thisMonth}-02`,
+    });
+
+    const farFuture = await agent.get('/api/expense-entries?month=9999-12');
+    expect(farFuture.status).toBe(200);
+    expect(entriesOf(farFuture).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(0);
+
+    const beyond = shift(thisMonth, 13);
+    const beyondRes = await agent.get(`/api/expense-entries?month=${beyond}`);
+    expect(entriesOf(beyondRes).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(0);
+
+    // O último mês dentro do horizonte ainda gera.
+    const edge = shift(thisMonth, 12);
+    const edgeRes = await agent.get(`/api/expense-entries?month=${edge}`);
+    expect(entriesOf(edgeRes).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(1);
+  });
+
+  // ── Critério de aceite: dia 31 em meses curtos ─────────────────────────────
+  it('clamps day 31 to the last day of every short month ahead (february included)', async () => {
     const agent = await freshAgent();
     const { recurrence } = await createRecurring(agent, {
       description: 'Fatura',
       amount: 300,
-      date: '2026-01-31',
+      date: `${thisMonth}-01`,
+      dayOfMonth: 31,
     });
     expect(recurrence.day_of_month).toBe(31);
 
-    const february = await agent.get('/api/expense-entries?month=2026-02');
-    expect(entriesOf(february).find((e) => e.recurring_id === recurrence.id)?.date).toBe(
-      '2026-02-28',
-    );
+    // 12 meses à frente cobrem necessariamente um fevereiro e vários meses de
+    // 30 dias — sem depender de datas fixas no calendário.
+    const seenDays = new Set<number>();
+    for (let delta = 1; delta <= 12; delta += 1) {
+      const month = shift(thisMonth, delta);
+      const res = await agent.get(`/api/expense-entries?month=${month}`);
+      const found = entriesOf(res).filter((e) => e.recurring_id === recurrence.id);
+      expect(found).toHaveLength(1);
 
-    const april = await agent.get('/api/expense-entries?month=2026-04');
-    expect(entriesOf(april).find((e) => e.recurring_id === recurrence.id)?.date).toBe(
-      '2026-04-30',
-    );
+      const expectedDay = Math.min(31, lastDayOfMonth(month));
+      expect(found[0].date).toBe(`${month}-${String(expectedDay).padStart(2, '0')}`);
+      // A ocorrência nunca transborda para o mês seguinte.
+      expect(found[0].date.slice(0, 7)).toBe(month);
+      seenDays.add(expectedDay);
 
-    const leapFebruary = await agent.get('/api/expense-entries?month=2028-02');
-    expect(entriesOf(leapFebruary).find((e) => e.recurring_id === recurrence.id)?.date).toBe(
-      '2028-02-29',
-    );
+      if (month.endsWith('-02')) {
+        expect([28, 29]).toContain(expectedDay);
+      }
+    }
+    // A janela realmente exercitou meses curtos, e não só meses de 31 dias.
+    expect(seenDays.has(30)).toBe(true);
+    expect([...seenDays].some((day) => day === 28 || day === 29)).toBe(true);
   });
 
   // ── Critério de aceite: excluir ocorrência não recria ──────────────────────
@@ -294,22 +428,23 @@ describe('recurring expenses (T-035)', () => {
     const { recurrence } = await createRecurring(agent, {
       description: 'Revista',
       amount: 30,
-      date: '2026-07-04',
+      date: `${thisMonth}-04`,
     });
 
-    const august = await agent.get('/api/expense-entries?month=2026-08');
-    const occurrence = entriesOf(august).find((e) => e.recurring_id === recurrence.id)!;
+    const next = shift(thisMonth, 1);
+    const nextRes = await agent.get(`/api/expense-entries?month=${next}`);
+    const occurrence = entriesOf(nextRes).find((e) => e.recurring_id === recurrence.id)!;
     expect(occurrence).toBeDefined();
 
     const del = await agent.delete(`/api/expense-entries/${occurrence.id}`);
     expect(del.status).toBe(204);
 
-    const again = await agent.get('/api/expense-entries?month=2026-08');
+    const again = await agent.get(`/api/expense-entries?month=${next}`);
     expect(entriesOf(again).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(0);
 
     // Nem num terceiro GET, nem via /summary (que também materializa).
     await agent.get('/api/expense-entries/summary?months=6');
-    const third = await agent.get('/api/expense-entries?month=2026-08');
+    const third = await agent.get(`/api/expense-entries?month=${next}`);
     expect(entriesOf(third).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(0);
   });
 
@@ -318,11 +453,12 @@ describe('recurring expenses (T-035)', () => {
     const { recurrence } = await createRecurring(agent, {
       description: 'Luz',
       amount: 150,
-      date: '2026-07-06',
+      date: `${thisMonth}-06`,
     });
 
-    const august = await agent.get('/api/expense-entries?month=2026-08');
-    const occurrence = entriesOf(august).find((e) => e.recurring_id === recurrence.id)!;
+    const next = shift(thisMonth, 1);
+    const nextRes = await agent.get(`/api/expense-entries?month=${next}`);
+    const occurrence = entriesOf(nextRes).find((e) => e.recurring_id === recurrence.id)!;
 
     const patched = await agent
       .patch(`/api/expense-entries/${occurrence.id}`)
@@ -332,8 +468,8 @@ describe('recurring expenses (T-035)', () => {
     // Continua sendo uma ocorrência da recorrência (o vínculo não é perdido).
     expect(patched.body.recurring_id).toBe(recurrence.id);
 
-    const september = await agent.get('/api/expense-entries?month=2026-09');
-    expect(entriesOf(september).find((e) => e.recurring_id === recurrence.id)?.amount).toBe(150);
+    const later = await agent.get(`/api/expense-entries?month=${shift(thisMonth, 2)}`);
+    expect(entriesOf(later).find((e) => e.recurring_id === recurrence.id)?.amount).toBe(150);
   });
 
   // ── Critério de aceite: encerrar ───────────────────────────────────────────
@@ -342,12 +478,13 @@ describe('recurring expenses (T-035)', () => {
     const { entry, recurrence } = await createRecurring(agent, {
       description: 'Podcast',
       amount: 20,
-      date: '2026-07-07',
+      date: `${thisMonth}-07`,
     });
 
-    const august = await agent.get('/api/expense-entries?month=2026-08');
-    const augustOccurrence = entriesOf(august).find((e) => e.recurring_id === recurrence.id)!;
-    expect(augustOccurrence).toBeDefined();
+    const next = shift(thisMonth, 1);
+    const nextRes = await agent.get(`/api/expense-entries?month=${next}`);
+    const nextOccurrence = entriesOf(nextRes).find((e) => e.recurring_id === recurrence.id)!;
+    expect(nextOccurrence).toBeDefined();
 
     const ended = await agent.patch(`/api/recurring-expenses/${recurrence.id}`).send({
       active: false,
@@ -357,33 +494,18 @@ describe('recurring expenses (T-035)', () => {
     expect(ended.body.ended_at).not.toBe(null);
 
     // Não gera mais nada — nem no mês seguinte nunca visitado.
-    const september = await agent.get('/api/expense-entries?month=2026-09');
-    expect(entriesOf(september).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(0);
+    const later = await agent.get(`/api/expense-entries?month=${shift(thisMonth, 2)}`);
+    expect(entriesOf(later).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(0);
 
-    // As já materializadas ficam (a de agosto e o lançamento original de julho).
-    const augustAgain = await agent.get('/api/expense-entries?month=2026-08');
-    expect(entriesOf(augustAgain).some((e) => e.id === augustOccurrence.id)).toBe(true);
-    const julyAgain = await agent.get('/api/expense-entries?month=2026-07');
-    expect(entriesOf(julyAgain).some((e) => e.id === entry.id)).toBe(true);
+    // As já materializadas ficam (a do mês seguinte e o lançamento original).
+    const nextAgain = await agent.get(`/api/expense-entries?month=${next}`);
+    expect(entriesOf(nextAgain).some((e) => e.id === nextOccurrence.id)).toBe(true);
+    const currentAgain = await agent.get(`/api/expense-entries?month=${thisMonth}`);
+    expect(entriesOf(currentAgain).some((e) => e.id === entry.id)).toBe(true);
 
     // E sai da lista de recorrências ativas.
     const list = await agent.get('/api/recurring-expenses');
     expect((list.body as RecurringBody[]).some((r) => r.id === recurrence.id)).toBe(false);
-  });
-
-  it('ending also stops generating past months never visited', async () => {
-    const agent = await freshAgent();
-    const { recurrence } = await createRecurring(agent, {
-      description: 'Doação',
-      amount: 50,
-      date: '2026-03-02',
-    });
-
-    const ended = await agent.delete(`/api/recurring-expenses/${recurrence.id}`);
-    expect(ended.status).toBe(204);
-
-    const april = await agent.get('/api/expense-entries?month=2026-04');
-    expect(entriesOf(april).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(0);
   });
 
   it('ending twice is idempotent', async () => {
@@ -391,7 +513,7 @@ describe('recurring expenses (T-035)', () => {
     const { recurrence } = await createRecurring(agent, {
       description: 'Jornal',
       amount: 15,
-      date: '2026-07-11',
+      date: `${thisMonth}-11`,
     });
 
     const first = await agent.delete(`/api/recurring-expenses/${recurrence.id}`);
@@ -409,7 +531,7 @@ describe('recurring expenses (T-035)', () => {
     const { recurrence } = await createRecurring(agent, {
       description: 'Clube',
       amount: 60,
-      date: '2026-07-13',
+      date: `${thisMonth}-13`,
     });
 
     const empty = await agent.patch(`/api/recurring-expenses/${recurrence.id}`).send({});
@@ -438,8 +560,9 @@ describe('recurring expenses (T-035)', () => {
     const { recurrence } = await createRecurring(agentB, {
       description: 'Só da B',
       amount: 45,
-      date: '2026-07-14',
+      date: `${thisMonth}-14`,
     });
+    const next = shift(thisMonth, 1);
 
     // A não vê a recorrência de B…
     const listA = await agentA.get('/api/recurring-expenses');
@@ -454,29 +577,26 @@ describe('recurring expenses (T-035)', () => {
     expect(delA.status).toBe(404);
 
     // …e o GET de A não materializa ocorrência de B.
-    const augustA = await agentA.get('/api/expense-entries?month=2026-08');
-    expect(entriesOf(augustA).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(0);
+    const nextA = await agentA.get(`/api/expense-entries?month=${next}`);
+    expect(entriesOf(nextA).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(0);
 
     // A recorrência de B segue ativa e materializa no GET de B.
     const listB = await agentB.get('/api/recurring-expenses');
     expect((listB.body as RecurringBody[]).some((r) => r.id === recurrence.id)).toBe(true);
-    const augustB = await agentB.get('/api/expense-entries?month=2026-08');
-    expect(entriesOf(augustB).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(1);
+    const nextB = await agentB.get(`/api/expense-entries?month=${next}`);
+    expect(entriesOf(nextB).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(1);
   });
 
   // ── /summary também materializa ───────────────────────────────────────────
   it('/summary materializes the months of its window, without duplicating', async () => {
     const agent = await freshAgent();
-    const { currentMonth, shiftMonthKey } = await import('./expenseEntries');
 
-    const month = currentMonth();
-    const prev = shiftMonthKey(month, -1);
-
-    // Recorrência começando no mês anterior, de 300 por mês.
+    // Recorrência criada no mês corrente, de 300 por mês. O mês anterior fica
+    // de fora (piso = mês de criação) — a janela só ganha o mês corrente.
     const { recurrence } = await createRecurring(agent, {
       description: 'Aluguel de sala',
       amount: 300,
-      date: `${prev}-05`,
+      date: `${thisMonth}-05`,
     });
 
     const summary = await agent.get('/api/expense-entries/summary?months=2');
@@ -484,16 +604,15 @@ describe('recurring expenses (T-035)', () => {
     const byMonth = new Map(
       (summary.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total]),
     );
-    expect(byMonth.get(prev)).toBe(300);
-    expect(byMonth.get(month)).toBe(300);
+    expect(byMonth.get(thisMonth)).toBe(300);
+    expect(byMonth.has(shift(thisMonth, -1))).toBe(false);
 
     // Segundo GET não duplica os totais.
     const again = await agent.get('/api/expense-entries/summary?months=2');
     const byMonthAgain = new Map(
       (again.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total]),
     );
-    expect(byMonthAgain.get(prev)).toBe(300);
-    expect(byMonthAgain.get(month)).toBe(300);
+    expect(byMonthAgain.get(thisMonth)).toBe(300);
 
     const currentList = await agent.get('/api/expense-entries');
     expect(
@@ -506,14 +625,15 @@ describe('recurring expenses (T-035)', () => {
     const { recurrence } = await createRecurring(agent, {
       description: 'Ginástica',
       amount: 70,
-      date: '2026-07-16',
+      date: `${thisMonth}-16`,
     });
 
     const bad = await agent.get('/api/expense-entries?month=2026-13');
     expect(bad.status).toBe(400);
 
     // O mês inválido não pode ter entrado no livro-razão nem gerado nada.
-    const august = await agent.get('/api/expense-entries?month=2026-08');
-    expect(entriesOf(august).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(1);
+    const next = shift(thisMonth, 1);
+    const nextRes = await agent.get(`/api/expense-entries?month=${next}`);
+    expect(entriesOf(nextRes).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(1);
   });
 });

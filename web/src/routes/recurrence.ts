@@ -19,6 +19,22 @@ export function formatRecurrenceDay(dayOfMonth: number): string {
 }
 
 /**
+ * Mês em que a recorrência vai efetivamente começar, espelhando a regra do
+ * server (`POST /api/expense-entries`): o piso é o mês de **criação**, e a data
+ * do lançamento só manda quando é futura. Serve para avisar o usuário quando
+ * ele marca "repetir todo mês" num lançamento com data passada — nesse caso
+ * nada é gerado nos meses já fechados.
+ */
+export function recurrenceStartMonth(entryMonth: string, currentMonth: string): string {
+  return entryMonth > currentMonth ? entryMonth : currentMonth;
+}
+
+/** `true` quando o mês de início não é o mês do lançamento (data passada). */
+export function startsLaterThanEntry(entryMonth: string, currentMonth: string): boolean {
+  return recurrenceStartMonth(entryMonth, currentMonth) !== entryMonth;
+}
+
+/**
  * `true` quando o lançamento foi gerado por uma recorrência — usado para o selo
  * "recorrente" na lista. Um lançamento digitado à mão tem `recurring_id` nulo;
  * campos ausentes (respostas legadas, antes da coluna existir) contam como não

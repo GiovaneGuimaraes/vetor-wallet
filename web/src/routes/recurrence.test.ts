@@ -4,6 +4,8 @@ import {
   activeRecurrences,
   formatRecurrenceDay,
   isRecurringOccurrence,
+  recurrenceStartMonth,
+  startsLaterThanEntry,
   totalRecurring,
 } from './recurrence';
 
@@ -42,6 +44,29 @@ describe('formatRecurrenceDay (T-035)', () => {
     expect(formatRecurrenceDay(0)).toBe('todo dia 1');
     expect(formatRecurrenceDay(99)).toBe('todo dia 31 (ou no último dia, em meses curtos)');
     expect(formatRecurrenceDay(Number.NaN)).toBe('todo mês');
+  });
+});
+
+describe('recurrenceStartMonth / startsLaterThanEntry (T-035)', () => {
+  it('floors the start at the creation month for a past entry', () => {
+    // Espelha a regra do server: nada é gerado em meses já fechados.
+    expect(recurrenceStartMonth('2026-03', '2026-07')).toBe('2026-07');
+    expect(startsLaterThanEntry('2026-03', '2026-07')).toBe(true);
+  });
+
+  it('keeps a future entry month as the start', () => {
+    expect(recurrenceStartMonth('2026-11', '2026-07')).toBe('2026-11');
+    expect(startsLaterThanEntry('2026-11', '2026-07')).toBe(false);
+  });
+
+  it('is the same month when the entry is in the current month', () => {
+    expect(recurrenceStartMonth('2026-07', '2026-07')).toBe('2026-07');
+    expect(startsLaterThanEntry('2026-07', '2026-07')).toBe(false);
+  });
+
+  it('compares across year boundaries', () => {
+    expect(recurrenceStartMonth('2025-12', '2026-01')).toBe('2026-01');
+    expect(recurrenceStartMonth('2027-01', '2026-12')).toBe('2027-01');
   });
 });
 

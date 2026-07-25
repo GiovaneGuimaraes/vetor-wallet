@@ -29,6 +29,14 @@ const MAX_SUMMARY_MONTHS = 24;
 const DEFAULT_SUMMARY_MONTHS = 6;
 
 /**
+ * T-035: quantos meses à frente do mês corrente um GET pode materializar
+ * ocorrências de recorrência. Navegar ‹/› alguns meses adiante é uso normal;
+ * um `?month=9999-12` não é, e sem teto escreveria ocorrências indefinidamente
+ * à frente.
+ */
+export const MATERIALIZATION_HORIZON_MONTHS = 12;
+
+/**
  * Desloca um mês `YYYY-MM` em `delta` meses, virando o ano quando necessário.
  * Duplicada de propósito de `web/src/routes/expenseMonth.ts > shiftMonth` —
  * mesmo padrão de duplicação de `services/categories.ts` (T-028): `shared/`
@@ -121,7 +129,14 @@ router.get(
     // T-035: materialização lazy das recorrências ativas do mês consultado —
     // inclusive meses futuros navegados. Roda antes do SELECT para que as
     // ocorrências geradas já apareçam nesta mesma resposta.
-    await materializeRecurringExpenses(userId, [month]);
+    //
+    // Teto de horizonte: um GET de `9999-12` não pode virar escrita de
+    // ocorrência arbitrariamente à frente (o mês pedido não é limitado por
+    // nada além do formato). Meses além do horizonte ainda são listados —
+    // apenas não geram nada.
+    if (month <= shiftMonthKey(currentMonth(), MATERIALIZATION_HORIZON_MONTHS)) {
+      await materializeRecurringExpenses(userId, [month]);
+    }
 
     const result = await db.execute({
       sql: `SELECT * FROM expense_entries
@@ -189,8 +204,17 @@ router.post(
     // lançamento já entra no livro-razão de meses gerados — senão o primeiro
     // GET desse mês materializaria uma segunda cópia idêntica.
     let recurringId: number | null = null;
-    const startMonth = date.slice(0, 7);
+    const entryMonth = date.slice(0, 7);
     if (recurring === true) {
+      // O piso da materialização é o mês de CRIAÇÃO, não o mês do lançamento:
+      // marcar como recorrente um lançamento com data passada (caminho normal
+      // da UI — navegar para um mês passado deixa o campo de data em
+      // `${mês}-01`) não pode gerar ocorrências em meses já fechados, o que
+      // reescreveria total/orçamento/histórico daqueles meses sem o usuário
+      // ver. Data futura continua valendo como piso: a recorrência só começa
+      // quando o lançamento acontece.
+      const startMonth = entryMonth > currentMonth() ? entryMonth : currentMonth();
+
       const createdRecurrence = await db.execute({
         sql: `INSERT INTO recurring_expenses
                 (user_id, description, category, amount, day_of_month, start_month)
@@ -205,7 +229,16 @@ router.post(
         ],
       });
       recurringId = Number(createdRecurrence.lastInsertRowid ?? 0);
-      await markMonthMaterialized(recurringId, startMonth);
+      if (!recurringId) {
+        // Sem id não há como vincular a ocorrência: gravar `recurring_id = 0`
+        // deixaria o lançamento apontando para um template inexistente.
+        throw new Error('T-035: falha ao criar a recorrência (lastInsertRowid ausente)');
+      }
+      // Marca o mês do LANÇAMENTO, não `startMonth`: num cadastro retroativo os
+      // dois divergem e marcar o mês corrente suprimiria a ocorrência que a
+      // recorrência deve gerar agora. Marcar um mês anterior a `start_month` é
+      // inofensivo (ele nunca seria gerado de todo modo).
+      await markMonthMaterialized(recurringId, entryMonth);
     }
 
     const insert = await db.execute({
