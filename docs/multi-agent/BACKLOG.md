@@ -71,7 +71,7 @@ _(Ciclo 5, Onda A em andamento — T-022, T-024, T-026, T-027 delegadas em 2026-
 - **Resultado**: —
 
 ### T-025 — Fluxo de caixa do mês na Home (sobra real, não estimada)
-- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25 após merge da T-022)
+- **Status**: CONCLUIDA e MERGEADA — PR [#67](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/67) (2026-07-25). Revisor Opus: APROVADA, 0 bloqueantes — cálculo sem dupla subtração, fallback sem NaN, `Promise.allSettled` no padrão da T-008, reuso total da T-022, fuso local. Sugestões não bloqueantes registradas: (1) sinalização de estimativa aparece por instantes no primeiro carregamento (gate por `!loading`); (2) sublabel redundante quando real = prevista; (3) `*` sem legenda visível (só `title` — invisível em touch; parcial vs padrão `quotesUnavailable`); (4) renomear `hasVariableEntries` → `entriesLoaded`. Merge da main (T-024/T-027) auto-limpo; sanidade pós-merge: web 56 testes + build verdes. Modelos: executor Sonnet, revisor Opus 5.
 - **Prioridade**: P2
 - **Complexidade**: média (agregação no front sobre APIs prontas; função pura testável)
 - **Depende de**: T-022 (mergeada — PR #64)
