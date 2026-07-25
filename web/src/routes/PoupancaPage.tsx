@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   getSavings,
   createSavingsEntry,
@@ -14,6 +14,13 @@ import type {
   SavingsSummary,
 } from '@vetor-wallet/shared';
 import { diffEditableFields, hasEdits, parseMoneyInput } from './inlineEdit';
+import {
+  RATE_SAMPLE_MONTHS,
+  deriveMonthlyRatePct,
+  parseMonthsInput,
+  parseNonNegativeInput,
+  projectSavings,
+} from './savingsProjection';
 import './layers.css';
 import './layers-savings.css';
 
@@ -51,6 +58,18 @@ interface FormState {
 }
 
 const EMPTY_FORM: FormState = { type: 'DEPOSIT', amount: '', date: todayIso(), note: '', goalId: '' };
+
+/** Prazo inicial do simulador de rendimento (T-040), em meses. */
+const DEFAULT_SIM_MONTHS = '12';
+
+interface SimState {
+  /** Valor inicial em reais (texto do input; aceita vírgula decimal). */
+  initial: string;
+  /** Taxa mensal em pontos percentuais (texto do input). */
+  ratePct: string;
+  /** Prazo em meses (texto do input). */
+  months: string;
+}
 
 /**
  * Rascunho de edição de um lançamento (T-031). Mesma forma do `FormState` de
@@ -94,6 +113,17 @@ export function PoupancaPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Simulador de previsão de rendimento (T-040) — 100% client-side, nada é
+  // persistido e nenhum endpoint novo é chamado.
+  const [sim, setSim] = useState<SimState>({
+    initial: '',
+    ratePct: '',
+    months: DEFAULT_SIM_MONTHS,
+  });
+  // Enquanto o usuário não mexer no campo, ele acompanha o default derivado
+  // (saldo do `summary` / taxa do histórico), que só chega depois do fetch.
+  const [simTouched, setSimTouched] = useState({ initial: false, ratePct: false });
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<FormState | null>(null);
@@ -160,6 +190,26 @@ export function PoupancaPage() {
       setSubmitting(false);
     }
   }
+
+  const derivedRatePct = useMemo(() => deriveMonthlyRatePct(entries), [entries]);
+
+  useEffect(() => {
+    if (!summary || simTouched.initial) return;
+    setSim((prev) => ({ ...prev, initial: String(summary.balance) }));
+  }, [summary, simTouched.initial]);
+
+  useEffect(() => {
+    if (simTouched.ratePct) return;
+    setSim((prev) => ({ ...prev, ratePct: derivedRatePct !== null ? String(derivedRatePct) : '' }));
+  }, [derivedRatePct, simTouched.ratePct]);
+
+  const simInitial = parseNonNegativeInput(sim.initial);
+  const simRate = parseNonNegativeInput(sim.ratePct);
+  const simMonths = parseMonthsInput(sim.months);
+  const projection =
+    simInitial !== null && simRate !== null && simMonths !== null
+      ? projectSavings(simInitial, simRate, simMonths)
+      : null;
 
   const goalNameById = new Map(goals.map((goal) => [goal.id, goal.name]));
 
@@ -273,6 +323,85 @@ export function PoupancaPage() {
             CDI em fundos/contas digitais com liquidez diária. Vale comparar a rentabilidade da
             sua poupança/reserva com o CDI do período em <code>/carteiras</code> antes de decidir
             entre manter o dinheiro parado ou investir.
+          </div>
+
+          {/*
+            Previsão de rendimento (T-040): simulação de juros compostos sobre o
+            valor inicial, recalculada a cada tecla. Sem aporte mensal (fora de
+            escopo) e sem gráfico (decisão do humano).
+          */}
+          <div className="vw-form-card">
+            <p className="vw-form-title">Previsão de rendimento</p>
+            <div className="vw-form-grid">
+              <div className="vw-layerpage-field">
+                <label htmlFor="sim-initial">Valor inicial (R$)</label>
+                <input
+                  id="sim-initial"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  value={sim.initial}
+                  onChange={(e) => {
+                    setSimTouched((prev) => ({ ...prev, initial: true }));
+                    setSim({ ...sim, initial: e.target.value });
+                  }}
+                />
+              </div>
+              <div className="vw-layerpage-field">
+                <label htmlFor="sim-rate">Taxa mensal (%)</label>
+                <input
+                  id="sim-rate"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex.: 0,9"
+                  value={sim.ratePct}
+                  onChange={(e) => {
+                    setSimTouched((prev) => ({ ...prev, ratePct: true }));
+                    setSim({ ...sim, ratePct: e.target.value });
+                  }}
+                />
+              </div>
+              <div className="vw-layerpage-field">
+                <label htmlFor="sim-months">Prazo (meses)</label>
+                <input
+                  id="sim-months"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="12"
+                  value={sim.months}
+                  onChange={(e) => setSim({ ...sim, months: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <span className="vw-field-hint">
+              {derivedRatePct !== null
+                ? `Taxa sugerida a partir dos seus rendimentos dos últimos ${RATE_SAMPLE_MONTHS} meses com lançamento — ajuste à vontade.`
+                : 'Sem histórico de rendimento suficiente para sugerir uma taxa — informe a taxa mensal esperada (ex.: 0,9 para 0,9 %/mês).'}
+            </span>
+
+            {projection ? (
+              <div className="vw-savings-projection">
+                <div className="vw-savings-summary-card">
+                  <p className="vw-savings-summary-label">Valor futuro</p>
+                  <p className="vw-savings-summary-value">{fmtCur.format(projection.futureValue)}</p>
+                </div>
+                <div className="vw-savings-summary-card">
+                  <p className="vw-savings-summary-label">
+                    Rendimento em {simMonths} {simMonths === 1 ? 'mês' : 'meses'}
+                  </p>
+                  <p className="vw-savings-summary-value vw-value-up">
+                    {fmtCur.format(projection.totalYield)}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="vw-field-hint vw-field-hint--warn">
+                Informe valor inicial, taxa mensal (ambos ≥ 0) e prazo em meses inteiro para ver a
+                projeção.
+              </p>
+            )}
           </div>
 
           <div className="vw-form-card">
