@@ -17,7 +17,8 @@ interface FeatureConfig {
 }
 
 const FEATURES: FeatureConfig[] = [
-  { key: 'renda-despesas', mascot: 'receitas-t.png', title: 'Renda e despesas', desc: 'Organize entradas e gastos fixos do mês' },
+  { key: 'renda', mascot: 'receitas-t.png', title: 'Renda', desc: 'Organize entradas fixas e avulsas do mês' },
+  { key: 'despesas', mascot: 'despesas-t.png', title: 'Despesas', desc: 'Organize despesas fixas e gastos variáveis' },
   { key: 'poupanca', mascot: 'poupanca-t.png', title: 'Poupança', desc: 'Acompanhe saldo, aportes e rendimento' },
   { key: 'acoes', mascot: 'acoes-t.png', title: 'Ações', desc: 'Carteiras da B3 com cotações em tempo real' },
   { key: 'metas', mascot: 'metas-t.png', title: 'Metas', desc: 'Defina objetivos e acompanhe o progresso' },
