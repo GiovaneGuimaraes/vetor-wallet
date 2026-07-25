@@ -28,15 +28,31 @@
 /* ── Resumo (Poupança) ──────────────────────────────────────────────── */
 .vw-savings-summary {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* 4 cards desde a T-041 (o quarto é "Saldo livre"). */
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
   margin-bottom: 20px;
+}
+
+@media (max-width: 900px) {
+  .vw-savings-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 640px) {
   .vw-savings-summary {
     grid-template-columns: 1fr;
   }
+}
+
+/* Sublabel do card "Saldo livre" (T-041): quanto está reservado em metas. */
+.vw-savings-summary-sub {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--color-dim);
+  font-variant-numeric: tabular-nums;
 }
 
 .vw-savings-summary-card {
@@ -393,6 +409,20 @@
   cursor: pointer;
 }
 
+/* T-041: atalho do card de meta para o form de transferência em /poupanca. */
+.vw-goal-transfer-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.vw-goal-transfer-link:hover {
+  text-decoration: underline;
+}
+
 /* ── T-024: vínculo entre lançamentos de poupança e metas ───────────────── */
 
 .vw-field-hint {
@@ -412,6 +442,13 @@
   margin-left: 8px;
   font-size: 11px;
   color: var(--color-dim);
+}
+
+/* T-041: selo nas duas pernas de uma transferência poupança → meta. */
+.vw-savings-entry-transfer {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--color-accent);
 }
 
 .vw-goal-source {

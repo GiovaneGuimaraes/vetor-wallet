@@ -38,6 +38,8 @@ server/src/
 ├── services/
 │   ├── portfolio.ts      # buildPositionMap, buildPortfolioSummary (lógica pura)
 │   ├── goals.ts          # progresso de metas: manual vs derivado dos aportes vinculados
+│   ├── savings.ts        # saldo livre da poupança (saldo − reservado em metas),
+│   │                     # em centavos inteiros — base da transferência T-041
 │   ├── recurringExpenses.ts # materialização lazy/idempotente das ocorrências
 │   │                        # de recorrência mensal (T-035) + helpers de data
 │   ├── quotes.ts         # fetchQuotes → brapi.dev (timeout 5s)

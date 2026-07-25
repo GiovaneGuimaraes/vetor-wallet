@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { getGoals, createGoal, updateGoal, deleteGoal } from '../api';
 import type { Goal } from '@vetor-wallet/shared';
 import { progressPct, progressPctClamped, isDerivedProgress, progressSourceLabel } from './goalsProgress';
@@ -101,6 +102,14 @@ function GoalCard({ goal, onUpdate, onDelete }: {
           </button>
         </div>
       )}
+      {/*
+        T-041: atalho para reservar para esta meta dinheiro que já está na
+        poupança. O form vive em /poupanca (onde estão saldo livre e razão);
+        aqui só levamos a meta pré-selecionada via query string.
+      */}
+      <Link className="vw-goal-transfer-link" to={`/poupanca?meta=${goal.id}`}>
+        ⇄ Aportar da poupança
+      </Link>
       {err && <p className="vw-form-error">{err}</p>}
     </div>
   );
