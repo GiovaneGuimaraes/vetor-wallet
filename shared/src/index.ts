@@ -157,6 +157,17 @@ export interface NewIncomeSource {
   amount: number;
 }
 
+/**
+ * Payload parcial de `PATCH /api/income/:id` (T-031). Todos os campos são
+ * opcionais, mas ao menos um deve vir — corpo vazio responde 400. Cada campo
+ * informado passa pela mesma validação da criação.
+ */
+export interface IncomeSourceUpdate {
+  name?: string;
+  type?: IncomeSourceType;
+  amount?: number;
+}
+
 export interface FixedExpense {
   id: number;
   user_id: number;
@@ -170,6 +181,17 @@ export interface NewFixedExpense {
   name: string;
   category?: string;
   amount: number;
+}
+
+/**
+ * Payload parcial de `PATCH /api/expenses/:id` (T-031). `category` é gravada
+ * na forma canônica normalizada (T-028), igual à criação — enviar `''`
+ * limpa a categoria.
+ */
+export interface FixedExpenseUpdate {
+  name?: string;
+  category?: string;
+  amount?: number;
 }
 
 /**
@@ -193,6 +215,19 @@ export interface NewExpenseEntry {
   amount: number;
   /** YYYY-MM-DD */
   date: string;
+}
+
+/**
+ * Payload parcial de `PATCH /api/expense-entries/:id` (T-031). Editar `date`
+ * pode mover o lançamento para outro mês — a lista mensal do cliente deve
+ * remover o item quando a nova data sai do mês exibido.
+ */
+export interface ExpenseEntryUpdate {
+  description?: string;
+  category?: string;
+  amount?: number;
+  /** YYYY-MM-DD */
+  date?: string;
 }
 
 export type SavingsEntryType = 'DEPOSIT' | 'WITHDRAW' | 'YIELD';
@@ -219,6 +254,27 @@ export interface NewSavingsEntry {
   date: string;
   note?: string;
   /** Id da meta a vincular (opcional). Rejeitado para lançamentos `YIELD`. */
+  goalId?: number | null;
+}
+
+/**
+ * Payload parcial de `PATCH /api/savings/:id` (T-031).
+ *
+ * Semântica do vínculo com meta:
+ * - `goalId` ausente → o vínculo atual é preservado.
+ * - `goalId: null` → **desvincula** o lançamento.
+ * - `goalId: <id>` → revincula (404 se a meta for de outro usuário).
+ *
+ * A regra "YIELD não pode ser vinculado" (T-024) é avaliada sobre o estado
+ * **resultante**: mudar o `type` para `YIELD` num lançamento vinculado responde
+ * 400, a menos que o mesmo PATCH desvincule (`goalId: null`) no mesmo request.
+ */
+export interface SavingsEntryUpdate {
+  type?: SavingsEntryType;
+  amount?: number;
+  /** YYYY-MM-DD */
+  date?: string;
+  note?: string;
   goalId?: number | null;
 }
 
