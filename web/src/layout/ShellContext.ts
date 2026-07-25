@@ -10,6 +10,13 @@ export interface ShellContext {
   user: User;
   theme: 'dark' | 'light';
   wallets: Wallet[];
+  /**
+   * T-027: `wallets` começa vazio até a primeira busca (`getWallets`)
+   * resolver — sem esse flag, a rota `/carteiras` não teria como distinguir
+   * "usuário sem carteira nenhuma" de "ainda carregando", e criaria uma
+   * carteira "Principal" espúria enquanto os dados reais não chegam.
+   */
+  walletsLoaded: boolean;
   walletSummaries: Record<number, PortfolioSummary>;
   onCreateWallet: (data: NewWallet) => Promise<void>;
   onSelectWallet: (wallet: Wallet) => void;

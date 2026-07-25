@@ -35,6 +35,7 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(getStoredTheme);
   const [user, setUser] = useState<User | null | 'loading'>('loading');
   const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [walletsLoaded, setWalletsLoaded] = useState(false);
   const [walletSummaries, setWalletSummaries] = useState<Record<number, PortfolioSummary>>({});
 
   function toggleTheme() {
@@ -55,14 +56,20 @@ export default function App() {
   }, []);
 
   const refreshWallets = useCallback(async () => {
-    const ws = await getWallets();
-    setWallets(ws);
+    try {
+      const ws = await getWallets();
+      setWallets(ws);
 
-    // Busca portfolio de cada carteira em paralelo (para exibir nos cards)
-    const results = await Promise.allSettled(ws.map((w) => getPortfolio(w.id).then((s) => ({ id: w.id, s }))));
-    const summaries: Record<number, PortfolioSummary> = {};
-    results.forEach((r) => { if (r.status === 'fulfilled') summaries[r.value.id] = r.value.s; });
-    setWalletSummaries(summaries);
+      // Busca portfolio de cada carteira em paralelo (para exibir nos cards)
+      const results = await Promise.allSettled(ws.map((w) => getPortfolio(w.id).then((s) => ({ id: w.id, s }))));
+      const summaries: Record<number, PortfolioSummary> = {};
+      results.forEach((r) => { if (r.status === 'fulfilled') summaries[r.value.id] = r.value.s; });
+      setWalletSummaries(summaries);
+    } finally {
+      // T-027: marcado mesmo em erro — senão /carteiras ficaria travada no
+      // estado "carregando" para sempre após uma falha de rede.
+      setWalletsLoaded(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -101,6 +108,7 @@ export default function App() {
       user: u,
       theme,
       wallets,
+      walletsLoaded,
       walletSummaries,
       onCreateWallet: handleCreateWallet,
       onSelectWallet: handleSelectWallet,
