@@ -24,7 +24,59 @@
 
 ## Tarefas ativas
 
-_(vazio — Ciclo 5 CONCLUÍDO E MERGEADO em 2026-07-25, PRs #63–#68. T-020/T-021 do ciclo 4 seguem em espera por decisão do humano.)_
+_(Ciclo 6, Onda A em andamento — T-029 e T-030 delegadas em 2026-07-25; T-028 entra em série após a T-029 (mesmos arquivos de rota). Onda B (T-031 edição inline) planejada; Onda C aguarda escolha do humano. T-020/T-021 do ciclo 4 seguem em espera.)_
+
+## Ciclo 6 — Colheita das revisões + edição inline (EM ANDAMENTO — Onda A delegada em 2026-07-25)
+
+> Aprovado pelo humano (2026-07-25): "pode seguir com a onda A". Onda A = T-029 + T-030 em paralelo (arquivos disjuntos), depois T-028 em série (conflita com T-029 nas rotas). Onda B = T-031 (edição inline, aguarda Onda A). Onda C = escolha do humano entre histórico mensal em Despesas, sessões persistentes ou recorrência de lançamentos. Humano validou o front do ciclo 5 sem erros; erros futuros viram tarefas de correção.
+
+### T-028 — Normalizar categoria nas 3 telas de despesas/orçamento
+- **Status**: PENDENTE (entra após merge da T-029 — mesmos arquivos de rota)
+- **Prioridade**: P1
+- **Complexidade**: alta (migração de dados do usuário + colisão possível no UNIQUE de budgets)
+- **Depende de**: T-029
+- **Branch/worktree**: —
+- **Contexto**: achado nº 4 do revisor da T-023: a comparação de categoria é exata e case-sensitive nas 3 telas que usam texto livre (despesas fixas, lançamentos variáveis, orçamentos) — "Mercado", "mercado" e "mercado " são categorias diferentes; orçamento de "Mercado" mostra 0% com gastos em "mercado". Pegadinha de usabilidade mais provável do app.
+- **Escopo**: definir normalização canônica de categoria (no mínimo: trim + colapso de espaços internos + comparação case-insensitive — a forma exata de armazenar/exibir é decisão técnica do executor, documentada) aplicada na **gravação** das 3 rotas (`fixed_expenses.category`, `expense_entries.category`, `category_budgets.category`); migração **idempotente** dos dados existentes no `initDb()` (atenção: normalizar `category_budgets` pode colidir no UNIQUE `(user_id, category)` — resolver de forma determinística e documentada, ex.: manter o de maior `amount` ou o mais recente); agrupamento (`expensesGrouping.ts`) e `computeBudgetProgress` passam a comparar pela forma normalizada; atualizar `CLAUDE.md` (remover a nota de case-sensitive).
+- **Fora de escopo**: autocomplete/select de categorias existentes; renomear categorias em massa pela UI.
+- **Critério de aceite**: testes — "Mercado" e "mercado " somam na mesma categoria no agrupamento e na barra de orçamento; migração roda 2x sem erro e resolve colisões; upsert de budget com variação de caixa substitui em vez de duplicar; suíte inteira + build verdes.
+- **Resultado**: —
+
+### T-029 — Rejeitar valores não finitos nas rotas de dinheiro (`Number.isFinite`)
+- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25)
+- **Prioridade**: P1
+- **Complexidade**: média (mecânica, mas em toda rota de dinheiro; revisor Opus por tocar dinheiro)
+- **Depende de**: —
+- **Branch/worktree**: `giovane/t-029-isfinite-rotas-dinheiro`
+- **Contexto**: achado recorrente dos revisores das T-022/T-023: as validações usam `typeof === 'number' && !Number.isNaN` — `JSON.parse('1e999')` vira `Infinity`, passa, grava REAL infinito e volta como `null` no JSON, quebrando telas. Dívida do repo inteiro.
+- **Escopo**: trocar a validação de todos os campos numéricos de dinheiro/quantidade por `Number.isFinite` (mantendo as regras existentes de `> 0` etc.) em TODAS as rotas que aceitam valores: `income`, `expenses`, `expense-entries`, `budgets`, `savings`, `goals` (`target_amount`/`current_amount`), `operations` (`quantity`/`price`) e `alerts` (`threshold`) se tiverem a mesma falha (verificar); 1 teste novo por rota cobrindo `Infinity` → 400.
+- **Fora de escopo**: mudar mensagens/formato de erro; validação de strings; refatorar validação para lib externa.
+- **Critério de aceite**: POST/PATCH com `1e999` (Infinity) e `-1e999` retorna 400 em todas as rotas de dinheiro, com teste; nenhum comportamento válido regride; suíte inteira + build verdes.
+- **Resultado**: —
+
+### T-030 — Robustez de UI: respostas obsoletas, degradação parcial e polimentos da Home
+- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25)
+- **Prioridade**: P2
+- **Complexidade**: média (só web; estado assíncrono)
+- **Depende de**: —
+- **Branch/worktree**: `giovane/t-030-robustez-ui`
+- **Contexto**: sugestões acumuladas dos revisores Opus do ciclo 5 (T-022 nº1-2, T-023 nº5-6, T-025 nº1-4) — todas de UI, nenhuma bloqueante, agrupadas numa tarefa só.
+- **Escopo**: (a) `DespesasPage`: guarda de resposta obsoleta na navegação de mês (descartar resolução cujo mês ≠ mês exibido) e hero com `—` em erro parcial de uma das fontes em vez de total subestimado; barra de orçamento não renderiza `spent` parcial durante loading; `fmtPct` não arredondar 99,6% para "100%" sem alerta (floor ou 1 decimal); (b) `PoupancaPage`: falha só em `getGoals` degrada o select de metas com aviso em vez de derrubar a tela; (c) `HomePage`: flag separada `entriesFailed` (sinalização de estimativa só após load real, não no primeiro render), suprimir sublabel quando sobra real = prevista, aviso alinhado ao padrão `quotesUnavailable` (visível, não só `title`), renomear `hasVariableEntries` → `entriesLoaded`.
+- **Fora de escopo**: mudanças no server; refatorar data-fetching para lib (react-query etc.); testes de componente/DOM.
+- **Critério de aceite**: funções puras alteradas/novas com testes (`computeMonthCashFlow` com a flag nova; helper de percentual); estados de erro/loading verificáveis por leitura do código e descritos no relatório; suíte web + build verdes.
+- **Resultado**: —
+
+### T-031 — Edição inline nos layers básicos (PATCH em renda/despesas/lançamentos/poupança)
+- **Status**: PENDENTE (Onda B — aguarda Onda A)
+- **Prioridade**: P1
+- **Complexidade**: alta (várias rotas de dinheiro + UI de edição em 4 telas)
+- **Depende de**: T-028, T-029 (mesmos arquivos de rota e validação)
+- **Branch/worktree**: —
+- **Contexto**: hoje tudo nos layers básicos é criar/excluir — corrigir um valor exige apagar e recriar. Mobills/Organizze/Wallet têm edição em tudo. Maior função básica ausente.
+- **Escopo**: rotas `PATCH /api/income/:id`, `/api/expenses/:id`, `/api/expense-entries/:id`, `/api/savings/:id` (parciais, padrão do `PATCH /api/goals/:id`; savings vinculado a meta: editar `amount` reflete no progresso derivado — atenção à consistência); UI de edição inline (ou modal simples) nas 4 telas, reutilizando os forms existentes; validação idêntica à criação (incluindo `Number.isFinite` da T-029 e categoria normalizada da T-028); testes de rota por campo + isolamento cross-user 404.
+- **Fora de escopo**: editar operações de ações (fora dos layers básicos, decisão futura); histórico/auditoria de edições.
+- **Critério de aceite**: editar cada tipo de registro persiste e reflete nos totais/derivados (inclusive progresso de meta vinculada); PATCH cross-user → 404; suíte inteira + build verdes.
+- **Resultado**: —
 
 ## Ciclo 5 — Melhorias dos layers básicos — CONCLUÍDO E MERGEADO (2026-07-25)
 
