@@ -4,109 +4,46 @@ Leitura inicial obrigatória da sessão orquestradora. Objetivo: em ~2 minutos d
 
 ## O que é o Vetor Wallet
 
-Carteira pessoal de ações da B3 para um único usuário real (Giovane). O usuário cadastra operações de compra/venda; o servidor consolida posições por preço médio ponderado e busca cotações em tempo real na brapi.dev. O dashboard mostra investido, valor atual e P&L.
+Carteira financeira pessoal para um único usuário real (Giovane), organizada em **layers**: Renda mensal, Despesas (fixas + lançamentos variáveis com recorrência e histórico mensal), Poupança/Reserva (com metas alimentadas por aportes), Metas, Criptomoedas (mock "em breve") e Ações da B3 (posições por preço médio ponderado, cotações em tempo real via brapi.dev, modo carteira única).
 
 - **Arquitetura, schema, rotas, comandos e convenções**: leia `CLAUDE.md` na raiz — é a fonte de verdade técnica. Não duplique aquele conteúdo aqui.
-- **Monorepo pnpm**: `shared` (tipos), `server` (Express + libsql), `web` (Vite + React), `cli` (job de insights horários).
-- **Testes**: Vitest configurado apenas no `server`. O `web` ainda não tem runner (issue #6) — lógica testável deve virar função pura.
+- **Monorepo pnpm**: `shared` (tipos, types-only), `server` (Express + libsql, SQL puro), `web` (Vite + React), `cli` (job de insights horários).
+- **Testes**: Vitest no `server` e no `web` (funções puras, ambiente node). Estado ao fim do ciclo 6: 342 testes server + 113 web.
 
-## Estado atual e dívidas conhecidas
+## Estado atual (2026-07-25, fim do ciclo 6)
 
-Do `CLAUDE.md > Pontos de atenção`:
+- Ciclos 1–6 concluídos e mergeados (PRs #44–#76) — resumo por ciclo no `BACKLOG.md`, detalhes no `BACKLOG-ARQUIVO.md`.
+- **Modo auto ativo** (autorização permanente do humano, 2026-07-24): após APROVADA do revisor, o orquestrador abre PR e faz merge automático, resolvendo conflitos; revisão humana a posteriori. Decisões de produto/UX continuam indo ao `TODO-HUMANO.md`.
+- Dívidas de produção restantes: agendador do job de insights (Lambda/EventBridge); Alertas/Import CSV sem UI (aguardando redesign). Sessões já persistem no SQLite (T-034).
+- Direções dadas pelo humano: melhorar funções básicas antes de cripto/ações; sem gráficos no dashboard/home; carteira única como fluxo padrão.
 
-1. **SELL sem validação de saldo** — `portfolio.ts` trunca com `Math.max(0, newQty)` em vez de rejeitar venda maior que a posição.
-2. **Cotações falham silenciosamente** — `fetchQuotes` retorna `Map` vazio em erro; UI mostra `null` sem avisar o usuário.
-3. **Sessões em MemoryStore** — perdidas a cada restart do server; ok local, inviável em produção.
-4. **Job horário sem agendador** — CLI `insights:hourly` roda manualmente até o deploy em Lambda + EventBridge.
-5. **Web sem test runner** — issue #6.
+## Prioridade vigente
 
-## Prioridades (ordem atual)
+**Ciclo 7 — feedback do humano pós-ciclo 6** (ver tarefas T-036–T-038 no `BACKLOG.md`): renda variável, ocultar orçamento do mês, logo clicável. Depois: candidatas listadas no `BACKLOG.md` + decisões paradas no `TODO-HUMANO.md` (T-020/T-021).
 
-> **Estado em 2026-07-24 (Onda A do ciclo 4 concluída)**: ciclos 2 (PRs #47–#56), 3 (PRs #57–#60) e Onda A do 4 (PRs #61–#62: T-019 SELL do CSV por wallet_id; T-016 P&L diário via `quote_snapshots`) mergeados. Suíte na `main` (`60011b0`): server 147 testes + web 19 testes. Humano ativou **modo auto** (PRs e merges automáticos após aprovação do revisor, sem prompts; só decisões de produto/UX ou ações críticas voltam ao humano). Próximo: T-020/T-021 e ordenação das candidatas dependem de decisão do humano — ver `TODO-HUMANO.md`.
-
-> Atualize esta lista com aprovação do humano quando o contexto mudar. Registre a mudança no `TODO-HUMANO.md` se precisar de decisão.
-
-0. **[CONCLUÍDA em 2026-07-24 — PRs #47–#56 mergeadas] Refactor "Vetor Wallet v4" multi-layer**
-   Elevar o app para carteira financeira completa em layers — Renda mensal, Despesas
-   fixas, Poupança/Reserva, Metas, Criptomoedas (mock) e Ações — com o design do
-   handoff `design_handoff_vetor_wallet_refactor/` (estilo biip.club, light/dark,
-   Geist, mascotes por layer). Decomposto nas tarefas **T-003 a T-013** do
-   `BACKLOG.md` (ciclo 2). Esta prioridade **substitui** a antiga prioridade 1
-   (paleta 60-30-10 areia — encerrada no ciclo 1) e **remove os gráficos** do
-   dashboard, o que torna a antiga prioridade 2 (métricas nos gráficos) obsoleta
-   salvo decisão contrária do humano. Atenção: o handoff afirma que os modelos de
-   renda/despesas/poupança/metas já existem no server — não existem; T-006/T-007
-   criam esse backend.
-
-1. **[ENCERRADA no ciclo 1] Redesign visual com regra 60-30-10 + responsividade mobile**
-   Reformular o tema do app aplicando a regra 60-30-10 de cores: ~60% cor dominante
-   (fundos/superfícies), ~30% cor secundária (cards, painéis, navegação), ~10% cor de
-   destaque (CTAs, links, realces). O orquestrador escolhe a paleta que melhor serve o
-   app (proposta atual é tom areia `#e3d5b8` — avaliar se mantém como base) e registra
-   a proposta no `TODO-HUMANO.md` para aprovação antes de aplicar em larga escala.
-   Restrições: implementar via CSS custom properties em `web/src/index.css` (convenção
-   do projeto); preservar as cores semânticas de lucro/prejuízo (verde/vermelho) fora
-   da conta do 60-30-10; nada de framework CSS novo sem aprovação.
-   Inclui responsividade mobile: todas as telas (dashboard, operações, auth, admin)
-   usáveis em viewport ≥360px — tabelas viram scroll horizontal ou layout empilhado,
-   formulários em coluna única, gráficos redimensionam.
-   Critério de aceite: telas legíveis e operáveis em 360px, 768px e desktop sem
-   overflow horizontal da página; paleta documentada (qual cor é 60, qual é 30, qual
-   é 10) em comentário no `index.css`.
-
-2. **Métricas reais nos gráficos das carteiras**
-   Os gráficos em `web/src/components/PortfolioDashboard.tsx` (gráfico de evolução de
-   patrimônio com nós `<circle>` e os sparklines por posição) devem exibir valores
-   reais em cada nó/ponto: valor em R$ formatado pt-BR visível no hover (tooltip) e,
-   onde couber, rótulo no próprio ponto. Cada ponto deve ser condizente com a
-   realidade — derivado dos dados reais de `quote_snapshots`/`hourly_quote_insights`
-   e das operações do usuário, nunca interpolado/inventado; dias sem dado não geram nó.
-   Investigar antes de corrigir: de onde vem cada série hoje e onde ela diverge do
-   valor real da carteira (ex.: snapshot ausente, cotação nula tratada como zero).
-   Critério de aceite: para uma carteira de teste com operações conhecidas, o valor de
-   cada nó bate com o cálculo manual (quantidade × preço do snapshot do dia); lógica de
-   montagem das séries extraída para função pura com teste automatizado.
-
-3. **Ampliar funcionalidades do /admin**
-   Hoje o admin (`web/src/components/AdminPage.tsx` + `server/src/routes/admin.ts`) só
-   dispara o job de insights horários. Ampliar para um painel de operação do app.
-   Candidatas (orquestrador propõe o conjunto final no `TODO-HUMANO.md` antes de
-   implementar): listagem de usuários com contagem de operações/carteiras; status dos
-   dados (últimos snapshots por ticker, buracos de cobertura, falhas de captura);
-   disparo manual do job de snapshots diários com feedback de resultado; visão dos
-   alertas ativos de todos os usuários; healthcheck da integração brapi (última
-   resposta, latência, uso de token).
-   Restrições: toda rota nova exige `requireAuth` + `requireAdmin` e teste automatizado
-   (padrão existente em `admin.test.ts`); nenhuma rota admin expõe hash de senha.
-   Critério de aceite: cada funcionalidade nova acessível pela AdminPage, negada com
-   403 para usuário não-admin, e coberta por teste de rota.
-
-4. **Logo oficial nas páginas**
-   O arquivo `logo-vetor-wallet.png` está salvo no repositório e deve virar a
-   identidade visual do app: exibir a logo junto à string "Vetor Wallet" no cabeçalho
-   das páginas autenticadas (`App.tsx`) e na tela de login/registro (`AuthPage.tsx`),
-   além de usá-la como favicon (gerar tamanho adequado a partir do PNG).
-   Primeiro passo do executor: localizar o arquivo no repo (`git ls-files | grep -i logo`)
-   e movê-lo para `web/public/` se ainda não estiver lá.
-   Restrições: imagem servida como asset estático do Vite (`web/public/`); manter
-   proporção sem distorção; dimensionar bem em mobile (coordenar com a prioridade 1 —
-   pode ser executada junto do redesign).
-   Critério de aceite: logo visível no header e na tela de auth em desktop e mobile,
-   favicon atualizado, build do web (`pnpm --filter vetor-wallet-web build`) sem erro.
+> Atualize esta seção a cada ciclo. Mudança de prioridade que envolva produto → `TODO-HUMANO.md`.
 
 ## Como operar
 
 1. Leia `README.md` (fluxo e roteamento de modelos), este arquivo, `CLAUDE.md` e o `BACKLOG.md` atual.
 2. Decomponha a prioridade vigente em tarefas de **até ~1h de trabalho de um executor**, cada uma com critério de aceite verificável e **campo Complexidade** (baixa/média/alta), e registre no `BACKLOG.md`.
 3. Para tarefas de complexidade **alta**, considere um spike de design primeiro: agente `Plan` com `model: "opus"`; o plano resultante entra na íntegra no prompt do executor.
-4. Delegue com a ferramenta Agent, subagente `executor`, `isolation: "worktree"`, uma tarefa por agente, com o `model` definido pelo roteamento do `README.md` (alta → `opus`; média → `sonnet`; baixa → `haiku`/`sonnet`). Paralelize apenas tarefas independentes.
-5. No prompt de cada executor inclua: o item do backlog na íntegra, os arquivos-alvo prováveis, o plano do spike (se houver), e a instrução de ler `docs/multi-agent/README.md` e `CLAUDE.md` antes de codar.
-6. Ao receber o retorno, spawn do `revisor` sobre o diff — `model: "opus"` quando a tarefa é alta, foi executada em Opus, ou toca dinheiro/auth/schema. Reprovado → devolve ao executor com o feedback; **2 reprovações seguidas → re-delegue com executor `opus` incluindo o histórico dos achados**. Aprovado → atualize o `BACKLOG.md` registrando os modelos usados no Resultado.
-7. Consolide e reporte ao humano: o que fechou, o que bloqueou, o que entrou no `TODO-HUMANO.md`. Merge e PR conforme a autorização vigente (ver Limites).
-8. Reavalie prioridades e recomece.
+4. Delegue com a ferramenta Agent, subagente `executor`, `isolation: "worktree"`, uma tarefa por agente, com o `model` definido pelo roteamento do `README.md` (alta → `opus`; média → `sonnet`; baixa → `haiku`/`sonnet`). Paralelize apenas tarefas independentes (sem arquivos em comum).
+5. No prompt de cada executor inclua: o item do backlog na íntegra, os arquivos-alvo prováveis, o plano do spike (se houver), o estado relevante da `main` (tarefas recém-mergeadas que ele deve respeitar), e a instrução de ler `docs/multi-agent/README.md` e `CLAUDE.md` antes de codar.
+6. Ao receber o retorno, spawn do `revisor` sobre o diff — `model: "opus"` quando a tarefa é alta, foi executada em Opus, ou toca dinheiro/auth/schema/migração. Reprovado → devolve ao executor com o feedback (via SendMessage, mesmo worktree); **2 reprovações seguidas → re-delegue com executor `opus` incluindo o histórico dos achados**. Aprovado → integre.
+7. Integração: merge da `main` na branch se ela avançou (three-dot no diff do revisor; conferir marcadores de conflito após resolução manual — `git diff --check`), sanidade no worktree (suítes + build), PR via `gh` com `--body-file` (evita quoting do PowerShell), merge, sanidade na `main` ao fim da onda. Registre modelos usados e sugestões do revisor no `BACKLOG.md`.
+8. Ao encerrar o ciclo: mova os detalhes das tarefas concluídas para o `BACKLOG-ARQUIVO.md` (uma linha de resumo por ciclo fica no `BACKLOG.md`), atualize este arquivo e reporte ao humano o consolidado.
+
+## Lições operacionais acumuladas
+
+- Executores NÃO deixam servidores dev rodando (porta 3001 livre ao terminar) — incidentes de `EADDRINUSE` nos ciclos 3 e 6.
+- Worktrees novos precisam de `pnpm install --frozen-lockfile` antes de testar; rodar testes com `cd` explícito no worktree (executor da T-025 rodou no checkout principal por engano).
+- Corpo de PR sempre via `--body-file` (aspas duplas quebram o quoting nativo do PowerShell 5.1).
+- Após resolução manual de conflito, conferir marcadores residuais (incidente do orquestrador na T-024, pego pelo revisor da T-023).
+- Suítes de teste com datas: ancorar em datas relativas (`currentMonth()`/shift), nunca fixas — testes da T-035 "envelheciam".
 
 ## Limites do orquestrador
 
-- Não implementa tarefas grandes diretamente — decompõe e delega. Correções triviais (typo, ajuste de doc) pode fazer inline.
+- Não implementa tarefas grandes diretamente — decompõe e delega. Correções triviais (typo, ajuste de doc, higiene de repo) pode fazer inline.
 - Não decide produto: mudanças de escopo, UX ou prioridade vão para o `TODO-HUMANO.md`.
-- Merge e PR: **autorização permanente concedida pelo humano em 2026-07-24** — após veredito APROVADA do revisor, o orquestrador abre a PR e faz o merge automático, resolvendo conflitos (revisão humana a posteriori sobre as PRs). Perguntas puramente operacionais de integração não bloqueiam o loop; decisões de produto/UX continuam indo ao `TODO-HUMANO.md`.
+- Merge e PR: autorização permanente concedida pelo humano em 2026-07-24 (modo auto — ver "Estado atual").

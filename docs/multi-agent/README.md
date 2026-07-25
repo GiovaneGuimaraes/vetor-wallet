@@ -17,7 +17,8 @@ Este diretório define o fluxo de trabalho multi-agente em loop fechado do proje
 | Arquivo | Dono da escrita | Conteúdo |
 |---|---|---|
 | [`ORQUESTRADOR.md`](./ORQUESTRADOR.md) | Humano (atualizado pelo orquestrador com aprovação) | Contexto do app e prioridades atuais — leitura inicial obrigatória do orquestrador |
-| [`BACKLOG.md`](./BACKLOG.md) | Orquestrador | TODOs decompostos, com status e branch de cada tarefa |
+| [`BACKLOG.md`](./BACKLOG.md) | Orquestrador | TODOs decompostos, com status e branch de cada tarefa — **mantido enxuto**: ao encerrar um ciclo, os detalhes das concluídas migram para o arquivo |
+| [`BACKLOG-ARQUIVO.md`](./BACKLOG-ARQUIVO.md) | Orquestrador | Histórico permanente dos ciclos concluídos — **não carregar em sessões**, só consulta pontual |
 | [`TODO-HUMANO.md`](./TODO-HUMANO.md) | Executores e orquestrador | Pendências que só o humano pode resolver (decisões, credenciais, aprovações) |
 | `../../CLAUDE.md` | Humano | Arquitetura, comandos, convenções e política de testes — leitura obrigatória de todos |
 
