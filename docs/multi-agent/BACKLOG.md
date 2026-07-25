@@ -67,7 +67,7 @@ _(Ciclo 6, Onda A em andamento — T-029 e T-030 delegadas em 2026-07-25; T-028 
 - **Resultado**: —
 
 ### T-032 — Rejeitar valores não finitos no import CSV (achado do revisor da T-029)
-- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25 — Onda B)
+- **Status**: CONCLUIDA e MERGEADA — PR [#72](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/72) (2026-07-25). Revisor: APROVADA, 0 achados — reverteu o fix temporariamente e confirmou que o teste falha sem ele. Rejeição por linha e validação de SELL (T-019) intactas. Server 235 testes / build verde. Modelos: executor Sonnet, revisor Sonnet.
 - **Prioridade**: P2
 - **Complexidade**: baixa (uma rota, padrão já estabelecido pela T-029)
 - **Depende de**: —
