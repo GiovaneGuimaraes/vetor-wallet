@@ -1,4 +1,4 @@
-import { Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import type { User } from '@vetor-wallet/shared';
 import { ThemeToggleButton } from '../components/ThemeToggleButton';
 import { mascotSrcForPathname } from './mascots';
@@ -27,7 +27,7 @@ export function AppShell({ user, theme, onToggleTheme, onLogout, outletContext }
     <div className="min-h-screen bg-canvas">
       <header className="vw-header">
         <div className="vw-header-inner">
-          <div className="vw-logo">
+          <Link to="/home" className="vw-logo vw-logo-link" aria-label="Ir para a página inicial">
             <img
               key={mascotSrc}
               src={mascotSrc}
@@ -40,7 +40,7 @@ export function AppShell({ user, theme, onToggleTheme, onLogout, outletContext }
               }}
             />
             <span className="vw-wordmark">vetor</span>
-          </div>
+          </Link>
 
           <div className="vw-header-right">
             <span className="vw-greeting">Olá, {firstName}</span>
