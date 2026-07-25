@@ -29,7 +29,7 @@ _(Ciclo 6: Ondas A e B CONCLUÍDAS E MERGEADAS — PRs #69–#73; sanidade na `m
 ## Ciclo 6 — Colheita das revisões + edição inline + Onda C (EM ANDAMENTO)
 
 ### T-033 — Histórico mensal no layer Despesas (últimos meses, sem gráfico)
-- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25 — Onda C)
+- **Status**: CONCLUIDA e MERGEADA — PR [#75](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/75) (2026-07-25). Histórico: REPROVADA na 1ª revisão (bloqueante: histórico congelado após criar/editar/excluir lançamento — dois valores monetários contraditórios na mesma tela); executor corrigiu (`refreshHistory()` nos 3 handlers, no caminho de sucesso) + aplicou sugestões (breakdown visível, 2 testes puros, `HISTORY_MONTHS` reposicionado) → APROVADA na re-revisão. Janela de N meses consistente server/pura/UI, virada de ano coberta, `/summary` antes de `/:id`. Sugestões registradas: flicker de "Carregando" na revalidação; guarda de resposta obsoleta própria do `refreshHistory` (mesma classe do bug da T-030); fuso server×browser na virada de mês (documentado, solução futura: cliente envia `endMonth`). Pós-merge: server 310 / web 101 / build verdes. Modelos: executor Sonnet, revisor Opus 5.
 - **Prioridade**: P2
 - **Complexidade**: média (endpoint agregado + seção de UI; revisor Opus por tocar dinheiro)
 - **Depende de**: T-022 (mergeada)
@@ -53,11 +53,11 @@ _(Ciclo 6: Ondas A e B CONCLUÍDAS E MERGEADAS — PRs #69–#73; sanidade na `m
 - **Resultado**: —
 
 ### T-035 — Recorrência de lançamentos de despesa (mensal)
-- **Status**: PENDENTE (Onda C — entra após merge da T-033, mesmos arquivos)
+- **Status**: EM_ANDAMENTO (executor Opus 5, delegado 2026-07-25 após merge da T-033)
 - **Prioridade**: P3
 - **Complexidade**: alta (schema novo + materialização idempotente — decisões de design)
-- **Depende de**: T-033
-- **Branch/worktree**: —
+- **Depende de**: T-033 (mergeada — PR #75)
+- **Branch/worktree**: `giovane/t-035-recorrencia`
 - **Contexto**: escolha do humano para a Onda C (3ª da sequência). Despesa variável que se repete todo mês (assinatura, mensalidade) hoje precisa ser digitada mês a mês — ficou explicitamente fora da T-022.
 - **Escopo**: marcar um lançamento como recorrente mensal na criação/edição (tabela própria `recurring_expenses` ou flag + tabela de controle — decisão do executor, documentada); materialização **lazy e idempotente**: ao consultar um mês (GET por mês), ocorrências pendentes daquele mês são geradas uma única vez (chave única por recorrência+mês; dia do mês ajustado para meses curtos, ex.: dia 31 → último dia); encerrar recorrência (não gera futuros; ocorrências passadas ficam); UI: checkbox "repetir todo mês" no form + indicação nos itens gerados + gestão mínima (listar/encerrar recorrências ativas); testes de materialização (idempotência, mês curto, encerramento, isolamento por user).
 - **Fora de escopo**: recorrência em renda/poupança; frequências além de mensal; edição em massa de ocorrências passadas.
