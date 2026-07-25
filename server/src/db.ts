@@ -260,6 +260,11 @@ export async function initDb() {
     // NULL = lançamento digitado à mão. O template nunca é apagado (encerrar
     // é `active = 0`), então a FK nunca bloqueia um delete.
     'ALTER TABLE expense_entries ADD COLUMN recurring_id INTEGER REFERENCES recurring_expenses(id)',
+    // T-041: etiqueta de procedência que amarra as duas pernas de uma
+    // transferência poupança → meta (WITHDRAW sem vínculo + DEPOSIT vinculado,
+    // mesmo uuid). É só rótulo para a UI: nada é validado entre as pernas e o
+    // PATCH não aceita o campo — cada perna segue editável/excluível sozinha.
+    'ALTER TABLE savings_entries ADD COLUMN transfer_group TEXT',
   ]) {
     try {
       await db.execute(sql);
