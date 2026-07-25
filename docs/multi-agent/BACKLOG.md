@@ -45,7 +45,7 @@ _(Ciclo 7, Onda A delegada em 2026-07-25 — T-036, T-037, T-038 em paralelo, ar
 - **Resultado**: —
 
 ### T-037 — Ocultar a seção "Orçamento do mês" de Despesas (feedback do humano)
-- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25)
+- **Status**: CONCLUIDA e MERGEADA — PR [#78](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/78) (2026-07-25). Revisor: APROVADA, 0 bloqueantes — JSX conferido na íntegra (todas as demais features da página intactas), `normalizeCategory` removida do import com verificação de que o único uso era o upsert de orçamento, numstat de testes vazio. Backend/testes de budgets preservados e verdes. Modelos: executor Sonnet, revisor Sonnet.
 - **Prioridade**: P2
 - **Complexidade**: baixa (remoção de render; backend intacto — padrão T-026)
 - **Depende de**: —
@@ -57,7 +57,7 @@ _(Ciclo 7, Onda A delegada em 2026-07-25 — T-036, T-037, T-038 em paralelo, ar
 - **Resultado**: —
 
 ### T-038 — Logo/mascote do header clicável → home
-- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25)
+- **Status**: CONCLUIDA e MERGEADA — PR [#77](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/77) (2026-07-25). Revisor: APROVADA, 0 bloqueantes — `Link` SPA do react-router, visual preservado nos dois temas (`color: inherit`), header sticky e mascote por rota intocados; landing sem header equivalente (grep). Web 113 / build verdes. Modelos: executor Sonnet, revisor Sonnet.
 - **Prioridade**: P3
 - **Complexidade**: baixa (só navegação no shell)
 - **Depende de**: —
