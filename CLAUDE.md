@@ -327,7 +327,7 @@ Driver: `@libsql/client` (libsql/SQLite). Sem ORM; queries são SQL puro.
 - **TypeScript strict** em todos os pacotes.
 - **Sem ORM** — SQL puro via `@libsql/client`.
 - **Tipos compartilhados em `shared/src/index.ts`** — não duplique interfaces entre server e web.
-- **Autenticação via sessão** — cookie `sid` (express-session + MemoryStore). Todas as rotas de dados filtram por `user_id`.
+- **Autenticação via sessão** — cookie `sid` (express-session + `SqliteSessionStore`, persistida no SQLite — ver "Sessões persistem no restart"). Todas as rotas de dados filtram por `user_id`.
 - **Locale pt-BR/BRL** para formatação de números e moeda no frontend (`Intl.NumberFormat`).
 - **CSS custom properties** para tema — variáveis em `web/src/index.css`.
 - **Nenhum gerenciador de estado externo** no frontend — estado em `App.tsx`, passado via props.
@@ -421,8 +421,18 @@ Fora de escopo (segue pendente): editar operações de ações, histórico/audit
 ### Sobra do mês na Home é real, não só estimada (T-025)
 O hero da Home (`web/src/routes/HomePage.tsx`) busca também `GET /api/expense-entries?month=` (mês corrente via `currentMonthKey()` de `expenseMonth.ts`, fuso local) e calcula a sobra do mês com `computeMonthCashFlow` (`web/src/routes/homeMetrics.ts`): `realBalance = renda − despesas fixas − lançamentos variáveis do mês`. O card "Sobra do mês" mostra esse valor real com um sublabel comparando à sobra prevista (`estimatedBalance = renda − fixas`); o card de Despesas na Home mostra `expensesTotal` (fixas + variáveis), não só fixas. A busca de lançamentos segue o mesmo padrão `Promise.allSettled` das demais chamadas da Home (T-008): se falhar, `variableEntries` fica `null` e `computeMonthCashFlow` cai para o comportamento anterior (`realBalance = estimatedBalance`), sinalizado com um aviso discreto no sublabel em vez de exibir `NaN`. Sem gráficos ou histórico multi-mês na Home (decisão do humano — ver `TODO-HUMANO.md`, cancelados nesta tarefa).
 
-### Sessões não persistem no restart
-`express-session` usa **MemoryStore** — sessões são perdidas quando o servidor reinicia. Aceitável para uso local; para produção, migrar para Redis store ou AWS Cognito.
+### Sessões persistem no restart (T-034)
+`express-session` usa `SqliteSessionStore` (`server/src/auth/sessionStore.ts`), uma implementação da interface `Store` sobre o mesmo `@libsql/client`/arquivo SQLite do app — não mais o `MemoryStore` padrão. Sessões sobrevivem a restart do server porque ficam gravadas na tabela `sessions` (`sid` PK, `data` TEXT JSON, `expires_at`; criada em `initDb()`, idempotente como as demais).
+
+Pontos de projeto:
+
+- **TTL** é derivado de `cookie.maxAge` (ms) — a mesma configuração que já existia (`7 * 24 * 60 * 60 * 1000` em `index.ts`). Fallback de 24h quando `maxAge` está ausente (sessão sem expiração explícita no cookie).
+- **Expiração**: `get` faz lazy-delete — uma sessão com `expires_at` no passado retorna `null` e a linha é apagada na mesma chamada. Além disso, `initDb()` roda uma varredura de limpeza no boot (`DELETE FROM sessions WHERE expires_at <= <ISO agora>`) para não acumular sessões expiradas de execuções antigas que nunca mais serão lidas.
+- **`touch`** (usado por `rolling`/renovação) atualiza só `expires_at`, sem reescrever `data`.
+- **Callbacks nunca lançam síncrono** — todo método do Store é promise-based internamente e delega erro ao callback (`cb(err)`); um throw síncrono aqui derrubaria o server, já que o `express-session` não envolve as chamadas em `try/catch`.
+- `expires_at` é gravado como ISO string (UTC) e a varredura de boot compara contra um parâmetro também ISO — nunca contra `datetime('now')` do SQLite (formatos com separador `T` vs espaço não comparam de forma lexicográfica consistente entre si).
+- Sem dependência nova — a interface `Store` do `express-session` já era exposta pelo próprio pacote (`import { Store } from 'express-session'`).
+- Continua valendo para produção multi-instância/Turso: como o driver já é `@libsql/client`, apontar `DATABASE_URL` para Turso persiste sessões do mesmo jeito, sem trocar nada no Store. Redis/Cognito seguem fora de escopo (seriam necessários só para requisitos que o SQLite não cobre, como sessão compartilhada entre múltiplos processos/regiões).
 
 ### Falha de cotações agora é sinalizada (antes silenciosa)
 `fetchQuotes` (`server/src/services/quotes.ts`) continua **não derrubando a request** em erro de rede/timeout/resposta não-ok da brapi — mas agora retorna `{ quotes, failed }` em vez de só o `Map`. `failed: true` sinaliza que a busca falhou por completo (distinto de um ticker pontual vir ausente numa resposta bem-sucedida). `routes/portfolio.ts` propaga isso para `buildPortfolioSummary(positionMap, quotes, failed)`, que seta `PortfolioSummary.quotesUnavailable` (campo opcional). Posições sem cotação continuam exibindo `null` nos campos de valor atual e P&L; o dashboard (`PortfolioDashboard.tsx`) mostra um banner discreto (`--color-warn`) quando `quotesUnavailable` está ativo.
