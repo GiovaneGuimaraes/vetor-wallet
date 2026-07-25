@@ -173,6 +173,9 @@ export async function initDb() {
     'ALTER TABLE alert_rules ADD COLUMN user_id INTEGER REFERENCES users(id)',
     'ALTER TABLE operations ADD COLUMN wallet_id INTEGER REFERENCES wallets(id)',
     "ALTER TABLE users ADD COLUMN roles TEXT NOT NULL DEFAULT '[]'",
+    // T-024: vínculo opcional entre lançamento de poupança e meta financeira.
+    // Metas com lançamentos vinculados passam a ter progresso derivado.
+    'ALTER TABLE savings_entries ADD COLUMN goal_id INTEGER REFERENCES goals(id)',
   ]) {
     try {
       await db.execute(sql);
@@ -180,4 +183,9 @@ export async function initDb() {
       // Column already exists — safe to ignore
     }
   }
+
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_savings_entries_goal
+     ON savings_entries(user_id, goal_id)`,
+  );
 }

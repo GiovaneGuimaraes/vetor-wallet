@@ -35,7 +35,7 @@ _(Ciclo 5, Onda A em andamento — T-022, T-024, T-026, T-027 delegadas em 2026-
 > **Ondas propostas**: Onda A = T-022, T-024, T-026, T-027 (independentes entre si). Onda B = T-023, T-025 (dependem da T-022).
 
 ### T-022 — Lançamentos de despesas variáveis com data e visão mensal (`/despesas`)
-- **Status**: EM_ANDAMENTO (executor Opus 5, delegado 2026-07-24)
+- **Status**: CONCLUIDA e MERGEADA — PR [#64](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/64) (2026-07-25). Revisor Opus: APROVADA, 0 bloqueantes — isolamento por user_id nas 3 rotas, SQL 100% parametrizado, timezone BRT com testes de borda, schema idempotente fiel ao CLAUDE.md. 15 testes de rota + 12 de funções puras; server 162 / web 31 / build verdes. Sugestões não bloqueantes registradas: (1) navegação de mês sem guarda de resposta obsoleta (cliques rápidos podem exibir mês errado transitório); (2) hero soma fonte com erro como 0 em erro parcial; (3) `defaultEntryDate` em UTC (padrão pré-existente do repo — `OperationForm`/`PoupancaPage` idem); (4) `substr` não-sargable documentado; (5) `amount` aceita `Infinity` (dívida do repo inteiro — `expenses`/`savings` idem). Modelos: executor Opus 5, revisor Opus 5.
 - **Prioridade**: P1
 - **Complexidade**: alta (schema novo + rotas + navegação mensal na UI; base para T-023/T-025)
 - **Depende de**: —
@@ -47,11 +47,11 @@ _(Ciclo 5, Onda A em andamento — T-022, T-024, T-026, T-027 delegadas em 2026-
 - **Resultado**: —
 
 ### T-023 — Orçamento mensal por categoria com barra de progresso
-- **Status**: PENDENTE
+- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25 após merge da T-022)
 - **Prioridade**: P2
 - **Complexidade**: média (padrão CRUD existente + 1 cálculo puro; revisor Opus por tocar dinheiro)
-- **Depende de**: T-022
-- **Branch/worktree**: —
+- **Depende de**: T-022 (mergeada — PR #64)
+- **Branch/worktree**: `giovane/t-023-orcamento-categoria`
 - **Contexto**: recurso central do Wallet/BudgetBakers ("orçamento flexível") e do Mobills: o usuário define um teto de gasto por categoria e acompanha o consumo no mês.
 - **Escopo**: tabela `category_budgets` (`user_id`, `category` UNIQUE por usuário, `amount`); rotas `GET /api/budgets`, `POST` (upsert por categoria), `DELETE /:id`; tipos em `shared/`; no layer Despesas, seção "Orçamento do mês": para cada categoria com orçamento, barra fina (padrão visual das metas) com gasto do mês (lançamentos T-022 + fixas da categoria) vs teto, percentual e cor de alerta ao passar de 100% (token `--color-warn`/down); função pura `computeBudgetProgress` com testes no web.
 - **Fora de escopo**: orçamento total do mês (deriva da home/T-025); rollover de saldo entre meses; notificações.
@@ -59,7 +59,7 @@ _(Ciclo 5, Onda A em andamento — T-022, T-024, T-026, T-027 delegadas em 2026-
 - **Resultado**: —
 
 ### T-024 — Aportes de poupança vinculados a metas (progresso derivado)
-- **Status**: EM_ANDAMENTO (executor Opus 5, delegado 2026-07-24)
+- **Status**: CONCLUIDA e MERGEADA — PR [#66](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/66) (2026-07-25). Revisor Opus: APROVADA, 0 bloqueantes — verificou por conta própria initDb() idempotente (2x sem erro), FK aplicada pelo libsql e atomicidade do `db.batch` em cenário de falha (UPDATE revertido). Decisões validadas: YIELD+goalId→400, progresso derivado não materializado (2 queries, sem N+1), piso 0 + centavos, SavingsSummary intocado. Conflito de CLAUDE.md com T-022 resolvido pelo orquestrador (`d4b3299`, duas seções mantidas; 181 testes + build verdes no worktree pós-merge). Sugestões não bloqueantes registradas: (1) `user_id` redundante no UPDATE do batch é o único caminho para 500 no DELETE de meta; (2) `getGoalWithProgress` pode devolver null em corrida (retornar 404); (3) apagar o último vínculo devolve a meta a MANUAL com `current_amount` congelado — decidir/documentar; (4) `Promise.all` na PoupancaPage derruba a tela se só `/api/goals` falhar; (5) bug pré-existente do GoalCard (T-010) segue aberto, agora só afeta metas manuais. Modelos: executor Opus 5, revisor Opus 5.
 - **Prioridade**: P2
 - **Complexidade**: alta (mexe no modelo de metas + poupança, dinheiro e retrocompatibilidade)
 - **Depende de**: —
@@ -71,11 +71,11 @@ _(Ciclo 5, Onda A em andamento — T-022, T-024, T-026, T-027 delegadas em 2026-
 - **Resultado**: —
 
 ### T-025 — Fluxo de caixa do mês na Home (sobra real, não estimada)
-- **Status**: PENDENTE
+- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25 após merge da T-022)
 - **Prioridade**: P2
 - **Complexidade**: média (agregação no front sobre APIs prontas; função pura testável)
-- **Depende de**: T-022
-- **Branch/worktree**: —
+- **Depende de**: T-022 (mergeada — PR #64)
+- **Branch/worktree**: `giovane/t-025-sobra-real-home`
 - **Contexto**: a home mostra "Sobra do mês" = renda − despesas fixas (estimativa estática). Com os lançamentos datados da T-022 dá para mostrar a sobra **real** do mês corrente, no espírito da visão mensal do Organizze.
 - **Escopo**: hero da home passa a exibir sobra real = renda − fixas − lançamentos variáveis do mês corrente, com sublabel comparando à sobra prevista (renda − fixas); card de Despesas na home mostra o total do mês (fixas + variáveis); lógica em função pura (`homeMetrics.ts` ou módulo novo) com testes no runner do web; sem gráficos (decisão do humano: cancelados).
 - **Fora de escopo**: histórico multi-mês na home; projeções; gráficos.
@@ -95,7 +95,7 @@ _(Ciclo 5, Onda A em andamento — T-022, T-024, T-026, T-027 delegadas em 2026-
 - **Resultado**: —
 
 ### T-027 — Modo carteira única: fluxo direto para o dashboard (decisão do humano)
-- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-24)
+- **Status**: CONCLUIDA e MERGEADA — PR [#65](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/65) (2026-07-25). Histórico: REPROVADA na 1ª revisão (bloqueante: falha de rede no primeiro `getWallets()` auto-criava carteira "Principal" espúria — `walletsLoaded=true` via `finally` com lista vazia); executor corrigiu com `walletsLoadError` no ShellContext + ação `error` em `decideWalletFlow` + tela de retry (4 testes novos no ramo de erro) → APROVADA na re-revisão. `decideWalletFlow` pura com 10 testes; escape do loop de redirect via `?manage=1`; backend intacto. Merge limpo com T-026 (mesmo `DashboardPage.tsx`); sanidade pós-merge na main: web 41 testes + build verdes. Modelos: executor Sonnet, revisor Sonnet.
 - **Prioridade**: P3
 - **Complexidade**: média (fluxo de navegação + criação automática; backend intacto)
 - **Depende de**: —

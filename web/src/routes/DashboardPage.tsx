@@ -67,7 +67,7 @@ export function DashboardPage() {
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-3">
         <button
-          onClick={() => navigate('/carteiras')}
+          onClick={() => navigate(wallets.length <= 1 ? '/carteiras?manage=1' : '/carteiras')}
           className="flex items-center gap-1.5 bg-raised border border-edge rounded-full px-3 py-1 text-xs text-ink hover:border-accent/50 transition-colors cursor-pointer min-w-0"
           title="Trocar carteira"
         >
