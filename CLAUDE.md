@@ -33,7 +33,7 @@ vetor-wallet/
 │   │   │                   # recurringExpenses, savings, goals, budgets
 │   │   ├── services/       # portfolio, quotes, snapshots, hourlyInsights,
 │   │   │                   # benchmarks, tickers, goals, savings,
-│   │   │                   # recurringExpenses, categories
+│   │   │                   # recurringExpenses, categories, wallets, dates
 │   │   └── middleware/     # asyncHandler, errorHandler
 │   ├── data/wallet.db      # SQLite local (gitignored, criado automaticamente)
 │   ├── .env.example
@@ -145,14 +145,14 @@ Todas as rotas abaixo (exceto `/api/auth/*`) exigem sessão autenticada via cook
 | `POST` | `/api/auth/login` | Login — body: `{ email, password }` |
 | `POST` | `/api/auth/logout` | Encerra sessão |
 | `GET` | `/api/auth/me` | Retorna usuário autenticado |
-| `GET` | `/api/wallets` | Lista carteiras do usuário |
-| `POST` | `/api/wallets` | Cria carteira |
-| `GET` | `/api/operations` | Lista operações (filtrado por wallet) |
-| `POST` | `/api/operations` | Cria operação |
+| `GET` | `/api/wallets` | Lista as carteiras do usuário; lazy-cria a padrão se não houver nenhuma (T-050) |
+| `POST` | `/api/wallets` | Cria a carteira — **carteira única (T-050)**: se o usuário já tiver alguma, responde `400 { error: 'Você já tem uma carteira de ações' }` |
+| `GET` | `/api/operations` | Lista operações do usuário (consolidado; `?walletId=` é **ignorado** — T-050) |
+| `POST` | `/api/operations` | Cria operação — `wallet_id` do body é **ignorado**: nasce sempre na carteira padrão (T-050) |
 | `DELETE` | `/api/operations/:id` | Remove operação |
-| `GET` | `/api/portfolio` | `PortfolioSummary` com cotações em tempo real |
+| `GET` | `/api/portfolio` | `PortfolioSummary` com cotações em tempo real (consolidado do usuário; `?walletId=` **ignorado** — T-050) |
 | `GET` | `/api/snapshots/:ticker` | Histórico diário de preços |
-| `POST` | `/api/import` | Importa CSV de corretora |
+| `POST` | `/api/import` | Importa CSV de corretora (`?walletId=` **ignorado**; grava na carteira padrão — T-050) |
 | `GET` | `/api/alerts` | Lista alertas |
 | `POST` | `/api/alerts` | Cria alerta |
 | `DELETE` | `/api/alerts/:id` | Remove alerta |
@@ -207,7 +207,9 @@ CREATE TABLE IF NOT EXISTS users (
   created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 
--- Carteiras por usuário
+-- Carteira do usuário. Desde a T-050 é UMA por usuário — invariante de
+-- APLICAÇÃO (POST /api/wallets recusa a segunda), sem UNIQUE(user_id): o
+-- índice quebraria o boot de bases legadas que já têm 2+. Ver "Carteira única".
 CREATE TABLE IF NOT EXISTS wallets (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id     INTEGER NOT NULL REFERENCES users(id),
@@ -436,8 +438,19 @@ pnpm --filter vetor-wallet-web test
 ### `DATABASE_URL` para o CLI e futuro Turso
 `server/src/db.ts` usa `process.cwd()/data/wallet.db` por padrão. O CLI roda em `cli/`, então precisa de `DATABASE_URL=file:../server/data/wallet.db` no `cli/.env`. Quando o projeto migrar para Turso, basta apontar `DATABASE_URL` para a URL remota em ambos os ambientes.
 
+### Carteira única de ações (T-050)
+Decisão do humano (2026-07-25): "remover a lógica que permite o user ter mais de uma carteira". O modelo adotado é **"escopo = usuário; a carteira virou só um rótulo"** — nada é apagado nem escondido.
+
+- **`POST /api/wallets` recusa a segunda carteira** com `400` (a validação de `name` continua vindo antes). O usuário já **nasce** com a carteira padrão: `createUser` (`auth/service.ts`) chama `getOrCreateDefaultWallet`, e uma falha ali é logada mas **não derruba o registro** — o lazy-create do `GET /api/wallets` segue como rede de segurança.
+- **`DELETE /api/wallets/:id` foi removido** (nenhum cliente o usava; a FK de `operations` impediria apagar uma carteira com histórico de qualquer forma).
+- **A invariante é de aplicação, não de banco**: **não** existe índice `UNIQUE(user_id)` em `wallets` — ele quebraria o boot de uma base legada que já tem 2+. Essas carteiras continuam existindo e sendo **listadas** pelo `GET`; o que muda é que nenhuma leitura filtra por elas e nenhuma nova pode ser criada.
+- **Semântica do legado**: as leituras (`GET /api/operations`, `GET /api/portfolio`) agregam **todas** as operações do usuário. Numa base com 2+ carteiras, o P&L exibido passa a ser o **consolidado** delas — nenhuma operação some, mas o número muda. A alternativa (mostrar só a carteira mais antiga) esconderia operações reais e foi rejeitada; a decisão está registrada no `TODO-HUMANO.md`.
+- **`walletId`/`wallet_id` do cliente é ignorado** nas três rotas de dados (query string em operations/portfolio/import, body em `POST /api/operations`). Isso é retrocompatível — o web atual continua funcionando enviando o parâmetro — e fecha de quebra um buraco: o `wallet_id` do body era gravado sem checagem de posse, então dava para registrar uma operação numa carteira de **outro** usuário.
+- **`services/wallets.ts`** concentra `DEFAULT_WALLET`, `findDefaultWallet` (mais antiga: `ORDER BY created_at ASC, id ASC` — desempate por `id` porque `created_at` tem resolução de segundos), `countWallets` e `getOrCreateDefaultWallet`. Este último também adota as operações órfãs (`UPDATE operations SET wallet_id = ? WHERE user_id = ? AND wallet_id IS NULL`, dado de antes de `wallets` existir) e relê a mais antiga depois do INSERT, para que dois requests simultâneos convirjam para a mesma carteira em vez de cada um usar a sua.
+- **Fora de escopo**: remover `wallet_id` do schema, qualquer migração destrutiva do legado e a metade web (T-050b).
+
 ### Validação de SELL contra a posição atual
-`POST /api/operations` e `POST /api/import` (CSV) rejeitam com `400` qualquer SELL que exceda a posição consolidada **atual** do ticker **na carteira alvo** (soma das operações já registradas naquele `wallet_id`/usuário quando `wallet_id`/`walletId` é informado — independente da data da nova operação; não há validação por data histórica, um SELL retroativo é validado contra a posição de hoje). Ambas as rotas filtram a query de posição por `wallet_id` quando o parâmetro é informado (`wallet_id` no body de `/api/operations`, `walletId` na query string de `/api/import`); sem esse filtro, um usuário com múltiplas carteiras poderia importar/registrar um SELL que excede a posição da carteira alvo mas é coberto pela soma de todas as carteiras. A checagem usa `wouldExceedPosition`/`getPositionQuantity` em `services/portfolio.ts`, reaproveitando o mesmo `buildPositionMap` do cálculo de preço médio (sem duplicar lógica). No CSV, a rejeição é **por linha**: linhas de SELL inválidas entram no relatório de erros (`CsvImportResult.errors`, com número da linha) e o restante do arquivo é importado normalmente. `applyOperation` mantém `Math.max(0, newQty)` como cláusula de defesa (não como validação) — dados históricos podem já conter vendas a descoberto gravadas antes desta validação existir, e o cálculo de posição não pode quebrar/ficar negativo ao processá-los.
+`POST /api/operations` e `POST /api/import` (CSV) rejeitam com `400` qualquer SELL que exceda a posição consolidada **atual** do ticker **do usuário** — soma de todas as operações já registradas por ele, sem nenhum filtro de carteira (T-050), e independente da data da nova operação; não há validação por data histórica, um SELL retroativo é validado contra a posição de hoje. Numa base legada com 2+ carteiras, um SELL coberto pela **soma** delas é aceito (antes da T-050 era rejeitado por não caber na carteira alvo) — coerente com o escopo virar o usuário. A checagem usa `wouldExceedPosition`/`getPositionQuantity` em `services/portfolio.ts`, reaproveitando o mesmo `buildPositionMap` do cálculo de preço médio (sem duplicar lógica). No CSV, a rejeição é **por linha**: linhas de SELL inválidas entram no relatório de erros (`CsvImportResult.errors`, com número da linha) e o restante do arquivo é importado normalmente. `applyOperation` mantém `Math.max(0, newQty)` como cláusula de defesa (não como validação) — dados históricos podem já conter vendas a descoberto gravadas antes desta validação existir, e o cálculo de posição não pode quebrar/ficar negativo ao processá-los.
 
 ### Progresso de metas: manual ou derivado dos aportes vinculados (T-024)
 Uma meta tem **duas origens possíveis** de `current_amount`, sinalizadas pelo campo `progress_source` (`'MANUAL' | 'LINKED_SAVINGS'`) que a API devolve junto de `linked_entries_count`:

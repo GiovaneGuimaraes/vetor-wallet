@@ -21,7 +21,7 @@ server/src/
 │   ├── middleware.ts # requireAuth → 401 sem sessão; seta res.locals.userId
 │   └── router.ts     # POST /register /login /logout  GET /me
 ├── routes/
-│   ├── operations.ts # CRUD de operações (filtrado por user_id + wallet_id)
+│   ├── operations.ts # CRUD de operações (filtrado só por user_id — T-050)
 │   ├── portfolio.ts  # cálculo de posição + cotações (filtrado por user_id)
 │   ├── snapshots.ts  # GET /api/snapshots/:ticker — histórico diário de preços
 │   ├── alerts.ts     # CRUD de alertas (filtrado por user_id)
@@ -42,7 +42,7 @@ server/src/
 │   ├── goals.ts      # CRUD de metas (progresso manual ou derivado — T-024)
 │   ├── budgets.ts    # orçamento mensal por categoria (upsert — T-023)
 │   ├── benchmarks.ts # CDI / Ibovespa
-│   ├── wallets.ts    # CRUD de carteiras
+│   ├── wallets.ts    # lista/cria a carteira única do usuário (T-050) — sem DELETE
 │   └── tickers.ts    # busca de tickers na brapi
 ├── services/
 │   ├── portfolio.ts      # buildPositionMap, buildPortfolioSummary (lógica pura)
@@ -51,6 +51,9 @@ server/src/
 │   │                     # em centavos inteiros — base da transferência T-041
 │   ├── recurringExpenses.ts # materialização lazy/idempotente das ocorrências
 │   │                        # de recorrência mensal (T-035) + helpers de data
+│   ├── wallets.ts        # carteira única (T-050): DEFAULT_WALLET,
+│   │                     # findDefaultWallet, countWallets,
+│   │                     # getOrCreateDefaultWallet (+ adoção de operações órfãs)
 │   ├── categories.ts     # normalizeCategory — forma canônica de categoria
 │   │                     # (T-028; duplicada de propósito no web)
 │   ├── quotes.ts         # fetchQuotes → brapi.dev (timeout 5s)
