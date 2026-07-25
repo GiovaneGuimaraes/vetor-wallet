@@ -155,6 +155,14 @@ describe('expense entries routes', () => {
     expect(malformed.status).toBe(400);
   });
 
+  // T-043: formato válido mas dia/mês inexistente no calendário.
+  it('rejects a nonexistent calendar date (2026-02-30) (400)', async () => {
+    const res = await agentA
+      .post('/api/expense-entries')
+      .send({ description: 'Padaria', amount: 10, date: '2026-02-30' });
+    expect(res.status).toBe(400);
+  });
+
   it('rejects malformed month filter (400)', async () => {
     const res = await agentA.get('/api/expense-entries?month=2026-13');
     expect(res.status).toBe(400);
@@ -309,6 +317,12 @@ describe('expense entries routes', () => {
     it('rejects PATCH with malformed date (400)', async () => {
       const id = await newEntry();
       const res = await agentA.patch(`/api/expense-entries/${id}`).send({ date: '10/08/2026' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with a nonexistent calendar date (2026-13-01) (400)', async () => {
+      const id = await newEntry();
+      const res = await agentA.patch(`/api/expense-entries/${id}`).send({ date: '2026-13-01' });
       expect(res.status).toBe(400);
     });
 

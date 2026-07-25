@@ -148,4 +148,21 @@ describe('import routes — CSV SELL validation', () => {
     expect(res.body.errors[1]).toMatchObject({ line: 4 });
     expect(res.body.errors[1].error).toMatch(/preço inválido/);
   });
+
+  // T-043: uma data com formato válido mas inexistente no calendário é
+  // rejeitada linha a linha, igual às demais validações de linha.
+  it('rejects a row with a nonexistent calendar date (2026-02-30) while importing the other valid rows', async () => {
+    const csv = [
+      'ticker,type,quantity,price,date',
+      'BBAS3,BUY,10,20,2026-02-30', // day does not exist in February
+      'BBAS3,BUY,5,25,2026-03-01', // valid
+    ].join('\n');
+
+    const res = await agentA.post('/api/import').type('text/csv').send(csv);
+    expect(res.status).toBe(200);
+    expect(res.body.imported).toBe(1);
+    expect(res.body.errors).toHaveLength(1);
+    expect(res.body.errors[0]).toMatchObject({ line: 2 });
+    expect(res.body.errors[0].error).toMatch(/data inválida/);
+  });
 });

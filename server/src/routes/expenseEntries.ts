@@ -8,11 +8,11 @@ import {
   createRecurringExpenseEntry,
   materializeRecurringExpenses,
 } from '../services/recurringExpenses';
+import { isValidIsoDate } from '../services/dates';
 
 const router = Router();
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * Mês corrente no fuso local do processo (YYYY-MM). Usado como default de
@@ -188,7 +188,7 @@ router.post(
       res.status(400).json({ error: 'amount deve ser um número maior que 0' });
       return;
     }
-    if (!date || typeof date !== 'string' || !DATE_RE.test(date)) {
+    if (!date || typeof date !== 'string' || !isValidIsoDate(date)) {
       res.status(400).json({ error: 'date inválida (use YYYY-MM-DD)' });
       return;
     }
@@ -198,9 +198,10 @@ router.post(
       return;
     }
     // T-035: o dia da recorrência default é o dia do próprio lançamento.
-    // `DATE_RE` aceita dígitos fora de 01-31 (ex.: `2026-07-45`), então o dia
-    // derivado é fixado na faixa do CHECK(day_of_month BETWEEN 1 AND 31) —
-    // um valor fora dela viraria erro de constraint (500) em vez de 400.
+    // Defesa mantida mesmo após `isValidIsoDate` (T-043) já garantir um dia
+    // real do calendário: o dia derivado é fixado na faixa do
+    // CHECK(day_of_month BETWEEN 1 AND 31) para nunca virar erro de
+    // constraint (500) em vez de 400.
     let recurringDay = Math.min(Math.max(Number(date.slice(8, 10)) || 1, 1), 31);
     if (dayOfMonth !== undefined) {
       if (
@@ -301,7 +302,7 @@ router.patch(
       res.status(400).json({ error: 'amount deve ser um número maior que 0' });
       return;
     }
-    if (date !== undefined && (typeof date !== 'string' || !DATE_RE.test(date))) {
+    if (date !== undefined && (typeof date !== 'string' || !isValidIsoDate(date))) {
       res.status(400).json({ error: 'date inválida (use YYYY-MM-DD)' });
       return;
     }

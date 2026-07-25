@@ -4,6 +4,7 @@ import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { computeFreeBalance, toCents } from '../services/savings';
+import { isValidIsoDate } from '../services/dates';
 import type {
   NewSavingsEntry,
   SavingsEntryType,
@@ -70,7 +71,7 @@ router.post(
       res.status(400).json({ error: 'amount deve ser um número maior que 0' });
       return;
     }
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    if (!date || !isValidIsoDate(date)) {
       res.status(400).json({ error: 'date inválida (use YYYY-MM-DD)' });
       return;
     }
@@ -153,7 +154,7 @@ router.post(
       res.status(400).json({ error: 'amount deve ser um número maior que 0' });
       return;
     }
-    if (!date || typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    if (!date || typeof date !== 'string' || !isValidIsoDate(date)) {
       res.status(400).json({ error: 'date inválida (use YYYY-MM-DD)' });
       return;
     }
@@ -274,7 +275,7 @@ router.patch(
       res.status(400).json({ error: 'amount deve ser um número maior que 0' });
       return;
     }
-    if (date !== undefined && (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date))) {
+    if (date !== undefined && (typeof date !== 'string' || !isValidIsoDate(date))) {
       res.status(400).json({ error: 'date inválida (use YYYY-MM-DD)' });
       return;
     }

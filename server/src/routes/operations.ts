@@ -3,6 +3,7 @@ import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { buildPositionMap, wouldExceedPosition } from '../services/portfolio';
+import { isValidIsoDate } from '../services/dates';
 import type { NewOperation, Operation } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -52,7 +53,7 @@ router.post(
       res.status(400).json({ error: 'price deve ser maior que 0' });
       return;
     }
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    if (!date || !isValidIsoDate(date)) {
       res.status(400).json({ error: 'date invalida (use YYYY-MM-DD)' });
       return;
     }
