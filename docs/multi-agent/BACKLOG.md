@@ -24,9 +24,9 @@
 
 ## Tarefas ativas
 
-_(vazio — Onda A do ciclo 4 concluída em 2026-07-24; T-020/T-021 em espera por decisão do humano. Ciclo 5 planejado abaixo, aguardando ordem do humano para iniciar.)_
+_(Ciclo 5, Onda A em andamento — T-022, T-024, T-026, T-027 delegadas em 2026-07-24; ver seção do ciclo 5 abaixo. Onda B (T-023, T-025) aguarda integração da T-022. T-020/T-021 do ciclo 4 seguem em espera por decisão do humano.)_
 
-## Ciclo 5 — Melhorias dos layers básicos (PLANEJADO — não iniciado)
+## Ciclo 5 — Melhorias dos layers básicos (EM ANDAMENTO — Onda A delegada em 2026-07-24)
 
 > Pedido do humano (2026-07-24): melhorar os layers básicos (Renda, Despesas, Poupança, Metas — **fora** Ações e Cripto), usando como referência apps de wallet existentes: **Mobills** (metas financeiras, controle de gastos), **Organizze** (simplicidade, visão mensal, múltiplas contas) e **Wallet/BudgetBakers** (orçamento flexível por categoria). Diretriz vigente: melhorar funções básicas antes de cripto/ações. Open Finance/sincronização bancária ficou **fora** — inviável no escopo local atual (exigiria credenciais, agregador pago e infraestrutura).
 >
@@ -35,11 +35,11 @@ _(vazio — Onda A do ciclo 4 concluída em 2026-07-24; T-020/T-021 em espera po
 > **Ondas propostas**: Onda A = T-022, T-024, T-026, T-027 (independentes entre si). Onda B = T-023, T-025 (dependem da T-022).
 
 ### T-022 — Lançamentos de despesas variáveis com data e visão mensal (`/despesas`)
-- **Status**: PENDENTE
+- **Status**: EM_ANDAMENTO (executor Opus 5, delegado 2026-07-24)
 - **Prioridade**: P1
 - **Complexidade**: alta (schema novo + rotas + navegação mensal na UI; base para T-023/T-025)
 - **Depende de**: —
-- **Branch/worktree**: —
+- **Branch/worktree**: `giovane/t-022-despesas-variaveis`
 - **Contexto**: hoje o layer Despesas só tem itens **fixos mensais** (`fixed_expenses`), sem data. O coração de Mobills/Organizze é registrar os gastos do dia a dia com data e categoria e navegar por mês — sem isso não existe fluxo de caixa real, orçamento por categoria nem comparação entre meses.
 - **Escopo**: tabela `expense_entries` (`user_id`, `description`, `category`, `amount`, `date` YYYY-MM-DD, `created_at`); rotas `GET /api/expense-entries?month=YYYY-MM` (default mês corrente), `POST`, `DELETE /:id` com `requireAuth` e isolamento por `user_id` (padrão de `expenses.ts`); tipos em `shared/`; funções em `web/src/api.ts`; UI do layer Despesas ganha duas seções — "Fixas do mês" (existente) e "Lançamentos do mês" (lista com data/categoria/valor, form de adição, excluir) — com navegação ‹ mês anterior / próximo › e **total do mês = fixas + variáveis**; `CLAUDE.md` atualizado (schema + rotas).
 - **Fora de escopo**: orçamento por categoria (T-023); recorrência automática; edição inline; import de extrato.
@@ -59,11 +59,11 @@ _(vazio — Onda A do ciclo 4 concluída em 2026-07-24; T-020/T-021 em espera po
 - **Resultado**: —
 
 ### T-024 — Aportes de poupança vinculados a metas (progresso derivado)
-- **Status**: PENDENTE
+- **Status**: EM_ANDAMENTO (executor Opus 5, delegado 2026-07-24)
 - **Prioridade**: P2
 - **Complexidade**: alta (mexe no modelo de metas + poupança, dinheiro e retrocompatibilidade)
 - **Depende de**: —
-- **Branch/worktree**: —
+- **Branch/worktree**: `giovane/t-024-metas-aportes`
 - **Contexto**: no Mobills, meta é algo que você **alimenta com aportes**, não um número editado à mão. Hoje `goals.current_amount` é manual e desconectado da poupança — o usuário registra o depósito em `/poupanca` e depois atualiza a meta manualmente, em dobro.
 - **Escopo**: coluna opcional `goal_id INTEGER REFERENCES goals(id)` em `savings_entries` (ALTER idempotente no `initDb()`); `POST /api/savings` aceita `goalId` opcional (validar que a meta é do usuário); para metas **com** lançamentos vinculados, `GET /api/goals` retorna `current_amount` **derivado** (DEPOSIT − WITHDRAW vinculados; YIELD fora) — metas sem vínculo mantêm o manual (retrocompatibilidade); tipos em `shared/`; UI: form de lançamento da Poupança ganha select opcional "Vincular à meta", tela de Metas indica progresso automático vs manual (PATCH de `current_amount` bloqueado com 400 explicativo para metas com vínculo); `CLAUDE.md` atualizado.
 - **Fora de escopo**: transferência de saldo entre metas; rateio de YIELD entre metas; migração de dados históricos.
@@ -83,11 +83,11 @@ _(vazio — Onda A do ciclo 4 concluída em 2026-07-24; T-020/T-021 em espera po
 - **Resultado**: —
 
 ### T-026 — Ocultar Alertas e Import CSV do dashboard (decisão "b" do humano)
-- **Status**: PENDENTE
+- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-24)
 - **Prioridade**: P3
 - **Complexidade**: baixa (remoção de render, arquivos e rotas intactos)
 - **Depende de**: —
-- **Branch/worktree**: —
+- **Branch/worktree**: `giovane/t-026-ocultar-alertas-import`
 - **Contexto**: decisão registrada no `TODO-HUMANO.md` (2026-07-24, opção b): esconder da UI e redesenhar depois. A T-013 já tirou o BenchmarkComparison; `AlertsPanel` e `CsvImport` continuam no dashboard.
 - **Escopo**: remover `AlertsPanel` e `CsvImport` do render de `DashboardPage`/`PortfolioDashboard`; **manter** arquivos de componente e rotas do server intactos (voltam num redesign futuro); nota no `CLAUDE.md` de que as rotas seguem ativas sem UI.
 - **Fora de escopo**: apagar componentes/rotas/testes; redesign dos recursos.
@@ -95,11 +95,11 @@ _(vazio — Onda A do ciclo 4 concluída em 2026-07-24; T-020/T-021 em espera po
 - **Resultado**: —
 
 ### T-027 — Modo carteira única: fluxo direto para o dashboard (decisão do humano)
-- **Status**: PENDENTE
+- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-24)
 - **Prioridade**: P3
 - **Complexidade**: média (fluxo de navegação + criação automática; backend intacto)
 - **Depende de**: —
-- **Branch/worktree**: —
+- **Branch/worktree**: `giovane/t-027-carteira-unica`
 - **Contexto**: decisão do humano (2026-07-24): "uma carteira só resolve — não precisa da page de várias carteiras". Simplificação alinhada ao Organizze (menos passos até o dado).
 - **Escopo**: usuário sem carteira ganha uma "Principal" criada automaticamente no primeiro acesso ao layer Ações (front chama o POST existente); usuário com exatamente 1 carteira: card "Ações" da home e rota `/carteiras` levam **direto** ao `/dash/:id` da única carteira (redirect); usuário com 2+ carteiras (dados legados): página `/carteiras` continua funcionando como hoje; **backend multi-wallet intacto** (nenhuma mudança de schema/rotas).
 - **Fora de escopo**: remover tabela/rotas de wallets; migrar/mesclar carteiras existentes; excluir a página `/carteiras`.
