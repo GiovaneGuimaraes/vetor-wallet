@@ -146,14 +146,22 @@ export function HomePage() {
           <div>
             <p className="vw-hero-metric-label">Sobra do mês</p>
             <p className="vw-hero-metric-value">{fmtCur.format(cashFlow.realBalance)}</p>
-            {cashFlow.hasVariableEntries ? (
-              <p className="vw-hero-metric-sublabel">
-                Prevista: {fmtCur.format(cashFlow.estimatedBalance)}
+            {/* entriesLoaded só é avaliado após o primeiro carregamento (!loading) — nos
+                primeiros ms de qualquer carregamento variableEntries ainda é null, o que não
+                significa falha. Sem o gate por loading, o aviso de estimativa piscava sempre,
+                mesmo quando a busca ia ter sucesso (T-030). */}
+            {!loading && !cashFlow.entriesLoaded ? (
+              <p className="vw-hero-metric-sublabel vw-hero-metric-sublabel--warn">
+                ⚠ Estimativa (sem lançamentos do mês)
               </p>
             ) : (
-              <p className="vw-hero-metric-sublabel" title="Não foi possível carregar os lançamentos variáveis do mês — exibindo a sobra estimada (renda − despesas fixas)">
-                Estimativa (sem lançamentos do mês) *
-              </p>
+              // Sobra real === prevista quando não há lançamentos variáveis no mês (ou todos
+              // somam 0): repetir o mesmo valor no sublabel é ruído, então some com a comparação.
+              cashFlow.realBalance !== cashFlow.estimatedBalance && (
+                <p className="vw-hero-metric-sublabel">
+                  Prevista: {fmtCur.format(cashFlow.estimatedBalance)}
+                </p>
+              )
             )}
           </div>
         </div>

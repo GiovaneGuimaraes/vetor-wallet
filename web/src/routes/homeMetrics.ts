@@ -48,10 +48,13 @@ export interface MonthCashFlow {
   /** Sobra real do mês: renda − despesas fixas − lançamentos variáveis do mês corrente.
    * Igual a `estimatedBalance` quando não há lançamentos variáveis (ou quando a busca falhou). */
   realBalance: number;
-  /** true quando os lançamentos variáveis do mês foram carregados com sucesso (mesmo que vazios).
-   * false quando a busca falhou (`variableEntries === null`) — nesse caso `realBalance` cai para a
-   * estimativa antiga (`estimatedBalance`), sinalizado na Home em vez de virar NaN. */
-  hasVariableEntries: boolean;
+  /** true quando os lançamentos variáveis do mês foram carregados com sucesso (mesmo que vazios,
+   * i.e. array []). false quando a busca falhou (`variableEntries === null`) — nesse caso
+   * `realBalance` cai para a estimativa antiga (`estimatedBalance`), sinalizado na Home em vez de
+   * virar NaN. Renomeado de `hasVariableEntries` (T-030): o nome antigo mentia — também dava
+   * `true` para um mês sem nenhum lançamento (array vazio), que é um estado de sucesso, não de
+   * falha; `entriesLoaded` deixa essa distinção explícita para quem consome o campo. */
+  entriesLoaded: boolean;
 }
 
 /**
@@ -73,7 +76,7 @@ export function computeMonthCashFlow(
       expensesTotal: fixedExpensesTotal,
       estimatedBalance,
       realBalance: estimatedBalance,
-      hasVariableEntries: false,
+      entriesLoaded: false,
     };
   }
 
@@ -84,7 +87,7 @@ export function computeMonthCashFlow(
     expensesTotal,
     estimatedBalance,
     realBalance: incomeTotal - expensesTotal,
-    hasVariableEntries: true,
+    entriesLoaded: true,
   };
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   createExpenseEntry,
   createFixedExpense,
@@ -19,11 +19,10 @@ import {
   formatMonthLabel,
   shiftMonth,
 } from './expenseMonth';
-import { computeBudgetProgress } from './budgetProgress';
+import { computeBudgetProgress, formatBudgetPct } from './budgetProgress';
 import './layers.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-const fmtPct = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
 
 /** Primeiro dia do mês exibido, usado como default do campo de data do form. */
 function defaultEntryDate(monthKey: string): string {
@@ -51,6 +50,12 @@ export function DespesasPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [entries, setEntries] = useState<ExpenseEntry[] | 'loading' | 'error'>('loading');
+  // Guarda de resposta obsoleta (T-030): cliques rápidos em ‹/› disparam fetches
+  // concorrentes por mês; a última chamada DISPARADA (não a última a resolver)
+  // é a que deve valer. `latestRequestedMonthRef` guarda o mês mais recente
+  // pedido — se um fetch mais antigo resolve depois de um mais novo já ter
+  // sido disparado, seu resultado é descartado.
+  const latestRequestedMonthRef = useRef<string>(currentMonthKey());
   const [entryDescription, setEntryDescription] = useState('');
   const [entryCategory, setEntryCategory] = useState('');
   const [entryAmount, setEntryAmount] = useState('');
@@ -85,11 +90,17 @@ export function DespesasPage() {
   }, []);
 
   const refreshEntries = useCallback(async (month: string) => {
+    latestRequestedMonthRef.current = month;
     setEntries('loading');
     try {
       const data = await getExpenseEntries(month);
+      // Se um mês mais novo já foi pedido enquanto esta resposta estava a
+      // caminho, esta resolveu por último mas não é mais a requisição atual —
+      // descarta para não sobrescrever o mês exibido com valores de outro mês.
+      if (latestRequestedMonthRef.current !== month) return;
       setEntries(data.entries);
     } catch {
+      if (latestRequestedMonthRef.current !== month) return;
       setEntries('error');
     }
   }, []);
@@ -109,6 +120,23 @@ export function DespesasPage() {
   const totals = computeMonthTotals(list, entryList);
   const groups = groupByCategory(list);
   const budgetProgress = computeBudgetProgress(budgetList, list, entryList);
+
+  // Degradação parcial do hero (T-030): quando uma das duas fontes do total
+  // (fixas ou variáveis) está em erro, `list`/`entryList` caem para `[]` e
+  // `totals` soma a fonte quebrada como 0 — um valor subestimado que parece
+  // válido. Em vez disso, qualquer parcela/total que dependa de uma fonte
+  // quebrada exibe "—".
+  const fixedFailed = expenses === 'error';
+  const variableFailed = entries === 'error';
+  const totalDisplay = fixedFailed || variableFailed ? '—' : fmtCur.format(totals.total);
+  const fixedDisplay = fixedFailed ? '—' : fmtCur.format(totals.fixed);
+  const variableDisplay = variableFailed ? '—' : fmtCur.format(totals.variable);
+
+  // Barra de orçamento (T-030): `expenses`/`entries` ainda em loading fazem o
+  // gasto (`spent`) ficar subestimado (fonte incompleta) — em vez de piscar
+  // uma barra com valor errado por um instante, mostra um placeholder até as
+  // duas fontes carregarem.
+  const budgetSourcesLoading = expenses === 'loading' || entries === 'loading';
 
   function goToMonth(delta: number) {
     const next = shiftMonth(monthKey, delta);
@@ -287,9 +315,9 @@ export function DespesasPage() {
           </button>
         </div>
         <p className="vw-hero-total-label">Total do mês</p>
-        <p className="vw-hero-total-value">{fmtCur.format(totals.total)}</p>
+        <p className="vw-hero-total-value">{totalDisplay}</p>
         <p className="vw-month-breakdown">
-          Fixas {fmtCur.format(totals.fixed)} + variáveis {fmtCur.format(totals.variable)}
+          Fixas {fixedDisplay} + variáveis {variableDisplay}
         </p>
       </div>
 
@@ -304,7 +332,11 @@ export function DespesasPage() {
           <p className="vw-layerpage-state">Nenhum orçamento cadastrado ainda.</p>
         )}
 
-        {budgetProgress.length > 0 && (
+        {Array.isArray(budgets) && budgets.length > 0 && budgetSourcesLoading && (
+          <p className="vw-layerpage-state">Carregando gastos do mês…</p>
+        )}
+
+        {!budgetSourcesLoading && budgetProgress.length > 0 && (
           <ul className="vw-budget-list">
             {budgetProgress.map((progress) => (
               <li key={progress.id} className="vw-budget-item">
@@ -333,7 +365,7 @@ export function DespesasPage() {
                   />
                 </div>
                 <p className={`vw-budget-progress-pct${progress.over ? ' vw-budget-over-text' : ''}`}>
-                  {fmtPct.format(progress.pct)}% do orçamento
+                  {formatBudgetPct(progress.pct)}% do orçamento
                 </p>
               </li>
             ))}
