@@ -104,4 +104,20 @@ describe('operations routes — SELL validation', () => {
       .send({ ticker: 'VALE3', type: 'SELL', quantity: 20, price: 90, date: '2024-02-02' });
     expect(res.status).toBe(201);
   });
+
+  it('rejects non-finite quantity (Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/operations')
+      .set('Content-Type', 'application/json')
+      .send('{"ticker":"ITUB4","type":"BUY","quantity":1e999,"price":30,"date":"2024-03-01"}');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects non-finite price (-Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/operations')
+      .set('Content-Type', 'application/json')
+      .send('{"ticker":"ITUB4","type":"BUY","quantity":10,"price":-1e999,"date":"2024-03-01"}');
+    expect(res.status).toBe(400);
+  });
 });

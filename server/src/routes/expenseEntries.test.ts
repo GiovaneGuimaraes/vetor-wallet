@@ -114,6 +114,22 @@ describe('expense entries routes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects non-finite amount (Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/expense-entries')
+      .set('Content-Type', 'application/json')
+      .send('{"description":"Padaria","amount":1e999,"date":"2026-07-01"}');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects non-finite amount (-Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/expense-entries')
+      .set('Content-Type', 'application/json')
+      .send('{"description":"Padaria","amount":-1e999,"date":"2026-07-01"}');
+    expect(res.status).toBe(400);
+  });
+
   it('rejects missing or malformed date (400)', async () => {
     const missing = await agentA
       .post('/api/expense-entries')

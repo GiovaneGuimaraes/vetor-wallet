@@ -27,11 +27,11 @@ router.post(
       res.status(400).json({ error: 'name é obrigatório' });
       return;
     }
-    if (typeof target_amount !== 'number' || Number.isNaN(target_amount) || target_amount <= 0) {
+    if (typeof target_amount !== 'number' || !Number.isFinite(target_amount) || target_amount <= 0) {
       res.status(400).json({ error: 'target_amount deve ser um número maior que 0' });
       return;
     }
-    if (typeof current_amount !== 'number' || Number.isNaN(current_amount) || current_amount < 0) {
+    if (typeof current_amount !== 'number' || !Number.isFinite(current_amount) || current_amount < 0) {
       res.status(400).json({ error: 'current_amount deve ser um número maior ou igual a 0' });
       return;
     }
@@ -63,14 +63,14 @@ router.patch(
     }
     if (
       target_amount !== undefined &&
-      (typeof target_amount !== 'number' || Number.isNaN(target_amount) || target_amount <= 0)
+      (typeof target_amount !== 'number' || !Number.isFinite(target_amount) || target_amount <= 0)
     ) {
       res.status(400).json({ error: 'target_amount deve ser um número maior que 0' });
       return;
     }
     if (
       current_amount !== undefined &&
-      (typeof current_amount !== 'number' || Number.isNaN(current_amount) || current_amount < 0)
+      (typeof current_amount !== 'number' || !Number.isFinite(current_amount) || current_amount < 0)
     ) {
       res.status(400).json({ error: 'current_amount deve ser um número maior ou igual a 0' });
       return;

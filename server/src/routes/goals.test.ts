@@ -79,6 +79,52 @@ describe('goals routes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects creation with non-finite target_amount (Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/goals')
+      .set('Content-Type', 'application/json')
+      .send('{"name":"Viagem","target_amount":1e999}');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects creation with non-finite target_amount (-Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/goals')
+      .set('Content-Type', 'application/json')
+      .send('{"name":"Viagem","target_amount":-1e999}');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects creation with non-finite current_amount (Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/goals')
+      .set('Content-Type', 'application/json')
+      .send('{"name":"Viagem","target_amount":1000,"current_amount":1e999}');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects PATCH with non-finite target_amount (Infinity) (400)', async () => {
+    const created = await agentA.post('/api/goals').send({ name: 'Patch infinity', target_amount: 3000 });
+    const id = created.body.id;
+
+    const res = await agentA
+      .patch(`/api/goals/${id}`)
+      .set('Content-Type', 'application/json')
+      .send('{"target_amount":1e999}');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects PATCH with non-finite current_amount (Infinity) (400)', async () => {
+    const created = await agentA.post('/api/goals').send({ name: 'Patch infinity 2', target_amount: 3000 });
+    const id = created.body.id;
+
+    const res = await agentA
+      .patch(`/api/goals/${id}`)
+      .set('Content-Type', 'application/json')
+      .send('{"current_amount":1e999}');
+    expect(res.status).toBe(400);
+  });
+
   it('creates a goal', async () => {
     const res = await agentA.post('/api/goals').send({ name: 'Viagem', target_amount: 5000 });
     expect(res.status).toBe(201);

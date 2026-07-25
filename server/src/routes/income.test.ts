@@ -72,6 +72,22 @@ describe('income routes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects creation with non-finite amount (Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/income')
+      .set('Content-Type', 'application/json')
+      .send('{"name":"Salário","type":"SALARIO","amount":1e999}');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects creation with non-finite amount (-Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/income')
+      .set('Content-Type', 'application/json')
+      .send('{"name":"Salário","type":"SALARIO","amount":-1e999}');
+    expect(res.status).toBe(400);
+  });
+
   it('creates an income source', async () => {
     const res = await agentA.post('/api/income').send({ name: 'Salário CLT', type: 'SALARIO', amount: 5000 });
     expect(res.status).toBe(201);

@@ -36,7 +36,7 @@ router.post(
       res.status(400).json({ error: `type deve ser um de: ${VALID_TYPES.join(', ')}` });
       return;
     }
-    if (threshold === undefined || typeof threshold !== 'number' || threshold <= 0) {
+    if (threshold === undefined || typeof threshold !== 'number' || !Number.isFinite(threshold) || threshold <= 0) {
       res.status(400).json({ error: 'threshold deve ser maior que 0' });
       return;
     }

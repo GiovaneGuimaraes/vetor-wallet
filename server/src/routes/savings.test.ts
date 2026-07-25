@@ -72,6 +72,22 @@ describe('savings routes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects creation with non-finite amount (Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/savings')
+      .set('Content-Type', 'application/json')
+      .send('{"type":"DEPOSIT","amount":1e999,"date":"2025-01-01"}');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects creation with non-finite amount (-Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/savings')
+      .set('Content-Type', 'application/json')
+      .send('{"type":"DEPOSIT","amount":-1e999,"date":"2025-01-01"}');
+    expect(res.status).toBe(400);
+  });
+
   it('rejects creation with invalid date format (400)', async () => {
     const res = await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 100, date: '01/01/2025' });
     expect(res.status).toBe(400);

@@ -72,6 +72,22 @@ describe('expenses routes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects creation with non-finite amount (Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/expenses')
+      .set('Content-Type', 'application/json')
+      .send('{"name":"Aluguel","category":"Moradia","amount":1e999}');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects creation with non-finite amount (-Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/expenses')
+      .set('Content-Type', 'application/json')
+      .send('{"name":"Aluguel","category":"Moradia","amount":-1e999}');
+    expect(res.status).toBe(400);
+  });
+
   it('creates a fixed expense', async () => {
     const res = await agentA.post('/api/expenses').send({ name: 'Aluguel', category: 'Moradia', amount: 1500 });
     expect(res.status).toBe(201);
