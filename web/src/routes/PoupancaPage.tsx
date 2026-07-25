@@ -1,6 +1,20 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { getSavings, createSavingsEntry, deleteSavingsEntry, getGoals } from '../api';
-import type { Goal, SavingsEntry, SavingsEntryType, SavingsSummary } from '@vetor-wallet/shared';
+import {
+  getSavings,
+  createSavingsEntry,
+  deleteSavingsEntry,
+  getGoals,
+  updateSavingsEntry,
+} from '../api';
+import type {
+  Goal,
+  SavingsEntry,
+  SavingsEntryType,
+  SavingsEntryUpdate,
+  SavingsSummary,
+} from '@vetor-wallet/shared';
+import { diffEditableFields, hasEdits, parseMoneyInput } from './inlineEdit';
+import './layers.css';
 import './layers-savings.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -39,6 +53,20 @@ interface FormState {
 const EMPTY_FORM: FormState = { type: 'DEPOSIT', amount: '', date: todayIso(), note: '', goalId: '' };
 
 /**
+ * Rascunho de edição de um lançamento (T-031). Mesma forma do `FormState` de
+ * criação — `goalId` como string do `<select>`, `''` = sem vínculo.
+ */
+function toDraft(entry: SavingsEntry): FormState {
+  return {
+    type: entry.type,
+    amount: String(entry.amount),
+    date: entry.date,
+    note: entry.note,
+    goalId: entry.goal_id != null ? String(entry.goal_id) : '',
+  };
+}
+
+/**
  * Rota `/poupanca` (T-010): saldo/aportes/rendimento vindos do `summary`
  * calculado pelo server (`GET /api/savings`) — sem recálculo no front —,
  * lista de lançamentos, form de novo lançamento e dica CDI estática.
@@ -46,6 +74,11 @@ const EMPTY_FORM: FormState = { type: 'DEPOSIT', amount: '', date: todayIso(), n
  * T-024: aporte/retirada podem ser vinculados a uma meta; a meta vinculada
  * passa a ter progresso derivado desses lançamentos. Rendimento (`YIELD`) não
  * aceita vínculo (o server rejeita com 400).
+ *
+ * T-031: cada lançamento tem modo de edição (lápis → campos preenchidos →
+ * salvar/cancelar) via `PATCH /api/savings/:id`. Como o progresso da meta é
+ * derivado na leitura, editar valor/tipo/vínculo já reflete na meta — por isso
+ * o salvamento refaz o fetch (`refresh`), que também atualiza o `summary`.
  */
 export function PoupancaPage() {
   const [entries, setEntries] = useState<SavingsEntry[]>([]);
@@ -61,6 +94,11 @@ export function PoupancaPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<FormState | null>(null);
+  const [editError, setEditError] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const refresh = useCallback(async () => {
     setError('');
@@ -124,6 +162,70 @@ export function PoupancaPage() {
   }
 
   const goalNameById = new Map(goals.map((goal) => [goal.id, goal.name]));
+
+  function startEdit(entry: SavingsEntry) {
+    setEditingId(entry.id);
+    setEditDraft(toDraft(entry));
+    setEditError('');
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditDraft(null);
+    setEditError('');
+  }
+
+  async function handleEditSubmit(e: FormEvent, entry: SavingsEntry) {
+    e.preventDefault();
+    if (!editDraft) return;
+    setEditError('');
+
+    const parsedAmount = parseMoneyInput(editDraft.amount);
+    if (parsedAmount === null) {
+      setEditError('Informe um valor válido, maior que zero.');
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(editDraft.date)) {
+      setEditError('Informe a data do lançamento.');
+      return;
+    }
+
+    const diff = diffEditableFields(toDraft(entry), {
+      type: editDraft.type,
+      amount: String(parsedAmount),
+      date: editDraft.date,
+      note: editDraft.note.trim(),
+      // YIELD nunca fica vinculado (T-024): o select é limpo junto com a troca
+      // de tipo, então virar rendimento desvincula explicitamente em vez de o
+      // server rejeitar o PATCH com 400.
+      goalId: editDraft.type === 'YIELD' ? '' : editDraft.goalId,
+    });
+    if (!hasEdits(diff)) {
+      cancelEdit();
+      return;
+    }
+
+    const update: SavingsEntryUpdate = {};
+    if (diff.type !== undefined) update.type = diff.type;
+    if (diff.amount !== undefined) update.amount = parsedAmount;
+    if (diff.date !== undefined) update.date = diff.date;
+    if (diff.note !== undefined) update.note = diff.note;
+    // `''` no select significa "sem vínculo" → `null` desvincula no server.
+    if (diff.goalId !== undefined) update.goalId = diff.goalId ? Number(diff.goalId) : null;
+
+    setSavingEdit(true);
+    try {
+      await updateSavingsEntry(entry.id, update);
+      // O `summary` e o progresso das metas são derivados no server — refaz o
+      // fetch em vez de recalcular no cliente.
+      await refresh();
+      cancelEdit();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Falha ao atualizar lançamento');
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
   async function handleDelete(id: number) {
     try {
@@ -273,35 +375,155 @@ export function PoupancaPage() {
             <div className="vw-state-box">Nenhum lançamento registrado ainda.</div>
           ) : (
             <div className="vw-savings-list">
-              {entries.map((entry) => (
-                <div className="vw-savings-entry-row" key={entry.id}>
-                  <span className={`vw-savings-entry-badge ${TYPE_BADGE_CLASS[entry.type]}`}>
-                    {TYPE_LABEL[entry.type]}
-                  </span>
-                  <div className="vw-savings-entry-main">
-                    <p className="vw-savings-entry-note">{entry.note || '—'}</p>
-                    <p className="vw-savings-entry-date">
-                      {formatDate(entry.date)}
-                      {entry.goal_id != null && goalNameById.get(entry.goal_id) && (
-                        <span className="vw-savings-entry-goal">🔗 {goalNameById.get(entry.goal_id)}</span>
-                      )}
-                    </p>
-                  </div>
-                  <span className="vw-savings-entry-amount">
-                    {entry.type === 'WITHDRAW' ? '- ' : '+ '}
-                    {fmtCur.format(entry.amount)}
-                  </span>
-                  <button
-                    type="button"
-                    className="vw-delete-btn"
-                    onClick={() => handleDelete(entry.id)}
-                    aria-label="Remover lançamento"
-                    title="Remover lançamento"
+              {entries.map((entry) =>
+                editingId === entry.id && editDraft ? (
+                  <form
+                    className="vw-layerpage-item-edit"
+                    key={entry.id}
+                    onSubmit={(e) => handleEditSubmit(e, entry)}
                   >
-                    ×
-                  </button>
-                </div>
-              ))}
+                    <div className="vw-layerpage-edit-grid">
+                      <div className="vw-layerpage-field">
+                        <label htmlFor={`savings-edit-tipo-${entry.id}`}>Tipo</label>
+                        <select
+                          id={`savings-edit-tipo-${entry.id}`}
+                          value={editDraft.type}
+                          disabled={savingEdit}
+                          onChange={(e) => {
+                            const type = e.target.value as SavingsEntryType;
+                            setEditDraft({
+                              ...editDraft,
+                              type,
+                              goalId: type === 'YIELD' ? '' : editDraft.goalId,
+                            });
+                          }}
+                        >
+                          <option value="DEPOSIT">Aporte</option>
+                          <option value="WITHDRAW">Retirada</option>
+                          <option value="YIELD">Rendimento</option>
+                        </select>
+                      </div>
+                      <div className="vw-layerpage-field">
+                        <label htmlFor={`savings-edit-valor-${entry.id}`}>Valor (R$)</label>
+                        <input
+                          id={`savings-edit-valor-${entry.id}`}
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={editDraft.amount}
+                          disabled={savingEdit}
+                          onChange={(e) => setEditDraft({ ...editDraft, amount: e.target.value })}
+                        />
+                      </div>
+                      <div className="vw-layerpage-field">
+                        <label htmlFor={`savings-edit-data-${entry.id}`}>Data</label>
+                        <input
+                          id={`savings-edit-data-${entry.id}`}
+                          type="date"
+                          value={editDraft.date}
+                          disabled={savingEdit}
+                          onChange={(e) => setEditDraft({ ...editDraft, date: e.target.value })}
+                        />
+                      </div>
+                      <div className="vw-layerpage-field">
+                        <label htmlFor={`savings-edit-nota-${entry.id}`}>Nota</label>
+                        <input
+                          id={`savings-edit-nota-${entry.id}`}
+                          type="text"
+                          value={editDraft.note}
+                          disabled={savingEdit}
+                          onChange={(e) => setEditDraft({ ...editDraft, note: e.target.value })}
+                        />
+                      </div>
+                      <div className="vw-layerpage-field">
+                        <label htmlFor={`savings-edit-meta-${entry.id}`}>Meta vinculada</label>
+                        {goalsStatus === 'error' ? (
+                          <p className="vw-field-hint vw-field-hint--warn">
+                            Não foi possível carregar suas metas — o vínculo atual é mantido.
+                          </p>
+                        ) : (
+                          <select
+                            id={`savings-edit-meta-${entry.id}`}
+                            value={editDraft.goalId}
+                            disabled={savingEdit || editDraft.type === 'YIELD'}
+                            onChange={(e) => setEditDraft({ ...editDraft, goalId: e.target.value })}
+                          >
+                            <option value="">Sem vínculo</option>
+                            {goals.map((goal) => (
+                              <option key={goal.id} value={String(goal.id)}>
+                                {goal.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+                    {editDraft.type === 'YIELD' && entry.goal_id != null && (
+                      <p className="vw-field-hint vw-field-hint--warn">
+                        Rendimento não pode ficar vinculado a meta: salvar vai desvincular este
+                        lançamento e o progresso da meta cai junto.
+                      </p>
+                    )}
+                    {editError && <p className="vw-layerpage-error">{editError}</p>}
+                    <div className="vw-layerpage-edit-actions">
+                      <button
+                        type="button"
+                        className="vw-layerpage-edit-cancel"
+                        onClick={cancelEdit}
+                        disabled={savingEdit}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="vw-btn-primary vw-layerpage-edit-save"
+                        disabled={savingEdit}
+                      >
+                        {savingEdit ? 'Salvando…' : 'Salvar'}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="vw-savings-entry-row" key={entry.id}>
+                    <span className={`vw-savings-entry-badge ${TYPE_BADGE_CLASS[entry.type]}`}>
+                      {TYPE_LABEL[entry.type]}
+                    </span>
+                    <div className="vw-savings-entry-main">
+                      <p className="vw-savings-entry-note">{entry.note || '—'}</p>
+                      <p className="vw-savings-entry-date">
+                        {formatDate(entry.date)}
+                        {entry.goal_id != null && goalNameById.get(entry.goal_id) && (
+                          <span className="vw-savings-entry-goal">🔗 {goalNameById.get(entry.goal_id)}</span>
+                        )}
+                      </p>
+                    </div>
+                    <span className="vw-savings-entry-amount">
+                      {entry.type === 'WITHDRAW' ? '- ' : '+ '}
+                      {fmtCur.format(entry.amount)}
+                    </span>
+                    <button
+                      type="button"
+                      className="vw-layerpage-edit-btn"
+                      onClick={() => startEdit(entry)}
+                      disabled={editingId !== null}
+                      aria-label="Editar lançamento"
+                      title="Editar lançamento"
+                    >
+                      ✎
+                    </button>
+                    <button
+                      type="button"
+                      className="vw-delete-btn"
+                      onClick={() => handleDelete(entry.id)}
+                      disabled={editingId !== null}
+                      aria-label="Remover lançamento"
+                      title="Remover lançamento"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ),
+              )}
             </div>
           )}
         </>

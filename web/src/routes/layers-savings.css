@@ -250,9 +250,38 @@
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 
-.vw-delete-btn:hover {
+.vw-delete-btn:hover:not(:disabled) {
   border-color: var(--color-down);
   color: var(--color-down);
+}
+
+.vw-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/*
+ * Edição inline (T-031): a lista de lançamentos é um card com padding lateral
+ * próprio (`.vw-savings-entry-row`), então o form de edição — que reusa
+ * `.vw-layerpage-item-edit` de layers.css — alinha com as linhas vizinhas em
+ * vez de encostar na borda do card.
+ */
+.vw-savings-list .vw-layerpage-item-edit {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-edge);
+  border-radius: 0;
+}
+
+.vw-savings-list .vw-layerpage-item-edit:last-child {
+  border-bottom: none;
+}
+
+/* O lápis fica com a mesma silhueta do × desta lista (28px), não a de 24px. */
+.vw-savings-entry-row .vw-layerpage-edit-btn {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  font-size: 12px;
 }
 
 /* ── Metas ───────────────────────────────────────────────────────────── */
