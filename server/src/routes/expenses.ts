@@ -105,10 +105,10 @@ router.patch(
       fields.push('amount = ?');
       args.push(amount);
     }
-    args.push(id);
+    args.push(id, userId);
 
     await db.execute({
-      sql: `UPDATE fixed_expenses SET ${fields.join(', ')} WHERE id = ?`,
+      sql: `UPDATE fixed_expenses SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`,
       args,
     });
 

@@ -210,6 +210,26 @@ describe('income routes', () => {
       expect(found.amount).toBe(30);
     });
 
+    // T-044: defesa em profundidade — o UPDATE final também filtra por
+    // user_id, não só o SELECT de existência que já bloqueia este caso hoje.
+    // Reproduz a query exata usada por PATCH /api/income/:id para provar que,
+    // mesmo com um id válido de outro usuário, o próprio UPDATE não afeta a
+    // linha (rowsAffected 0) — independente do guard anterior existir.
+    it('UPDATE final não afeta registro de outro usuário mesmo com id válido', async () => {
+      const { db } = await import('../db');
+      const created = await agentB.post('/api/income').send({ name: 'Defesa em profundidade', amount: 42 });
+      const id = created.body.id;
+
+      const result = await db.execute({
+        sql: 'UPDATE income_sources SET amount = ? WHERE id = ? AND user_id = ?',
+        args: [999, id, -1],
+      });
+      expect(result.rowsAffected).toBe(0);
+
+      const row = await db.execute({ sql: 'SELECT amount FROM income_sources WHERE id = ?', args: [id] });
+      expect(row.rows[0].amount).toBe(42);
+    });
+
     it('returns 404 for a nonexistent id', async () => {
       const res = await agentA.patch('/api/income/999999').send({ amount: 1 });
       expect(res.status).toBe(404);
