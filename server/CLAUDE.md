@@ -26,12 +26,21 @@ server/src/
 │   ├── snapshots.ts  # GET /api/snapshots/:ticker — histórico diário de preços
 │   ├── alerts.ts     # CRUD de alertas (filtrado por user_id)
 │   ├── import.ts     # importação CSV (filtrado por user_id)
+│   ├── admin.ts      # POST /api/admin/run-insights-job (requireAdmin)
+│   ├── income.ts     # CRUD de fontes de renda mensal fixas
 │   ├── incomeEntries.ts # CRUD de renda variável datada com visão mensal
 │   │                 # (T-036) — espelho de expenseEntries.ts sem recorrência
 │   │                 # nem categoria; reusa currentMonth de expenseEntries.ts
+│   ├── expenses.ts   # CRUD de despesas fixas (categoria normalizada — T-028)
+│   ├── expenseEntries.ts # CRUD de lançamentos variáveis com visão mensal,
+│   │                 # materialização de recorrências e /summary (T-033/T-035)
 │   ├── recurringExpenses.ts # gestão dos templates de recorrência (T-035):
 │   │                 # lista ativas e encerra (soft); criação é acoplada ao
 │   │                 # POST /api/expense-entries com recurring: true
+│   ├── savings.ts    # CRUD de lançamentos de poupança + summary + transferência
+│   │                 # para meta (T-041)
+│   ├── goals.ts      # CRUD de metas (progresso manual ou derivado — T-024)
+│   ├── budgets.ts    # orçamento mensal por categoria (upsert — T-023)
 │   ├── benchmarks.ts # CDI / Ibovespa
 │   ├── wallets.ts    # CRUD de carteiras
 │   └── tickers.ts    # busca de tickers na brapi
@@ -42,6 +51,8 @@ server/src/
 │   │                     # em centavos inteiros — base da transferência T-041
 │   ├── recurringExpenses.ts # materialização lazy/idempotente das ocorrências
 │   │                        # de recorrência mensal (T-035) + helpers de data
+│   ├── categories.ts     # normalizeCategory — forma canônica de categoria
+│   │                     # (T-028; duplicada de propósito no web)
 │   ├── quotes.ts         # fetchQuotes → brapi.dev (timeout 5s)
 │   ├── snapshots.ts      # saveSnapshot, runSnapshotJob, resolveActiveTickers, withRetry
 │   ├── hourlyInsights.ts # runHourlyInsightsJob — captura horária retroativa via brapi

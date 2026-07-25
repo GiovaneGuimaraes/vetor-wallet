@@ -25,11 +25,15 @@ vetor-wallet/
 │   ├── src/
 │   │   ├── index.ts        # entry point: sessão, CORS, rotas, initDb()
 │   │   ├── db.ts           # @libsql/client + initDb(); suporta DATABASE_URL
-│   │   ├── auth/           # register/login/logout, requireAuth middleware, bcrypt
+│   │   ├── auth/           # register/login/logout, requireAuth middleware, bcrypt,
+│   │   │                   # SqliteSessionStore (sessões persistentes)
 │   │   ├── routes/         # operations, portfolio, snapshots, alerts, import,
-│   │   │                   # benchmarks, wallets, tickers
+│   │   │                   # benchmarks, wallets, tickers, admin, income,
+│   │   │                   # incomeEntries, expenses, expenseEntries,
+│   │   │                   # recurringExpenses, savings, goals, budgets
 │   │   ├── services/       # portfolio, quotes, snapshots, hourlyInsights,
-│   │   │                   # benchmarks, tickers
+│   │   │                   # benchmarks, tickers, goals, savings,
+│   │   │                   # recurringExpenses, categories
 │   │   └── middleware/     # asyncHandler, errorHandler
 │   ├── data/wallet.db      # SQLite local (gitignored, criado automaticamente)
 │   ├── .env.example
@@ -44,7 +48,15 @@ vetor-wallet/
     │   ├── main.tsx         # monta <App /> em StrictMode
     │   ├── App.tsx          # estado global, orquestra refresh
     │   ├── api.ts           # todas as chamadas fetch (baseURL via VITE_API_URL)
-    │   └── components/      # OperationForm, OperationsList, PortfolioDashboard…
+    │   ├── theme.ts         # tema light/dark (localStorage vw-theme)
+    │   ├── routes/          # páginas do app v4 (HomePage, DespesasPage, RendaPage,
+    │   │                    # PoupancaPage, MetasPage, DashboardPage…) + módulos de
+    │   │                    # funções puras testáveis (homeMetrics, expenseMonth,
+    │   │                    # inlineEdit, savingsTransfer… com *.test.ts ao lado)
+    │   ├── layout/          # AppShell, ProtectedShell, LoadingScreen, mascots
+    │   ├── components/      # OperationForm, OperationsList, PortfolioDashboard,
+    │   │                    # AuthPage, AdminPage… (AlertsPanel/CsvImport fora da UI)
+    │   └── utils/           # alerts.ts
     ├── .env.example
     └── tsconfig.json        # strict, noEmit, moduleResolution: bundler
 ```
@@ -146,6 +158,7 @@ Todas as rotas abaixo (exceto `/api/auth/*`) exigem sessão autenticada via cook
 | `DELETE` | `/api/alerts/:id` | Remove alerta |
 | `GET` | `/api/benchmarks` | Retorno CDI e Ibovespa no período |
 | `GET` | `/api/tickers` | Busca tickers disponíveis na brapi |
+| `POST` | `/api/admin/run-insights-job` | Dispara o job de insights horários manualmente (exige `requireAdmin`) — body opcional `{ date: 'YYYY-MM-DD' }` |
 | `GET` | `/api/income` | Lista fontes de renda mensal do usuário |
 | `POST` | `/api/income` | Cria fonte de renda mensal |
 | `PATCH` | `/api/income/:id` | Atualiza parcialmente uma fonte de renda (`name`/`type`/`amount`) |

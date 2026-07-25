@@ -8,7 +8,7 @@ Carteira financeira pessoal para um único usuário real (Giovane), organizada e
 
 - **Arquitetura, schema, rotas, comandos e convenções**: leia `CLAUDE.md` na raiz — é a fonte de verdade técnica. Não duplique aquele conteúdo aqui.
 - **Monorepo pnpm**: `shared` (tipos, types-only), `server` (Express + libsql, SQL puro), `web` (Vite + React), `cli` (job de insights horários).
-- **Testes**: Vitest no `server` e no `web` (funções puras, ambiente node). Estado ao fim do ciclo 6: 342 testes server + 113 web.
+- **Testes**: Vitest no `server` e no `web` (funções puras, ambiente node). Contagem atual da suíte: ver "Estado atual" abaixo (evita número duplicado desatualizando aqui).
 
 ## Estado atual (2026-07-25, fim do ciclo 8)
 

@@ -10,7 +10,7 @@ Este diretório define o fluxo de trabalho multi-agente em loop fechado do proje
 | **Executor** | Sonnet (padrão) ou **Opus 5** (tarefas de complexidade alta) — roteado pelo orquestrador via parâmetro `model` da ferramenta Agent | Subagente `executor` criado via ferramenta Agent | Implementar UMA tarefa do backlog, com testes, em worktree isolado |
 | **Revisor** | Sonnet (padrão) ou **Opus 5** (tarefas de risco alto — ver roteamento) | Subagente `revisor` criado via ferramenta Agent | Revisar o diff de uma tarefa concluída antes da integração |
 | **Planejador** (opcional) | **Opus 5** (agente `Plan`) | Subagente criado via ferramenta Agent | Spike de design para tarefas de complexidade alta ANTES da execução: mapa de arquivos, abordagem, riscos — o resultado entra no prompt do executor |
-| **Humano** | Giovane | Dono do projeto | Decisões de produto, aprovação de merges, itens do `TODO-HUMANO.md` |
+| **Humano** | Giovane | Dono do projeto | Decisões de produto, itens do `TODO-HUMANO.md`, revisão a posteriori dos merges (modo auto — ver abaixo) |
 
 ## Documentos do sistema
 
@@ -46,7 +46,8 @@ Este diretório define o fluxo de trabalho multi-agente em loop fechado do proje
 │                        │                                 │
 │ 5. INTEGRAR (orquestrador)                               │
 │    Atualiza status no BACKLOG.md, consolida resultados,  │
-│    reporta ao humano. Merge/PR só com aprovação humana.  │
+│    reporta ao humano, abre PR e faz merge (modo auto —   │
+│    autorização permanente do humano, 2026-07-24).        │
 │                        │                                 │
 │ 6. FECHAR O LOOP                                         │
 │    Orquestrador reavalia prioridades com o que aprendeu  │
