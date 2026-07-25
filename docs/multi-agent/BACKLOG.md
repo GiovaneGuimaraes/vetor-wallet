@@ -59,7 +59,7 @@ _(Ciclo 5, Onda A em andamento — T-022, T-024, T-026, T-027 delegadas em 2026-
 - **Resultado**: —
 
 ### T-024 — Aportes de poupança vinculados a metas (progresso derivado)
-- **Status**: EM_ANDAMENTO (executor Opus 5, delegado 2026-07-24)
+- **Status**: CONCLUIDA e MERGEADA — PR [#66](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/66) (2026-07-25). Revisor Opus: APROVADA, 0 bloqueantes — verificou por conta própria initDb() idempotente (2x sem erro), FK aplicada pelo libsql e atomicidade do `db.batch` em cenário de falha (UPDATE revertido). Decisões validadas: YIELD+goalId→400, progresso derivado não materializado (2 queries, sem N+1), piso 0 + centavos, SavingsSummary intocado. Conflito de CLAUDE.md com T-022 resolvido pelo orquestrador (`d4b3299`, duas seções mantidas; 181 testes + build verdes no worktree pós-merge). Sugestões não bloqueantes registradas: (1) `user_id` redundante no UPDATE do batch é o único caminho para 500 no DELETE de meta; (2) `getGoalWithProgress` pode devolver null em corrida (retornar 404); (3) apagar o último vínculo devolve a meta a MANUAL com `current_amount` congelado — decidir/documentar; (4) `Promise.all` na PoupancaPage derruba a tela se só `/api/goals` falhar; (5) bug pré-existente do GoalCard (T-010) segue aberto, agora só afeta metas manuais. Modelos: executor Opus 5, revisor Opus 5.
 - **Prioridade**: P2
 - **Complexidade**: alta (mexe no modelo de metas + poupança, dinheiro e retrocompatibilidade)
 - **Depende de**: —
