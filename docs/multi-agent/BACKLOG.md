@@ -66,7 +66,7 @@
 - **Resultado**: —
 
 ### T-048 — Refinos da transferência poupança→meta (colheita T-041)
-- **Status**: PENDENTE (Onda 2)
+- **Status**: CONCLUIDA — PR #87 mergeada (2026-07-25). Executor sonnet, revisor opus (APROVADA, sem bloqueantes). Sugestões → candidatas: guard explícito no 201 no lugar do `as SavingsEntry`; validar entrada com > 2 casas decimais.
 - **Prioridade**: P2
 - **Complexidade**: média (toca dinheiro → revisor opus)
 - **Depende de**: T-044 (mesmo `routes/savings.ts`)
@@ -78,7 +78,7 @@
 - **Resultado**: —
 
 ### T-049 — Higiene do fetch mensal no web + `endMonth` explícito
-- **Status**: PENDENTE (Onda 2)
+- **Status**: CONCLUIDA — PR #88 mergeada (2026-07-25). Executor sonnet, revisor opus (REPROVADA 1ª rodada por CLAUDE.md contraditório + lacuna de teste positivo; corrigido; APROVADA no re-veredito). Sugestão → candidata: `force` no dedupe para o `refreshEntries` do caminho de erro do delete.
 - **Prioridade**: P2
 - **Complexidade**: média
 - **Depende de**: T-044 (mesmo `routes/expenseEntries.ts`)
@@ -90,7 +90,7 @@
 - **Resultado**: —
 
 ### T-045 — POST de lançamento recorrente transacional + teste de `isUniqueViolation`
-- **Status**: PENDENTE (Onda 3)
+- **Status**: CONCLUIDA — PR #89 mergeada (2026-07-25). Executor sonnet, revisor opus (APROVADA; verificou o driver libsql). Sugestões do revisor aplicadas antes do merge (dead code removido, docblocks, CLAUDE.md). Registrado: sem teste de falha no próprio COMMIT (coberto por construção).
 - **Prioridade**: P1
 - **Complexidade**: média (toca dinheiro/consistência → revisor opus)
 - **Depende de**: T-044, T-049 (mesmo `routes/expenseEntries.ts`)
@@ -102,7 +102,7 @@
 - **Resultado**: —
 
 ### T-043 — Validação de data real em todas as rotas com data
-- **Status**: PENDENTE (Onda 4)
+- **Status**: CONCLUIDA — PR #90 mergeada (2026-07-25). Executor sonnet, revisor opus (APROVADA; helper validado em 2 fusos extremos). CLAUDE.md anotado na integração. Sugestões → candidatas: comentário sobre anos 0–99 no helper; CLI `hourlyInsights` com regex próprio de formato.
 - **Prioridade**: P1
 - **Complexidade**: média (transversal, toca dinheiro → revisor opus)
 - **Depende de**: T-044, T-045, T-048, T-049 (mesmos arquivos de rotas — roda depois dos merges)
@@ -113,16 +113,25 @@
 - **Critério de aceite**: `2026-02-30`/`2026-13-01` → `400` em todas as rotas com data; suíte server verde.
 - **Resultado**: —
 
-### T-050 — Carteira única: remover a lógica de múltiplas carteiras
-- **Status**: PENDENTE (Onda 5 — por último, pedido do humano)
+### T-050 — Carteira única (dividida em T-050a/T-050b pelo spike de design)
+- **Status**: spike CONCLUÍDO (Plan/Opus, 2026-07-25). Decisões: modelo "escopo = usuário, carteira vira rótulo"; nada apagado/escondido; `?walletId=`/`wallet_id` passam a ser ignorados; `POST /api/wallets` → 400 com carteira existente; `DELETE /api/wallets/:id` removida; `getOrCreateDefaultWallet` em service novo, chamado também no `createUser`. Pergunta de produto (P&L consolidado para legado com 2+ carteiras) registrada no `TODO-HUMANO.md`, default adotado.
+
+### T-050a — Server: invariante de carteira única
+- **Status**: PENDENTE (Onda 5)
 - **Prioridade**: P1
-- **Complexidade**: alta (auth/isolamento + fluxo de operações/validação de SELL; spike de design recomendado)
-- **Depende de**: todas as anteriores do ciclo
-- **Branch/worktree**: —
-- **Contexto**: decisão do humano (2026-07-25, via chat; já sinalizada em 2026-07-24): "na parte de carteira de ações eu quero remover a lógica que permite o user ter mais de uma carteira no momento".
-- **Escopo**: impedir mais de uma carteira por usuário (server: `POST /api/wallets` responde `400` quando já existe uma; garantir/auto-criar a carteira padrão) e simplificar o web para o fluxo de carteira única (remover seletor/página de gerenciamento de múltiplas carteiras; operações sempre na carteira única). Definir no spike o tratamento de dados legados com múltiplas carteiras (não destruir dados). Testes server + web.
-- **Fora de escopo**: remover `wallet_id` do schema (fica para reversibilidade); migração destrutiva de dados; mexer em cripto.
-- **Critério de aceite**: usuário novo opera sem nunca ver conceito de múltiplas carteiras; `POST /api/wallets` com carteira existente → `400`; suítes e build verdes.
+- **Complexidade**: alta (auth/isolamento + validação de SELL; plano do spike no prompt)
+- **Depende de**: T-043
+- **Escopo**: Fases A1–A7 do plano do spike + docs de rotas. Retrocompatível: o web atual continua funcionando (só o form de criação da 2ª carteira passa a ver o 400).
+- **Critério de aceite**: `POST /api/wallets` com carteira existente → 400; usuário novo nasce com carteira; `wallet_id`/`walletId` ignorados em operations/portfolio/import; SELL contra o consolidado; `import.test.ts` da T-019 convertido; suíte server verde.
+- **Resultado**: —
+
+### T-050b — Web: fluxo de carteira única
+- **Status**: PENDENTE (Onda 5, após merge da T-050a)
+- **Prioridade**: P1
+- **Complexidade**: alta (refactor App/rotas/contexto; plano do spike no prompt)
+- **Depende de**: T-050a
+- **Escopo**: Fases B1–B8 + C do plano do spike. Remove `CarteirasPage`/`WalletSelector`/`walletChip` (decisão consciente de divergir do precedente T-026 — o humano pediu remoção da lógica). `/dash` sem param; `/dash/:id` e `/carteiras` → redirect.
+- **Critério de aceite**: usuário novo opera sem nunca ver múltiplas carteiras; `walletFlow` reescrito com invariante da T-027 preservada; suítes e builds verdes.
 - **Resultado**: —
 
 ## Em espera (decisão do humano — ver `TODO-HUMANO.md`)
@@ -139,6 +148,9 @@
 
 - Projeção com aporte mensal recorrente + comparação com CDI no simulador (sugestão do executor da T-040 — confirmar com o humano).
 - Colheita das revisões do Ciclo 9/Onda 1: teste espionando `db.execute` nos PATCH (guarda real da cláusula `AND user_id`); re-SELECT final das respostas de PATCH também sem `AND user_id`; asserção mais forte no teste da varredura de sessões + simetria no teste de `touch`; teste de `projectSavings(0, inválido, ...)`.
+- Colheita da revisão da T-048: guard explícito (`throw`) no 201 de `/transfer-to-goal` no lugar do `as SavingsEntry`; validar valores monetários com > 2 casas decimais na entrada (hoje só `> 0` finito — o summary arredonda por lançamento).
+- Colheita da revisão da T-049: o `refreshEntries(monthKey)` do caminho de erro do delete (`DespesasPage`/`RendaPage`) pode ser engolido pelo dedupe com fetch do mesmo mês em voo, deixando a remoção otimista indevida — parâmetro `force` no guard (cenário estreito).
+- Colheita da revisão da T-043: comentário no helper `isValidIsoDate` sobre a rejeição (acidental porém desejada) de anos 0–99; CLI `hourlyInsights.ts` reusar o helper via path alias em vez do regex próprio (hoje aceita `2026-02-30` na linha de comando).
 - Editar template de recorrência (valor/dia — decisão de produto: afeta só futuras).
 - `current_amount` manual obsoleto ao desvincular o último lançamento de uma meta (semântica a decidir).
 - Ampliar `/admin`; backend de cripto (aguardando o humano); agendador do job de insights (Lambda/EventBridge); redesign de Alertas/Import (hoje sem UI).

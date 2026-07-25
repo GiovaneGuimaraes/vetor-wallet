@@ -18,7 +18,11 @@
 
 ## Abertos
 
-_(nenhum item aberto no momento)_
+### [2026-07-25] Carteira única (T-050): P&L consolidado para base legada com 2+ carteiras
+- **Origem**: orquestrador (spike de design da T-050, Plan/Opus)
+- **Bloqueia**: nada — default adotado, contestável antes/depois do merge
+- **Pergunta/pendência**: com a carteira única, as leituras de operações/portfólio deixam de filtrar por carteira e agregam tudo do usuário. Se você tem hoje **mais de uma** carteira de ações cadastrada, o dashboard passará a mostrar o **consolidado** delas (nenhuma operação some, mas o número de P&L exibido muda). A alternativa — mostrar só a carteira mais antiga — esconderia operações reais e foi rejeitada. Ok com o consolidado, ou prefere outro tratamento?
+- **Resposta do humano**: _(preencher)_
 
 ## Resolvidos
 
