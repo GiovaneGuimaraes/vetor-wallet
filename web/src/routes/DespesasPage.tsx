@@ -29,6 +29,7 @@ import {
 } from './recurrence';
 import { diffEditableFields, hasEdits, parseMoneyInput } from './inlineEdit';
 import { groupByCategory } from './expensesGrouping';
+import { MonthFetchGuard } from './monthFetch';
 import {
   buildMonthlyHistory,
   computeMonthTotals,
@@ -112,6 +113,10 @@ export function DespesasPage() {
   // pedido — se um fetch mais antigo resolve depois de um mais novo já ter
   // sido disparado, seu resultado é descartado.
   const latestRequestedMonthRef = useRef<string>(currentMonthKey());
+  // Dedupe de fetches concorrentes do mesmo mês (T-049) — complementa a guarda
+  // acima, que decide qual resposta VALE; esta decide se um novo fetch deve
+  // ser disparado quando já há um em andamento para o mesmo mês.
+  const entriesFetchGuardRef = useRef(new MonthFetchGuard());
   const [entryDescription, setEntryDescription] = useState('');
   const [entryCategory, setEntryCategory] = useState('');
   const [entryAmount, setEntryAmount] = useState('');
@@ -147,10 +152,19 @@ export function DespesasPage() {
 
   // T-033: histórico não depende do mês navegado — é sempre os últimos
   // HISTORY_MONTHS meses até o mês corrente REAL (não o exibido na navegação).
+  //
+  // T-049: `endMonth` é enviado como `currentMonthKey()` (fuso do BROWSER) em
+  // vez de deixar o server inferir sozinho pelo fuso do processo — resolve o
+  // "ponto de atenção conhecido" da T-033 (linha "atual" zerada por instantes
+  // na virada de mês, quando os fusos client/server divergem).
   const refreshHistory = useCallback(async () => {
-    setHistorySummary('loading');
+    // Evita o flicker de "Carregando…" numa revalidação (após criar/editar/
+    // remover um lançamento): só volta para 'loading' quando ainda não há
+    // nenhum dado carregado — os dados anteriores continuam visíveis
+    // enquanto o refetch está em andamento.
+    setHistorySummary((prev) => (Array.isArray(prev) ? prev : 'loading'));
     try {
-      const data = await getExpenseEntriesSummary(HISTORY_MONTHS);
+      const data = await getExpenseEntriesSummary(HISTORY_MONTHS, currentMonthKey());
       setHistorySummary(data.months);
     } catch {
       setHistorySummary('error');
@@ -167,6 +181,11 @@ export function DespesasPage() {
   }, []);
 
   const refreshEntries = useCallback(async (month: string) => {
+    // T-049: se já há um fetch em andamento para este MESMO mês, não dispara
+    // outro — evita requests duplicados (ex.: cliques rápidos que resolvem no
+    // mesmo mês, ou o efeito reexecutando duas vezes em StrictMode).
+    if (entriesFetchGuardRef.current.isInFlight(month)) return;
+    entriesFetchGuardRef.current.start(month);
     latestRequestedMonthRef.current = month;
     setEntries('loading');
     try {
@@ -179,6 +198,8 @@ export function DespesasPage() {
     } catch {
       if (latestRequestedMonthRef.current !== month) return;
       setEntries('error');
+    } finally {
+      entriesFetchGuardRef.current.finish(month);
     }
   }, []);
 

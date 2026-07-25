@@ -502,5 +502,94 @@ describe('expense entries routes', () => {
       const res = await agentA.get('/api/expense-entries/summary?months=24');
       expect(res.status).toBe(200);
     });
+
+    // ── T-049: `endMonth` explícito ───────────────────────────────────────
+    describe('endMonth (T-049)', () => {
+      it('rejects a malformed endMonth (400)', async () => {
+        const malformed = await agentA.get('/api/expense-entries/summary?endMonth=2026-13');
+        expect(malformed.status).toBe(400);
+
+        const junk = await agentA.get('/api/expense-entries/summary?endMonth=julho');
+        expect(junk.status).toBe(400);
+      });
+
+      it('defaults endMonth to the current month when omitted', async () => {
+        const agentH = request.agent(app);
+        await agentH
+          .post('/api/auth/register')
+          .send({ email: 'expense-entries-summary-h@test.com', password: 'password123' });
+
+        const month = currentMonth();
+        await agentH
+          .post('/api/expense-entries')
+          .send({ description: 'Mês corrente H', amount: 42, date: `${month}-05` });
+
+        const withDefault = await agentH.get('/api/expense-entries/summary?months=1');
+        const withExplicit = await agentH.get(
+          `/api/expense-entries/summary?months=1&endMonth=${month}`,
+        );
+        expect(withDefault.status).toBe(200);
+        expect(withExplicit.status).toBe(200);
+        expect(withDefault.body).toEqual(withExplicit.body);
+      });
+
+      it('anchors the window on a client-provided endMonth instead of the server month', async () => {
+        const agentI = request.agent(app);
+        await agentI
+          .post('/api/auth/register')
+          .send({ email: 'expense-entries-summary-i@test.com', password: 'password123' });
+
+        const month = currentMonth();
+        const prevMonth = shiftMonthKey(month, -1);
+        await agentI
+          .post('/api/expense-entries')
+          .send({ description: 'Mês anterior I', amount: 77, date: `${prevMonth}-05` });
+        await agentI
+          .post('/api/expense-entries')
+          .send({ description: 'Mês corrente I', amount: 33, date: `${month}-05` });
+
+        // Pedindo a janela de 1 mês terminando no mês ANTERIOR, o mês corrente
+        // não deve aparecer — a janela é ancorada em `endMonth`, não no mês
+        // corrente do server.
+        const res = await agentI.get(
+          `/api/expense-entries/summary?months=1&endMonth=${prevMonth}`,
+        );
+        expect(res.status).toBe(200);
+        const months = (res.body.months as { month: string; total: number }[]).map(
+          (m) => m.month,
+        );
+        expect(months).toEqual([prevMonth]);
+        expect(months).not.toContain(month);
+      });
+
+      it('does not materialize a recurring occurrence beyond the horizon for a future endMonth', async () => {
+        const agentJ = request.agent(app);
+        await agentJ
+          .post('/api/auth/register')
+          .send({ email: 'expense-entries-summary-j@test.com', password: 'password123' });
+
+        const month = currentMonth();
+        // Cria uma recorrência mensal (nasce acoplada a este lançamento).
+        const created = await agentJ.post('/api/expense-entries').send({
+          description: 'Assinatura J',
+          amount: 19.9,
+          date: `${month}-05`,
+          recurring: true,
+        });
+        expect(created.status).toBe(201);
+
+        // Um `endMonth` muito além do horizonte de materialização não deve
+        // gerar ocorrências indefinidamente à frente — mesma proteção que já
+        // existia para `GET /?month=`. A janela pedida é de 1 mês terminando
+        // exatamente em `farFuture`, então, se a ocorrência tivesse sido
+        // materializada ali, ela apareceria na resposta.
+        const farFuture = shiftMonthKey(month, 200);
+        const res = await agentJ.get(
+          `/api/expense-entries/summary?months=1&endMonth=${farFuture}`,
+        );
+        expect(res.status).toBe(200);
+        expect(res.body.months).toEqual([]);
+      });
+    });
   });
 });
