@@ -31,11 +31,11 @@ _(Ciclo 6, Onda A em andamento — T-029 e T-030 delegadas em 2026-07-25; T-028 
 > Aprovado pelo humano (2026-07-25): "pode seguir com a onda A". Onda A = T-029 + T-030 em paralelo (arquivos disjuntos), depois T-028 em série (conflita com T-029 nas rotas). Onda B = T-031 (edição inline, aguarda Onda A). Onda C = escolha do humano entre histórico mensal em Despesas, sessões persistentes ou recorrência de lançamentos. Humano validou o front do ciclo 5 sem erros; erros futuros viram tarefas de correção.
 
 ### T-028 — Normalizar categoria nas 3 telas de despesas/orçamento
-- **Status**: PENDENTE (entra após merge da T-029 — mesmos arquivos de rota)
+- **Status**: EM_ANDAMENTO (executor Opus 5, delegado 2026-07-25 após merge da T-029)
 - **Prioridade**: P1
 - **Complexidade**: alta (migração de dados do usuário + colisão possível no UNIQUE de budgets)
-- **Depende de**: T-029
-- **Branch/worktree**: —
+- **Depende de**: T-029 (mergeada — PR #69)
+- **Branch/worktree**: `giovane/t-028-normalizar-categoria`
 - **Contexto**: achado nº 4 do revisor da T-023: a comparação de categoria é exata e case-sensitive nas 3 telas que usam texto livre (despesas fixas, lançamentos variáveis, orçamentos) — "Mercado", "mercado" e "mercado " são categorias diferentes; orçamento de "Mercado" mostra 0% com gastos em "mercado". Pegadinha de usabilidade mais provável do app.
 - **Escopo**: definir normalização canônica de categoria (no mínimo: trim + colapso de espaços internos + comparação case-insensitive — a forma exata de armazenar/exibir é decisão técnica do executor, documentada) aplicada na **gravação** das 3 rotas (`fixed_expenses.category`, `expense_entries.category`, `category_budgets.category`); migração **idempotente** dos dados existentes no `initDb()` (atenção: normalizar `category_budgets` pode colidir no UNIQUE `(user_id, category)` — resolver de forma determinística e documentada, ex.: manter o de maior `amount` ou o mais recente); agrupamento (`expensesGrouping.ts`) e `computeBudgetProgress` passam a comparar pela forma normalizada; atualizar `CLAUDE.md` (remover a nota de case-sensitive).
 - **Fora de escopo**: autocomplete/select de categorias existentes; renomear categorias em massa pela UI.
@@ -43,7 +43,7 @@ _(Ciclo 6, Onda A em andamento — T-029 e T-030 delegadas em 2026-07-25; T-028 
 - **Resultado**: —
 
 ### T-029 — Rejeitar valores não finitos nas rotas de dinheiro (`Number.isFinite`)
-- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25)
+- **Status**: CONCLUIDA e MERGEADA — PR [#69](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/69) (2026-07-25). Revisor Opus: APROVADA, 0 bloqueantes — verificou empiricamente que os 400 vêm da validação (não do body-parser) e que os testes falhariam sem o fix. 8 rotas corrigidas + suíte de `alerts` criada do zero (rota não tinha testes). Mudança de contrato intencional em `operations`: strings numéricas (`"5"`) deixam de ser aceitas (antes gravava TEXTO em coluna REAL — bug latente; front sempre enviou number). Sugestões registradas: cobrir `price: 1e999` (par -Infinity era redundante); documentar o contrato no CLAUDE.md; `import.ts` ainda aceita `"1e999"` → **T-032**. Server 217 testes / web 63 / build verdes. Modelos: executor Sonnet, revisor Opus 5.
 - **Prioridade**: P1
 - **Complexidade**: média (mecânica, mas em toda rota de dinheiro; revisor Opus por tocar dinheiro)
 - **Depende de**: —
@@ -55,7 +55,7 @@ _(Ciclo 6, Onda A em andamento — T-029 e T-030 delegadas em 2026-07-25; T-028 
 - **Resultado**: —
 
 ### T-030 — Robustez de UI: respostas obsoletas, degradação parcial e polimentos da Home
-- **Status**: EM_ANDAMENTO (executor Sonnet, delegado 2026-07-25)
+- **Status**: CONCLUIDA e MERGEADA — PR [#70](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/70) (2026-07-25). Revisor: APROVADA, 0 bloqueantes — guarda de mês verificada linha a linha (ref antes do await, checado em sucesso E erro), gate de loading não esconde aviso permanente, rename sem resíduos (grep + TS strict). Sugestão registrada: dedupe de chamadas concorrentes para o MESMO mês (duplo clique) — tarefa futura. Web 67 testes / server 190 (intacto) / build verdes. Modelos: executor Sonnet, revisor Sonnet.
 - **Prioridade**: P2
 - **Complexidade**: média (só web; estado assíncrono)
 - **Depende de**: —
@@ -64,6 +64,18 @@ _(Ciclo 6, Onda A em andamento — T-029 e T-030 delegadas em 2026-07-25; T-028 
 - **Escopo**: (a) `DespesasPage`: guarda de resposta obsoleta na navegação de mês (descartar resolução cujo mês ≠ mês exibido) e hero com `—` em erro parcial de uma das fontes em vez de total subestimado; barra de orçamento não renderiza `spent` parcial durante loading; `fmtPct` não arredondar 99,6% para "100%" sem alerta (floor ou 1 decimal); (b) `PoupancaPage`: falha só em `getGoals` degrada o select de metas com aviso em vez de derrubar a tela; (c) `HomePage`: flag separada `entriesFailed` (sinalização de estimativa só após load real, não no primeiro render), suprimir sublabel quando sobra real = prevista, aviso alinhado ao padrão `quotesUnavailable` (visível, não só `title`), renomear `hasVariableEntries` → `entriesLoaded`.
 - **Fora de escopo**: mudanças no server; refatorar data-fetching para lib (react-query etc.); testes de componente/DOM.
 - **Critério de aceite**: funções puras alteradas/novas com testes (`computeMonthCashFlow` com a flag nova; helper de percentual); estados de erro/loading verificáveis por leitura do código e descritos no relatório; suíte web + build verdes.
+- **Resultado**: —
+
+### T-032 — Rejeitar valores não finitos no import CSV (achado do revisor da T-029)
+- **Status**: PENDENTE (pode entrar na Onda B junto da T-031 — arquivos distintos)
+- **Prioridade**: P2
+- **Complexidade**: baixa (uma rota, padrão já estabelecido pela T-029)
+- **Depende de**: —
+- **Branch/worktree**: —
+- **Contexto**: achado do revisor Opus da T-029: `server/src/routes/import.ts:41-44` usa `parseFloat` nos campos de valor do CSV — `"1e999"` vira `Infinity`, passa por `isNaN(...) || <= 0` e é gravado. Único caminho de escrita de valor monetário que ainda aceita não-finito.
+- **Escopo**: trocar a checagem por `Number.isFinite` nos campos numéricos do parse do CSV (quantity/price), rejeitando a linha com erro no relatório (`CsvImportResult.errors`), padrão das demais validações por linha; teste com CSV contendo `1e999`.
+- **Fora de escopo**: outras validações do CSV; mudanças de formato.
+- **Critério de aceite**: linha com `1e999` rejeitada com erro por linha; linhas válidas do mesmo arquivo importam; suíte verde.
 - **Resultado**: —
 
 ### T-031 — Edição inline nos layers básicos (PATCH em renda/despesas/lançamentos/poupança)
