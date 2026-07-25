@@ -560,7 +560,8 @@ O card "Sobra do mês" mostra o valor real com um sublabel comparando à previst
 
 Pontos de projeto:
 
-- **TTL** é derivado de `cookie.maxAge` (ms) — a mesma configuração que já existia (`7 * 24 * 60 * 60 * 1000` em `index.ts`). Fallback de 24h quando `maxAge` está ausente (sessão sem expiração explícita no cookie).
+- **TTL** é derivado de `cookie.maxAge` (ms) — a mesma configuração que já existia (`7 * 24 * 60 * 60 * 1000` em `index.ts`). Fallback de 24h **apenas** quando `maxAge` está ausente/não numérico; `maxAge <= 0` (finito) expira a sessão imediatamente (T-046), tanto no `set` quanto no `touch` — a linha já-morta é gravada e some via lazy-delete/varredura (escolha consciente, coerente com o modelo do Store).
+- **Fail-closed**: `expires_at` corrompido/não-ISO no `get` é tratado como sessão expirada (retorna `null` e apaga a linha), nunca revive a sessão nem lança síncrono (T-046). A varredura de boot vive em `cleanupExpiredSessions` (exportada e testada diretamente).
 - **Expiração**: `get` faz lazy-delete — uma sessão com `expires_at` no passado retorna `null` e a linha é apagada na mesma chamada. Além disso, `initDb()` roda uma varredura de limpeza no boot (`DELETE FROM sessions WHERE expires_at <= <ISO agora>`) para não acumular sessões expiradas de execuções antigas que nunca mais serão lidas.
 - **`touch`** (usado por `rolling`/renovação) atualiza só `expires_at`, sem reescrever `data`.
 - **Callbacks nunca lançam síncrono** — todo método do Store é promise-based internamente e delega erro ao callback (`cb(err)`); um throw síncrono aqui derrubaria o server, já que o `express-session` não envolve as chamadas em `try/catch`.

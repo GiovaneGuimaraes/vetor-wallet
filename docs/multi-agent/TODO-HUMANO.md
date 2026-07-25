@@ -22,6 +22,12 @@ _(nenhum item aberto no momento)_
 
 ## Resolvidos
 
+### [2026-07-25] Ciclo 9 aprovado + decisão: carteira única de ações
+- **Origem**: orquestrador (proposta da "próxima onda")
+- **Bloqueia**: nada — registro de decisão
+- **Pergunta/pendência**: aprovar o Ciclo 9 (colheita das revisões T-043–T-049) e confirmar a simplificação para carteira única sinalizada em 2026-07-24.
+- **Resposta do humano**: (via chat, 2026-07-25) **aprovado** iniciar a onda; e decisão nova de produto: "na parte de carteira de ações eu quero remover a lógica que permite o user ter mais de uma carteira no momento, faça isso depois" → virou a T-050, última do ciclo.
+
 ### [2026-07-24] Ciclo 3 encerrado — decisões para o ciclo 4
 - **Origem**: orquestrador (encerramento do processo a pedido do humano)
 - **Bloqueia**: início do ciclo 4
