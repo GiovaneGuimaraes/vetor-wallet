@@ -38,8 +38,9 @@ function roundCents(value: number): number {
  * negativo em qualquer um dos três argumentos, `months` não inteiro, ou
  * resultado que estoura o alcance de `number` (taxa e prazo altíssimos).
  *
- * `futureValue` e `totalYield` são arredondados em centavos de forma
- * consistente: `valor inicial arredondado + totalYield === futureValue`.
+ * `futureValue` e `totalYield` são arredondados em centavos sem divergência
+ * entre si: `round((inicial + totalYield) * 100) === round(futureValue * 100)`
+ * (a igualdade estrita em float não vale para valores grandes).
  */
 export function projectSavings(
   initial: number,
