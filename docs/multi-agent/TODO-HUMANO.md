@@ -18,23 +18,27 @@
 
 ## Abertos
 
+_(nenhum item aberto no momento)_
+
+## Resolvidos
+
 ### [2026-07-24] Ciclo 3 encerrado — decisões para o ciclo 4
 - **Origem**: orquestrador (encerramento do processo a pedido do humano)
 - **Bloqueia**: início do ciclo 4
 - **Pergunta/pendência**: (1) Ordenar a "Fila do ciclo 4" do `BACKLOG.md` — recomendação do orquestrador: T-019 primeiro (lacuna de corretude: SELL do CSV não valida por carteira), depois T-016 (P&L diário); (2) decidir a T-020: no header do app v4 valem os mascotes por layer (design atual) — a logo oficial entra onde? Só na landing/auth, ou substitui os mascotes?; (3) T-021 (validação de SELL por data histórica) vale o custo?
-- **Resposta do humano**: _(preencher)_
+- **Resposta do humano**: (via chat, 2026-07-24) **não iniciar o novo fluxo/ciclo ainda** — ciclo 4 em espera até nova ordem do humano. (Obs.: T-019 e T-016 já haviam sido executadas e mergeadas — PRs #61 e #62 — antes desta resposta; T-020 e T-021 seguem em espera junto com o resto do ciclo.)
 
 ### [2026-07-24] Ciclo 2 concluído — validação visual final do app v4
 - **Origem**: orquestrador (fechamento do ciclo 2)
 - **Bloqueia**: nada — o app v4 já está na `main` (PRs #47–#56)
 - **Pergunta/pendência**: rode `pnpm dev` e navegue o fluxo completo (landing → home → cada layer → carteiras → dashboard) em light/dark e em 360/768px. Revisores validaram por análise estática, build e HTTP — nenhuma captura de tela foi feita. Pontos específicos citados nas revisões: landing em <860px, tabela do dashboard em 360px, hover dos mascotes na home. Divergências visuais viram tarefas residuais no próximo ciclo.
-- **Resposta do humano**: _(preencher)_
+- **Resposta do humano**: (via chat, 2026-07-24) **testado** — validação visual feita pelo humano, sem divergências reportadas.
 
 ### [2026-07-24] Candidatas para o próximo ciclo (decisão de prioridade)
 - **Origem**: orquestrador
 - **Bloqueia**: nada — define o ciclo 3
 - **Pergunta/pendência**: candidatas identificadas durante o ciclo 2: (a) P&L diário real nos cards de carteira (derivar de `quote_snapshots` — hoje o chip mostra P&L total rotulado); (b) test runner no web (issue #6 — o workaround de testar funções puras via server funcionou, mas tem limite); (c) dívidas antigas do `ORQUESTRADOR.md` (SELL sem validação de saldo, falha silenciosa de cotações, admin ampliado, logo oficial/favicon — a antiga prioridade 4 não foi tocada no v4); (d) backend de cripto (tela é mock). Ordene ou proponha outras.
-- **Resposta do humano**: _(preencher)_
+- **Resposta do humano**: (via chat, 2026-07-24) **aguardar** a parte de cripto e de ações — o humano quer melhorar as funções básicas do app primeiro. ((a) já foi entregue na T-016 e a validação de SELL na T-019 antes desta resposta.)
 
 ### [2026-07-24] Onda A completa — decidir estratégia de integração antes da Onda B
 - **Origem**: orquestrador (ciclo 2)
@@ -46,44 +50,40 @@
 - **Origem**: orquestrador (ciclo 2, T-006/T-007)
 - **Bloqueia**: nada — apenas informativo; contestável antes da execução
 - **Pergunta/pendência**: o handoff de design não define modelo de dados (e afirma incorretamente que o backend já existe). Defaults adotados: (a) registros dos layers pertencem ao **usuário**, sem vínculo com `wallet_id` (carteiras seguem sendo só de ações); (b) renda e despesas são **valores mensais fixos cadastrados** (fontes/itens), não lançamentos datados; (c) poupança é um **livro de lançamentos** (DEPOSIT/WITHDRAW/YIELD) com saldo derivado; (d) metas têm `current_amount` atualizado manualmente. Contestar qualquer default aqui antes de aprovar merge das T-006/T-007.
-- **Resposta do humano**: _(preencher)_
+- **Resposta do humano**: (via chat, 2026-07-24) defaults aceitos, com uma diretriz nova de produto: **do jeito que o app está hoje, o usuário não precisa de múltiplas carteiras** — uma só resolve, então a page de várias carteiras de ações pode ser dispensada. Candidata a tarefa de simplificação num ciclo futuro (não iniciar agora — ciclo em espera).
 
 ### [2026-07-24] Destino de Alertas, Import CSV e Comparativo CDI/Ibovespa no design v4
 - **Origem**: orquestrador (ciclo 2, T-013)
 - **Bloqueia**: nada por ora — T-013 mantém os arquivos e rotas, só remove gráficos da UI
 - **Pergunta/pendência**: o protótipo v4 não prevê lugar para AlertsPanel, CsvImport nem BenchmarkComparison no dashboard. Opções: (a) mantê-los no dashboard em cards abaixo do form, adaptados ao visual novo; (b) escondê-los neste ciclo e redesenhar depois; (c) descontinuar comparativo/gráficos de vez. T-013 seguirá com (a) para alertas/import e removerá só os gráficos, salvo resposta diferente.
-- **Resposta do humano**: _(preencher)_
+- **Resposta do humano**: (via chat, 2026-07-24) opção **(b)** — esconder da UI e redesenhar depois. (Nota: a T-013 foi executada com (a) por default antes desta resposta; ocultar Alertas/Import/Benchmark do dashboard vira tarefa candidata do próximo ciclo.)
 
 ### [2026-07-24] Antiga prioridade 2 (métricas reais nos gráficos) ficou obsoleta?
 - **Origem**: orquestrador (ciclo 2)
 - **Bloqueia**: nada — define backlog futuro
 - **Pergunta/pendência**: o design v4 remove os gráficos de evolução/sparklines do dashboard, tornando a prioridade "métricas reais nos gráficos" sem objeto. Confirmar cancelamento ou indicar onde os gráficos voltam no futuro.
-- **Resposta do humano**: _(preencher)_
+- **Resposta do humano**: (via chat, 2026-07-24) **cancelamento confirmado** — prioridade removida do backlog.
 
 ### [2026-07-19] Aprovar paleta 60-30-10 (T-001)
 - **Origem**: orquestrador (relato do executor da T-001)
 - **Bloqueia**: merge da PR [#44](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/44)
 - **Pergunta/pendência**: proposta do executor é **manter a paleta atual**, que já segue 60-30-10 — 60% canvas `#0f0e0b` (dark) / `#f4efe5` (light); 30% cards/superfícies/navegação; 10% destaque areia `#e3d5b8` (dark) / `#a8814f` (light), mantido por já ser a identidade da marca. Nenhum valor de cor mudou; o diff apenas documenta os papéis em `web/src/index.css`. Aprovar?
-- **Resposta do humano**: _(preencher)_
+- **Resposta do humano**: (via chat, 2026-07-24) **aprovado** — o design atual está bom; manter a paleta.
 
 ### [2026-07-19] Decidir escopo do "redesign" da prioridade 1
 - **Origem**: orquestrador (ressalva do revisor na T-001)
 - **Bloqueia**: nada — define o próximo ciclo
 - **Pergunta/pendência**: o revisor apontou que a T-001 cumpre o critério da tarefa mas não constitui um redesign visual de fato (o tema já estava em 60-30-10). Opções: (a) dar a parte de cores da prioridade 1 como satisfeita com a paleta atual documentada, ou (b) abrir tarefa de redesign real (novos tons/contraste/proporções) no próximo ciclo.
-- **Resposta do humano**: _(preencher)_
+- **Resposta do humano**: (via chat, 2026-07-24) opção **(a)** — o design está bom no momento; sem tarefa de redesign, aguardar.
 
 ### [2026-07-19] Teste manual em navegador antes do merge da T-002
 - **Origem**: orquestrador (recomendação do executor e do revisor da T-002)
 - **Bloqueia**: merge da PR [#45](https://github.com/GiovaneGuimaraes/vetor-wallet/pull/45)
 - **Pergunta/pendência**: validar dashboard, operações, auth e admin em 360px e 768px (devtools responsivo). Executor e revisor validaram por análise estática + build; não houve renderização real em navegador.
-- **Resposta do humano**: _(preencher)_
+- **Resposta do humano**: (via chat, 2026-07-24) **testado** pelo humano.
 
 ### [2026-07-19] Aprovar merge das PRs #44 (T-001) e #45 (T-002)
 - **Origem**: orquestrador
 - **Bloqueia**: integração do ciclo 1 na `main`
 - **Pergunta/pendência**: ambas revisadas e APROVADAS pelo revisor; orquestrador não faz merge sem aprovação humana.
-- **Resposta do humano**: _(preencher)_
-
-## Resolvidos
-
-_(o humano move itens respondidos para cá — histórico de decisões do projeto)_
+- **Resposta do humano**: (via chat, 2026-07-24) **pode esperar** — merge das PRs #44/#45 adiado, sem urgência. (Obs.: o conteúdo delas pode já ter sido absorvido pelo redesign v4 na `main`; verificar antes de eventualmente mergear ou fechar.)
