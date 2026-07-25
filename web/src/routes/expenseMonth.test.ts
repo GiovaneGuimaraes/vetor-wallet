@@ -152,4 +152,28 @@ describe('buildMonthlyHistory', () => {
     const rows = buildMonthlyHistory(3, '2026-01', [], 0);
     expect(rows.map((r) => r.month)).toEqual(['2025-11', '2025-12', '2026-01']);
   });
+
+  it('returns a single row when monthsCount is 1', () => {
+    const rows = buildMonthlyHistory(1, '2026-07', [summaryItem('2026-07', 42)], 1000);
+    expect(rows).toEqual([
+      {
+        month: '2026-07',
+        label: 'julho de 2026',
+        fixed: 1000,
+        variable: 42,
+        total: 1042,
+        isCurrent: true,
+      },
+    ]);
+  });
+
+  it('ignores a summary item outside the requested window', () => {
+    const summary = [summaryItem('2026-07', 50), summaryItem('2026-01', 999)];
+    const rows = buildMonthlyHistory(3, '2026-07', summary, 0);
+    expect(rows.map((r) => r.month)).toEqual(['2026-05', '2026-06', '2026-07']);
+    expect(rows.find((r) => r.month === '2026-07')?.variable).toBe(50);
+    // '2026-01' não faz parte da janela de 3 meses — seu valor não deve
+    // vazar para nenhuma das linhas montadas.
+    expect(rows.every((r) => r.total !== 999)).toBe(true);
+  });
 });

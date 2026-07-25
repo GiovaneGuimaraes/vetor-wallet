@@ -31,11 +31,11 @@ import {
   formatMonthLabel,
   shiftMonth,
 } from './expenseMonth';
-
-const HISTORY_MONTHS = 6;
 import { computeBudgetProgress, formatBudgetPct } from './budgetProgress';
 import { formatCategoryLabel, normalizeCategory } from './categories';
 import './layers.css';
+
+const HISTORY_MONTHS = 6;
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -396,6 +396,10 @@ export function DespesasPage() {
           .sort((a, b) => b.date.localeCompare(a.date));
       });
       cancelEntryEdit();
+      // O total variável do mês editado mudou (ou o lançamento mudou de mês) —
+      // o histórico de "Últimos meses" ficaria com um valor contraditório em
+      // relação ao "Total do mês" se não revalidasse aqui também.
+      refreshHistory();
     } catch (err) {
       setEntryEditError(err instanceof Error ? err.message : 'Falha ao atualizar lançamento');
     } finally {
@@ -439,6 +443,9 @@ export function DespesasPage() {
       setEntryDescription('');
       setEntryCategory('');
       setEntryAmount('');
+      // Novo lançamento muda o total variável do mês em que caiu — revalida o
+      // histórico para não ficar com um valor desatualizado na tela.
+      refreshHistory();
     } catch (err) {
       setEntryFormError(err instanceof Error ? err.message : 'Falha ao criar lançamento');
     } finally {
@@ -451,6 +458,7 @@ export function DespesasPage() {
     try {
       await deleteExpenseEntry(id);
       setEntries((prev) => (Array.isArray(prev) ? prev.filter((e) => e.id !== id) : prev));
+      refreshHistory();
     } catch {
       refreshEntries(monthKey);
     } finally {
@@ -554,26 +562,37 @@ export function DespesasPage() {
         )}
 
         {monthlyHistory.length > 0 && (
-          <ul className="vw-history-list">
-            {monthlyHistory.map((row) => (
-              <li key={row.month}>
-                <button
-                  type="button"
-                  className={`vw-history-item${row.isCurrent ? ' vw-history-current' : ''}${
-                    row.month === monthKey ? ' vw-history-selected' : ''
-                  }`}
-                  onClick={() => applyMonth(row.month)}
-                  title="Fixas vigentes hoje + lançamentos variáveis daquele mês. As fixas exibidas são sempre as de hoje — não há histórico de quando uma fixa passou a existir."
-                >
-                  <span className="vw-history-item-label">
-                    {row.label}
-                    {row.isCurrent && <span className="vw-history-item-badge">atual</span>}
-                  </span>
-                  <span className="vw-history-item-value">{fmtCur.format(row.total)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <>
+            <p className="vw-history-hint">
+              A parcela de fixas é sempre a vigente hoje — não há histórico de quando uma despesa
+              fixa passou a existir.
+            </p>
+            <ul className="vw-history-list">
+              {monthlyHistory.map((row) => (
+                <li key={row.month}>
+                  <button
+                    type="button"
+                    className={`vw-history-item${row.isCurrent ? ' vw-history-current' : ''}${
+                      row.month === monthKey ? ' vw-history-selected' : ''
+                    }`}
+                    onClick={() => applyMonth(row.month)}
+                    title="Fixas vigentes hoje + lançamentos variáveis daquele mês"
+                  >
+                    <span className="vw-history-item-main">
+                      <span className="vw-history-item-label">
+                        {row.label}
+                        {row.isCurrent && <span className="vw-history-item-badge">atual</span>}
+                      </span>
+                      <span className="vw-history-item-breakdown">
+                        Fixas {fmtCur.format(row.fixed)} + variáveis {fmtCur.format(row.variable)}
+                      </span>
+                    </span>
+                    <span className="vw-history-item-value">{fmtCur.format(row.total)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
 
