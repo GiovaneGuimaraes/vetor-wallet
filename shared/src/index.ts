@@ -182,6 +182,12 @@ export interface SavingsEntry {
   date: string;
   note: string;
   created_at: string;
+  /**
+   * Meta financeira à qual o aporte/retirada está vinculado (T-024).
+   * `null`/ausente = lançamento sem vínculo. Apenas `DEPOSIT` e `WITHDRAW`
+   * podem ser vinculados — `YIELD` fica fora do progresso de metas.
+   */
+  goal_id?: number | null;
 }
 
 export interface NewSavingsEntry {
@@ -189,6 +195,8 @@ export interface NewSavingsEntry {
   amount: number;
   date: string;
   note?: string;
+  /** Id da meta a vincular (opcional). Rejeitado para lançamentos `YIELD`. */
+  goalId?: number | null;
 }
 
 export interface SavingsSummary {
@@ -198,13 +206,28 @@ export interface SavingsSummary {
   totalWithdrawals: number;
 }
 
+/**
+ * Origem do progresso de uma meta (T-024):
+ * - `MANUAL`: `current_amount` é o valor gravado na tabela `goals`, editável
+ *   via `PATCH /api/goals/:id`.
+ * - `LINKED_SAVINGS`: a meta tem lançamentos de poupança vinculados, então
+ *   `current_amount` é **derivado** (DEPOSIT − WITHDRAW vinculados) e o PATCH
+ *   de `current_amount` é rejeitado com 400.
+ */
+export type GoalProgressSource = 'MANUAL' | 'LINKED_SAVINGS';
+
 export interface Goal {
   id: number;
   user_id: number;
   name: string;
   target_amount: number;
+  /** Manual ou derivado dos lançamentos vinculados — ver `progress_source`. */
   current_amount: number;
   created_at: string;
+  /** Opcional para compatibilidade com serializações antigas. */
+  progress_source?: GoalProgressSource;
+  /** Quantidade de lançamentos de poupança vinculados a esta meta. */
+  linked_entries_count?: number;
 }
 
 export interface NewGoal {
