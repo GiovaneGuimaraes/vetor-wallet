@@ -10,16 +10,17 @@ Carteira financeira pessoal para um único usuário real (Giovane), organizada e
 - **Monorepo pnpm**: `shared` (tipos, types-only), `server` (Express + libsql, SQL puro), `web` (Vite + React), `cli` (job de insights horários).
 - **Testes**: Vitest no `server` e no `web` (funções puras, ambiente node). Estado ao fim do ciclo 6: 342 testes server + 113 web.
 
-## Estado atual (2026-07-25, fim do ciclo 6)
+## Estado atual (2026-07-25, fim do ciclo 8)
 
-- Ciclos 1–6 concluídos e mergeados (PRs #44–#76) — resumo por ciclo no `BACKLOG.md`, detalhes no `BACKLOG-ARQUIVO.md`.
+- Ciclos 1–8 concluídos e mergeados (PRs #44–#83) — resumo por ciclo no `BACKLOG.md`, detalhes no `BACKLOG-ARQUIVO.md`. Suíte: 411 server + 171 web.
+- Ciclo 8 (pedidos diretos do humano, pré-"próxima onda"): Despesas na landing, simulador de previsão de rendimento em `/poupanca`, transferência poupança→meta com conceito de "saldo livre" (`POST /api/savings/transfer-to-goal`), labels de `/renda` renomeadas.
 - **Modo auto ativo** (autorização permanente do humano, 2026-07-24): após APROVADA do revisor, o orquestrador abre PR e faz merge automático, resolvendo conflitos; revisão humana a posteriori. Decisões de produto/UX continuam indo ao `TODO-HUMANO.md`.
 - Dívidas de produção restantes: agendador do job de insights (Lambda/EventBridge); Alertas/Import CSV sem UI (aguardando redesign). Sessões já persistem no SQLite (T-034).
 - Direções dadas pelo humano: melhorar funções básicas antes de cripto/ações; sem gráficos no dashboard/home; carteira única como fluxo padrão.
 
 ## Prioridade vigente
 
-**Ciclo 7 — feedback do humano pós-ciclo 6** (ver tarefas T-036–T-038 no `BACKLOG.md`): renda variável, ocultar orçamento do mês, logo clicável. Depois: candidatas listadas no `BACKLOG.md` + decisões paradas no `TODO-HUMANO.md` (T-020/T-021).
+**Aguardando a "próxima onda" anunciada pelo humano** (ciclo 8 encerrou os pedidos pré-onda). Enquanto isso: candidatas listadas no `BACKLOG.md` (inclui colheita das revisões T-040/T-041) + decisões paradas no `TODO-HUMANO.md` (T-020/T-021).
 
 > Atualize esta seção a cada ciclo. Mudança de prioridade que envolva produto → `TODO-HUMANO.md`.
 

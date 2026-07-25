@@ -467,3 +467,15 @@ _(item completo mais abaixo, na seÃ§Ã£o do ciclo 3 â€” transferido)_
 ### T-037 — Ocultar "Orçamento do mês" — PR #78. Executor Sonnet, revisor Sonnet: APROVADA, 0 bloqueantes. Seção removida da DespesasPage (JSX conferido na íntegra), backend/testes de budgets preservados (reversível). Feedback: humano não viu utilidade no recurso da T-023.
 
 ### T-038 — Logo do header clicável → /home — PR #77. Executor Sonnet, revisor Sonnet: APROVADA, 0 bloqueantes. Link SPA com aria-label, visual preservado nos dois temas.
+
+## Ciclo 8 — Pedidos do humano pré-"próxima onda" — CONCLUÍDO E MERGEADO (2026-07-25)
+
+Suíte ao fim: 411 server + 171 web. Onda A (T-039/T-040/T-042 em paralelo + spike Plan/Opus da T-041) e Onda B (T-041, dependente da T-040 por tocar PoupancaPage.tsx).
+
+### T-039 — Landing: incluir Despesas nas explicações dos layers — PR #80. Executor Haiku, revisor Sonnet: APROVADA, 0 bloqueantes. Item "Renda e despesas" do FEATURES da AuthPage separado em "Renda" (receitas-t.png) e "Despesas" (despesas-t.png). Sem teste novo (copy).
+
+### T-040 — Poupança: simulador de previsão de rendimento — PR #82. Executor Opus, revisor Opus: APROVADA, 0 bloqueantes, 4 sugestões (1 aplicada inline: redação da invariante de centavos; 3 em Candidatas). Card client-side em /poupanca: projectSavings (juros compostos, centavos, null p/ inválido) + deriveMonthlyRatePct (média das taxas mensais YIELD/saldo-início-do-mês, 6 meses); defaults do summary/histórico sem sobrescrever digitação (simTouched); 23 testes.
+
+### T-041 — Poupança: transferir saldo para uma meta — PR #83. Spike Plan/Opus + executor Opus + revisor Opus: APROVADA, 0 bloqueantes, 5 sugestões em Candidatas. POST /api/savings/transfer-to-goal: par atômico (db.batch) WITHDRAW sem vínculo + DEPOSIT vinculado, transfer_group UUID (ALTER idempotente); validação contra saldo livre (saldo − Σ max(0, net por meta), centavos); SavingsSummary intocado; UI: 4º card "Saldo livre", card de transferência, selo ⇄, aviso meta MANUAL, link em /metas com ?meta=. +41 testes server, +26 web.
+
+### T-042 — Renda: renomear labels das seções mensais — PR #81. Executor Haiku, revisor Sonnet: APROVADA, 0 bloqueantes. "Fontes fixas" → "Renda fixa do mês", "Rendas do mês" → "Renda variável do mês", subtitle/JSDoc/hint coerentes. Sem teste novo (copy).
