@@ -31,6 +31,7 @@ server/src/
 │   └── tickers.ts    # busca de tickers na brapi
 ├── services/
 │   ├── portfolio.ts      # buildPositionMap, buildPortfolioSummary (lógica pura)
+│   ├── goals.ts          # progresso de metas: manual vs derivado dos aportes vinculados
 │   ├── quotes.ts         # fetchQuotes → brapi.dev (timeout 5s)
 │   ├── snapshots.ts      # saveSnapshot, runSnapshotJob, resolveActiveTickers, withRetry
 │   ├── hourlyInsights.ts # runHourlyInsightsJob — captura horária retroativa via brapi

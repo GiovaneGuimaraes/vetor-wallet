@@ -46,7 +46,7 @@ router.post(
   '/',
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const { type, amount, date, note = '' } = req.body as Partial<NewSavingsEntry>;
+    const { type, amount, date, note = '', goalId } = req.body as Partial<NewSavingsEntry>;
 
     if (!type || !VALID_TYPES.includes(type)) {
       res.status(400).json({ error: `type deve ser um de: ${VALID_TYPES.join(', ')}` });
@@ -61,9 +61,33 @@ router.post(
       return;
     }
 
+    // T-024: vínculo opcional com uma meta financeira.
+    let linkedGoalId: number | null = null;
+    if (goalId !== undefined && goalId !== null) {
+      if (typeof goalId !== 'number' || !Number.isInteger(goalId) || goalId <= 0) {
+        res.status(400).json({ error: 'goalId deve ser o id inteiro de uma meta' });
+        return;
+      }
+      if (type === 'YIELD') {
+        res.status(400).json({
+          error: 'Lançamentos de rendimento (YIELD) não podem ser vinculados a metas',
+        });
+        return;
+      }
+      const goal = await db.execute({
+        sql: 'SELECT id FROM goals WHERE id = ? AND user_id = ?',
+        args: [goalId, userId],
+      });
+      if (goal.rows.length === 0) {
+        res.status(404).json({ error: 'Meta não encontrada' });
+        return;
+      }
+      linkedGoalId = goalId;
+    }
+
     const insert = await db.execute({
-      sql: 'INSERT INTO savings_entries (user_id, type, amount, date, note) VALUES (?, ?, ?, ?, ?)',
-      args: [userId, type, amount, date, note ?? ''],
+      sql: 'INSERT INTO savings_entries (user_id, type, amount, date, note, goal_id) VALUES (?, ?, ?, ?, ?, ?)',
+      args: [userId, type, amount, date, note ?? '', linkedGoalId],
     });
 
     const newId = insert.lastInsertRowid ?? 0;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { getSavings, createSavingsEntry, deleteSavingsEntry } from '../api';
-import type { SavingsEntry, SavingsEntryType, SavingsSummary } from '@vetor-wallet/shared';
+import { getSavings, createSavingsEntry, deleteSavingsEntry, getGoals } from '../api';
+import type { Goal, SavingsEntry, SavingsEntryType, SavingsSummary } from '@vetor-wallet/shared';
 import './layers-savings.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -32,17 +32,24 @@ interface FormState {
   amount: string;
   date: string;
   note: string;
+  /** Id da meta a vincular, como string (valor do <select>); '' = sem vínculo. */
+  goalId: string;
 }
 
-const EMPTY_FORM: FormState = { type: 'DEPOSIT', amount: '', date: todayIso(), note: '' };
+const EMPTY_FORM: FormState = { type: 'DEPOSIT', amount: '', date: todayIso(), note: '', goalId: '' };
 
 /**
  * Rota `/poupanca` (T-010): saldo/aportes/rendimento vindos do `summary`
  * calculado pelo server (`GET /api/savings`) — sem recálculo no front —,
  * lista de lançamentos, form de novo lançamento e dica CDI estática.
+ *
+ * T-024: aporte/retirada podem ser vinculados a uma meta; a meta vinculada
+ * passa a ter progresso derivado desses lançamentos. Rendimento (`YIELD`) não
+ * aceita vínculo (o server rejeita com 400).
  */
 export function PoupancaPage() {
   const [entries, setEntries] = useState<SavingsEntry[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [summary, setSummary] = useState<SavingsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -53,9 +60,10 @@ export function PoupancaPage() {
   const refresh = useCallback(async () => {
     setError('');
     try {
-      const data = await getSavings();
+      const [data, goalsData] = await Promise.all([getSavings(), getGoals()]);
       setEntries(data.entries);
       setSummary(data.summary);
+      setGoals(goalsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao conectar com a API');
     } finally {
@@ -89,6 +97,8 @@ export function PoupancaPage() {
         amount,
         date: form.date,
         note: form.note.trim() || undefined,
+        // YIELD não aceita vínculo com meta (T-024)
+        goalId: form.type !== 'YIELD' && form.goalId ? Number(form.goalId) : undefined,
       });
       setForm({ ...EMPTY_FORM, date: form.date });
       await refresh();
@@ -98,6 +108,8 @@ export function PoupancaPage() {
       setSubmitting(false);
     }
   }
+
+  const goalNameById = new Map(goals.map((goal) => [goal.id, goal.name]));
 
   async function handleDelete(id: number) {
     try {
@@ -156,7 +168,10 @@ export function PoupancaPage() {
                   <select
                     id="savings-type"
                     value={form.type}
-                    onChange={(e) => setForm({ ...form, type: e.target.value as SavingsEntryType })}
+                    onChange={(e) => {
+                      const type = e.target.value as SavingsEntryType;
+                      setForm({ ...form, type, goalId: type === 'YIELD' ? '' : form.goalId });
+                    }}
                   >
                     <option value="DEPOSIT">Aporte</option>
                     <option value="WITHDRAW">Retirada</option>
@@ -194,6 +209,31 @@ export function PoupancaPage() {
                     onChange={(e) => setForm({ ...form, note: e.target.value })}
                   />
                 </div>
+                <div className="vw-form-field">
+                  <label htmlFor="savings-goal">Vincular à meta (opcional)</label>
+                  <select
+                    id="savings-goal"
+                    value={form.goalId}
+                    disabled={form.type === 'YIELD' || goals.length === 0}
+                    onChange={(e) => setForm({ ...form, goalId: e.target.value })}
+                  >
+                    <option value="">Sem vínculo</option>
+                    {goals.map((goal) => (
+                      <option key={goal.id} value={String(goal.id)}>
+                        {goal.name}
+                      </option>
+                    ))}
+                  </select>
+                  {form.type === 'YIELD' ? (
+                    <span className="vw-field-hint">Rendimento não pode ser vinculado a meta.</span>
+                  ) : goals.length === 0 ? (
+                    <span className="vw-field-hint">Cadastre uma meta em /metas para vincular aportes.</span>
+                  ) : (
+                    <span className="vw-field-hint">
+                      A meta vinculada passa a calcular o progresso por estes lançamentos.
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="vw-form-actions">
                 <button type="submit" className="vw-btn-primary" disabled={submitting}>
@@ -215,7 +255,12 @@ export function PoupancaPage() {
                   </span>
                   <div className="vw-savings-entry-main">
                     <p className="vw-savings-entry-note">{entry.note || '—'}</p>
-                    <p className="vw-savings-entry-date">{formatDate(entry.date)}</p>
+                    <p className="vw-savings-entry-date">
+                      {formatDate(entry.date)}
+                      {entry.goal_id != null && goalNameById.get(entry.goal_id) && (
+                        <span className="vw-savings-entry-goal">🔗 {goalNameById.get(entry.goal_id)}</span>
+                      )}
+                    </p>
                   </div>
                   <span className="vw-savings-entry-amount">
                     {entry.type === 'WITHDRAW' ? '- ' : '+ '}

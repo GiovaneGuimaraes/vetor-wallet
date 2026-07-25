@@ -1,6 +1,19 @@
 import { describe, it, expect } from 'vitest';
-import type { Goal, PortfolioSummary } from '@vetor-wallet/shared';
-import { computeGoalsSummary, computeStockTotals, sumAmounts } from './homeMetrics';
+import type { ExpenseEntry, Goal, PortfolioSummary } from '@vetor-wallet/shared';
+import { computeGoalsSummary, computeMonthCashFlow, computeStockTotals, sumAmounts } from './homeMetrics';
+
+function makeEntry(overrides: Partial<ExpenseEntry> = {}): ExpenseEntry {
+  return {
+    id: 1,
+    user_id: 1,
+    description: 'Mercado',
+    category: '',
+    amount: 100,
+    date: '2026-07-10',
+    created_at: '2026-07-10',
+    ...overrides,
+  };
+}
 
 function makeSummary(overrides: Partial<PortfolioSummary> = {}): PortfolioSummary {
   return {
@@ -93,5 +106,43 @@ describe('computeGoalsSummary', () => {
   it('permite current_amount > target_amount e reporta percentual acima de 100', () => {
     const result = computeGoalsSummary([makeGoal({ target_amount: 100, current_amount: 150 })]);
     expect(result.aggregatePct).toBeCloseTo(150);
+  });
+});
+
+describe('computeMonthCashFlow', () => {
+  it('sem lançamentos variáveis (array vazio), sobra real é igual à prevista', () => {
+    const result = computeMonthCashFlow(5000, 3000, []);
+    expect(result).toEqual({
+      expensesTotal: 3000,
+      estimatedBalance: 2000,
+      realBalance: 2000,
+      hasVariableEntries: true,
+    });
+  });
+
+  it('com lançamentos variáveis, subtrai corretamente da sobra real mantendo a prevista', () => {
+    const result = computeMonthCashFlow(5000, 3000, [makeEntry({ amount: 400 }), makeEntry({ amount: 100 })]);
+    expect(result).toEqual({
+      expensesTotal: 3500,
+      estimatedBalance: 2000,
+      realBalance: 1500,
+      hasVariableEntries: true,
+    });
+  });
+
+  it('quando a busca de lançamentos falha (null), cai para a estimativa e sinaliza hasVariableEntries=false', () => {
+    const result = computeMonthCashFlow(5000, 3000, null);
+    expect(result).toEqual({
+      expensesTotal: 3000,
+      estimatedBalance: 2000,
+      realBalance: 2000,
+      hasVariableEntries: false,
+    });
+  });
+
+  it('nunca retorna NaN mesmo com renda e fixas zeradas', () => {
+    const result = computeMonthCashFlow(0, 0, null);
+    expect(Number.isNaN(result.realBalance)).toBe(false);
+    expect(Number.isNaN(result.estimatedBalance)).toBe(false);
   });
 });

@@ -3,6 +3,7 @@ import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import type { NewGoal, GoalUpdate } from '@vetor-wallet/shared';
+import { listGoalsWithProgress, getGoalWithProgress, getGoalLinkAggregate } from '../services/goals';
 
 const router = Router();
 
@@ -12,11 +13,7 @@ router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const result = await db.execute({
-      sql: 'SELECT * FROM goals WHERE user_id = ? ORDER BY created_at DESC',
-      args: [userId],
-    });
-    res.json(result.rows);
+    res.json(await listGoalsWithProgress(userId));
   }),
 );
 
@@ -44,12 +41,8 @@ router.post(
       args: [userId, name.trim(), target_amount, current_amount],
     });
 
-    const newId = insert.lastInsertRowid ?? 0;
-    const row = await db.execute({
-      sql: 'SELECT * FROM goals WHERE id = ?',
-      args: [Number(newId)],
-    });
-    res.status(201).json(row.rows[0]);
+    const newId = Number(insert.lastInsertRowid ?? 0);
+    res.status(201).json(await getGoalWithProgress(userId, newId));
   }),
 );
 
@@ -92,6 +85,20 @@ router.patch(
       return;
     }
 
+    // T-024: metas alimentadas por lançamentos de poupança têm progresso
+    // derivado — editar `current_amount` à mão criaria duas fontes de verdade.
+    if (current_amount !== undefined) {
+      const aggregate = await getGoalLinkAggregate(userId, Number(id));
+      if (aggregate) {
+        res.status(400).json({
+          error:
+            'Esta meta tem lançamentos de poupança vinculados: o valor atual é calculado automaticamente ' +
+            '(aportes − retiradas vinculados) e não pode ser editado manualmente. Ajuste os lançamentos em /poupanca.',
+        });
+        return;
+      }
+    }
+
     const fields: string[] = [];
     const args: (string | number)[] = [];
     if (name !== undefined) {
@@ -113,11 +120,7 @@ router.patch(
       args,
     });
 
-    const row = await db.execute({
-      sql: 'SELECT * FROM goals WHERE id = ?',
-      args: [id],
-    });
-    res.json(row.rows[0]);
+    res.json(await getGoalWithProgress(userId, Number(id)));
   }),
 );
 
@@ -126,14 +129,32 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const { id } = req.params;
-    const result = await db.execute({
-      sql: 'DELETE FROM goals WHERE id = ? AND user_id = ?',
+    const existing = await db.execute({
+      sql: 'SELECT id FROM goals WHERE id = ? AND user_id = ?',
       args: [id, userId],
     });
-    if (result.rowsAffected === 0) {
+    if (existing.rows.length === 0) {
       res.status(404).json({ error: 'Meta não encontrada' });
       return;
     }
+
+    // T-024: os lançamentos vinculados continuam existindo na poupança (o saldo
+    // não muda), mas perdem o vínculo. O UPDATE precisa vir ANTES do DELETE:
+    // `savings_entries.goal_id` é FOREIGN KEY e o libsql aplica a constraint,
+    // então apagar a meta com lançamentos ainda apontando para ela falharia.
+    await db.batch(
+      [
+        {
+          sql: 'UPDATE savings_entries SET goal_id = NULL WHERE goal_id = ? AND user_id = ?',
+          args: [id, userId],
+        },
+        {
+          sql: 'DELETE FROM goals WHERE id = ? AND user_id = ?',
+          args: [id, userId],
+        },
+      ],
+      'write',
+    );
     res.status(204).send();
   }),
 );
