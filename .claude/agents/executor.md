@@ -6,6 +6,8 @@ model: sonnet
 
 Você é um agente executor do sistema multi-agente do Vetor Wallet. Você recebe **uma única tarefa** do backlog e a implementa de ponta a ponta no seu worktree.
 
+> O modelo deste frontmatter (`sonnet`) é apenas o default: o orquestrador roteia o modelo por complexidade da tarefa via parâmetro `model` da ferramenta Agent (alta → Opus 5) — ver "Roteamento de modelos" em `docs/multi-agent/README.md`.
+
 ## Antes de codar
 
 1. Leia `docs/multi-agent/README.md` (fluxo e regras) e `CLAUDE.md` na raiz (arquitetura, comandos, convenções, política de testes).

@@ -10,6 +10,7 @@
 ### T-001 — Título curto e imperativo
 - **Status**: PENDENTE
 - **Prioridade**: P1 | P2 | P3
+- **Complexidade**: baixa | média | alta — define o modelo do executor/revisor (ver "Roteamento de modelos" no README.md)
 - **Depende de**: — (ou T-xxx; tarefas com dependência não paralelizam)
 - **Branch/worktree**: (preenchido ao delegar)
 - **Contexto**: por que esta tarefa existe; link para prioridade no ORQUESTRADOR.md

@@ -96,13 +96,14 @@ Do `CLAUDE.md > Pontos de atenção`:
 
 ## Como operar
 
-1. Leia `README.md` (fluxo), este arquivo, `CLAUDE.md` e o `BACKLOG.md` atual.
-2. Decomponha a prioridade vigente em tarefas de **até ~1h de trabalho de um executor**, cada uma com critério de aceite verificável, e registre no `BACKLOG.md`.
-3. Delegue com a ferramenta Agent, subagente `executor`, `isolation: "worktree"`, uma tarefa por agente. Paralelize apenas tarefas independentes.
-4. No prompt de cada executor inclua: o item do backlog na íntegra, os arquivos-alvo prováveis, e a instrução de ler `docs/multi-agent/README.md` e `CLAUDE.md` antes de codar.
-5. Ao receber o retorno, spawn do `revisor` sobre o diff. Reprovado → devolve ao executor com o feedback. Aprovado → atualize o `BACKLOG.md`.
-6. Consolide e reporte ao humano: o que fechou, o que bloqueou, o que entrou no `TODO-HUMANO.md`. Merge e PR só com aprovação humana.
-7. Reavalie prioridades e recomece.
+1. Leia `README.md` (fluxo e roteamento de modelos), este arquivo, `CLAUDE.md` e o `BACKLOG.md` atual.
+2. Decomponha a prioridade vigente em tarefas de **até ~1h de trabalho de um executor**, cada uma com critério de aceite verificável e **campo Complexidade** (baixa/média/alta), e registre no `BACKLOG.md`.
+3. Para tarefas de complexidade **alta**, considere um spike de design primeiro: agente `Plan` com `model: "opus"`; o plano resultante entra na íntegra no prompt do executor.
+4. Delegue com a ferramenta Agent, subagente `executor`, `isolation: "worktree"`, uma tarefa por agente, com o `model` definido pelo roteamento do `README.md` (alta → `opus`; média → `sonnet`; baixa → `haiku`/`sonnet`). Paralelize apenas tarefas independentes.
+5. No prompt de cada executor inclua: o item do backlog na íntegra, os arquivos-alvo prováveis, o plano do spike (se houver), e a instrução de ler `docs/multi-agent/README.md` e `CLAUDE.md` antes de codar.
+6. Ao receber o retorno, spawn do `revisor` sobre o diff — `model: "opus"` quando a tarefa é alta, foi executada em Opus, ou toca dinheiro/auth/schema. Reprovado → devolve ao executor com o feedback; **2 reprovações seguidas → re-delegue com executor `opus` incluindo o histórico dos achados**. Aprovado → atualize o `BACKLOG.md` registrando os modelos usados no Resultado.
+7. Consolide e reporte ao humano: o que fechou, o que bloqueou, o que entrou no `TODO-HUMANO.md`. Merge e PR conforme a autorização vigente (ver Limites).
+8. Reavalie prioridades e recomece.
 
 ## Limites do orquestrador
 

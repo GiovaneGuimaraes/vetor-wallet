@@ -6,9 +6,10 @@ Este diretório define o fluxo de trabalho multi-agente em loop fechado do proje
 
 | Papel | Modelo | Quem é | Responsabilidade |
 |---|---|---|---|
-| **Orquestrador** | Fable (sessão principal do Claude Code) | Você, se está lendo isto na sessão principal | Entender o app, priorizar, decompor trabalho em TODOs no `BACKLOG.md`, delegar aos executores, revisar e integrar resultados |
-| **Executor** | Sonnet (subagente `executor`) | Subagente criado via ferramenta Agent | Implementar UMA tarefa do backlog, com testes, em worktree isolado |
-| **Revisor** | Sonnet (subagente `revisor`) | Subagente criado via ferramenta Agent | Revisar o diff de uma tarefa concluída antes da integração |
+| **Orquestrador** | Fable (sessão principal do Claude Code) | Você, se está lendo isto na sessão principal | Entender o app, priorizar, decompor trabalho em TODOs no `BACKLOG.md`, classificar complexidade, rotear modelos, delegar aos executores, revisar e integrar resultados |
+| **Executor** | Sonnet (padrão) ou **Opus 5** (tarefas de complexidade alta) — roteado pelo orquestrador via parâmetro `model` da ferramenta Agent | Subagente `executor` criado via ferramenta Agent | Implementar UMA tarefa do backlog, com testes, em worktree isolado |
+| **Revisor** | Sonnet (padrão) ou **Opus 5** (tarefas de risco alto — ver roteamento) | Subagente `revisor` criado via ferramenta Agent | Revisar o diff de uma tarefa concluída antes da integração |
+| **Planejador** (opcional) | **Opus 5** (agente `Plan`) | Subagente criado via ferramenta Agent | Spike de design para tarefas de complexidade alta ANTES da execução: mapa de arquivos, abordagem, riscos — o resultado entra no prompt do executor |
 | **Humano** | Giovane | Dono do projeto | Decisões de produto, aprovação de merges, itens do `TODO-HUMANO.md` |
 
 ## Documentos do sistema
@@ -51,6 +52,24 @@ Este diretório define o fluxo de trabalho multi-agente em loop fechado do proje
 │    e volta ao passo 1.                                   │
 └─────────────────────────────────────────────────────────┘
 ```
+
+## Roteamento de modelos (quem roda em quê)
+
+O orquestrador classifica cada tarefa do `BACKLOG.md` com um campo **Complexidade** e escolhe o modelo do executor/revisor pelo parâmetro `model` da ferramenta Agent (que sobrepõe o default do frontmatter do subagente).
+
+| Complexidade | Sinais típicos | Executor | Revisor |
+|---|---|---|---|
+| **baixa** | mudança mecânica/repetitiva, docs, ajuste de estilo/CSS, renomear, asset estático | `haiku` ou `sonnet` | `sonnet` |
+| **média** | feature padrão sobre padrões existentes (nova rota espelhando outra, tela nova sobre API pronta, teste novo) | `sonnet` (default) | `sonnet` |
+| **alta** | cálculo financeiro (preço médio, P&L, saldo), mudança de schema/migração, auth/isolamento por `user_id`, refactor multi-pacote (`shared`+`server`+`web`), lógica com muitos casos de borda, débito que já causou reprovação antes | `opus` | `opus` |
+
+Regras complementares:
+
+- **Revisão pareada ao risco**: tarefa executada em Opus → revisor em Opus. Tarefa média que toque dinheiro/auth/schema → revisor em Opus mesmo com executor Sonnet (revisar é mais barato que retrabalhar).
+- **Escalonamento automático**: 2 vereditos REPROVADA seguidos na mesma tarefa → o orquestrador re-delega o próximo ciclo com executor `opus`, incluindo no prompt o histórico dos achados das reprovações.
+- **Spike de design (opcional, recomendado para alta)**: antes de delegar uma tarefa alta, o orquestrador pode spawnar o agente `Plan` com `model: "opus"` para produzir plano de implementação (arquivos-alvo, abordagem, riscos, casos de borda). O plano entra na íntegra no prompt do executor — reduz retrabalho e permite até executar em Sonnet com plano de Opus quando o desafio é de *design*, não de *execução*.
+- **Na dúvida entre média e alta, escolha alta.** O custo extra de Opus numa tarefa é menor que um ciclo executar→reprovar→corrigir→re-revisar.
+- O orquestrador registra o modelo usado no campo **Resultado** da tarefa ao concluir — vira dado para calibrar a heurística nos próximos ciclos.
 
 ## Regras de paralelismo (multi-branch)
 
