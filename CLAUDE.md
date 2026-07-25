@@ -150,6 +150,10 @@ Todas as rotas abaixo (exceto `/api/auth/*`) exigem sessão autenticada via cook
 | `POST` | `/api/income` | Cria fonte de renda mensal |
 | `PATCH` | `/api/income/:id` | Atualiza parcialmente uma fonte de renda (`name`/`type`/`amount`) |
 | `DELETE` | `/api/income/:id` | Remove fonte de renda mensal |
+| `GET` | `/api/income-entries` | Lista lançamentos de renda variável de um mês (T-036) — query `?month=YYYY-MM` (default: mês corrente). Responde `{ month, entries }` |
+| `POST` | `/api/income-entries` | Cria lançamento de renda variável (`description`, `amount`, `date`) |
+| `PATCH` | `/api/income-entries/:id` | Atualiza parcialmente um lançamento (`description`/`amount`/`date`); mudar a `date` pode mover o lançamento para outro mês |
+| `DELETE` | `/api/income-entries/:id` | Remove lançamento de renda variável |
 | `GET` | `/api/expenses` | Lista despesas fixas do usuário |
 | `POST` | `/api/expenses` | Cria despesa fixa |
 | `PATCH` | `/api/expenses/:id` | Atualiza parcialmente uma despesa fixa (`name`/`category`/`amount`); `category` é normalizada (T-028) |
@@ -252,6 +256,20 @@ CREATE TABLE IF NOT EXISTS income_sources (
   amount     REAL    NOT NULL,
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Lançamentos de renda variável (renda avulsa datada: freela pontual, venda,
+-- bônus; a visão mensal filtra por substr(date, 1, 7) = 'YYYY-MM'). Distinto de
+-- income_sources, que não tem data e vale para todo mês. Sem categoria e sem
+-- recorrência (fora de escopo da T-036).
+CREATE TABLE IF NOT EXISTS income_entries (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id),
+  description TEXT    NOT NULL,
+  amount      REAL    NOT NULL,
+  date        TEXT    NOT NULL,   -- YYYY-MM-DD
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_income_entries_user_date ON income_entries(user_id, date);
 
 -- Despesas fixas mensais (itens fixos cadastrados, não lançamentos datados)
 CREATE TABLE IF NOT EXISTS fixed_expenses (
@@ -473,8 +491,23 @@ No web, as 4 telas ganharam **modo de edição no item da lista** (lápis → ca
 
 Fora de escopo (segue pendente): editar operações de ações, histórico/auditoria de edições e edição em massa.
 
-### Sobra do mês na Home é real, não só estimada (T-025)
-O hero da Home (`web/src/routes/HomePage.tsx`) busca também `GET /api/expense-entries?month=` (mês corrente via `currentMonthKey()` de `expenseMonth.ts`, fuso local) e calcula a sobra do mês com `computeMonthCashFlow` (`web/src/routes/homeMetrics.ts`): `realBalance = renda − despesas fixas − lançamentos variáveis do mês`. O card "Sobra do mês" mostra esse valor real com um sublabel comparando à sobra prevista (`estimatedBalance = renda − fixas`); o card de Despesas na Home mostra `expensesTotal` (fixas + variáveis), não só fixas. A busca de lançamentos segue o mesmo padrão `Promise.allSettled` das demais chamadas da Home (T-008): se falhar, `variableEntries` fica `null` e `computeMonthCashFlow` cai para o comportamento anterior (`realBalance = estimatedBalance`), sinalizado com um aviso discreto no sublabel em vez de exibir `NaN`. Sem gráficos ou histórico multi-mês na Home (decisão do humano — ver `TODO-HUMANO.md`, cancelados nesta tarefa).
+### Renda fixa × lançamentos de renda variável (T-036)
+O layer `/renda` soma **duas** fontes diferentes, espelhando exatamente o que a T-022 fez em despesas: `income_sources` (fontes fixas mensais, **sem data** — valem integralmente para qualquer mês exibido) e `income_entries` (renda avulsa datada: freela pontual, venda, bônus, filtrada por mês). O **total do mês exibido é fixas + variáveis daquele mês** — calculado por `computeIncomeMonthTotals` em `web/src/routes/incomeMonth.ts` (função pura, testada), não inline no componente. A navegação de mês é estado local da `RendaPage`: trocar o mês recarrega só as rendas variáveis (`GET /api/income-entries?month=`), com a mesma guarda de resposta obsoleta da T-030 (`latestRequestedMonthRef`), pois as fixas não dependem do mês.
+
+Decisões de projeto:
+
+- **Nada de helper de mês duplicado**: `RendaPage` importa `currentMonthKey`/`shiftMonth`/`formatMonthLabel`/`formatDayMonth` de `expenseMonth.ts` — esses helpers não são específicos de despesas. Só o cálculo de total ganhou arquivo próprio (`incomeMonth.ts`), porque os tipos das duas fontes são diferentes. No server, `routes/incomeEntries.ts` importa `currentMonth` de `routes/expenseEntries.ts` pelo mesmo motivo (mover o helper para um service exigiria editar a rota de despesas, fora do escopo da T-036) — se um dia surgir um terceiro consumidor, extrair para `services/months.ts`.
+- **Sem categoria e sem recorrência** em renda variável (fora de escopo): não há `normalizeCategory` nem materialização lazy aqui, então `GET /api/income-entries` é leitura pura (nenhuma escrita antes do SELECT, diferente do endpoint de despesas).
+- Mesma consequência esperada da simetria: navegar para um mês passado/futuro não altera a parcela de fixas do total — não há histórico de quando uma fonte fixa passou a existir. Também **não há** histórico multi-mês em `/renda` (o "Últimos meses" da T-033 é só de despesas).
+
+### Sobra do mês na Home é real, não só estimada (T-025, atualizada na T-036)
+O hero da Home (`web/src/routes/HomePage.tsx`) busca também `GET /api/expense-entries?month=` e `GET /api/income-entries?month=` (mês corrente via `currentMonthKey()` de `expenseMonth.ts`, fuso local) e calcula a sobra do mês com `computeMonthCashFlow` (`web/src/routes/homeMetrics.ts`):
+
+- `realBalance = (renda fixa + rendas variáveis do mês) − despesas fixas − despesas variáveis do mês`
+- `estimatedBalance` (sobra **prevista**) continua sendo `renda fixa − despesas fixas`: o que é avulso, dos dois lados, não é previsível.
+- `incomeTotal` = renda fixa + rendas variáveis do mês — é o que o card "Renda" (hero e card de layer) exibe; `expensesTotal` = fixas + variáveis, como já era.
+
+O card "Sobra do mês" mostra o valor real com um sublabel comparando à prevista. As duas buscas mensais seguem o padrão `Promise.allSettled` das demais chamadas da Home (T-008) e falham **de forma independente**: `variableEntries`/`variableIncomeEntries` ficam `null` e cada lado é somado como 0 (nunca `NaN`), com uma flag de load própria — `entriesLoaded` (despesas, nome herdado da T-025/T-030) e `incomeEntriesLoaded` (rendas). O aviso discreto no sublabel aparece quando qualquer uma das duas flags é false, e só depois do primeiro carregamento (`!loading`), senão piscaria sempre. Sem gráficos ou histórico multi-mês na Home (decisão do humano — ver `TODO-HUMANO.md`).
 
 ### Sessões persistem no restart (T-034)
 `express-session` usa `SqliteSessionStore` (`server/src/auth/sessionStore.ts`), uma implementação da interface `Store` sobre o mesmo `@libsql/client`/arquivo SQLite do app — não mais o `MemoryStore` padrão. Sessões sobrevivem a restart do server porque ficam gravadas na tabela `sessions` (`sid` PK, `data` TEXT JSON, `expires_at`; criada em `initDb()`, idempotente como as demais).
