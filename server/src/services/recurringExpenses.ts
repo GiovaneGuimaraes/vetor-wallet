@@ -75,25 +75,6 @@ export interface RecurringExpenseRow {
   start_month: string;
 }
 
-/**
- * Registra o mês em que a recorrência nasceu como já materializado, apontando
- * para o lançamento que o usuário acabou de criar. Sem isso o primeiro GET do
- * mês de criação geraria uma segunda ocorrência idêntica.
- *
- * NÃO é usada pelo caminho de criação de `POST /api/expense-entries` (ver
- * `createRecurringExpenseEntry` abaixo, T-045) — ali a mesma reserva de mês
- * precisa rodar na MESMA transação do template e da primeira ocorrência, e
- * esta função sempre escreve via `db.execute` (fora de transação). Mantida
- * exportada por ser a que `materializeRecurringExpenses` documentava como
- * referência de reserva de mês; sem outro chamador hoje.
- */
-export async function markMonthMaterialized(recurringId: number, month: string): Promise<void> {
-  await db.execute({
-    sql: 'INSERT OR IGNORE INTO recurring_expense_months (recurring_id, month) VALUES (?, ?)',
-    args: [recurringId, month],
-  });
-}
-
 /** Parâmetros para `createRecurringExpenseEntry` — ver doc da função. */
 export interface CreateRecurringEntryParams {
   userId: number;
@@ -130,6 +111,23 @@ export interface CreateRecurringEntryResult {
  * escrita lançou antes do commit, `close()` reverte a transação inteira — não
  * há caminho em que o template fique sem a ocorrência ou o mês fique marcado
  * sem lançamento.
+ *
+ * Reserva do mês com `OR IGNORE` (assimetria proposital em relação ao
+ * `INSERT` sem `OR IGNORE` de `materializeRecurringExpenses`): aqui é seguro,
+ * porque `recurringId` acabou de nascer NESTA transação — nenhuma outra
+ * request pode tê-lo reservado ainda (o id só existe fora daqui depois do
+ * `commit`). Não há corrida a detectar. No GET, ao contrário, a recorrência já
+ * existe e é compartilhada entre requests concorrentes, então a violação do
+ * `UNIQUE(recurring_id, month)` É o sinal de corrida que a materialização usa
+ * para saber que perdeu — ver `isUniqueViolation`.
+ *
+ * Custo aceito da transação interativa (primeiro uso no repo — não copie o
+ * padrão sem considerar isto): no driver local (`@libsql/client` sobre
+ * arquivo), `db.transaction()` toma posse da conexão corrente e a abandona —
+ * o client cria uma nova conexão lazy na próxima chamada, e `tx.close()` não
+ * fecha esse handle abandonado. Aceitável aqui porque criar uma recorrência é
+ * um evento raro (não um hot path) num app single-user; não é um padrão para
+ * reusar em rotas de alta frequência sem revisitar esse custo.
  */
 export async function createRecurringExpenseEntry(
   params: CreateRecurringEntryParams,
@@ -156,10 +154,9 @@ export async function createRecurringExpenseEntry(
       throw new Error('T-035: falha ao criar a recorrência (lastInsertRowid ausente)');
     }
 
-    // Marca o mês do LANÇAMENTO, não `startMonth` — mesma regra de
-    // `markMonthMaterialized`/doc do módulo: num cadastro retroativo os dois
-    // divergem e marcar o mês corrente suprimiria a ocorrência que a
-    // recorrência deve gerar agora.
+    // Marca o mês do LANÇAMENTO, não `startMonth` — mesma regra da doc do
+    // módulo: num cadastro retroativo os dois divergem e marcar o mês
+    // corrente suprimiria a ocorrência que a recorrência deve gerar agora.
     await tx.execute({
       sql: 'INSERT OR IGNORE INTO recurring_expense_months (recurring_id, month) VALUES (?, ?)',
       args: [recurringId, params.entryMonth],
