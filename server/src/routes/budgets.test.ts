@@ -92,10 +92,30 @@ describe('budgets routes', () => {
     expect(res.status).toBe(400);
   });
 
-  it('creates a budget for a category', async () => {
+  it('creates a budget storing the category in canonical form (T-028)', async () => {
     const res = await agentA.post('/api/budgets').send({ category: 'Mercado', amount: 500 });
     expect(res.status).toBe(201);
-    expect(res.body).toMatchObject({ category: 'Mercado', amount: 500 });
+    expect(res.body).toMatchObject({ category: 'mercado', amount: 500 });
+  });
+
+  it('upsert with case/space variation replaces instead of duplicating (T-028)', async () => {
+    await agentA.post('/api/budgets').send({ category: 'Farmácia', amount: 120 });
+    const res = await agentA.post('/api/budgets').send({ category: '  FARMÁCIA ', amount: 180 });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ category: 'farmácia', amount: 180 });
+
+    const list = await agentA.get('/api/budgets');
+    const matches = list.body.filter((b: { category: string }) => b.category === 'farmácia');
+    expect(matches).toHaveLength(1);
+    expect(matches[0].amount).toBe(180);
+  });
+
+  it('collapses internal whitespace in the stored category (T-028)', async () => {
+    const res = await agentA
+      .post('/api/budgets')
+      .send({ category: 'Compras   do   mes', amount: 90 });
+    expect(res.status).toBe(201);
+    expect(res.body.category).toBe('compras do mes');
   });
 
   it('upsert replaces the amount instead of duplicating the category', async () => {
@@ -105,7 +125,7 @@ describe('budgets routes', () => {
     expect(res.body.amount).toBe(350);
 
     const list = await agentA.get('/api/budgets');
-    const lazerEntries = list.body.filter((b: { category: string }) => b.category === 'Lazer');
+    const lazerEntries = list.body.filter((b: { category: string }) => b.category === 'lazer');
     expect(lazerEntries).toHaveLength(1);
     expect(lazerEntries[0].amount).toBe(350);
   });
@@ -115,11 +135,11 @@ describe('budgets routes', () => {
 
     const resA = await agentA.get('/api/budgets');
     expect(resA.status).toBe(200);
-    expect(resA.body.every((b: { category: string }) => b.category !== 'Da B')).toBe(true);
+    expect(resA.body.every((b: { category: string }) => b.category !== 'da b')).toBe(true);
 
     const resB = await agentB.get('/api/budgets');
     expect(resB.status).toBe(200);
-    expect(resB.body.some((b: { category: string }) => b.category === 'Da B')).toBe(true);
+    expect(resB.body.some((b: { category: string }) => b.category === 'da b')).toBe(true);
   });
 
   it('deletes a budget belonging to the user', async () => {

@@ -3,6 +3,7 @@ import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import type { NewExpenseEntry } from '@vetor-wallet/shared';
+import { normalizeCategory } from '../services/categories';
 
 const router = Router();
 
@@ -67,9 +68,12 @@ router.post(
       return;
     }
 
+    // Categoria é gravada na forma canônica (T-028) — ver services/categories.ts.
+    const normalizedCategory = normalizeCategory(typeof category === 'string' ? category : '');
+
     const insert = await db.execute({
       sql: 'INSERT INTO expense_entries (user_id, description, category, amount, date) VALUES (?, ?, ?, ?, ?)',
-      args: [userId, description.trim(), typeof category === 'string' ? category.trim() : '', amount, date],
+      args: [userId, description.trim(), normalizedCategory, amount, date],
     });
 
     const newId = insert.lastInsertRowid ?? 0;

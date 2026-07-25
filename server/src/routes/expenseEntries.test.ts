@@ -79,10 +79,21 @@ describe('expense entries routes', () => {
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({
       description: 'Mercado',
-      category: 'Alimentação',
+      category: 'alimentação',
       amount: 234.5,
       date: '2026-07-10',
     });
+  });
+
+  it('stores the category in canonical form — case and spaces normalized (T-028)', async () => {
+    const res = await agentA.post('/api/expense-entries').send({
+      description: 'Feira',
+      category: '  ALIMENTAÇÃO   Semanal ',
+      amount: 80,
+      date: '2026-07-12',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.category).toBe('alimentação semanal');
   });
 
   it('defaults category to empty string when omitted', async () => {

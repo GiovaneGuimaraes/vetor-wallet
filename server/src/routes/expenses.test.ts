@@ -91,7 +91,27 @@ describe('expenses routes', () => {
   it('creates a fixed expense', async () => {
     const res = await agentA.post('/api/expenses').send({ name: 'Aluguel', category: 'Moradia', amount: 1500 });
     expect(res.status).toBe(201);
-    expect(res.body).toMatchObject({ name: 'Aluguel', category: 'Moradia', amount: 1500 });
+    expect(res.body).toMatchObject({ name: 'Aluguel', category: 'moradia', amount: 1500 });
+  });
+
+  it('stores the category in canonical form — case and spaces normalized (T-028)', async () => {
+    const res = await agentA
+      .post('/api/expenses')
+      .send({ name: 'Condomínio', category: '  MORADIA   Fixa ', amount: 700 });
+    expect(res.status).toBe(201);
+    expect(res.body.category).toBe('moradia fixa');
+  });
+
+  it('two expenses typed with different casing end up in the same category (T-028)', async () => {
+    await agentA.post('/api/expenses').send({ name: 'Feira', category: 'Mercado', amount: 300 });
+    await agentA.post('/api/expenses').send({ name: 'Padaria', category: 'mercado ', amount: 100 });
+
+    const list = await agentA.get('/api/expenses');
+    const mercado = (list.body as { category: string; amount: number }[]).filter(
+      (item) => item.category === 'mercado',
+    );
+    expect(mercado).toHaveLength(2);
+    expect(mercado.reduce((acc, item) => acc + item.amount, 0)).toBe(400);
   });
 
   it('defaults category to empty string when omitted', async () => {

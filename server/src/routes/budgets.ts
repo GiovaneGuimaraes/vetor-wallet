@@ -3,6 +3,7 @@ import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import type { NewCategoryBudget } from '@vetor-wallet/shared';
+import { normalizeCategory } from '../services/categories';
 
 const router = Router();
 
@@ -23,6 +24,9 @@ router.get(
 /**
  * Upsert por categoria: um orçamento por (user_id, category) — reenviar a
  * mesma categoria substitui o valor anterior em vez de criar um duplicado.
+ * A categoria é gravada na forma canônica (T-028), então variações de caixa e
+ * de espaço ("Mercado", "mercado ") caem no mesmo registro e substituem o teto
+ * em vez de duplicar.
  */
 router.post(
   '/',
@@ -30,7 +34,10 @@ router.post(
     const userId = res.locals.userId as number;
     const { category, amount } = req.body as Partial<NewCategoryBudget>;
 
-    if (!category || typeof category !== 'string' || !category.trim()) {
+    const normalizedCategory =
+      typeof category === 'string' ? normalizeCategory(category) : '';
+
+    if (!normalizedCategory) {
       res.status(400).json({ error: 'category é obrigatória' });
       return;
     }
@@ -39,18 +46,16 @@ router.post(
       return;
     }
 
-    const trimmedCategory = category.trim();
-
     await db.execute({
       sql: `INSERT INTO category_budgets (user_id, category, amount)
             VALUES (?, ?, ?)
             ON CONFLICT(user_id, category) DO UPDATE SET amount = excluded.amount`,
-      args: [userId, trimmedCategory, amount],
+      args: [userId, normalizedCategory, amount],
     });
 
     const row = await db.execute({
       sql: 'SELECT * FROM category_budgets WHERE user_id = ? AND category = ?',
-      args: [userId, trimmedCategory],
+      args: [userId, normalizedCategory],
     });
     res.status(201).json(row.rows[0]);
   }),
