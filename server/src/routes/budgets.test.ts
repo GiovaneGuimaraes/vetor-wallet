@@ -76,6 +76,22 @@ describe('budgets routes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects creation with non-finite amount (Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/budgets')
+      .set('Content-Type', 'application/json')
+      .send('{"category":"Mercado","amount":1e999}');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects creation with non-finite amount (-Infinity) (400)', async () => {
+    const res = await agentA
+      .post('/api/budgets')
+      .set('Content-Type', 'application/json')
+      .send('{"category":"Mercado","amount":-1e999}');
+    expect(res.status).toBe(400);
+  });
+
   it('creates a budget for a category', async () => {
     const res = await agentA.post('/api/budgets').send({ category: 'Mercado', amount: 500 });
     expect(res.status).toBe(201);

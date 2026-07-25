@@ -44,11 +44,11 @@ router.post(
       res.status(400).json({ error: 'type deve ser BUY ou SELL' });
       return;
     }
-    if (!quantity || quantity <= 0) {
+    if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity <= 0) {
       res.status(400).json({ error: 'quantity deve ser maior que 0' });
       return;
     }
-    if (!price || price <= 0) {
+    if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {
       res.status(400).json({ error: 'price deve ser maior que 0' });
       return;
     }

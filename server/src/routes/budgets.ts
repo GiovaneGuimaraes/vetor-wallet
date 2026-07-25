@@ -34,7 +34,7 @@ router.post(
       res.status(400).json({ error: 'category é obrigatória' });
       return;
     }
-    if (typeof amount !== 'number' || Number.isNaN(amount) || amount <= 0) {
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
       res.status(400).json({ error: 'amount deve ser um número maior que 0' });
       return;
     }
