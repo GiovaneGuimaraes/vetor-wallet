@@ -329,3 +329,6 @@ pnpm --filter vetor-wallet-web test
 
 ### Job de insights horários sem agendador automático
 O CLI `pnpm --filter vetor-wallet-cli insights:hourly` precisa ser invocado manualmente ou via cron do SO até o deploy em AWS Lambda + EventBridge (issue futura).
+
+### `AlertsPanel` e `CsvImport` sem UI (T-026)
+Decisão do humano (`TODO-HUMANO.md`, 2026-07-24, opção b): os componentes `AlertsPanel` e `CsvImport` foram removidos do render de `DashboardPage.tsx`, mas os arquivos, `utils/alerts.ts` e as rotas `/api/alerts` e `/api/import` do server continuam ativos e intactos — aguardando redesign futuro antes de voltarem à UI.
