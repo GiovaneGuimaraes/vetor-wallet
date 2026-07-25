@@ -1,43 +1,56 @@
 import type { Wallet } from '@vetor-wallet/shared';
 
 /**
- * Decisão pura do fluxo da rota `/carteiras` (T-027 — "modo carteira única").
- * Decisão do humano (2026-07-24): uma carteira só resolve — não precisa da
- * página de várias carteiras. Extraída como função pura (sem I/O, sem router)
- * para ser testável isoladamente; `CarteirasPage.tsx` só interpreta o
- * resultado (navegar, criar, mostrar erro, ou renderizar a lista).
+ * Decisão pura do fluxo de carteira do web (T-050b, reescrita da T-027).
  *
- * - `hadLoadError && wallets.length === 0` → estado de erro (`error`): a
- *   última busca de carteiras falhou (rede/timeout) e `wallets` está vazio
- *   só por causa disso — **nunca** interpretar como "usuário sem carteira"
- *   e disparar a criação automática, ou uma falha transitória mascararia
- *   carteiras reais do usuário atrás de uma "Principal" espúria (achado do
- *   revisor na primeira rodada desta tarefa). Se `wallets` já tem itens de
- *   uma carga anterior bem-sucedida, uma falha na busca seguinte não conta
- *   como ambígua — segue a decisão normal com os dados que já temos.
- * - 0 carteiras (sem erro de carga) → cria a "Principal" automaticamente (o
- *   próprio `CarteirasPage` chama `POST /api/wallets` via `onCreateWallet`;
- *   nenhuma rota nova no server).
- * - Exatamente 1 carteira → vai direto para o dashboard dela, a menos que o
- *   usuário tenha pedido explicitamente a lista (`forceList`, acionado pelo
- *   query param `?manage=1` — o caminho preservado para criar uma segunda
- *   carteira sem cair num loop de redirect).
- * - 2+ carteiras (dados legados ou uso deliberado de múltiplas carteiras) →
- *   lista de sempre, comportamento inalterado.
+ * Desde a T-050 o usuário tem UMA carteira só — ela é um rótulo, não uma
+ * entidade que ele escolhe/gerencia. Não há mais rota `/carteiras`, seleção
+ * nem "criar segunda carteira"; o que sobrou é decidir o que o shell mostra
+ * enquanto a carteira do usuário não está resolvida:
+ *
+ * - `'loading'` — a primeira busca de `/api/wallets` ainda não terminou. Nada
+ *   é decidido antes disso (a ausência de carteira ainda é desconhecida).
+ * - `'error'` — a última busca falhou E não temos nenhuma carteira carregada.
+ *   **Invariante herdada da T-027 (achado bloqueante do revisor):** essa
+ *   combinação NUNCA pode virar `'create'`. `wallet === null` por falha de
+ *   rede é indistinguível de "usuário sem carteira" sem esse flag, e criar
+ *   automaticamente nesse caso mascararia a carteira real do usuário atrás de
+ *   uma "Principal" espúria. Se já temos uma carteira de uma carga anterior
+ *   bem-sucedida, uma falha na busca seguinte não é ambígua — segue `'ready'`.
+ * - `'create'` — carregou, sem erro, e o usuário realmente não tem carteira.
+ *   Caminho de exceção: desde a T-050a o `createUser` já cria a padrão e o
+ *   `GET /api/wallets` faz lazy-create. Sobra para bases anteriores a isso.
+ * - `'ready'` — há carteira; o dashboard pode renderizar.
  */
-export type WalletFlowDecision =
-  | { action: 'create' }
-  | { action: 'redirect'; walletId: number }
-  | { action: 'list' }
-  | { action: 'error' };
+export type WalletFlowState = 'loading' | 'error' | 'create' | 'ready';
 
 export function decideWalletFlow(
-  wallets: Pick<Wallet, 'id'>[],
-  forceList: boolean,
+  wallet: Pick<Wallet, 'id'> | null,
+  loaded: boolean,
   hadLoadError: boolean,
-): WalletFlowDecision {
-  if (hadLoadError && wallets.length === 0) return { action: 'error' };
-  if (wallets.length === 0) return { action: 'create' };
-  if (wallets.length === 1 && !forceList) return { action: 'redirect', walletId: wallets[0].id };
-  return { action: 'list' };
+): WalletFlowState {
+  if (!loaded) return 'loading';
+  if (wallet) return 'ready';
+  if (hadLoadError) return 'error';
+  return 'create';
+}
+
+/**
+ * A carteira do usuário, dada a lista que o `GET /api/wallets` devolveu.
+ *
+ * Espelho no web da regra do server (`findDefaultWallet`, T-050a): a carteira
+ * é a **mais antiga**, desempatada por `id`. Aqui usamos só o menor `id` —
+ * `created_at` tem resolução de segundos e o `id` é monotônico, então o menor
+ * id é sempre a mais antiga e não dependemos da ordem em que a lista chegou.
+ *
+ * Numa base legada com 2+ carteiras isso escolhe apenas o RÓTULO exibido; o
+ * dashboard continua mostrando o consolidado de todas (o server agrega por
+ * usuário, sem filtro de carteira).
+ */
+export function resolvePrimaryWallet(wallets: Wallet[]): Wallet | null {
+  let primary: Wallet | null = null;
+  for (const w of wallets) {
+    if (primary === null || w.id < primary.id) primary = w;
+  }
+  return primary;
 }

@@ -37,7 +37,9 @@ const LAYER_CARDS: LayerCardConfig[] = [
   { key: 'renda', path: '/renda', mascot: 'receitas-t.png', name: 'Renda mensal', desc: 'Fontes de receita do mês' },
   { key: 'despesas', path: '/despesas', mascot: 'despesas-t.png', name: 'Despesas', desc: 'Gastos por categoria' },
   { key: 'poupanca', path: '/poupanca', mascot: 'poupanca-t.png', name: 'Poupança', desc: 'Saldo, aportes e rendimento' },
-  { key: 'acoes', path: '/carteiras', mascot: 'acoes-t.png', name: 'Ações', desc: 'Suas carteiras da B3' },
+  // T-050b: carteira única — o card vai direto ao dashboard, sem passar por
+  // uma tela de seleção (`/carteiras` deixou de existir).
+  { key: 'acoes', path: '/dash', mascot: 'acoes-t.png', name: 'Ações', desc: 'Sua carteira da B3' },
   { key: 'cripto', path: '/cripto', mascot: 'cripto-t.png', name: 'Criptomoedas', desc: 'Em breve', chip: 'em breve' },
   { key: 'metas', path: '/metas', mascot: 'metas-t.png', name: 'Metas', desc: 'Progresso dos seus objetivos' },
 ];
@@ -52,7 +54,7 @@ const LAYER_CARDS: LayerCardConfig[] = [
  */
 export function HomePage() {
   const navigate = useNavigate();
-  const { walletSummaries } = useShellContext();
+  const { walletSummary } = useShellContext();
 
   const [income, setIncome] = useState<IncomeSource[]>([]);
   const [expenses, setExpenses] = useState<FixedExpense[]>([]);
@@ -116,7 +118,10 @@ export function HomePage() {
     };
   }, []);
 
-  const stockTotals = computeStockTotals(Object.values(walletSummaries));
+  // T-050b: `computeStockTotals` continua recebendo uma lista (assinatura
+  // inalterada) — só que agora ela tem no máximo um summary, o consolidado do
+  // usuário. Nenhum recálculo muda: somar um item é o mesmo que somar vários.
+  const stockTotals = computeStockTotals(walletSummary ? [walletSummary] : []);
   const fixedIncomeTotal = sumAmounts(income);
   const fixedExpensesTotal = sumAmounts(expenses);
   const cashFlow = computeMonthCashFlow(
@@ -163,7 +168,7 @@ export function HomePage() {
           {stockTotals.hasMissingQuote && (
             <span
               className="vw-home-quote-flag"
-              title="Cotação indisponível para uma ou mais carteiras — usando o valor investido como referência"
+              title="Cotação indisponível para um ou mais ativos — usando o valor investido como referência"
             >
               *
             </span>

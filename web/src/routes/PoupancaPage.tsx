@@ -438,7 +438,7 @@ export function PoupancaPage() {
           <div className="vw-cdi-tip">
             💡 <strong>Dica:</strong> reservas de emergência costumam render próximo de 100% do
             CDI em fundos/contas digitais com liquidez diária. Vale comparar a rentabilidade da
-            sua poupança/reserva com o CDI do período em <code>/carteiras</code> antes de decidir
+            sua poupança/reserva com o CDI do período em <code>/dash</code> antes de decidir
             entre manter o dinheiro parado ou investir.
           </div>
 

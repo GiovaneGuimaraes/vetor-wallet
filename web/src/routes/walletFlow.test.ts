@@ -1,50 +1,60 @@
 import { describe, it, expect } from 'vitest';
-import { decideWalletFlow } from './walletFlow';
+import type { Wallet } from '@vetor-wallet/shared';
+import { decideWalletFlow, resolvePrimaryWallet } from './walletFlow';
 
-describe('decideWalletFlow', () => {
-  it('decide criar a carteira automaticamente quando o usuário não tem nenhuma (sem erro de carga)', () => {
-    expect(decideWalletFlow([], false, false)).toEqual({ action: 'create' });
+function wallet(id: number, name = `w${id}`): Wallet {
+  return { id, user_id: 1, name, description: '', color: '#e3d5b8', created_at: '2026-01-01' };
+}
+
+describe('decideWalletFlow (T-050b — carteira única)', () => {
+  it('fica em loading enquanto a primeira busca não terminou, independente do resto', () => {
+    expect(decideWalletFlow(null, false, false)).toBe('loading');
+    expect(decideWalletFlow(null, false, true)).toBe('loading');
+    expect(decideWalletFlow({ id: 1 }, false, false)).toBe('loading');
   });
 
-  it('decide criar mesmo com forceList quando não há nenhuma carteira (nada para listar)', () => {
-    expect(decideWalletFlow([], true, false)).toEqual({ action: 'create' });
+  it('decide "create" quando carregou sem erro e o usuário não tem carteira', () => {
+    expect(decideWalletFlow(null, true, false)).toBe('create');
   });
 
-  it('decide redirecionar direto para o dashboard quando há exatamente 1 carteira', () => {
-    expect(decideWalletFlow([{ id: 42 }], false, false)).toEqual({ action: 'redirect', walletId: 42 });
+  it('decide "ready" quando há carteira', () => {
+    expect(decideWalletFlow({ id: 42 }, true, false)).toBe('ready');
   });
 
-  it('decide listar quando há exatamente 1 carteira mas o usuário pediu a lista (?manage=1)', () => {
-    expect(decideWalletFlow([{ id: 42 }], true, false)).toEqual({ action: 'list' });
-  });
-
-  it('decide listar quando há 2+ carteiras (dados legados), independente de forceList', () => {
-    expect(decideWalletFlow([{ id: 1 }, { id: 2 }], false, false)).toEqual({ action: 'list' });
-    expect(decideWalletFlow([{ id: 1 }, { id: 2 }], true, false)).toEqual({ action: 'list' });
-  });
-
-  it('decide listar quando há 3 carteiras', () => {
-    expect(decideWalletFlow([{ id: 1 }, { id: 2 }, { id: 3 }], false, false)).toEqual({ action: 'list' });
-  });
-
-  // T-027 (achado bloqueante do revisor): 0 carteiras + falha na busca não
-  // pode significar "crie a Principal automaticamente" — pode ser um
-  // usuário com carteiras reais vítima de uma falha transitória de rede.
+  // Invariante herdada da T-027 (achado bloqueante do revisor na época): uma
+  // falha de rede que deixa `wallet` null não pode virar criação automática.
   describe('ramo de erro de carga (hadLoadError)', () => {
-    it('decide "error" quando a lista está vazia por falha de carga, mesmo sem forceList', () => {
-      expect(decideWalletFlow([], false, true)).toEqual({ action: 'error' });
+    it('decide "error" — NUNCA "create" — quando não há carteira por falha de carga', () => {
+      expect(decideWalletFlow(null, true, true)).toBe('error');
     });
 
-    it('decide "error" quando a lista está vazia por falha de carga, mesmo com forceList', () => {
-      expect(decideWalletFlow([], true, true)).toEqual({ action: 'error' });
+    it('decide "ready" quando já há carteira carregada e uma busca seguinte falha', () => {
+      expect(decideWalletFlow({ id: 7 }, true, true)).toBe('ready');
     });
+  });
+});
 
-    it('NÃO decide "error" (nem "create") quando já há 1 carteira carregada e uma busca seguinte falha — usa os dados que já tem', () => {
-      expect(decideWalletFlow([{ id: 7 }], false, true)).toEqual({ action: 'redirect', walletId: 7 });
-    });
+describe('resolvePrimaryWallet', () => {
+  it('devolve null para lista vazia', () => {
+    expect(resolvePrimaryWallet([])).toBeNull();
+  });
 
-    it('NÃO decide "error" quando já há 2+ carteiras carregadas e uma busca seguinte falha — segue listando', () => {
-      expect(decideWalletFlow([{ id: 1 }, { id: 2 }], false, true)).toEqual({ action: 'list' });
-    });
+  it('devolve a única carteira quando só há uma', () => {
+    expect(resolvePrimaryWallet([wallet(9)])?.id).toBe(9);
+  });
+
+  it('escolhe a de menor id numa base legada com 2+ carteiras', () => {
+    expect(resolvePrimaryWallet([wallet(3), wallet(1), wallet(2)])?.id).toBe(1);
+  });
+
+  it('independe da ordem de chegada da lista', () => {
+    const ws = [wallet(10, 'a'), wallet(4, 'b'), wallet(7, 'c')];
+    expect(resolvePrimaryWallet(ws)?.id).toBe(4);
+    expect(resolvePrimaryWallet([...ws].reverse())?.id).toBe(4);
+  });
+
+  it('devolve o objeto completo (o rótulo exibido usa nome e cor)', () => {
+    const primary = resolvePrimaryWallet([wallet(5, 'Segunda'), wallet(2, 'Principal')]);
+    expect(primary).toMatchObject({ id: 2, name: 'Principal', color: '#e3d5b8' });
   });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { getMe, logout, getPortfolio, getWallets, createWallet } from './api';
 import { ProtectedShell } from './layout/ProtectedShell';
@@ -10,15 +10,15 @@ import { DespesasPage } from './routes/DespesasPage';
 import { PoupancaPage } from './routes/PoupancaPage';
 import { MetasPage } from './routes/MetasPage';
 import { CriptoPage } from './routes/CriptoPage';
-import { CarteirasPage } from './routes/CarteirasPage';
 import { DashboardPage } from './routes/DashboardPage';
 import { AdminRoute } from './routes/AdminRoute';
-import type { User, Wallet, PortfolioSummary, NewWallet } from '@vetor-wallet/shared';
+import { decideWalletFlow, resolvePrimaryWallet } from './routes/walletFlow';
+import type { User, Wallet, PortfolioSummary } from '@vetor-wallet/shared';
 import { getStoredTheme, setTheme as applyAndPersistTheme, type Theme } from './theme';
 
 /**
  * Shell v4 (T-004): estrutura de navegação por rotas (`react-router-dom` v7)
- * substituindo a tela única anterior. Estado de sessão/tema/carteiras
+ * substituindo a tela única anterior. Estado de sessão/tema/carteira
  * permanece centralizado aqui (sem gerenciador de estado externo, conforme
  * CLAUDE.md) e é repassado às rotas protegidas via `ShellContext`
  * (`web/src/layout/ShellContext.ts`, consumido com `useOutletContext`).
@@ -34,10 +34,11 @@ export default function App() {
   // index.html — aqui só espelhamos o valor em estado para re-render.
   const [theme, setTheme] = useState<Theme>(getStoredTheme);
   const [user, setUser] = useState<User | null | 'loading'>('loading');
-  const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [walletsLoaded, setWalletsLoaded] = useState(false);
-  const [walletsLoadError, setWalletsLoadError] = useState(false);
-  const [walletSummaries, setWalletSummaries] = useState<Record<number, PortfolioSummary>>({});
+  // T-050b: carteira única — um objeto, não uma lista; um summary, não um mapa.
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [walletLoaded, setWalletLoaded] = useState(false);
+  const [walletLoadError, setWalletLoadError] = useState(false);
+  const [walletSummary, setWalletSummary] = useState<PortfolioSummary | null>(null);
 
   function toggleTheme() {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
@@ -56,67 +57,86 @@ export default function App() {
     getMe().then(setUser).catch(() => setUser(null));
   }, []);
 
-  const refreshWallets = useCallback(async () => {
+  /**
+   * T-050b: uma busca de carteira + UM `getPortfolio()` (sem id — desde a
+   * T-050a o server ignora `?walletId=` e agrega tudo do usuário). Numa base
+   * legada com 2+ carteiras, `resolvePrimaryWallet` escolhe só o RÓTULO
+   * exibido; o portfolio continua sendo o consolidado.
+   */
+  const refreshWallet = useCallback(async () => {
     try {
       const ws = await getWallets();
-      setWallets(ws);
+      setWallet(resolvePrimaryWallet(ws));
 
-      // Busca portfolio de cada carteira em paralelo (para exibir nos cards)
-      const results = await Promise.allSettled(ws.map((w) => getPortfolio(w.id).then((s) => ({ id: w.id, s }))));
-      const summaries: Record<number, PortfolioSummary> = {};
-      results.forEach((r) => { if (r.status === 'fulfilled') summaries[r.value.id] = r.value.s; });
-      setWalletSummaries(summaries);
-      // T-027: só sinaliza sucesso real — `walletsLoadError` fica limpo apenas
+      // O portfolio é independente do rótulo: falhar aqui não invalida a
+      // carteira que acabou de carregar, então vai em try próprio.
+      try {
+        setWalletSummary(await getPortfolio());
+      } catch {
+        /* card de ações fica com o valor anterior; nada a sinalizar aqui */
+      }
+
+      // T-027: só sinaliza sucesso real — `walletLoadError` fica limpo apenas
       // quando `getWallets()` de fato resolveu, para não mascarar uma falha
       // anterior atrás de uma tentativa que ainda nem terminou.
-      setWalletsLoadError(false);
+      setWalletLoadError(false);
     } catch {
-      // T-027 (achado do revisor): NÃO tocamos em `wallets` aqui. Se essa foi
-      // a primeira carga da sessão, `wallets` permanece `[]` — e é exatamente
-      // essa ambiguidade ("[] real" vs "[] por falha de rede") que
-      // `walletsLoadError` existe para desfazer. `CarteirasPage`/
-      // `decideWalletFlow` tratam `walletsLoadError && wallets.length === 0`
-      // como estado de erro (mostra retry), nunca como "crie uma carteira
-      // Principal" — isso evitava mascarar carteiras reais atrás de uma
-      // falha transitória.
-      setWalletsLoadError(true);
+      // T-027 (achado do revisor): NÃO tocamos em `wallet` aqui. Se essa foi a
+      // primeira carga da sessão, `wallet` permanece `null` — e é exatamente
+      // essa ambiguidade ("null real" vs "null por falha de rede") que
+      // `walletLoadError` existe para desfazer. `decideWalletFlow` trata
+      // `walletLoadError && wallet === null` como estado de erro, nunca como
+      // "crie a carteira automaticamente".
+      setWalletLoadError(true);
     } finally {
-      // Marcado mesmo em erro — senão /carteiras ficaria travada no estado
+      // Marcado mesmo em erro — senão o dashboard ficaria travado em
       // "carregando" para sempre após uma falha de rede; a distinção entre
-      // "carregou e é zero" e "falhou ao carregar" fica por conta de
-      // `walletsLoadError`, não de `walletsLoaded`.
-      setWalletsLoaded(true);
+      // "carregou e não tem" e "falhou ao carregar" fica por conta de
+      // `walletLoadError`, não de `walletLoaded`.
+      setWalletLoaded(true);
     }
   }, []);
 
   useEffect(() => {
     if (user && user !== 'loading') {
-      refreshWallets();
+      refreshWallet();
     }
-  }, [user, refreshWallets]);
+  }, [user, refreshWallet]);
 
-  async function handleCreateWallet(data: NewWallet) {
-    const w = await createWallet(data);
-    setWallets((prev) => [...prev, w]);
-    getPortfolio(w.id)
-      .then((s) => setWalletSummaries((prev) => ({ ...prev, [w.id]: s })))
-      .catch(() => null);
-  }
+  /**
+   * T-050b: o auto-create da carteira padrão foi internalizado aqui (antes
+   * vivia na `CarteirasPage`, removida) — não há mais tela de carteiras para
+   * dispará-lo. É caminho de exceção: desde a T-050a o `createUser` já cria a
+   * padrão e o `GET /api/wallets` faz lazy-create; sobra para bases anteriores.
+   * `creatingRef` (preservado da T-027) evita o loop de POSTs enquanto a
+   * criação está em voo e o estado ainda não refletiu a carteira nova.
+   */
+  const creatingRef = useRef(false);
+
+  useEffect(() => {
+    if (decideWalletFlow(wallet, walletLoaded, walletLoadError) !== 'create') return;
+    if (creatingRef.current) return;
+    creatingRef.current = true;
+    createWallet({ name: 'Principal', description: '', color: '#e3d5b8' })
+      .then((w) => setWallet(w))
+      .catch(() => setWalletLoadError(true))
+      .finally(() => {
+        creatingRef.current = false;
+      });
+  }, [wallet, walletLoaded, walletLoadError]);
 
   function handleAuth(u: User) {
     setUser(u);
     navigate('/home', { replace: true });
   }
 
-  function handleSelectWallet(wallet: Wallet) {
-    navigate(`/dash/${wallet.id}`);
-  }
-
   async function handleLogout() {
     await logout();
     setUser(null);
-    setWallets([]);
-    setWalletSummaries({});
+    setWallet(null);
+    setWalletSummary(null);
+    setWalletLoaded(false);
+    setWalletLoadError(false);
     navigate('/', { replace: true });
   }
 
@@ -124,13 +144,11 @@ export default function App() {
     return {
       user: u,
       theme,
-      wallets,
-      walletsLoaded,
-      walletsLoadError,
-      walletSummaries,
-      onCreateWallet: handleCreateWallet,
-      onSelectWallet: handleSelectWallet,
-      refreshWallets,
+      wallet,
+      walletLoaded,
+      walletLoadError,
+      walletSummary,
+      refreshWallet,
     };
   }
 
@@ -159,8 +177,12 @@ export default function App() {
         <Route path="/poupanca" element={<PoupancaPage />} />
         <Route path="/metas" element={<MetasPage />} />
         <Route path="/cripto" element={<CriptoPage />} />
-        <Route path="/carteiras" element={<CarteirasPage />} />
-        <Route path="/dash/:id" element={<DashboardPage />} />
+        <Route path="/dash" element={<DashboardPage />} />
+        {/* T-050b: bookmarks antigos do fluxo multi-carteira. `/carteiras` e
+            `/dash/:id` não existem mais — a carteira é única e o dashboard não
+            recebe id. Redirect em vez de 404 para não quebrar link salvo. */}
+        <Route path="/dash/:id" element={<Navigate to="/dash" replace />} />
+        <Route path="/carteiras" element={<Navigate to="/dash" replace />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,16 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
 import { getOperations, createOperation, deleteOperation, getPortfolio } from '../api';
 import { OperationForm } from '../components/OperationForm';
 import { OperationsList } from '../components/OperationsList';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { useShellContext } from '../layout/ShellContext';
+import { decideWalletFlow } from './walletFlow';
 import type { NewOperation, Operation, PortfolioSummary } from '@vetor-wallet/shared';
 
 /**
- * Rota `/dash/:id` (T-004/T-013): dashboard da carteira de ações — mesma
- * funcionalidade que existia em App.tsx (tela única), agora auto-contida e
- * disparada pelo id da URL em vez de estado local `activeWallet`/`screen`.
+ * Rota `/dash` (T-004/T-013; sem `:id` desde a T-050b): dashboard de ações do
+ * usuário.
+ *
+ * T-050b — carteira única: não há mais `useParams`, `walletId` nas chamadas de
+ * API nem seleção de carteira. O escopo das operações/portfolio é o USUÁRIO
+ * (o server ignora `?walletId=` desde a T-050a); a carteira vem do
+ * `ShellContext` e serve só como **rótulo** (nome + cor) no topo — o chip
+ * deixou de ser botão de "Trocar carteira".
  *
  * T-013 (design v4, tela 5): removidos do render os gráficos de
  * evolução/alocação/comparativo e o `BenchmarkComparison` — o serviço e a
@@ -24,11 +29,8 @@ import type { NewOperation, Operation, PortfolioSummary } from '@vetor-wallet/sh
  * permanecem intactos para um redesign futuro; só saem da UI.
  */
 export function DashboardPage() {
-  const { id } = useParams<{ id: string }>();
-  const walletId = id ? Number(id) : undefined;
-  const navigate = useNavigate();
-  const { wallets } = useShellContext();
-  const wallet = wallets.find((w) => w.id === walletId);
+  const { wallet, walletLoaded, walletLoadError, refreshWallet } = useShellContext();
+  const walletFlow = decideWalletFlow(wallet, walletLoaded, walletLoadError);
 
   const [operations, setOperations] = useState<Operation[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
@@ -38,7 +40,7 @@ export function DashboardPage() {
   const refresh = useCallback(async () => {
     setApiError('');
     try {
-      const [ops, port] = await Promise.all([getOperations(walletId), getPortfolio(walletId)]);
+      const [ops, port] = await Promise.all([getOperations(), getPortfolio()]);
       setOperations(ops);
       setPortfolio(port);
     } catch (err) {
@@ -46,7 +48,7 @@ export function DashboardPage() {
     } finally {
       setLoadingData(false);
     }
-  }, [walletId]);
+  }, []);
 
   useEffect(() => {
     setLoadingData(true);
@@ -54,7 +56,7 @@ export function DashboardPage() {
   }, [refresh]);
 
   async function handleCreate(op: NewOperation) {
-    await createOperation(op, walletId);
+    await createOperation(op);
     await refresh();
   }
 
@@ -66,19 +68,38 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate(wallets.length <= 1 ? '/carteiras?manage=1' : '/carteiras')}
-          className="flex items-center gap-1.5 bg-raised border border-edge rounded-full px-3 py-1 text-xs text-ink hover:border-accent/50 transition-colors cursor-pointer min-w-0"
-          title="Trocar carteira"
-        >
+        {/* Rótulo estático (T-050b): identifica a carteira, não é mais um
+            botão — não há para onde trocar. As operações abaixo são do
+            usuário, independentemente do que este rótulo mostra. */}
+        <span className="flex items-center gap-1.5 bg-raised border border-edge rounded-full px-3 py-1 text-xs text-ink min-w-0">
           {wallet && (
             <span
               className="w-2 h-2 rounded-full flex-shrink-0"
               style={{ background: wallet.color }}
             />
           )}
-          <span className="truncate max-w-[200px]">{wallet?.name ?? 'Carteira'}</span>
-        </button>
+          <span className="truncate max-w-[200px]">
+            {walletFlow === 'ready' && wallet
+              ? wallet.name
+              : walletFlow === 'create'
+                ? 'Preparando sua carteira…'
+                : walletFlow === 'error'
+                  ? 'Carteira indisponível'
+                  : 'Carteira'}
+          </span>
+        </span>
+        {/* T-027: falha ao carregar a carteira nunca vira criação automática —
+            o usuário decide tentar de novo. O resto do dashboard continua
+            renderizando: operações e portfolio não dependem deste rótulo. */}
+        {walletFlow === 'error' && (
+          <button
+            type="button"
+            onClick={() => { void refreshWallet(); }}
+            className="text-xs text-dim hover:text-ink underline cursor-pointer"
+          >
+            Tentar novamente
+          </button>
+        )}
       </div>
 
       {apiError && (

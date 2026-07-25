@@ -53,12 +53,12 @@ function parseCsv(text: string): CsvPreviewRow[] {
 
 const fmt = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/** T-050b: sem `walletId` — o import grava na carteira única do usuário. */
 interface Props {
-  walletId?: number;
   onSuccess: () => Promise<void>;
 }
 
-export function CsvImport({ walletId, onSuccess }: Props) {
+export function CsvImport({ onSuccess }: Props) {
   const [open, setOpen] = useState(false);
   const [csvText, setCsvText] = useState('');
   const [rows, setRows] = useState<CsvPreviewRow[]>([]);
@@ -86,7 +86,7 @@ export function CsvImport({ walletId, onSuccess }: Props) {
     setImporting(true);
     setImportError('');
     try {
-      const res = await importCsv(csvText, walletId);
+      const res = await importCsv(csvText);
       setResult(res);
       if (res.imported > 0) await onSuccess();
     } catch (err) {
