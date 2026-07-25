@@ -341,10 +341,10 @@ router.patch(
       fields.push('goal_id = ?');
       args.push(goalId);
     }
-    args.push(id);
+    args.push(id, userId);
 
     await db.execute({
-      sql: `UPDATE savings_entries SET ${fields.join(', ')} WHERE id = ?`,
+      sql: `UPDATE savings_entries SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`,
       args,
     });
 

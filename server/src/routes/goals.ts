@@ -113,10 +113,10 @@ router.patch(
       fields.push('current_amount = ?');
       args.push(current_amount);
     }
-    args.push(id);
+    args.push(id, userId);
 
     await db.execute({
-      sql: `UPDATE goals SET ${fields.join(', ')} WHERE id = ?`,
+      sql: `UPDATE goals SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`,
       args,
     });
 
