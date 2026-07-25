@@ -59,7 +59,7 @@ server/src/
 
 ## Autenticação
 
-- Sessão via `express-session` com **MemoryStore** (sessões perdidas no restart).
+- Sessão via `express-session` com `SqliteSessionStore` (`auth/sessionStore.ts`) — persistida na tabela `sessions` do mesmo SQLite/libsql do app; sobrevive a restart do server (T-034, ver `../CLAUDE.md`).
 - Cookie `sid`: `httpOnly`, `sameSite: lax`, `secure` apenas em `NODE_ENV=production`.
 - `requireAuth` retorna 401 e propaga `res.locals.userId` para as rotas.
 - Todas as queries de dados filtram por `user_id` — usuários não enxergam dados alheios.
@@ -100,8 +100,8 @@ O job não tem agendador interno — é invocado pelo package `cli` ou, futurame
 SQLite é suficiente para uso local/single-user. Para deploy multi-usuário ou alta concorrência, migrar para **Turso** (libsql remoto — zero reescrita de queries, basta setar `DATABASE_URL`).
 
 ### Migração do sistema de autenticação para AWS Cognito
-A auth atual (bcrypt + express-session + MemoryStore) é funcional mas limitada:
-- Sessões não sobrevivem a restart do servidor
+A auth atual (bcrypt + express-session + `SqliteSessionStore`) é funcional mas limitada:
 - Sem recuperação de senha, MFA ou gestão de usuários fora da aplicação
+- MemoryStore era limitação conhecida (sessão perdida no restart); resolvida em T-034 com store persistente no SQLite — não é mais motivo para migrar
 
 Migrar para **AWS Cognito** resolve todos esses pontos. A troca envolve substituir `auth/service.ts` e `auth/router.ts` pelo SDK Cognito e trocar cookies de sessão por JWT.

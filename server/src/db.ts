@@ -206,6 +206,33 @@ export async function initDb() {
      ON savings_entries(user_id, goal_id)`,
   );
 
+  // Sessões do express-session (T-034): persistidas no mesmo banco em vez do
+  // MemoryStore, para sobreviver a restart do server. Ver SqliteSessionStore
+  // em auth/sessionStore.ts para a lógica de TTL/expiração.
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      sid        TEXT    PRIMARY KEY,
+      data       TEXT    NOT NULL,
+      expires_at TEXT    NOT NULL
+    )
+  `);
+
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`,
+  );
+
+  // Varredura de limpeza no boot: remove sessões expiradas de execuções
+  // anteriores que nunca mais serão lidas (o lazy-delete do Store só limpa o
+  // que é efetivamente consultado em `get`). `expires_at` é gravado como ISO
+  // string pelo SqliteSessionStore (auth/sessionStore.ts) — comparado aqui
+  // via parâmetro (também ISO), nunca contra `datetime('now')` do SQLite:
+  // os dois formatos têm separadores diferentes ('T' vs ' ') e comparar um
+  // contra o outro quebraria a ordenação lexicográfica dentro do mesmo dia.
+  await db.execute({
+    sql: 'DELETE FROM sessions WHERE expires_at <= ?',
+    args: [new Date().toISOString()],
+  });
+
   await normalizeExistingCategories();
 }
 
