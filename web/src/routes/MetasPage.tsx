@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { getGoals, createGoal, updateGoal, deleteGoal } from '../api';
 import type { Goal } from '@vetor-wallet/shared';
+import { progressPct, progressPctClamped, isDerivedProgress, progressSourceLabel } from './goalsProgress';
 import './layers-savings.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -14,15 +15,13 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { name: '', target: '', current: '' };
 
-function progressPct(goal: Goal): number {
-  if (goal.target_amount <= 0) return 0;
-  return (goal.current_amount / goal.target_amount) * 100;
-}
-
 /**
  * Card individual de meta: barra de progresso (visualmente limitada a 100%,
- * mesmo que `current_amount` ultrapasse `target_amount`) + atualização
- * pontual de `current_amount` via PATCH.
+ * mesmo que `current_amount` ultrapasse `target_amount`).
+ *
+ * T-024: metas com lançamentos de poupança vinculados têm progresso derivado
+ * (aportes − retiradas vinculados) — nesses casos o campo de edição manual não
+ * aparece, porque o server rejeita o PATCH de `current_amount` com 400.
  */
 function GoalCard({ goal, onUpdate, onDelete }: {
   goal: Goal;
@@ -34,8 +33,9 @@ function GoalCard({ goal, onUpdate, onDelete }: {
   const [err, setErr] = useState('');
 
   const pct = progressPct(goal);
-  const pctClamped = Math.min(100, Math.max(0, pct));
+  const pctClamped = progressPctClamped(goal);
   const isComplete = pct >= 100;
+  const derived = isDerivedProgress(goal);
 
   async function handleUpdate() {
     setErr('');
@@ -78,28 +78,40 @@ function GoalCard({ goal, onUpdate, onDelete }: {
         />
       </div>
       <p className="vw-goal-progress-pct">{fmtPct.format(pctClamped)}% concluído</p>
-      <div className="vw-goal-update-row">
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          aria-label="Novo valor atual da meta"
-        />
-        <button type="button" className="vw-btn-ghost" onClick={handleUpdate} disabled={saving}>
-          {saving ? 'Salvando...' : 'Atualizar'}
-        </button>
-      </div>
+      <p className={`vw-goal-source${derived ? ' vw-goal-source-auto' : ''}`}>
+        {derived ? '🔗 ' : '✎ '}
+        {progressSourceLabel(goal)}
+      </p>
+      {derived ? (
+        <p className="vw-goal-source-hint">
+          Valor calculado pelos lançamentos vinculados em <code>/poupanca</code>.
+        </p>
+      ) : (
+        <div className="vw-goal-update-row">
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            aria-label="Novo valor atual da meta"
+          />
+          <button type="button" className="vw-btn-ghost" onClick={handleUpdate} disabled={saving}>
+            {saving ? 'Salvando...' : 'Atualizar'}
+          </button>
+        </div>
+      )}
       {err && <p className="vw-form-error">{err}</p>}
     </div>
   );
 }
 
 /**
- * Rota `/metas` (T-010): lista de metas com progresso, form de criação e
- * atualização pontual (PATCH `current_amount`) — sem cálculo automático a
- * partir dos lançamentos de poupança (fora de escopo).
+ * Rota `/metas` (T-010): lista de metas com progresso e form de criação.
+ *
+ * T-024: o progresso pode ser **manual** (PATCH pontual de `current_amount`)
+ * ou **automático**, quando existem lançamentos de poupança vinculados à meta
+ * — nesse caso o server calcula `current_amount` e recusa a edição manual.
  */
 export function MetasPage() {
   const [goals, setGoals] = useState<Goal[]>([]);
