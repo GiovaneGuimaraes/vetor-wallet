@@ -58,6 +58,21 @@ body,
   min-width: 0;
 }
 
+/* Logo/mascote clicável -> home (T-038): herda cores do tema, sem
+   sublinhado/cor de link padrão do <a>, mantendo o visual do vw-logo. */
+.vw-logo-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.vw-logo-link:hover,
+.vw-logo-link:visited,
+.vw-logo-link:active {
+  text-decoration: none;
+  color: inherit;
+}
+
 .vw-logo-mascot {
   width: 56px;
   height: 56px;
