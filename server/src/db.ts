@@ -129,6 +129,22 @@ export async function initDb() {
   `);
 
   await db.execute(`
+    CREATE TABLE IF NOT EXISTS expense_entries (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id     INTEGER NOT NULL REFERENCES users(id),
+      description TEXT    NOT NULL,
+      category    TEXT    NOT NULL DEFAULT '',
+      amount      REAL    NOT NULL,
+      date        TEXT    NOT NULL,
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  await db.execute(
+    'CREATE INDEX IF NOT EXISTS idx_expense_entries_user_date ON expense_entries(user_id, date)',
+  );
+
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS savings_entries (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id    INTEGER NOT NULL REFERENCES users(id),

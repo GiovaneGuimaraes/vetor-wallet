@@ -1,20 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  getOperations,
-  createOperation,
-  deleteOperation,
-  getPortfolio,
-  getAlertRules,
-} from '../api';
+import { getOperations, createOperation, deleteOperation, getPortfolio } from '../api';
 import { OperationForm } from '../components/OperationForm';
 import { OperationsList } from '../components/OperationsList';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
-import { CsvImport } from '../components/CsvImport';
-import { AlertsPanel } from '../components/AlertsPanel';
-import { evaluateAlerts, type TriggeredAlert } from '../utils/alerts';
 import { useShellContext } from '../layout/ShellContext';
-import type { NewOperation, Operation, PortfolioSummary, AlertRule } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary } from '@vetor-wallet/shared';
 
 /**
  * Rota `/dash/:id` (T-004/T-013): dashboard da carteira de ações — mesma
@@ -26,33 +17,30 @@ import type { NewOperation, Operation, PortfolioSummary, AlertRule } from '@veto
  * rota `/api/benchmarks` do server permanecem intactos no backend, só saem
  * da UI (o front deixou de chamar `getBenchmarks()`, que não é usado por
  * nenhuma outra tela deste ciclo).
+ *
+ * T-026 (decisão humana "b" em TODO-HUMANO.md, 2026-07-24): removidos do
+ * render `AlertsPanel` e `CsvImport` — os componentes, a lógica de
+ * `utils/alerts.ts` e as rotas `/api/alerts`/`/api/import` do server
+ * permanecem intactos para um redesign futuro; só saem da UI.
  */
 export function DashboardPage() {
   const { id } = useParams<{ id: string }>();
   const walletId = id ? Number(id) : undefined;
   const navigate = useNavigate();
-  const { wallets, refreshWallets } = useShellContext();
+  const { wallets } = useShellContext();
   const wallet = wallets.find((w) => w.id === walletId);
 
   const [operations, setOperations] = useState<Operation[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
-  const [alertRules, setAlertRules] = useState<AlertRule[]>([]);
-  const [triggeredAlerts, setTriggeredAlerts] = useState<TriggeredAlert[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [apiError, setApiError] = useState('');
 
   const refresh = useCallback(async () => {
     setApiError('');
     try {
-      const [ops, port, rules] = await Promise.all([
-        getOperations(walletId),
-        getPortfolio(walletId),
-        getAlertRules(),
-      ]);
+      const [ops, port] = await Promise.all([getOperations(walletId), getPortfolio(walletId)]);
       setOperations(ops);
       setPortfolio(port);
-      setAlertRules(rules);
-      setTriggeredAlerts(evaluateAlerts(rules, port));
     } catch (err) {
       setApiError(err instanceof Error ? err.message : 'Erro ao conectar com a API');
     } finally {
@@ -75,16 +63,11 @@ export function DashboardPage() {
     await refresh();
   }
 
-  async function handleImportSuccess() {
-    await refresh();
-    void refreshWallets();
-  }
-
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center gap-3">
         <button
-          onClick={() => navigate('/carteiras')}
+          onClick={() => navigate(wallets.length <= 1 ? '/carteiras?manage=1' : '/carteiras')}
           className="flex items-center gap-1.5 bg-raised border border-edge rounded-full px-3 py-1 text-xs text-ink hover:border-accent/50 transition-colors cursor-pointer min-w-0"
           title="Trocar carteira"
         >
@@ -108,29 +91,11 @@ export function DashboardPage() {
       )}
 
       <OperationForm onSubmit={handleCreate} />
-      <CsvImport walletId={walletId} onSuccess={handleImportSuccess} />
-      <AlertsPanel rules={alertRules} onUpdate={refresh} />
 
       {loadingData ? (
         <div className="text-center py-16 text-dim text-sm">Carregando...</div>
       ) : (
         <>
-          {triggeredAlerts.length > 0 && (
-            <div className="bg-warn/10 border border-warn/40 rounded-xl p-5">
-              <p className="text-xs font-semibold text-warn uppercase tracking-wide mb-3">
-                ⚠ {triggeredAlerts.length} alerta
-                {triggeredAlerts.length !== 1 ? 's' : ''} disparado
-                {triggeredAlerts.length !== 1 ? 's' : ''}
-              </p>
-              <ul className="space-y-1.5">
-                {triggeredAlerts.map((a) => (
-                  <li key={a.rule.id} className="text-sm text-ink">
-                    {a.message}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
           <PortfolioDashboard summary={portfolio} walletColor={wallet?.color} />
           <OperationsList operations={operations} onDelete={handleDelete} />
         </>
