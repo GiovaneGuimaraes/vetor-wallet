@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, FixedExpense, NewFixedExpense, ExpenseEntry, NewExpenseEntry, SavingsEntry, NewSavingsEntry, SavingsSummary, Goal, NewGoal, GoalUpdate } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, FixedExpense, NewFixedExpense, ExpenseEntry, NewExpenseEntry, SavingsEntry, NewSavingsEntry, SavingsSummary, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -335,4 +335,31 @@ export async function updateGoal(id: number, update: GoalUpdate): Promise<Goal> 
 export async function deleteGoal(id: number): Promise<void> {
   const res = await apiFetch(`/api/goals/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Falha ao remover meta');
+}
+
+// ── Orçamento por categoria ───────────────────────────────────────────────────
+
+export async function getBudgets(): Promise<CategoryBudget[]> {
+  const res = await apiFetch('/api/budgets');
+  if (!res.ok) throw new Error('Falha ao buscar orçamentos');
+  return res.json();
+}
+
+/** Upsert: reenviar a mesma categoria substitui o valor do orçamento. */
+export async function upsertBudget(budget: NewCategoryBudget): Promise<CategoryBudget> {
+  const res = await apiFetch('/api/budgets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(budget),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao salvar orçamento');
+  }
+  return res.json();
+}
+
+export async function deleteBudget(id: number): Promise<void> {
+  const res = await apiFetch(`/api/budgets/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Falha ao remover orçamento');
 }

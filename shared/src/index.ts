@@ -241,3 +241,21 @@ export interface GoalUpdate {
   target_amount?: number;
   current_amount?: number;
 }
+
+/**
+ * Orçamento mensal por categoria (T-023). Único por `user_id` + `category`
+ * (upsert em `POST /api/budgets`) — não tem vínculo com mês: o teto vale para
+ * qualquer mês exibido em Despesas, só o gasto comparado é que varia.
+ */
+export interface CategoryBudget {
+  id: number;
+  user_id: number;
+  category: string;
+  amount: number;
+  created_at: string;
+}
+
+export interface NewCategoryBudget {
+  category: string;
+  amount: number;
+}

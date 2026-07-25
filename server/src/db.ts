@@ -157,6 +157,22 @@ export async function initDb() {
   `);
 
   await db.execute(`
+    CREATE TABLE IF NOT EXISTS category_budgets (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    INTEGER NOT NULL REFERENCES users(id),
+      category   TEXT    NOT NULL,
+      amount     REAL    NOT NULL,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  // Expression-based unique constraint: um orçamento por categoria por usuário
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_category_budgets_user_category
+     ON category_budgets(user_id, category)`,
+  );
+
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS goals (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id        INTEGER NOT NULL REFERENCES users(id),

@@ -162,6 +162,9 @@ Todas as rotas abaixo (exceto `/api/auth/*`) exigem sessão autenticada via cook
 | `POST` | `/api/goals` | Cria meta financeira |
 | `PATCH` | `/api/goals/:id` | Atualiza parcialmente uma meta (`name`/`target_amount`/`current_amount`) |
 | `DELETE` | `/api/goals/:id` | Remove meta financeira |
+| `GET` | `/api/budgets` | Lista orçamentos mensais por categoria do usuário |
+| `POST` | `/api/budgets` | Cria/atualiza orçamento por categoria — **upsert**: reenviar a mesma `category` substitui o `amount` (não duplica) |
+| `DELETE` | `/api/budgets/:id` | Remove orçamento de categoria |
 
 ---
 
@@ -288,6 +291,17 @@ CREATE TABLE IF NOT EXISTS goals (
   current_amount REAL    NOT NULL DEFAULT 0,
   created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Orçamento mensal por categoria (T-023): teto de gasto sem vínculo com mês —
+-- vale para qualquer mês exibido em Despesas, só o gasto comparado varia.
+-- UNIQUE(user_id, category); POST faz upsert (substitui o amount existente).
+CREATE TABLE IF NOT EXISTS category_budgets (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  category   TEXT    NOT NULL,
+  amount     REAL    NOT NULL,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
 ```
 
 Driver: `@libsql/client` (libsql/SQLite). Sem ORM; queries são SQL puro.
@@ -340,6 +354,9 @@ pnpm --filter vetor-wallet-web test
 
 ### Despesas fixas × lançamentos variáveis
 O layer `/despesas` soma **duas** fontes diferentes: `fixed_expenses` (itens fixos mensais, **sem data** — valem integralmente para qualquer mês exibido) e `expense_entries` (gastos datados, filtrados por mês). O **total do mês exibido é fixas + variáveis daquele mês** — calculado por `computeMonthTotals` em `web/src/routes/expenseMonth.ts` (função pura, testada), não inline no componente. A navegação de mês é estado local da `DespesasPage`: trocar o mês recarrega só os lançamentos (`GET /api/expense-entries?month=`), pois as fixas não dependem do mês. Consequência esperada: navegar para um mês passado/futuro não altera a parcela de fixas do total — não há histórico de quando uma despesa fixa passou a existir. O filtro mensal no server usa `substr(date, 1, 7) = ?` (compatível com o índice `idx_expense_entries_user_date` apenas parcialmente — se a tabela crescer muito, trocar por range `date >= ? AND date < ?`). O mês default é calculado no fuso local do processo (`currentMonth`), não em UTC, para não virar o mês antes da hora no BRT.
+
+### Orçamento por categoria × mês exibido
+`GET /api/budgets` não tem parâmetro de mês — o teto de `category_budgets` vale indefinidamente até ser substituído (upsert) ou removido. Quem varia por mês é o **gasto** comparado ao teto: `computeBudgetProgress` (`web/src/routes/budgetProgress.ts`, função pura testada) soma despesas fixas da mesma categoria (`fixed_expenses`, sem data) + lançamentos variáveis da categoria já filtrados pelo mês exibido (`expense_entries` via `GET /api/expense-entries?month=`). A comparação de categoria é **exata e sensível a maiúsculas/minúsculas** (`===` de string, sem normalização) — "Mercado" e "mercado" são tratados como categorias diferentes tanto aqui quanto no agrupamento de fixas (`expensesGrouping.ts`); não há normalização entre as três telas que usam texto livre de categoria (Despesas fixas, lançamentos variáveis, orçamentos). Trocar de mês em `DespesasPage` recalcula a barra de progresso porque `entries` é recarregado, mas os orçamentos e as fixas permanecem os mesmos. O percentual exibido no texto não é limitado a 100% (pode mostrar 140%), mas a largura visual da barra é (`pctClamped`), com a cor trocando para `--color-warn` quando `pct >= 100`.
 
 ### Sessões não persistem no restart
 `express-session` usa **MemoryStore** — sessões são perdidas quando o servidor reinicia. Aceitável para uso local; para produção, migrar para Redis store ou AWS Cognito.
