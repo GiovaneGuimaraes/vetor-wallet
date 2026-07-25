@@ -1,0 +1,147 @@
+import type { SavingsEntry } from '@vetor-wallet/shared';
+
+/**
+ * Simulador de previsão de rendimento da poupança/reserva (T-040).
+ *
+ * Tudo aqui é puro e roda 100% no cliente — não há endpoint de projeção no
+ * server (fora de escopo), e a simulação não é persistida. As funções vivem
+ * fora do componente para poderem ser testadas sem DOM (política de testes do
+ * CLAUDE.md).
+ *
+ * Escopo do cálculo: juros compostos mensais sobre um **valor inicial único**.
+ * Aporte mensal recorrente NÃO entra na projeção (fora de escopo), então a
+ * fórmula é sempre `VF = VP × (1 + i)^n`.
+ */
+
+/** Resultado da projeção, já arredondado em centavos. */
+export interface SavingsProjection {
+  /** Valor futuro ao final do prazo (`VP × (1 + i)^n`). */
+  futureValue: number;
+  /** Rendimento acumulado no período (`futureValue − valor inicial`). */
+  totalYield: number;
+}
+
+/** Arredondamento em centavos, mesmo padrão dos valores monetários do app. */
+function roundCents(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/**
+ * Projeta o valor futuro de um saldo por juros compostos mensais.
+ *
+ * @param initial valor inicial em reais (aceita 0 — saldo zerado é simulação válida)
+ * @param monthlyRatePct taxa mensal em **pontos percentuais** (0,9 = 0,9 %/mês; aceita 0)
+ * @param months prazo em meses, inteiro ≥ 0 (0 = nenhum rendimento)
+ *
+ * Devolve `null` — em vez de `NaN`/lixo na tela — para toda entrada que não
+ * descreve uma simulação possível: valor não finito (`NaN`, `Infinity`),
+ * negativo em qualquer um dos três argumentos, `months` não inteiro, ou
+ * resultado que estoura o alcance de `number` (taxa e prazo altíssimos).
+ *
+ * `futureValue` e `totalYield` são arredondados em centavos de forma
+ * consistente: `valor inicial arredondado + totalYield === futureValue`.
+ */
+export function projectSavings(
+  initial: number,
+  monthlyRatePct: number,
+  months: number,
+): SavingsProjection | null {
+  if (!Number.isFinite(initial) || initial < 0) return null;
+  if (!Number.isFinite(monthlyRatePct) || monthlyRatePct < 0) return null;
+  if (!Number.isInteger(months) || months < 0) return null;
+
+  const rate = monthlyRatePct / 100;
+  const futureValueRaw = initial * Math.pow(1 + rate, months);
+  if (!Number.isFinite(futureValueRaw)) return null;
+
+  const initialRounded = roundCents(initial);
+  const futureValue = roundCents(futureValueRaw);
+  return { futureValue, totalYield: roundCents(futureValue - initialRounded) };
+}
+
+/** Quantos meses com rendimento entram na média de `deriveMonthlyRatePct`. */
+export const RATE_SAMPLE_MONTHS = 6;
+
+/**
+ * Deriva uma taxa mensal média (em pontos percentuais) a partir do histórico de
+ * lançamentos `YIELD` do usuário, para pré-preencher o campo de taxa.
+ *
+ * Heurística escolhida (simples e explicável na UI):
+ *
+ * 1. Agrupa os lançamentos `YIELD` por mês (`YYYY-MM` de `date`).
+ * 2. Para cada mês com rendimento, a **base** é o saldo vigente no início
+ *    daquele mês — soma de `DEPOSIT + YIELD − WITHDRAW` de todos os
+ *    lançamentos com data anterior ao primeiro dia do mês. Usar o saldo
+ *    inicial (e não o final) evita que o próprio rendimento do mês, ou um
+ *    aporte feito no meio dele, entre no denominador e achate a taxa.
+ * 3. A taxa do mês é `rendimento do mês / base`. Meses com base ≤ 0 são
+ *    descartados (não há saldo sobre o qual render — a divisão não significa
+ *    nada).
+ * 4. A taxa devolvida é a **média aritmética simples** das taxas dos até
+ *    {@link RATE_SAMPLE_MONTHS} meses elegíveis mais recentes, convertida em
+ *    percentual e arredondada em 4 casas.
+ *
+ * Devolve `null` quando o histórico é insuficiente (nenhum mês elegível) — a
+ * UI então deixa o campo de taxa vazio, com placeholder, para o usuário
+ * digitar. Não há teto: um histórico atípico pode render uma taxa alta, e
+ * mascarar isso silenciosamente seria pior do que exibi-la (o campo é
+ * editável).
+ */
+export function deriveMonthlyRatePct(entries: SavingsEntry[]): number | null {
+  const yieldByMonth = new Map<string, number>();
+  for (const entry of entries) {
+    if (entry.type !== 'YIELD') continue;
+    const month = entry.date.slice(0, 7);
+    if (month.length !== 7) continue;
+    yieldByMonth.set(month, (yieldByMonth.get(month) ?? 0) + entry.amount);
+  }
+  if (yieldByMonth.size === 0) return null;
+
+  const rates: number[] = [];
+  // Mais recente primeiro: a fatia dos N meses sai do começo da lista.
+  for (const month of [...yieldByMonth.keys()].sort().reverse()) {
+    const base = balanceBefore(entries, `${month}-01`);
+    if (base <= 0) continue;
+    rates.push((yieldByMonth.get(month) ?? 0) / base);
+    if (rates.length === RATE_SAMPLE_MONTHS) break;
+  }
+  if (rates.length === 0) return null;
+
+  const avg = rates.reduce((sum, rate) => sum + rate, 0) / rates.length;
+  if (!Number.isFinite(avg)) return null;
+  return Math.round(avg * 100 * 10000) / 10000;
+}
+
+/** Saldo acumulado pelos lançamentos com data estritamente anterior a `isoDate`. */
+function balanceBefore(entries: SavingsEntry[], isoDate: string): number {
+  let balance = 0;
+  for (const entry of entries) {
+    if (entry.date >= isoDate) continue;
+    balance += entry.type === 'WITHDRAW' ? -entry.amount : entry.amount;
+  }
+  return balance;
+}
+
+/**
+ * Converte um número digitado (valor inicial ou taxa) aceitando vírgula
+ * decimal, como `parseMoneyInput` de `inlineEdit.ts` — mas admitindo **0**,
+ * que ali é rejeitado por ser inválido num lançamento. Numa simulação, saldo
+ * inicial 0 e taxa 0 % são entradas legítimas. Devolve `null` para vazio, não
+ * numérico, infinito ou negativo.
+ */
+export function parseNonNegativeInput(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed.replace(',', '.'));
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return parsed;
+}
+
+/** Prazo em meses digitado: inteiro ≥ 0. `null` para qualquer outra coisa. */
+export function parseMonthsInput(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed < 0) return null;
+  return parsed;
+}

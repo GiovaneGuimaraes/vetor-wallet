@@ -146,6 +146,24 @@
   color: var(--color-down);
 }
 
+/*
+ * Previsão de rendimento (T-040): saída da simulação. Reusa os cards de
+ * `.vw-savings-summary-card` do resumo, mas em duas colunas (valor futuro e
+ * rendimento do período) em vez das três do resumo.
+ */
+.vw-savings-projection {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+@media (max-width: 640px) {
+  .vw-savings-projection {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Lista de lançamentos (Poupança) ────────────────────────────────── */
 .vw-savings-list {
   border-radius: var(--radius-card, 16px);
