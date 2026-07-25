@@ -1,4 +1,5 @@
 import type { CategoryBudget, ExpenseEntry, FixedExpense } from '@vetor-wallet/shared';
+import { formatCategoryLabel, normalizeCategory } from './categories';
 
 /**
  * Função pura da seção "Orçamento do mês" da `DespesasPage` (T-023).
@@ -7,6 +8,7 @@ import type { CategoryBudget, ExpenseEntry, FixedExpense } from '@vetor-wallet/s
 
 export interface BudgetProgress {
   id: number;
+  /** Rótulo pronto para exibição da categoria canônica (ex.: "Mercado"). */
   category: string;
   /** Teto do orçamento para a categoria. */
   amount: number;
@@ -25,6 +27,9 @@ export interface BudgetProgress {
  * do mês exibido: despesas fixas da mesma categoria (valem para todo mês,
  * sem data) + lançamentos variáveis da categoria já filtrados pelo mês
  * (`entries` vem de `GET /api/expense-entries?month=`).
+ *
+ * A comparação de categoria usa a forma canônica (T-028): um orçamento de
+ * "Mercado" soma os gastos lançados em "mercado" e "mercado ".
  */
 export function computeBudgetProgress(
   budgets: CategoryBudget[],
@@ -32,18 +37,19 @@ export function computeBudgetProgress(
   entries: ExpenseEntry[],
 ): BudgetProgress[] {
   return budgets.map((budget) => {
+    const budgetCategory = normalizeCategory(budget.category);
     const fixedSpent = fixedExpenses
-      .filter((expense) => expense.category === budget.category)
+      .filter((expense) => normalizeCategory(expense.category) === budgetCategory)
       .reduce((acc, expense) => acc + expense.amount, 0);
     const variableSpent = entries
-      .filter((entry) => entry.category === budget.category)
+      .filter((entry) => normalizeCategory(entry.category) === budgetCategory)
       .reduce((acc, entry) => acc + entry.amount, 0);
     const spent = fixedSpent + variableSpent;
     const pct = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
 
     return {
       id: budget.id,
-      category: budget.category,
+      category: formatCategoryLabel(budgetCategory),
       amount: budget.amount,
       spent,
       pct,

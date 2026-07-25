@@ -86,8 +86,32 @@ describe('computeBudgetProgress', () => {
       [entry('mercado', 100, '2026-07-01'), entry('lazer', 50, '2026-07-02')],
     );
     expect(result).toHaveLength(2);
-    expect(result[0]).toMatchObject({ id: 1, category: 'mercado', amount: 500, spent: 100 });
-    expect(result[1]).toMatchObject({ id: 2, category: 'lazer', amount: 200, spent: 50 });
+    expect(result[0]).toMatchObject({ id: 1, category: 'Mercado', amount: 500, spent: 100 });
+    expect(result[1]).toMatchObject({ id: 2, category: 'Lazer', amount: 200, spent: 50 });
+  });
+
+  it('soma gastos com variação de caixa/espaço na mesma categoria do orçamento (T-028)', () => {
+    const [progress] = computeBudgetProgress(
+      [budget('Mercado', 500)],
+      [fixed('mercado ', 100, 1)],
+      [
+        entry('MERCADO', 150, '2026-07-05', 1),
+        entry('  mercado', 100, '2026-07-06', 2),
+        entry('mercado', 50, '2026-07-07', 3),
+      ],
+    );
+    expect(progress.spent).toBe(400);
+    expect(progress.pct).toBe(80);
+    expect(progress.category).toBe('Mercado');
+  });
+
+  it('ainda separa categorias realmente diferentes após a normalização (T-028)', () => {
+    const [progress] = computeBudgetProgress(
+      [budget('Mercado', 500)],
+      [],
+      [entry('mercadinho', 300, '2026-07-05')],
+    );
+    expect(progress.spent).toBe(0);
   });
 });
 

@@ -20,6 +20,7 @@ import {
   shiftMonth,
 } from './expenseMonth';
 import { computeBudgetProgress, formatBudgetPct } from './budgetProgress';
+import { formatCategoryLabel, normalizeCategory } from './categories';
 import './layers.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -259,9 +260,12 @@ export function DespesasPage() {
     try {
       const saved = await upsertBudget({ category: budgetCategory.trim(), amount: parsedAmount });
       // Upsert: substitui o registro existente da mesma categoria, se houver.
+      // A comparação usa a forma canônica (T-028) — o server grava normalizado,
+      // mas a lista em memória pode conter valores legados ainda não migrados.
       setBudgets((prev) => {
         if (!Array.isArray(prev)) return [saved];
-        const others = prev.filter((b) => b.category !== saved.category);
+        const savedCategory = normalizeCategory(saved.category);
+        const others = prev.filter((b) => normalizeCategory(b.category) !== savedCategory);
         return [...others, saved].sort((a, b) => a.category.localeCompare(b.category));
       });
       setBudgetCategory('');
@@ -511,7 +515,9 @@ export function DespesasPage() {
                       <p className="vw-layerpage-item-name">{entry.description}</p>
                       <p className="vw-layerpage-item-tag">
                         {formatDayMonth(entry.date)}
-                        {entry.category.trim() ? ` · ${entry.category}` : ''}
+                        {formatCategoryLabel(entry.category)
+                          ? ` · ${formatCategoryLabel(entry.category)}`
+                          : ''}
                       </p>
                     </div>
                     <div className="vw-layerpage-item-right">

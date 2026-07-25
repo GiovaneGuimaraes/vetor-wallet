@@ -36,6 +36,30 @@ describe('groupByCategory', () => {
     ]);
   });
 
+  it('agrupa "Mercado", "mercado" e "mercado " na mesma categoria (T-028)', () => {
+    const result = groupByCategory([
+      makeExpense({ id: 1, category: 'Mercado', amount: 100 }),
+      makeExpense({ id: 2, category: 'mercado', amount: 50 }),
+      makeExpense({ id: 3, category: 'mercado ', amount: 25 }),
+      makeExpense({ id: 4, category: '  MERCADO', amount: 25 }),
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].category).toBe('Mercado');
+    expect(result[0].total).toBe(200);
+    expect(result[0].items).toHaveLength(4);
+  });
+
+  it('colapsa espaços internos ao agrupar (T-028)', () => {
+    const result = groupByCategory([
+      makeExpense({ id: 1, category: 'compras do mes', amount: 10 }),
+      makeExpense({ id: 2, category: 'Compras   do   mes', amount: 20 }),
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].category).toBe('Compras do mes');
+    expect(result[0].total).toBe(30);
+  });
+
   it('agrupa por categoria, soma o total de cada grupo e ordena alfabeticamente (pt-BR)', () => {
     const result = groupByCategory([
       makeExpense({ id: 1, category: 'Transporte', amount: 200 }),
