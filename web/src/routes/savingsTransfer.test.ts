@@ -133,39 +133,45 @@ describe('computeFreeBalance (paridade com o service do server)', () => {
 
 describe('validateTransfer', () => {
   it('requires a goal', () => {
-    expect(validateTransfer('100', '', 1000)).toMatch(/meta/i);
+    expect(validateTransfer('100', '', 1000).error).toMatch(/meta/i);
   });
 
   it('rejects an empty amount', () => {
-    expect(validateTransfer('', '3', 1000)).toMatch(/valor válido/i);
+    expect(validateTransfer('', '3', 1000).error).toMatch(/valor válido/i);
   });
 
   it('rejects zero', () => {
-    expect(validateTransfer('0', '3', 1000)).toMatch(/valor válido/i);
+    expect(validateTransfer('0', '3', 1000).error).toMatch(/valor válido/i);
   });
 
   it('rejects a non-numeric amount', () => {
-    expect(validateTransfer('abc', '3', 1000)).toMatch(/valor válido/i);
+    expect(validateTransfer('abc', '3', 1000).error).toMatch(/valor válido/i);
   });
 
-  it('accepts a comma decimal separator', () => {
-    expect(validateTransfer('10,50', '3', 1000)).toBeNull();
+  it('accepts a comma decimal separator and returns the parsed amount', () => {
+    const result = validateTransfer('10,50', '3', 1000);
+    expect(result.error).toBeNull();
+    expect(result.amount).toBe(10.5);
   });
 
   it('rejects a value above the free balance', () => {
-    expect(validateTransfer('200', '3', 100)).toMatch(/saldo livre/i);
+    expect(validateTransfer('200', '3', 100).error).toMatch(/saldo livre/i);
   });
 
   it('accepts exactly the free balance, in cents', () => {
-    expect(validateTransfer('0,30', '3', 0.1 + 0.2)).toBeNull();
+    const result = validateTransfer('0,30', '3', 0.1 + 0.2);
+    expect(result.error).toBeNull();
+    expect(result.amount).toBe(0.3);
   });
 
   it('rejects everything when the free balance is negative (legacy ledger)', () => {
-    expect(validateTransfer('1', '3', -50)).toMatch(/saldo livre/i);
+    expect(validateTransfer('1', '3', -50).error).toMatch(/saldo livre/i);
   });
 
-  it('returns null for a valid transfer', () => {
-    expect(validateTransfer('250', '9', 1000)).toBeNull();
+  it('returns the parsed amount for a valid transfer', () => {
+    const result = validateTransfer('250', '9', 1000);
+    expect(result.error).toBeNull();
+    expect(result.amount).toBe(250);
   });
 });
 

@@ -11,6 +11,7 @@ import type {
   SavingsEntryUpdate,
   SavingsSummary,
   SavingsTransferRequest,
+  SavingsTransferResult,
 } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -19,22 +20,26 @@ const VALID_TYPES: SavingsEntryType[] = ['DEPOSIT', 'WITHDRAW', 'YIELD'];
 
 router.use(requireAuth);
 
+// Somado em centavos inteiros, alinhado a `computeFreeBalance`/`computeBalance`
+// (services/savings.ts): somar em float direto pode divergir em um centavo de
+// `balance = totalDeposits + totalYield - totalWithdrawals` em razões grandes.
 function buildSummary(entries: SavingsEntry[]): SavingsSummary {
-  let totalDeposits = 0;
-  let totalYield = 0;
-  let totalWithdrawals = 0;
+  let depositsCents = 0;
+  let yieldCents = 0;
+  let withdrawalsCents = 0;
 
   for (const entry of entries) {
-    if (entry.type === 'DEPOSIT') totalDeposits += entry.amount;
-    else if (entry.type === 'YIELD') totalYield += entry.amount;
-    else if (entry.type === 'WITHDRAW') totalWithdrawals += entry.amount;
+    const cents = toCents(entry.amount);
+    if (entry.type === 'DEPOSIT') depositsCents += cents;
+    else if (entry.type === 'YIELD') yieldCents += cents;
+    else if (entry.type === 'WITHDRAW') withdrawalsCents += cents;
   }
 
   return {
-    balance: totalDeposits + totalYield - totalWithdrawals,
-    totalDeposits,
-    totalYield,
-    totalWithdrawals,
+    balance: (depositsCents + yieldCents - withdrawalsCents) / 100,
+    totalDeposits: depositsCents / 100,
+    totalYield: yieldCents / 100,
+    totalWithdrawals: withdrawalsCents / 100,
   };
 }
 
@@ -217,10 +222,12 @@ router.post(
     });
     const created = rows.rows as unknown as SavingsEntry[];
 
-    res.status(201).json({
-      withdraw: created.find((entry) => Number(entry.id) === withdrawId),
-      deposit: created.find((entry) => Number(entry.id) === depositId),
-    });
+    // As duas linhas foram gravadas no mesmo batch logo acima, então ambas
+    // existem — a não-nulidade aqui é garantida pela transação, não checada.
+    const withdraw = created.find((entry) => Number(entry.id) === withdrawId) as SavingsEntry;
+    const deposit = created.find((entry) => Number(entry.id) === depositId) as SavingsEntry;
+    const result: SavingsTransferResult = { withdraw, deposit };
+    res.status(201).json(result);
   }),
 );
 

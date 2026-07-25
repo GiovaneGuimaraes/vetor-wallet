@@ -290,9 +290,9 @@ export function PoupancaPage() {
 
   async function handleTransferSubmit(e: FormEvent) {
     e.preventDefault();
-    const message = validateTransfer(transferForm.amount, transferForm.goalId, freeBalance);
-    if (message) {
-      setTransferError(message);
+    const validation = validateTransfer(transferForm.amount, transferForm.goalId, freeBalance);
+    if (validation.error !== null) {
+      setTransferError(validation.error);
       return;
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(transferForm.date)) {
@@ -305,7 +305,7 @@ export function PoupancaPage() {
     try {
       await transferSavingsToGoal({
         goalId: Number(transferForm.goalId),
-        amount: Number(transferForm.amount.replace(',', '.')),
+        amount: validation.amount,
         date: transferForm.date,
         note: transferForm.note.trim() || undefined,
       });

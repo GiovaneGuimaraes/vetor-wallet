@@ -407,11 +407,19 @@ describe('savings routes', () => {
 
   // ── T-041: transferir saldo da poupança para uma meta ──────────────────────
   describe('POST /api/savings/transfer-to-goal (T-041)', () => {
-    /** Datas relativas — nunca fixas, para o teste não envelhecer. */
+    /**
+     * Datas relativas — nunca fixas, para o teste não envelhecer. Usa o fuso
+     * LOCAL do processo (padrão do app — ver `currentMonth`/`currentMonthKey`),
+     * não UTC: `toISOString()` pode virar o dia (e o mês) antes ou depois da
+     * hora local, dependendo do fuso da máquina que roda o teste.
+     */
     function isoDaysAgo(days: number): string {
       const d = new Date();
       d.setDate(d.getDate() - days);
-      return d.toISOString().slice(0, 10);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     }
     const today = isoDaysAgo(0);
 
