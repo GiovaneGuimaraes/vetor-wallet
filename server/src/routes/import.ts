@@ -6,6 +6,7 @@ import { requireAuth } from '../auth/middleware';
 import { buildPositionMap, applyOperation, wouldExceedPosition } from '../services/portfolio';
 import { getUnknownTickers } from '../services/tickers';
 import { isValidIsoDate } from '../services/dates';
+import { getOrCreateDefaultWallet } from '../services/wallets';
 import type { NewOperation, CsvRowError, CsvImportResult, Operation } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -71,7 +72,8 @@ router.post(
   express.text({ type: '*/*', limit: '1mb' }),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const walletId = req.query.walletId !== undefined ? Number(req.query.walletId) : null;
+    // `?walletId=` é ignorado (T-050): tudo é importado na carteira padrão do
+    // usuário e a posição de SELL é o consolidado dele.
     const body = typeof req.body === 'string' ? req.body : '';
     if (!body.trim()) {
       res.status(400).json({ error: 'Body vazio' });
@@ -84,14 +86,10 @@ router.post(
     let positionMap = new Map<string, { quantity: number; avgPrice: number }>();
     if (tickers.length > 0) {
       const placeholders = tickers.map(() => '?').join(',');
-      let sql = `SELECT * FROM operations WHERE ticker IN (${placeholders}) AND user_id = ?`;
-      const args: (string | number)[] = [...tickers, userId];
-      if (walletId !== null) {
-        sql += ' AND wallet_id = ?';
-        args.push(walletId);
-      }
-      sql += ' ORDER BY date ASC, created_at ASC';
-      const existing = await db.execute({ sql, args });
+      const existing = await db.execute({
+        sql: `SELECT * FROM operations WHERE ticker IN (${placeholders}) AND user_id = ? ORDER BY date ASC, created_at ASC`,
+        args: [...tickers, userId],
+      });
       positionMap = buildPositionMap(existing.rows as unknown as Operation[]);
     }
 
@@ -111,6 +109,7 @@ router.post(
     errors.sort((a, b) => a.line - b.line);
 
     if (valid.length > 0) {
+      const walletId = await getOrCreateDefaultWallet(userId);
       await db.batch(
         valid.map((op) => ({
           sql: 'INSERT INTO operations (ticker, type, quantity, price, date, user_id, wallet_id) VALUES (?, ?, ?, ?, ?, ?, ?)',

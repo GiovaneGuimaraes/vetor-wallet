@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { db } from '../db';
+import { getOrCreateDefaultWallet } from '../services/wallets';
 import type { User } from '@vetor-wallet/shared';
 
 const SALT_ROUNDS = 12;
@@ -32,6 +33,16 @@ export async function createUser(email: string, password: string): Promise<User>
     args: [email.toLowerCase().trim(), passwordHash],
   });
   const id = Number(insert.lastInsertRowid ?? 0);
+
+  // Carteira única (T-050): o usuário já nasce com a carteira padrão, em vez de
+  // esperar o lazy-create do primeiro GET /api/wallets. Falhar aqui NÃO derruba
+  // o registro — o lazy-create das rotas continua sendo a rede de segurança.
+  try {
+    await getOrCreateDefaultWallet(id);
+  } catch (err) {
+    console.error('Falha ao criar a carteira padrao do usuario', id, err);
+  }
+
   return { id, email: email.toLowerCase().trim(), created_at: new Date().toISOString(), roles: [] };
 }
 
