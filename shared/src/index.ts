@@ -343,6 +343,15 @@ export interface SavingsEntry {
    * podem ser vinculados — `YIELD` fica fora do progresso de metas.
    */
   goal_id?: number | null;
+  /**
+   * Etiqueta que amarra as duas pernas de uma transferência poupança → meta
+   * (T-041): o `WITHDRAW` sem vínculo e o `DEPOSIT` vinculado gravados no mesmo
+   * batch compartilham este uuid. `null`/ausente = lançamento normal.
+   *
+   * É **procedência, não invariante**: nada é validado entre as pernas, o PATCH
+   * não aceita o campo e cada perna pode ser editada/excluída sozinha.
+   */
+  transfer_group?: string | null;
 }
 
 export interface NewSavingsEntry {
@@ -380,6 +389,29 @@ export interface SavingsSummary {
   totalDeposits: number;
   totalYield: number;
   totalWithdrawals: number;
+}
+
+/**
+ * Corpo de `POST /api/savings/transfer-to-goal` (T-041): reserva para uma meta
+ * dinheiro que já está na poupança.
+ *
+ * O server grava um par atômico WITHDRAW (sem vínculo) + DEPOSIT (vinculado à
+ * meta) com o mesmo `amount`/`date` e um `transfer_group` comum. O saldo da
+ * poupança **não muda** (−X +X): o que cai é o *saldo livre*
+ * (`saldo − reservado em metas`), calculado na leitura.
+ */
+export interface SavingsTransferRequest {
+  goalId: number;
+  amount: number;
+  /** YYYY-MM-DD */
+  date: string;
+  note?: string;
+}
+
+/** As duas pernas criadas pela transferência, na ordem em que foram gravadas. */
+export interface SavingsTransferResult {
+  withdraw: SavingsEntry;
+  deposit: SavingsEntry;
 }
 
 /**

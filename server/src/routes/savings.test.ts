@@ -405,6 +405,366 @@ describe('savings routes', () => {
     });
   });
 
+  // ── T-041: transferir saldo da poupança para uma meta ──────────────────────
+  describe('POST /api/savings/transfer-to-goal (T-041)', () => {
+    /** Datas relativas — nunca fixas, para o teste não envelhecer. */
+    function isoDaysAgo(days: number): string {
+      const d = new Date();
+      d.setDate(d.getDate() - days);
+      return d.toISOString().slice(0, 10);
+    }
+    const today = isoDaysAgo(0);
+
+    let seq = 0;
+    /** Agente com razão de poupança isolado (usuário novo por cenário). */
+    async function freshAgent() {
+      const agent = request.agent(app);
+      seq += 1;
+      const email = `savings-transfer-${seq}-${Math.random().toString(36).slice(2)}@test.com`;
+      const reg = await agent.post('/api/auth/register').send({ email, password: 'password123' });
+      expect(reg.status).toBe(201);
+      return agent;
+    }
+
+    async function goal(agent: ReturnType<typeof request.agent>, name = 'Viagem') {
+      const created = await agent.post('/api/goals').send({ name, target_amount: 10000 });
+      expect(created.status).toBe(201);
+      return created.body.id as number;
+    }
+
+    async function deposit(
+      agent: ReturnType<typeof request.agent>,
+      amount: number,
+      body: Record<string, unknown> = {},
+    ) {
+      const created = await agent
+        .post('/api/savings')
+        .send({ type: 'DEPOSIT', amount, date: isoDaysAgo(10), ...body });
+      expect(created.status).toBe(201);
+      return created.body;
+    }
+
+    async function fetchGoal(agent: ReturnType<typeof request.agent>, id: number) {
+      const list = await agent.get('/api/goals');
+      return list.body.find((g: { id: number }) => g.id === id);
+    }
+
+    it('returns 401 without session', async () => {
+      const res = await request(app)
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId: 1, amount: 10, date: today });
+      expect(res.status).toBe(401);
+    });
+
+    it('creates the WITHDRAW/DEPOSIT pair (only the deposit is linked)', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      await deposit(agent, 1000);
+
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 400, date: today, note: 'Reserva da viagem' });
+      expect(res.status).toBe(201);
+
+      const { withdraw, deposit: dep } = res.body;
+      expect(withdraw.type).toBe('WITHDRAW');
+      expect(dep.type).toBe('DEPOSIT');
+      // Invariante nº 1: a perna de saída NÃO pode ser vinculada, senão o
+      // agregado da meta soma +X −X = 0 e o progresso não anda.
+      expect(withdraw.goal_id).toBeNull();
+      expect(dep.goal_id).toBe(goalId);
+      expect(withdraw.amount).toBe(400);
+      expect(dep.amount).toBe(400);
+      expect(withdraw.date).toBe(today);
+      expect(dep.date).toBe(today);
+      expect(withdraw.transfer_group).toBeTruthy();
+      expect(dep.transfer_group).toBe(withdraw.transfer_group);
+      expect(withdraw.note).toBe('Reserva da viagem');
+      expect(dep.note).toBe('Reserva da viagem');
+    });
+
+    it('defaults the note to a label naming the goal', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent, 'Notebook');
+      await deposit(agent, 500);
+
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 100, date: today });
+      expect(res.status).toBe(201);
+      expect(res.body.deposit.note).toBe('Reservado para a meta: Notebook');
+    });
+
+    it('leaves the balance untouched and raises both totals by the amount', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      await deposit(agent, 1000);
+
+      const before = (await agent.get('/api/savings')).body.summary;
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 250, date: today });
+      expect(res.status).toBe(201);
+
+      const after = (await agent.get('/api/savings')).body.summary;
+      expect(after.balance).toBe(before.balance);
+      expect(after.totalDeposits).toBe(before.totalDeposits + 250);
+      expect(after.totalWithdrawals).toBe(before.totalWithdrawals + 250);
+      expect(after.totalYield).toBe(before.totalYield);
+    });
+
+    it('raises the goal progress by exactly the transferred amount', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      await deposit(agent, 1000);
+      expect((await fetchGoal(agent, goalId)).current_amount).toBe(0);
+
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 300, date: today });
+      expect(res.status).toBe(201);
+
+      const g = await fetchGoal(agent, goalId);
+      expect(g.current_amount).toBe(300);
+      expect(g.progress_source).toBe('LINKED_SAVINGS');
+      expect(g.linked_entries_count).toBe(1);
+    });
+
+    it('accumulates two transfers into the same goal', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      await deposit(agent, 1000);
+
+      expect(
+        (await agent.post('/api/savings/transfer-to-goal').send({ goalId, amount: 100, date: today }))
+          .status,
+      ).toBe(201);
+      expect(
+        (await agent.post('/api/savings/transfer-to-goal').send({ goalId, amount: 150, date: today }))
+          .status,
+      ).toBe(201);
+
+      const g = await fetchGoal(agent, goalId);
+      expect(g.current_amount).toBe(250);
+      expect(g.linked_entries_count).toBe(2);
+    });
+
+    it('rejects a missing amount (400)', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      const res = await agent.post('/api/savings/transfer-to-goal').send({ goalId, date: today });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects a non-numeric amount (400)', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 'abc', date: today });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects amount <= 0 (400)', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 0, date: today });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects a non-finite amount (400)', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .set('Content-Type', 'application/json')
+        .send(`{"goalId":${goalId},"amount":1e999,"date":"${today}"}`);
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects an invalid date (400)', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      await deposit(agent, 500);
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 10, date: '01/01/2026' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects a missing goalId (400)', async () => {
+      const agent = await freshAgent();
+      const res = await agent.post('/api/savings/transfer-to-goal').send({ amount: 10, date: today });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects a non-integer goalId (400)', async () => {
+      const agent = await freshAgent();
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId: 1.5, amount: 10, date: today });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 404 for another user goal and writes nothing', async () => {
+      const owner = await freshAgent();
+      const other = await freshAgent();
+      const theirGoal = await goal(owner, 'Meta do dono');
+      await deposit(other, 1000);
+
+      const res = await other
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId: theirGoal, amount: 100, date: today });
+      expect(res.status).toBe(404);
+
+      const list = await other.get('/api/savings');
+      expect(list.body.entries).toHaveLength(1);
+      expect(list.body.summary.totalWithdrawals).toBe(0);
+      expect((await fetchGoal(owner, theirGoal)).linked_entries_count).toBe(0);
+    });
+
+    it('returns 400 when the balance is insufficient, creating zero rows', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      await deposit(agent, 100);
+
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 500, date: today });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/livre/i);
+
+      const list = await agent.get('/api/savings');
+      expect(list.body.entries).toHaveLength(1);
+      expect(list.body.summary).toMatchObject({ balance: 100, totalWithdrawals: 0 });
+    });
+
+    it('validates against the FREE balance, not the total balance', async () => {
+      const agent = await freshAgent();
+      const goalA = await goal(agent, 'Meta A');
+      const goalB = await goal(agent, 'Meta B');
+      // 1000 no saldo, 900 já reservados na meta A via aporte vinculado →
+      // 100 livres. Transferir 200 para B tem saldo total suficiente, mas não
+      // saldo livre.
+      await deposit(agent, 100);
+      await deposit(agent, 900, { goalId: goalA });
+
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId: goalB, amount: 200, date: today });
+      expect(res.status).toBe(400);
+      expect((await fetchGoal(agent, goalB)).linked_entries_count).toBe(0);
+
+      // 100 (exatamente o livre) passa.
+      const ok = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId: goalB, amount: 100, date: today });
+      expect(ok.status).toBe(201);
+      expect((await fetchGoal(agent, goalB)).current_amount).toBe(100);
+    });
+
+    it('allows transferring exactly the free balance built from float-noisy amounts', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      await deposit(agent, 0.1);
+      await deposit(agent, 0.2);
+      // 0.1 + 0.2 === 0.30000000000000004 em float: comparar sem centavos
+      // rejeitaria esta transferência.
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 0.3, date: today });
+      expect(res.status).toBe(201);
+      expect((await fetchGoal(agent, goalId)).current_amount).toBe(0.3);
+    });
+
+    it('counts YIELD in the free balance', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      await deposit(agent, 100);
+      const yieldRes = await agent
+        .post('/api/savings')
+        .send({ type: 'YIELD', amount: 50, date: isoDaysAgo(5) });
+      expect(yieldRes.status).toBe(201);
+
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 150, date: today });
+      expect(res.status).toBe(201);
+      expect((await fetchGoal(agent, goalId)).current_amount).toBe(150);
+    });
+
+    it('lets each leg be deleted independently (no cascade, no undo)', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      await deposit(agent, 1000);
+
+      const first = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 200, date: today });
+      expect(first.status).toBe(201);
+
+      // Apagar só a perna de saída: o dinheiro "volta" ao saldo e a meta segue
+      // com o progresso — consequência documentada da independência.
+      const delWithdraw = await agent.delete(`/api/savings/${first.body.withdraw.id}`);
+      expect(delWithdraw.status).toBe(204);
+      let list = await agent.get('/api/savings');
+      expect(list.body.summary.balance).toBe(1200);
+      expect((await fetchGoal(agent, goalId)).current_amount).toBe(200);
+
+      // Apagar só a perna de entrada de uma segunda transferência: o saldo cai
+      // e a meta perde o progresso.
+      const second = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 300, date: today });
+      expect(second.status).toBe(201);
+      const delDeposit = await agent.delete(`/api/savings/${second.body.deposit.id}`);
+      expect(delDeposit.status).toBe(204);
+      list = await agent.get('/api/savings');
+      expect(list.body.summary.balance).toBe(900);
+      expect((await fetchGoal(agent, goalId)).current_amount).toBe(200);
+    });
+
+    it('ignores transfer_group in the PATCH body (it is procedence, not editable)', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      await deposit(agent, 500);
+      const created = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 100, date: today });
+      const group = created.body.deposit.transfer_group;
+
+      const res = await agent
+        .patch(`/api/savings/${created.body.deposit.id}`)
+        .send({ amount: 120, transfer_group: 'hackeado' });
+      expect(res.status).toBe(200);
+      expect(res.body.amount).toBe(120);
+      expect(res.body.transfer_group).toBe(group);
+    });
+
+    it('keeps both legs (unlinked) after the goal is deleted', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      await deposit(agent, 1000);
+      const created = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 400, date: today });
+      expect(created.status).toBe(201);
+
+      const del = await agent.delete(`/api/goals/${goalId}`);
+      expect(del.status).toBe(204);
+
+      const list = await agent.get('/api/savings');
+      const legs = list.body.entries.filter(
+        (e: { transfer_group: string | null }) => e.transfer_group === created.body.deposit.transfer_group,
+      );
+      expect(legs).toHaveLength(2);
+      expect(legs.every((e: { goal_id: number | null }) => e.goal_id === null)).toBe(true);
+      expect(list.body.summary.balance).toBe(1000);
+    });
+  });
+
   it('deletes a savings entry belonging to the user', async () => {
     const created = await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 10, date: '2025-01-05' });
     const id = created.body.id;

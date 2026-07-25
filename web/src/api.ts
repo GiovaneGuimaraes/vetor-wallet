@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, IncomeEntry, NewIncomeEntry, IncomeEntryUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, RecurringExpense, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, IncomeEntry, NewIncomeEntry, IncomeEntryUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, RecurringExpense, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, SavingsTransferRequest, SavingsTransferResult, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -451,6 +451,26 @@ export async function updateSavingsEntry(
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
     throw new Error(err.error ?? 'Falha ao atualizar lançamento de poupança');
+  }
+  return res.json();
+}
+
+/**
+ * Transfere para uma meta dinheiro que já está na poupança (T-041). O server
+ * grava um par WITHDRAW + DEPOSIT atômico: o saldo não muda, o *saldo livre* cai
+ * e o progresso da meta sobe. Responde 400 quando o valor excede o saldo livre.
+ */
+export async function transferSavingsToGoal(
+  transfer: SavingsTransferRequest,
+): Promise<SavingsTransferResult> {
+  const res = await apiFetch('/api/savings/transfer-to-goal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(transfer),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao transferir para a meta');
   }
   return res.json();
 }

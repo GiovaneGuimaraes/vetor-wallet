@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   getSavings,
   createSavingsEntry,
   deleteSavingsEntry,
   getGoals,
   updateSavingsEntry,
+  transferSavingsToGoal,
 } from '../api';
 import type {
   Goal,
@@ -21,6 +23,12 @@ import {
   parseNonNegativeInput,
   projectSavings,
 } from './savingsProjection';
+import {
+  computeFreeBalance,
+  computeReservedTotal,
+  isTransferLeg,
+  validateTransfer,
+} from './savingsTransfer';
 import './layers.css';
 import './layers-savings.css';
 
@@ -61,6 +69,17 @@ const EMPTY_FORM: FormState = { type: 'DEPOSIT', amount: '', date: todayIso(), n
 
 /** Prazo inicial do simulador de rendimento (T-040), em meses. */
 const DEFAULT_SIM_MONTHS = '12';
+
+/** Form do card "Transferir para uma meta" (T-041). */
+interface TransferState {
+  /** Id da meta destino, como string (valor do `<select>`); '' = nenhuma. */
+  goalId: string;
+  amount: string;
+  date: string;
+  note: string;
+}
+
+const EMPTY_TRANSFER: TransferState = { goalId: '', amount: '', date: todayIso(), note: '' };
 
 interface SimState {
   /** Valor inicial em reais (texto do input; aceita vírgula decimal). */
@@ -124,6 +143,12 @@ export function PoupancaPage() {
   // Enquanto o usuário não mexer no campo, ele acompanha o default derivado
   // (saldo do `summary` / taxa do histórico), que só chega depois do fetch.
   const [simTouched, setSimTouched] = useState({ initial: false, ratePct: false });
+
+  // Transferência poupança → meta (T-041): estado próprio, para não misturar
+  // com o form de novo lançamento (validações e resposta são diferentes).
+  const [transferForm, setTransferForm] = useState<TransferState>(EMPTY_TRANSFER);
+  const [transferError, setTransferError] = useState('');
+  const [transferring, setTransferring] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<FormState | null>(null);
@@ -212,6 +237,83 @@ export function PoupancaPage() {
       : null;
 
   const goalNameById = new Map(goals.map((goal) => [goal.id, goal.name]));
+
+  // Nome da meta de cada par de transferência, para o selo poder nomear a meta
+  // também na perna de saída — que, por invariante, NÃO tem `goal_id` (com as
+  // duas pernas vinculadas o progresso da meta somaria +X −X = 0).
+  const goalNameByTransferGroup = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const entry of entries) {
+      if (!entry.transfer_group || entry.goal_id == null) continue;
+      const name = goalNameById.get(entry.goal_id);
+      if (name) map.set(entry.transfer_group, name);
+    }
+    return map;
+    // `goalNameById` é recriado a cada render; a dependência real é `goals`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, goals]);
+
+  // T-041: o saldo NÃO muda com uma transferência (−X +X), então o saldo livre
+  // é o único feedback visível de que o dinheiro foi reservado. `balance` vem do
+  // `summary` do server; só a parcela reservada é derivada dos `entries`.
+  const reservedTotal = useMemo(() => computeReservedTotal(entries), [entries]);
+  const freeBalance = useMemo(
+    () => computeFreeBalance(summary?.balance ?? 0, entries),
+    [summary?.balance, entries],
+  );
+  // Bases legadas podem ter livre negativo (aporte vinculado anterior à T-041 +
+  // retirada avulsa): exibir `max(0, …)` em vez de "-R$ …".
+  const freeBalanceDisplay = Math.max(0, freeBalance);
+  const canTransfer = goalsStatus === 'ok' && goals.length > 0 && freeBalance > 0;
+
+  const transferGoal = goals.find((goal) => String(goal.id) === transferForm.goalId);
+  // Aviso de UX: a primeira transferência converte a meta de MANUAL para
+  // LINKED_SAVINGS, e aí o valor manual passa a ser ignorado pelo server (T-024)
+  // — o progresso pode "cair" na tela. A regra do server não muda; só avisamos.
+  const transferOverridesManual =
+    transferGoal !== undefined &&
+    (transferGoal.progress_source ?? 'MANUAL') === 'MANUAL' &&
+    transferGoal.current_amount > 0;
+
+  /** Pré-seleção via `/poupanca?meta=<id>` (link do card de /metas). */
+  const [searchParams] = useSearchParams();
+  const presetGoal = searchParams.get('meta');
+  useEffect(() => {
+    if (!presetGoal) return;
+    if (!goals.some((goal) => String(goal.id) === presetGoal)) return;
+    setTransferForm((prev) => (prev.goalId ? prev : { ...prev, goalId: presetGoal }));
+  }, [presetGoal, goals]);
+
+  async function handleTransferSubmit(e: FormEvent) {
+    e.preventDefault();
+    const message = validateTransfer(transferForm.amount, transferForm.goalId, freeBalance);
+    if (message) {
+      setTransferError(message);
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(transferForm.date)) {
+      setTransferError('Informe a data da transferência.');
+      return;
+    }
+    setTransferError('');
+
+    setTransferring(true);
+    try {
+      await transferSavingsToGoal({
+        goalId: Number(transferForm.goalId),
+        amount: Number(transferForm.amount.replace(',', '.')),
+        date: transferForm.date,
+        note: transferForm.note.trim() || undefined,
+      });
+      setTransferForm({ ...EMPTY_TRANSFER, date: transferForm.date });
+      // Saldo livre, lista e progresso das metas todos derivam do server.
+      await refresh();
+    } catch (err) {
+      setTransferError(err instanceof Error ? err.message : 'Falha ao transferir para a meta');
+    } finally {
+      setTransferring(false);
+    }
+  }
 
   function startEdit(entry: SavingsEntry) {
     setEditingId(entry.id);
@@ -316,6 +418,17 @@ export function PoupancaPage() {
                 {fmtCur.format(summary?.totalYield ?? 0)}
               </p>
             </div>
+            {/*
+              T-041: uma transferência para meta não muda o saldo (−X +X) — este
+              card é o que mostra que o dinheiro ficou reservado.
+            */}
+            <div className="vw-savings-summary-card">
+              <p className="vw-savings-summary-label">Saldo livre</p>
+              <p className="vw-savings-summary-value">{fmtCur.format(freeBalanceDisplay)}</p>
+              <p className="vw-savings-summary-sub">
+                {fmtCur.format(reservedTotal)} reservados em metas
+              </p>
+            </div>
           </div>
 
           <div className="vw-cdi-tip">
@@ -323,6 +436,108 @@ export function PoupancaPage() {
             CDI em fundos/contas digitais com liquidez diária. Vale comparar a rentabilidade da
             sua poupança/reserva com o CDI do período em <code>/carteiras</code> antes de decidir
             entre manter o dinheiro parado ou investir.
+          </div>
+
+          {/*
+            Transferir para uma meta (T-041): card dedicado, e não um checkbox no
+            form de novo lançamento — a operação grava DUAS pernas, valida contra
+            o saldo livre e não aceita tipo/rendimento.
+          */}
+          <div className="vw-form-card">
+            <p className="vw-form-title">Transferir para uma meta</p>
+            <form onSubmit={handleTransferSubmit}>
+              <div className="vw-form-grid">
+                <div className="vw-form-field">
+                  <label htmlFor="transfer-goal">Meta</label>
+                  <select
+                    id="transfer-goal"
+                    value={transferForm.goalId}
+                    disabled={!canTransfer || transferring}
+                    onChange={(e) => setTransferForm({ ...transferForm, goalId: e.target.value })}
+                  >
+                    <option value="">Escolha a meta</option>
+                    {goals.map((goal) => (
+                      <option key={goal.id} value={String(goal.id)}>
+                        {goal.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="vw-form-field">
+                  <label htmlFor="transfer-amount">Valor (R$)</label>
+                  <input
+                    id="transfer-amount"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    value={transferForm.amount}
+                    disabled={!canTransfer || transferring}
+                    onChange={(e) => setTransferForm({ ...transferForm, amount: e.target.value })}
+                  />
+                </div>
+                <div className="vw-form-field">
+                  <label htmlFor="transfer-date">Data</label>
+                  <input
+                    id="transfer-date"
+                    type="date"
+                    value={transferForm.date}
+                    disabled={!canTransfer || transferring}
+                    onChange={(e) => setTransferForm({ ...transferForm, date: e.target.value })}
+                  />
+                </div>
+                <div className="vw-form-field">
+                  <label htmlFor="transfer-note">Nota (opcional)</label>
+                  <input
+                    id="transfer-note"
+                    type="text"
+                    placeholder="Ex.: reserva da viagem"
+                    value={transferForm.note}
+                    disabled={!canTransfer || transferring}
+                    onChange={(e) => setTransferForm({ ...transferForm, note: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {goalsStatus === 'error' ? (
+                <span className="vw-field-hint vw-field-hint--warn">
+                  Não foi possível carregar suas metas — tente recarregar a página para transferir.
+                </span>
+              ) : goals.length === 0 ? (
+                <span className="vw-field-hint">
+                  Cadastre uma meta em <code>/metas</code> para reservar parte da poupança para ela.
+                </span>
+              ) : freeBalance <= 0 ? (
+                <span className="vw-field-hint vw-field-hint--warn">
+                  Sem saldo livre: todo o dinheiro da poupança já está reservado em metas.
+                </span>
+              ) : (
+                <span className="vw-field-hint">
+                  O dinheiro continua na poupança rendendo — o saldo não muda, só passa a estar
+                  reservado para a meta. Disponível: {fmtCur.format(freeBalanceDisplay)}.
+                </span>
+              )}
+
+              {transferOverridesManual && (
+                <span className="vw-field-hint vw-field-hint--warn">
+                  Esta meta tem progresso preenchido à mão ({fmtCur.format(
+                    transferGoal?.current_amount ?? 0,
+                  )}
+                  ). A partir da primeira transferência o progresso passa a ser calculado pelos
+                  aportes vinculados, e o valor manual é ignorado.
+                </span>
+              )}
+
+              <div className="vw-form-actions">
+                <button
+                  type="submit"
+                  className="vw-btn-primary"
+                  disabled={!canTransfer || transferring}
+                >
+                  {transferring ? 'Transferindo...' : 'Transferir da poupança'}
+                </button>
+              </div>
+              {transferError && <p className="vw-form-error">{transferError}</p>}
+            </form>
           </div>
 
           {/*
@@ -623,6 +838,23 @@ export function PoupancaPage() {
                         {formatDate(entry.date)}
                         {entry.goal_id != null && goalNameById.get(entry.goal_id) && (
                           <span className="vw-savings-entry-goal">🔗 {goalNameById.get(entry.goal_id)}</span>
+                        )}
+                        {/*
+                          T-041: selo nas DUAS pernas do par, no espírito do
+                          `↻ recorrente` da T-035. É só procedência: cada perna
+                          segue editável/excluível sozinha.
+                        */}
+                        {isTransferLeg(entry) && (
+                          <span
+                            className="vw-savings-entry-transfer"
+                            title={
+                              entry.transfer_group && goalNameByTransferGroup.get(entry.transfer_group)
+                                ? `Transferência da poupança para a meta ${goalNameByTransferGroup.get(entry.transfer_group)}`
+                                : 'Perna de uma transferência da poupança para uma meta'
+                            }
+                          >
+                            ⇄ transferência
+                          </span>
                         )}
                       </p>
                     </div>
