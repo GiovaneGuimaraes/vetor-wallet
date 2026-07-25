@@ -223,6 +223,112 @@ describe('expense entries routes', () => {
     );
   });
 
+  // ── T-031: edição parcial ──────────────────────────────────────────────────
+  describe('PATCH /api/expense-entries/:id (T-031)', () => {
+    async function newEntry(description = 'Editável', amount = 100, date = '2026-08-10') {
+      const created = await agentA
+        .post('/api/expense-entries')
+        .send({ description, category: 'casa', amount, date });
+      return created.body.id as number;
+    }
+
+    it('updates description only', async () => {
+      const id = await newEntry('Mercadinho', 55, '2026-08-01');
+      const res = await agentA.patch(`/api/expense-entries/${id}`).send({ description: 'Mercado' });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        description: 'Mercado',
+        category: 'casa',
+        amount: 55,
+        date: '2026-08-01',
+      });
+    });
+
+    it('updates amount only and it reflects in the month listing', async () => {
+      const id = await newEntry('Farmácia', 30, '2026-08-02');
+      const res = await agentA.patch(`/api/expense-entries/${id}`).send({ amount: 47.35 });
+      expect(res.status).toBe(200);
+      expect(res.body.amount).toBe(47.35);
+
+      const list = await agentA.get('/api/expense-entries?month=2026-08');
+      expect((list.body.entries as EntryBody[]).find((e) => e.id === id)?.amount).toBe(47.35);
+    });
+
+    it('normalizes the updated category (T-028)', async () => {
+      const id = await newEntry('Uber', 20, '2026-08-03');
+      const res = await agentA
+        .patch(`/api/expense-entries/${id}`)
+        .send({ category: '  TRANSPORTE   Urbano ' });
+      expect(res.status).toBe(200);
+      expect(res.body.category).toBe('transporte urbano');
+    });
+
+    it('moves the entry to another month when the date changes', async () => {
+      const id = await newEntry('Muda de mês', 12, '2026-08-04');
+
+      const res = await agentA.patch(`/api/expense-entries/${id}`).send({ date: '2026-09-04' });
+      expect(res.status).toBe(200);
+      expect(res.body.date).toBe('2026-09-04');
+
+      const august = await agentA.get('/api/expense-entries?month=2026-08');
+      expect((august.body.entries as EntryBody[]).some((e) => e.id === id)).toBe(false);
+
+      const september = await agentA.get('/api/expense-entries?month=2026-09');
+      expect((september.body.entries as EntryBody[]).some((e) => e.id === id)).toBe(true);
+    });
+
+    it('rejects PATCH with empty body (400)', async () => {
+      const id = await newEntry();
+      const res = await agentA.patch(`/api/expense-entries/${id}`).send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with blank description (400)', async () => {
+      const id = await newEntry();
+      const res = await agentA.patch(`/api/expense-entries/${id}`).send({ description: '   ' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with amount <= 0 (400)', async () => {
+      const id = await newEntry();
+      const res = await agentA.patch(`/api/expense-entries/${id}`).send({ amount: 0 });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with non-finite amount (Infinity) (400)', async () => {
+      const id = await newEntry();
+      const res = await agentA
+        .patch(`/api/expense-entries/${id}`)
+        .set('Content-Type', 'application/json')
+        .send('{"amount":1e999}');
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with malformed date (400)', async () => {
+      const id = await newEntry();
+      const res = await agentA.patch(`/api/expense-entries/${id}`).send({ date: '10/08/2026' });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 404 when patching another user entry', async () => {
+      const created = await agentB
+        .post('/api/expense-entries')
+        .send({ description: 'Da B patch', amount: 20, date: '2026-08-05' });
+      const id = created.body.id;
+
+      const res = await agentA.patch(`/api/expense-entries/${id}`).send({ amount: 1 });
+      expect(res.status).toBe(404);
+
+      const list = await agentB.get('/api/expense-entries?month=2026-08');
+      expect((list.body.entries as EntryBody[]).find((e) => e.id === id)?.amount).toBe(20);
+    });
+
+    it('returns 404 for a nonexistent id', async () => {
+      const res = await agentA.patch('/api/expense-entries/999999').send({ amount: 1 });
+      expect(res.status).toBe(404);
+    });
+  });
+
   it('deletes an entry belonging to the user', async () => {
     const created = await agentA
       .post('/api/expense-entries')

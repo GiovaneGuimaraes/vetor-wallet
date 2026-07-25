@@ -26,6 +26,7 @@ describe('savings routes', () => {
     const { initDb } = await import('../db');
     const { default: authRouter } = await import('../auth/router');
     const { default: savingsRouter } = await import('./savings');
+    const { default: goalsRouter } = await import('./goals');
     const { errorHandler } = await import('../middleware/errorHandler');
 
     await initDb();
@@ -43,6 +44,7 @@ describe('savings routes', () => {
     );
     app.use('/api/auth', authRouter);
     app.use('/api/savings', savingsRouter);
+    app.use('/api/goals', goalsRouter);
     app.use(errorHandler);
 
     agentA = request.agent(app);
@@ -141,6 +143,265 @@ describe('savings routes', () => {
       totalDeposits: 1500,
       totalYield: 50,
       totalWithdrawals: 200,
+    });
+  });
+
+  // ── T-031: edição parcial ──────────────────────────────────────────────────
+  describe('PATCH /api/savings/:id (T-031)', () => {
+    async function newEntry(
+      body: Record<string, unknown> = {},
+      agent = agentA,
+    ): Promise<number> {
+      const created = await agent
+        .post('/api/savings')
+        .send({ type: 'DEPOSIT', amount: 100, date: '2025-03-01', ...body });
+      expect(created.status).toBe(201);
+      return created.body.id as number;
+    }
+
+    async function newGoal(name: string, agent = agentA): Promise<number> {
+      const created = await agent.post('/api/goals').send({ name, target_amount: 10000 });
+      expect(created.status).toBe(201);
+      return created.body.id as number;
+    }
+
+    async function fetchGoal(id: number, agent = agentA) {
+      const list = await agent.get('/api/goals');
+      return list.body.find((g: { id: number }) => g.id === id);
+    }
+
+    it('updates amount only and it reflects in the summary', async () => {
+      const agentD = request.agent(app);
+      await agentD.post('/api/auth/register').send({ email: 'savings-d@test.com', password: 'password123' });
+      const id = await newEntry({ amount: 100 }, agentD);
+
+      const res = await agentD.patch(`/api/savings/${id}`).send({ amount: 250 });
+      expect(res.status).toBe(200);
+      expect(res.body.amount).toBe(250);
+
+      const list = await agentD.get('/api/savings');
+      expect(list.body.summary).toEqual({
+        balance: 250,
+        totalDeposits: 250,
+        totalYield: 0,
+        totalWithdrawals: 0,
+      });
+    });
+
+    it('updates type only and it reflects in the summary', async () => {
+      const agentE = request.agent(app);
+      await agentE.post('/api/auth/register').send({ email: 'savings-e@test.com', password: 'password123' });
+      const id = await newEntry({ amount: 80 }, agentE);
+
+      const res = await agentE.patch(`/api/savings/${id}`).send({ type: 'WITHDRAW' });
+      expect(res.status).toBe(200);
+      expect(res.body.type).toBe('WITHDRAW');
+
+      const list = await agentE.get('/api/savings');
+      expect(list.body.summary).toEqual({
+        balance: -80,
+        totalDeposits: 0,
+        totalYield: 0,
+        totalWithdrawals: 80,
+      });
+    });
+
+    it('updates date only', async () => {
+      const id = await newEntry({ date: '2025-03-02' });
+      const res = await agentA.patch(`/api/savings/${id}`).send({ date: '2025-04-15' });
+      expect(res.status).toBe(200);
+      expect(res.body.date).toBe('2025-04-15');
+    });
+
+    it('updates note only, accepting an empty string to clear it', async () => {
+      const id = await newEntry({ note: 'Antes' });
+      const res = await agentA.patch(`/api/savings/${id}`).send({ note: '' });
+      expect(res.status).toBe(200);
+      expect(res.body.note).toBe('');
+    });
+
+    it('rejects PATCH with empty body (400)', async () => {
+      const id = await newEntry();
+      const res = await agentA.patch(`/api/savings/${id}`).send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with invalid type (400)', async () => {
+      const id = await newEntry();
+      const res = await agentA.patch(`/api/savings/${id}`).send({ type: 'TRANSFER' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with amount <= 0 (400)', async () => {
+      const id = await newEntry();
+      const res = await agentA.patch(`/api/savings/${id}`).send({ amount: 0 });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with non-finite amount (Infinity) (400)', async () => {
+      const id = await newEntry();
+      const res = await agentA
+        .patch(`/api/savings/${id}`)
+        .set('Content-Type', 'application/json')
+        .send('{"amount":1e999}');
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with malformed date (400)', async () => {
+      const id = await newEntry();
+      const res = await agentA.patch(`/api/savings/${id}`).send({ date: '01/03/2025' });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 404 when patching another user savings entry', async () => {
+      const id = await newEntry({ amount: 33 }, agentB);
+      const res = await agentA.patch(`/api/savings/${id}`).send({ amount: 1 });
+      expect(res.status).toBe(404);
+
+      const list = await agentB.get('/api/savings');
+      expect(list.body.entries.find((e: { id: number }) => e.id === id).amount).toBe(33);
+    });
+
+    it('returns 404 for a nonexistent id', async () => {
+      const res = await agentA.patch('/api/savings/999999').send({ amount: 1 });
+      expect(res.status).toBe(404);
+    });
+
+    // ── Lançamento vinculado a meta (T-024 × T-031) ──────────────────────────
+    it('editing the amount of a linked entry updates the derived goal progress', async () => {
+      const goalId = await newGoal('Progresso editável');
+      const id = await newEntry({ amount: 100, goalId });
+      expect((await fetchGoal(goalId)).current_amount).toBe(100);
+
+      const res = await agentA.patch(`/api/savings/${id}`).send({ amount: 175.5 });
+      expect(res.status).toBe(200);
+
+      const goal = await fetchGoal(goalId);
+      expect(goal.current_amount).toBe(175.5);
+      expect(goal.progress_source).toBe('LINKED_SAVINGS');
+      expect(goal.linked_entries_count).toBe(1);
+    });
+
+    it('flipping a linked DEPOSIT into a WITHDRAW flips the sign in the goal progress', async () => {
+      const goalId = await newGoal('Aporte virou retirada');
+      await newEntry({ amount: 200, date: '2025-03-10', goalId });
+      const second = await newEntry({ amount: 50, date: '2025-03-11', goalId });
+      expect((await fetchGoal(goalId)).current_amount).toBe(250);
+
+      const res = await agentA.patch(`/api/savings/${second}`).send({ type: 'WITHDRAW' });
+      expect(res.status).toBe(200);
+
+      expect((await fetchGoal(goalId)).current_amount).toBe(150);
+    });
+
+    it('rejects changing a linked entry type to YIELD (400) and keeps the link intact', async () => {
+      const goalId = await newGoal('YIELD proibido');
+      const id = await newEntry({ amount: 60, goalId });
+
+      const res = await agentA.patch(`/api/savings/${id}`).send({ type: 'YIELD' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/YIELD/);
+
+      const list = await agentA.get('/api/savings');
+      const kept = list.body.entries.find((e: { id: number }) => e.id === id);
+      expect(kept.type).toBe('DEPOSIT');
+      expect(kept.goal_id).toBe(goalId);
+      expect((await fetchGoal(goalId)).current_amount).toBe(60);
+    });
+
+    it('allows YIELD together with an explicit unlink in the same PATCH', async () => {
+      const goalId = await newGoal('YIELD ao desvincular');
+      const id = await newEntry({ amount: 15, goalId });
+
+      const res = await agentA.patch(`/api/savings/${id}`).send({ type: 'YIELD', goalId: null });
+      expect(res.status).toBe(200);
+      expect(res.body.type).toBe('YIELD');
+      expect(res.body.goal_id).toBeNull();
+
+      const goal = await fetchGoal(goalId);
+      expect(goal.current_amount).toBe(0);
+      expect(goal.progress_source).toBe('MANUAL');
+    });
+
+    it('rejects linking a goal to an existing YIELD entry (400)', async () => {
+      const goalId = await newGoal('Sem rendimento no patch');
+      const id = await newEntry({ type: 'YIELD', amount: 9 });
+
+      const res = await agentA.patch(`/api/savings/${id}`).send({ goalId });
+      expect(res.status).toBe(400);
+      expect((await fetchGoal(goalId)).linked_entries_count).toBe(0);
+    });
+
+    it('unlinks an entry with goalId: null (entry survives, goal falls back to MANUAL)', async () => {
+      const goalId = await newGoal('Desvincular');
+      const id = await newEntry({ amount: 90, goalId });
+
+      const res = await agentA.patch(`/api/savings/${id}`).send({ goalId: null });
+      expect(res.status).toBe(200);
+      expect(res.body.goal_id).toBeNull();
+      expect(res.body.amount).toBe(90);
+
+      const goal = await fetchGoal(goalId);
+      expect(goal.current_amount).toBe(0);
+      expect(goal.progress_source).toBe('MANUAL');
+      expect(goal.linked_entries_count).toBe(0);
+    });
+
+    it('relinks an entry to another goal, moving the progress', async () => {
+      const from = await newGoal('Meta origem');
+      const to = await newGoal('Meta destino');
+      const id = await newEntry({ amount: 120, goalId: from });
+      expect((await fetchGoal(from)).current_amount).toBe(120);
+
+      const res = await agentA.patch(`/api/savings/${id}`).send({ goalId: to });
+      expect(res.status).toBe(200);
+      expect(res.body.goal_id).toBe(to);
+
+      expect((await fetchGoal(from)).current_amount).toBe(0);
+      expect((await fetchGoal(to)).current_amount).toBe(120);
+    });
+
+    it('links a previously unlinked entry to a goal', async () => {
+      const goalId = await newGoal('Vincular depois');
+      const id = await newEntry({ amount: 45 });
+      expect((await fetchGoal(goalId)).current_amount).toBe(0);
+
+      const res = await agentA.patch(`/api/savings/${id}`).send({ goalId });
+      expect(res.status).toBe(200);
+      expect(res.body.goal_id).toBe(goalId);
+      expect((await fetchGoal(goalId)).current_amount).toBe(45);
+    });
+
+    it('returns 404 when relinking to another user goal, keeping the current link', async () => {
+      const mine = await newGoal('Minha meta');
+      const theirs = await newGoal('Meta da B', agentB);
+      const id = await newEntry({ amount: 70, goalId: mine });
+
+      const res = await agentA.patch(`/api/savings/${id}`).send({ goalId: theirs });
+      expect(res.status).toBe(404);
+
+      const list = await agentA.get('/api/savings');
+      expect(list.body.entries.find((e: { id: number }) => e.id === id).goal_id).toBe(mine);
+      expect((await fetchGoal(mine)).current_amount).toBe(70);
+      expect((await fetchGoal(theirs, agentB)).linked_entries_count).toBe(0);
+    });
+
+    it('rejects a non-integer goalId (400)', async () => {
+      const id = await newEntry();
+      const res = await agentA.patch(`/api/savings/${id}`).send({ goalId: 1.5 });
+      expect(res.status).toBe(400);
+    });
+
+    it('editing amount and note at once keeps the link and updates the goal', async () => {
+      const goalId = await newGoal('Multi campo');
+      const id = await newEntry({ amount: 10, note: 'antigo', goalId });
+
+      const res = await agentA
+        .patch(`/api/savings/${id}`)
+        .send({ amount: 33, note: 'novo', date: '2025-05-05' });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ amount: 33, note: 'novo', date: '2025-05-05', goal_id: goalId });
+      expect((await fetchGoal(goalId)).current_amount).toBe(33);
     });
   });
 

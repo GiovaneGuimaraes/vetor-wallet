@@ -132,6 +132,94 @@ describe('expenses routes', () => {
     expect(resB.body.some((item: { name: string }) => item.name === 'Academia B')).toBe(true);
   });
 
+  // ── T-031: edição parcial ──────────────────────────────────────────────────
+  describe('PATCH /api/expenses/:id (T-031)', () => {
+    async function newExpense(name = 'Editável', category = 'casa', amount = 100) {
+      const created = await agentA.post('/api/expenses').send({ name, category, amount });
+      return created.body.id as number;
+    }
+
+    it('updates name only', async () => {
+      const id = await newExpense('Luz', 'casa', 200);
+      const res = await agentA.patch(`/api/expenses/${id}`).send({ name: 'Energia' });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ name: 'Energia', category: 'casa', amount: 200 });
+    });
+
+    it('updates amount only', async () => {
+      const id = await newExpense('Internet', 'casa', 100);
+      const res = await agentA.patch(`/api/expenses/${id}`).send({ amount: 129.9 });
+      expect(res.status).toBe(200);
+      expect(res.body.amount).toBe(129.9);
+
+      const list = await agentA.get('/api/expenses');
+      expect(list.body.find((e: { id: number }) => e.id === id).amount).toBe(129.9);
+    });
+
+    it('normalizes the updated category (T-028)', async () => {
+      const id = await newExpense('Plano', 'casa', 80);
+      const res = await agentA.patch(`/api/expenses/${id}`).send({ category: '  SAÚDE   Extra ' });
+      expect(res.status).toBe(200);
+      expect(res.body.category).toBe('saúde extra');
+    });
+
+    it('accepts an empty category to clear it', async () => {
+      const id = await newExpense('Sem categoria', 'casa', 50);
+      const res = await agentA.patch(`/api/expenses/${id}`).send({ category: '' });
+      expect(res.status).toBe(200);
+      expect(res.body.category).toBe('');
+    });
+
+    it('rejects PATCH with empty body (400)', async () => {
+      const id = await newExpense();
+      const res = await agentA.patch(`/api/expenses/${id}`).send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with blank name (400)', async () => {
+      const id = await newExpense();
+      const res = await agentA.patch(`/api/expenses/${id}`).send({ name: '  ' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with non-string category (400)', async () => {
+      const id = await newExpense();
+      const res = await agentA.patch(`/api/expenses/${id}`).send({ category: 42 });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with amount <= 0 (400)', async () => {
+      const id = await newExpense();
+      const res = await agentA.patch(`/api/expenses/${id}`).send({ amount: -1 });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with non-finite amount (Infinity) (400)', async () => {
+      const id = await newExpense();
+      const res = await agentA
+        .patch(`/api/expenses/${id}`)
+        .set('Content-Type', 'application/json')
+        .send('{"amount":1e999}');
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 404 when patching another user fixed expense', async () => {
+      const created = await agentB.post('/api/expenses').send({ name: 'Da B patch', amount: 25 });
+      const id = created.body.id;
+
+      const res = await agentA.patch(`/api/expenses/${id}`).send({ amount: 1 });
+      expect(res.status).toBe(404);
+
+      const list = await agentB.get('/api/expenses');
+      expect(list.body.find((e: { id: number }) => e.id === id).amount).toBe(25);
+    });
+
+    it('returns 404 for a nonexistent id', async () => {
+      const res = await agentA.patch('/api/expenses/999999').send({ amount: 1 });
+      expect(res.status).toBe(404);
+    });
+  });
+
   it('deletes a fixed expense belonging to the user', async () => {
     const created = await agentA.post('/api/expenses').send({ name: 'Para excluir', category: '', amount: 10 });
     const id = created.body.id;
