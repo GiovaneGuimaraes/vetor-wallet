@@ -8,9 +8,18 @@ import {
   getBudgets,
   getExpenseEntries,
   getFixedExpenses,
+  updateExpenseEntry,
+  updateFixedExpense,
   upsertBudget,
 } from '../api';
-import type { CategoryBudget, ExpenseEntry, FixedExpense } from '@vetor-wallet/shared';
+import type {
+  CategoryBudget,
+  ExpenseEntry,
+  ExpenseEntryUpdate,
+  FixedExpense,
+  FixedExpenseUpdate,
+} from '@vetor-wallet/shared';
+import { diffEditableFields, hasEdits, parseMoneyInput } from './inlineEdit';
 import { groupByCategory } from './expensesGrouping';
 import {
   computeMonthTotals,
@@ -32,12 +41,44 @@ function defaultEntryDate(monthKey: string): string {
   return `${monthKey}-01`;
 }
 
+/** Campos editáveis de uma despesa fixa, na representação do form (T-031). */
+interface FixedDraft {
+  name: string;
+  category: string;
+  amount: string;
+}
+
+function toFixedDraft(expense: FixedExpense): FixedDraft {
+  return { name: expense.name, category: expense.category, amount: String(expense.amount) };
+}
+
+/** Campos editáveis de um lançamento variável, na representação do form. */
+interface EntryDraft {
+  description: string;
+  category: string;
+  amount: string;
+  date: string;
+}
+
+function toEntryDraft(entry: ExpenseEntry): EntryDraft {
+  return {
+    description: entry.description,
+    category: entry.category,
+    amount: String(entry.amount),
+    date: entry.date,
+  };
+}
+
 /**
  * Rota `/despesas`: visão mensal com duas seções — "Fixas do mês"
  * (`fixed_expenses`, sem data, valem para todo mês) e "Lançamentos do mês"
  * (`expense_entries`, datados, filtrados por mês no server — T-022).
  * O total do hero é fixas + variáveis do mês exibido; a navegação
  * ‹ / › troca o mês e recarrega apenas os lançamentos.
+ *
+ * T-031: fixas e lançamentos têm modo de edição no item da lista (lápis →
+ * campos preenchidos → salvar/cancelar), via `PATCH /api/expenses/:id` e
+ * `PATCH /api/expense-entries/:id` com apenas os campos alterados.
  */
 export function DespesasPage() {
   const [monthKey, setMonthKey] = useState(() => currentMonthKey());
@@ -49,6 +90,10 @@ export function DespesasPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [editingFixedId, setEditingFixedId] = useState<number | null>(null);
+  const [fixedDraft, setFixedDraft] = useState<FixedDraft | null>(null);
+  const [fixedEditError, setFixedEditError] = useState<string | null>(null);
+  const [savingFixedEdit, setSavingFixedEdit] = useState(false);
 
   const [entries, setEntries] = useState<ExpenseEntry[] | 'loading' | 'error'>('loading');
   // Guarda de resposta obsoleta (T-030): cliques rápidos em ‹/› disparam fetches
@@ -64,6 +109,10 @@ export function DespesasPage() {
   const [entryFormError, setEntryFormError] = useState<string | null>(null);
   const [entrySubmitting, setEntrySubmitting] = useState(false);
   const [deletingEntryId, setDeletingEntryId] = useState<number | null>(null);
+  const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
+  const [entryDraft, setEntryDraft] = useState<EntryDraft | null>(null);
+  const [entryEditError, setEntryEditError] = useState<string | null>(null);
+  const [savingEntryEdit, setSavingEntryEdit] = useState(false);
 
   const [budgets, setBudgets] = useState<CategoryBudget[] | 'loading' | 'error'>('loading');
   const [budgetCategory, setBudgetCategory] = useState('');
@@ -143,6 +192,9 @@ export function DespesasPage() {
     const next = shiftMonth(monthKey, delta);
     setMonthKey(next);
     setEntryDate(defaultEntryDate(next));
+    // A lista de lançamentos vai ser trocada — um rascunho de edição aberto
+    // apontaria para um item que não está mais em tela.
+    cancelEntryEdit();
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -185,6 +237,134 @@ export function DespesasPage() {
       refresh();
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  function startFixedEdit(expense: FixedExpense) {
+    setEditingFixedId(expense.id);
+    setFixedDraft(toFixedDraft(expense));
+    setFixedEditError(null);
+  }
+
+  function cancelFixedEdit() {
+    setEditingFixedId(null);
+    setFixedDraft(null);
+    setFixedEditError(null);
+  }
+
+  async function handleFixedEditSubmit(e: React.FormEvent, expense: FixedExpense) {
+    e.preventDefault();
+    if (!fixedDraft) return;
+    setFixedEditError(null);
+
+    if (!fixedDraft.name.trim()) {
+      setFixedEditError('Informe um nome para a despesa.');
+      return;
+    }
+    const parsedAmount = parseMoneyInput(fixedDraft.amount);
+    if (parsedAmount === null) {
+      setFixedEditError('Informe um valor válido maior que zero.');
+      return;
+    }
+
+    const diff = diffEditableFields(toFixedDraft(expense), {
+      name: fixedDraft.name.trim(),
+      category: fixedDraft.category.trim(),
+      amount: String(parsedAmount),
+    });
+    if (!hasEdits(diff)) {
+      cancelFixedEdit();
+      return;
+    }
+
+    const update: FixedExpenseUpdate = {};
+    if (diff.name !== undefined) update.name = diff.name;
+    if (diff.category !== undefined) update.category = diff.category;
+    if (diff.amount !== undefined) update.amount = parsedAmount;
+
+    setSavingFixedEdit(true);
+    try {
+      // A resposta traz a categoria já normalizada (T-028) — trocá-la aqui
+      // reagrupa a lista pelo `groupByCategory` sem refetch.
+      const saved = await updateFixedExpense(expense.id, update);
+      setExpenses((prev) =>
+        Array.isArray(prev) ? prev.map((item) => (item.id === saved.id ? saved : item)) : prev,
+      );
+      cancelFixedEdit();
+    } catch (err) {
+      setFixedEditError(err instanceof Error ? err.message : 'Falha ao atualizar despesa fixa');
+    } finally {
+      setSavingFixedEdit(false);
+    }
+  }
+
+  function startEntryEdit(entry: ExpenseEntry) {
+    setEditingEntryId(entry.id);
+    setEntryDraft(toEntryDraft(entry));
+    setEntryEditError(null);
+  }
+
+  function cancelEntryEdit() {
+    setEditingEntryId(null);
+    setEntryDraft(null);
+    setEntryEditError(null);
+  }
+
+  async function handleEntryEditSubmit(e: React.FormEvent, entry: ExpenseEntry) {
+    e.preventDefault();
+    if (!entryDraft) return;
+    setEntryEditError(null);
+
+    if (!entryDraft.description.trim()) {
+      setEntryEditError('Informe uma descrição para o lançamento.');
+      return;
+    }
+    const parsedAmount = parseMoneyInput(entryDraft.amount);
+    if (parsedAmount === null) {
+      setEntryEditError('Informe um valor válido maior que zero.');
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(entryDraft.date)) {
+      setEntryEditError('Informe a data do lançamento.');
+      return;
+    }
+
+    const diff = diffEditableFields(toEntryDraft(entry), {
+      description: entryDraft.description.trim(),
+      category: entryDraft.category.trim(),
+      amount: String(parsedAmount),
+      date: entryDraft.date,
+    });
+    if (!hasEdits(diff)) {
+      cancelEntryEdit();
+      return;
+    }
+
+    const update: ExpenseEntryUpdate = {};
+    if (diff.description !== undefined) update.description = diff.description;
+    if (diff.category !== undefined) update.category = diff.category;
+    if (diff.amount !== undefined) update.amount = parsedAmount;
+    if (diff.date !== undefined) update.date = diff.date;
+
+    setSavingEntryEdit(true);
+    try {
+      const saved = await updateExpenseEntry(entry.id, update);
+      setEntries((prev) => {
+        if (!Array.isArray(prev)) return prev;
+        // Editar a data pode mover o lançamento para fora do mês exibido — nesse
+        // caso ele sai desta lista (o server já não o devolveria neste mês).
+        if (saved.date.slice(0, 7) !== monthKey) {
+          return prev.filter((item) => item.id !== saved.id);
+        }
+        return prev
+          .map((item) => (item.id === saved.id ? saved : item))
+          .sort((a, b) => b.date.localeCompare(a.date));
+      });
+      cancelEntryEdit();
+    } catch (err) {
+      setEntryEditError(err instanceof Error ? err.message : 'Falha ao atualizar lançamento');
+    } finally {
+      setSavingEntryEdit(false);
     }
   }
 
@@ -424,28 +604,104 @@ export function DespesasPage() {
                 <span className="vw-layerpage-group-total">{fmtCur.format(group.total)}</span>
               </div>
               <ul className="vw-layerpage-list">
-                {group.items.map((expense) => (
-                  <li key={expense.id}>
-                    <div className="vw-layerpage-item">
-                      <div className="vw-layerpage-item-main">
-                        <p className="vw-layerpage-item-name">{expense.name}</p>
+                {group.items.map((expense) =>
+                  editingFixedId === expense.id && fixedDraft ? (
+                    <li key={expense.id}>
+                      <form
+                        className="vw-layerpage-item-edit"
+                        onSubmit={(e) => handleFixedEditSubmit(e, expense)}
+                      >
+                        <div className="vw-layerpage-edit-grid">
+                          <div className="vw-layerpage-field">
+                            <label htmlFor={`fixa-edit-nome-${expense.id}`}>Nome</label>
+                            <input
+                              id={`fixa-edit-nome-${expense.id}`}
+                              type="text"
+                              value={fixedDraft.name}
+                              disabled={savingFixedEdit}
+                              onChange={(e) => setFixedDraft({ ...fixedDraft, name: e.target.value })}
+                            />
+                          </div>
+                          <div className="vw-layerpage-field">
+                            <label htmlFor={`fixa-edit-categoria-${expense.id}`}>Categoria</label>
+                            <input
+                              id={`fixa-edit-categoria-${expense.id}`}
+                              type="text"
+                              value={fixedDraft.category}
+                              disabled={savingFixedEdit}
+                              onChange={(e) =>
+                                setFixedDraft({ ...fixedDraft, category: e.target.value })
+                              }
+                            />
+                          </div>
+                          <div className="vw-layerpage-field">
+                            <label htmlFor={`fixa-edit-valor-${expense.id}`}>Valor</label>
+                            <input
+                              id={`fixa-edit-valor-${expense.id}`}
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={fixedDraft.amount}
+                              disabled={savingFixedEdit}
+                              onChange={(e) =>
+                                setFixedDraft({ ...fixedDraft, amount: e.target.value })
+                              }
+                            />
+                          </div>
+                        </div>
+                        {fixedEditError && <p className="vw-layerpage-error">{fixedEditError}</p>}
+                        <div className="vw-layerpage-edit-actions">
+                          <button
+                            type="button"
+                            className="vw-layerpage-edit-cancel"
+                            onClick={cancelFixedEdit}
+                            disabled={savingFixedEdit}
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="submit"
+                            className="vw-btn-primary vw-layerpage-edit-save"
+                            disabled={savingFixedEdit}
+                          >
+                            {savingFixedEdit ? 'Salvando…' : 'Salvar'}
+                          </button>
+                        </div>
+                      </form>
+                    </li>
+                  ) : (
+                    <li key={expense.id}>
+                      <div className="vw-layerpage-item">
+                        <div className="vw-layerpage-item-main">
+                          <p className="vw-layerpage-item-name">{expense.name}</p>
+                        </div>
+                        <div className="vw-layerpage-item-right">
+                          <span className="vw-layerpage-item-value">{fmtCur.format(expense.amount)}</span>
+                          <button
+                            type="button"
+                            className="vw-layerpage-edit-btn"
+                            onClick={() => startFixedEdit(expense)}
+                            disabled={editingFixedId !== null || deletingId === expense.id}
+                            aria-label={`Editar ${expense.name}`}
+                            title="Editar"
+                          >
+                            ✎
+                          </button>
+                          <button
+                            type="button"
+                            className="vw-layerpage-delete-btn"
+                            onClick={() => handleDelete(expense.id)}
+                            disabled={deletingId === expense.id || editingFixedId !== null}
+                            aria-label={`Remover ${expense.name}`}
+                            title="Remover"
+                          >
+                            ×
+                          </button>
+                        </div>
                       </div>
-                      <div className="vw-layerpage-item-right">
-                        <span className="vw-layerpage-item-value">{fmtCur.format(expense.amount)}</span>
-                        <button
-                          type="button"
-                          className="vw-layerpage-delete-btn"
-                          onClick={() => handleDelete(expense.id)}
-                          disabled={deletingId === expense.id}
-                          aria-label={`Remover ${expense.name}`}
-                          title="Remover"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  ),
+                )}
               </ul>
             </div>
           ))}
@@ -508,34 +764,120 @@ export function DespesasPage() {
           )}
           {entryList.length > 0 && (
             <ul className="vw-layerpage-list">
-              {entryList.map((entry) => (
-                <li key={entry.id}>
-                  <div className="vw-layerpage-item">
-                    <div className="vw-layerpage-item-main">
-                      <p className="vw-layerpage-item-name">{entry.description}</p>
-                      <p className="vw-layerpage-item-tag">
-                        {formatDayMonth(entry.date)}
-                        {formatCategoryLabel(entry.category)
-                          ? ` · ${formatCategoryLabel(entry.category)}`
-                          : ''}
-                      </p>
+              {entryList.map((entry) =>
+                editingEntryId === entry.id && entryDraft ? (
+                  <li key={entry.id}>
+                    <form
+                      className="vw-layerpage-item-edit"
+                      onSubmit={(e) => handleEntryEditSubmit(e, entry)}
+                    >
+                      <div className="vw-layerpage-edit-grid">
+                        <div className="vw-layerpage-field">
+                          <label htmlFor={`lanc-edit-descricao-${entry.id}`}>Descrição</label>
+                          <input
+                            id={`lanc-edit-descricao-${entry.id}`}
+                            type="text"
+                            value={entryDraft.description}
+                            disabled={savingEntryEdit}
+                            onChange={(e) =>
+                              setEntryDraft({ ...entryDraft, description: e.target.value })
+                            }
+                          />
+                        </div>
+                        <div className="vw-layerpage-field">
+                          <label htmlFor={`lanc-edit-categoria-${entry.id}`}>Categoria</label>
+                          <input
+                            id={`lanc-edit-categoria-${entry.id}`}
+                            type="text"
+                            value={entryDraft.category}
+                            disabled={savingEntryEdit}
+                            onChange={(e) =>
+                              setEntryDraft({ ...entryDraft, category: e.target.value })
+                            }
+                          />
+                        </div>
+                        <div className="vw-layerpage-field">
+                          <label htmlFor={`lanc-edit-valor-${entry.id}`}>Valor</label>
+                          <input
+                            id={`lanc-edit-valor-${entry.id}`}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={entryDraft.amount}
+                            disabled={savingEntryEdit}
+                            onChange={(e) => setEntryDraft({ ...entryDraft, amount: e.target.value })}
+                          />
+                        </div>
+                        <div className="vw-layerpage-field">
+                          <label htmlFor={`lanc-edit-data-${entry.id}`}>Data</label>
+                          <input
+                            id={`lanc-edit-data-${entry.id}`}
+                            type="date"
+                            value={entryDraft.date}
+                            disabled={savingEntryEdit}
+                            onChange={(e) => setEntryDraft({ ...entryDraft, date: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      {entryEditError && <p className="vw-layerpage-error">{entryEditError}</p>}
+                      <div className="vw-layerpage-edit-actions">
+                        <button
+                          type="button"
+                          className="vw-layerpage-edit-cancel"
+                          onClick={cancelEntryEdit}
+                          disabled={savingEntryEdit}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          className="vw-btn-primary vw-layerpage-edit-save"
+                          disabled={savingEntryEdit}
+                        >
+                          {savingEntryEdit ? 'Salvando…' : 'Salvar'}
+                        </button>
+                      </div>
+                    </form>
+                  </li>
+                ) : (
+                  <li key={entry.id}>
+                    <div className="vw-layerpage-item">
+                      <div className="vw-layerpage-item-main">
+                        <p className="vw-layerpage-item-name">{entry.description}</p>
+                        <p className="vw-layerpage-item-tag">
+                          {formatDayMonth(entry.date)}
+                          {formatCategoryLabel(entry.category)
+                            ? ` · ${formatCategoryLabel(entry.category)}`
+                            : ''}
+                        </p>
+                      </div>
+                      <div className="vw-layerpage-item-right">
+                        <span className="vw-layerpage-item-value">{fmtCur.format(entry.amount)}</span>
+                        <button
+                          type="button"
+                          className="vw-layerpage-edit-btn"
+                          onClick={() => startEntryEdit(entry)}
+                          disabled={editingEntryId !== null || deletingEntryId === entry.id}
+                          aria-label={`Editar ${entry.description}`}
+                          title="Editar"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          type="button"
+                          className="vw-layerpage-delete-btn"
+                          onClick={() => handleEntryDelete(entry.id)}
+                          disabled={deletingEntryId === entry.id || editingEntryId !== null}
+                          aria-label={`Remover ${entry.description}`}
+                          title="Remover"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
-                    <div className="vw-layerpage-item-right">
-                      <span className="vw-layerpage-item-value">{fmtCur.format(entry.amount)}</span>
-                      <button
-                        type="button"
-                        className="vw-layerpage-delete-btn"
-                        onClick={() => handleEntryDelete(entry.id)}
-                        disabled={deletingEntryId === entry.id}
-                        aria-label={`Remover ${entry.description}`}
-                        title="Remover"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                ),
+              )}
             </ul>
           )}
         </div>

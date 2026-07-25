@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
-import type { NewExpenseEntry } from '@vetor-wallet/shared';
+import type { NewExpenseEntry, ExpenseEntryUpdate } from '@vetor-wallet/shared';
 import { normalizeCategory } from '../services/categories';
 
 const router = Router();
@@ -82,6 +82,88 @@ router.post(
       args: [Number(newId)],
     });
     res.status(201).json(row.rows[0]);
+  }),
+);
+
+// T-031: edição parcial, espelhando o padrão de PATCH /api/goals/:id. Editar
+// `date` pode mover o lançamento para outro mês — a rota não impede isso; a
+// visão mensal do cliente é que deve tirar o item da lista exibida.
+router.patch(
+  '/:id',
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = res.locals.userId as number;
+    const { id } = req.params;
+    const { description, category, amount, date } = req.body as ExpenseEntryUpdate;
+
+    if (
+      description === undefined &&
+      category === undefined &&
+      amount === undefined &&
+      date === undefined
+    ) {
+      res.status(400).json({ error: 'informe ao menos um campo para atualizar' });
+      return;
+    }
+    if (description !== undefined && (typeof description !== 'string' || !description.trim())) {
+      res.status(400).json({ error: 'description não pode ser vazia' });
+      return;
+    }
+    if (category !== undefined && typeof category !== 'string') {
+      res.status(400).json({ error: 'category deve ser texto' });
+      return;
+    }
+    if (
+      amount !== undefined &&
+      (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0)
+    ) {
+      res.status(400).json({ error: 'amount deve ser um número maior que 0' });
+      return;
+    }
+    if (date !== undefined && (typeof date !== 'string' || !DATE_RE.test(date))) {
+      res.status(400).json({ error: 'date inválida (use YYYY-MM-DD)' });
+      return;
+    }
+
+    const existing = await db.execute({
+      sql: 'SELECT id FROM expense_entries WHERE id = ? AND user_id = ?',
+      args: [id, userId],
+    });
+    if (existing.rows.length === 0) {
+      res.status(404).json({ error: 'Lançamento de despesa não encontrado' });
+      return;
+    }
+
+    const fields: string[] = [];
+    const args: (string | number)[] = [];
+    if (description !== undefined) {
+      fields.push('description = ?');
+      args.push(description.trim());
+    }
+    if (category !== undefined) {
+      // Mesma forma canônica da criação (T-028) — ver services/categories.ts.
+      fields.push('category = ?');
+      args.push(normalizeCategory(category));
+    }
+    if (amount !== undefined) {
+      fields.push('amount = ?');
+      args.push(amount);
+    }
+    if (date !== undefined) {
+      fields.push('date = ?');
+      args.push(date);
+    }
+    args.push(id);
+
+    await db.execute({
+      sql: `UPDATE expense_entries SET ${fields.join(', ')} WHERE id = ?`,
+      args,
+    });
+
+    const row = await db.execute({
+      sql: 'SELECT * FROM expense_entries WHERE id = ?',
+      args: [id],
+    });
+    res.json(row.rows[0]);
   }),
 );
 

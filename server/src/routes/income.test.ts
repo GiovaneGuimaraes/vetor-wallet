@@ -112,6 +112,110 @@ describe('income routes', () => {
     expect(resB.body.some((item: { name: string }) => item.name === 'Freela B')).toBe(true);
   });
 
+  // ── T-031: edição parcial ──────────────────────────────────────────────────
+  describe('PATCH /api/income/:id (T-031)', () => {
+    async function newSource(name = 'Editável', amount = 100) {
+      const created = await agentA.post('/api/income').send({ name, type: 'OUTRO', amount });
+      return created.body.id as number;
+    }
+
+    it('updates name only', async () => {
+      const id = await newSource('Nome antigo', 500);
+      const res = await agentA.patch(`/api/income/${id}`).send({ name: 'Nome novo' });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ name: 'Nome novo', type: 'OUTRO', amount: 500 });
+    });
+
+    it('trims the updated name', async () => {
+      const id = await newSource();
+      const res = await agentA.patch(`/api/income/${id}`).send({ name: '  Com espaços  ' });
+      expect(res.body.name).toBe('Com espaços');
+    });
+
+    it('updates type only', async () => {
+      const id = await newSource('Tipo', 700);
+      const res = await agentA.patch(`/api/income/${id}`).send({ type: 'FREELA' });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ name: 'Tipo', type: 'FREELA', amount: 700 });
+    });
+
+    it('updates amount only and it reflects in the list total', async () => {
+      const id = await newSource('Valor', 100);
+      const res = await agentA.patch(`/api/income/${id}`).send({ amount: 250.5 });
+      expect(res.status).toBe(200);
+      expect(res.body.amount).toBe(250.5);
+
+      const list = await agentA.get('/api/income');
+      const found = list.body.find((item: { id: number }) => item.id === id);
+      expect(found.amount).toBe(250.5);
+    });
+
+    it('updates several fields at once', async () => {
+      const id = await newSource('Tudo', 10);
+      const res = await agentA
+        .patch(`/api/income/${id}`)
+        .send({ name: 'Tudo novo', type: 'SALARIO', amount: 99 });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ name: 'Tudo novo', type: 'SALARIO', amount: 99 });
+    });
+
+    it('rejects PATCH with empty body (400)', async () => {
+      const id = await newSource();
+      const res = await agentA.patch(`/api/income/${id}`).send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with blank name (400)', async () => {
+      const id = await newSource();
+      const res = await agentA.patch(`/api/income/${id}`).send({ name: '   ' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with invalid type (400)', async () => {
+      const id = await newSource();
+      const res = await agentA.patch(`/api/income/${id}`).send({ type: 'BONUS' });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with amount <= 0 (400)', async () => {
+      const id = await newSource();
+      const res = await agentA.patch(`/api/income/${id}`).send({ amount: 0 });
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with non-finite amount (Infinity) (400)', async () => {
+      const id = await newSource();
+      const res = await agentA
+        .patch(`/api/income/${id}`)
+        .set('Content-Type', 'application/json')
+        .send('{"amount":1e999}');
+      expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with non-numeric amount (400)', async () => {
+      const id = await newSource();
+      const res = await agentA.patch(`/api/income/${id}`).send({ amount: 'abc' });
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 404 when patching another user income source', async () => {
+      const created = await agentB.post('/api/income').send({ name: 'Da B patch', amount: 30 });
+      const id = created.body.id;
+
+      const res = await agentA.patch(`/api/income/${id}`).send({ amount: 1 });
+      expect(res.status).toBe(404);
+
+      const list = await agentB.get('/api/income');
+      const found = list.body.find((item: { id: number }) => item.id === id);
+      expect(found.amount).toBe(30);
+    });
+
+    it('returns 404 for a nonexistent id', async () => {
+      const res = await agentA.patch('/api/income/999999').send({ amount: 1 });
+      expect(res.status).toBe(404);
+    });
+  });
+
   it('deletes an income source belonging to the user', async () => {
     const created = await agentA.post('/api/income').send({ name: 'Para excluir', type: 'OUTRO', amount: 10 });
     const id = created.body.id;
