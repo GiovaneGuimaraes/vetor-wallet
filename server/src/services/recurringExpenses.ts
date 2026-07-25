@@ -79,12 +79,103 @@ export interface RecurringExpenseRow {
  * Registra o mês em que a recorrência nasceu como já materializado, apontando
  * para o lançamento que o usuário acabou de criar. Sem isso o primeiro GET do
  * mês de criação geraria uma segunda ocorrência idêntica.
+ *
+ * NÃO é usada pelo caminho de criação de `POST /api/expense-entries` (ver
+ * `createRecurringExpenseEntry` abaixo, T-045) — ali a mesma reserva de mês
+ * precisa rodar na MESMA transação do template e da primeira ocorrência, e
+ * esta função sempre escreve via `db.execute` (fora de transação). Mantida
+ * exportada por ser a que `materializeRecurringExpenses` documentava como
+ * referência de reserva de mês; sem outro chamador hoje.
  */
 export async function markMonthMaterialized(recurringId: number, month: string): Promise<void> {
   await db.execute({
     sql: 'INSERT OR IGNORE INTO recurring_expense_months (recurring_id, month) VALUES (?, ?)',
     args: [recurringId, month],
   });
+}
+
+/** Parâmetros para `createRecurringExpenseEntry` — ver doc da função. */
+export interface CreateRecurringEntryParams {
+  userId: number;
+  description: string;
+  category: string;
+  amount: number;
+  date: string;
+  dayOfMonth: number;
+  startMonth: string;
+  entryMonth: string;
+}
+
+export interface CreateRecurringEntryResult {
+  entryId: number;
+  recurringId: number;
+}
+
+/**
+ * Cria o template de recorrência (`recurring_expenses`), reserva o mês do
+ * lançamento no livro-razão (`recurring_expense_months`) e insere a primeira
+ * ocorrência (`expense_entries`) — as três escritas do caminho
+ * `POST /api/expense-entries` com `recurring: true` (T-045).
+ *
+ * Antes da T-045 essas três escritas eram independentes: uma falha entre elas
+ * podia deixar o template órfão (sem a ocorrência que deveria acompanhá-lo) ou
+ * o mês reservado sem nenhum lançamento correspondente — indistinguível de uma
+ * ocorrência excluída de propósito (ver doc de `materializeRecurringExpenses`).
+ *
+ * Usa `db.transaction('write')` (transação interativa), e não `db.batch`,
+ * porque a segunda e a terceira escrita dependem do `lastInsertRowid` da
+ * primeira (`recurring_id` a vincular) — um `batch` não expõe o resultado de
+ * uma instrução para as seguintes na mesma chamada. `tx.close()` no `finally`
+ * cobre os dois casos: se `commit()` já rodou, `close()` não faz nada; se uma
+ * escrita lançou antes do commit, `close()` reverte a transação inteira — não
+ * há caminho em que o template fique sem a ocorrência ou o mês fique marcado
+ * sem lançamento.
+ */
+export async function createRecurringExpenseEntry(
+  params: CreateRecurringEntryParams,
+): Promise<CreateRecurringEntryResult> {
+  const tx = await db.transaction('write');
+  try {
+    const createdRecurrence = await tx.execute({
+      sql: `INSERT INTO recurring_expenses
+              (user_id, description, category, amount, day_of_month, start_month)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [
+        params.userId,
+        params.description,
+        params.category,
+        params.amount,
+        params.dayOfMonth,
+        params.startMonth,
+      ],
+    });
+    const recurringId = Number(createdRecurrence.lastInsertRowid ?? 0);
+    if (!recurringId) {
+      // Sem id não há como vincular a ocorrência: gravar `recurring_id = 0`
+      // deixaria o lançamento apontando para um template inexistente.
+      throw new Error('T-035: falha ao criar a recorrência (lastInsertRowid ausente)');
+    }
+
+    // Marca o mês do LANÇAMENTO, não `startMonth` — mesma regra de
+    // `markMonthMaterialized`/doc do módulo: num cadastro retroativo os dois
+    // divergem e marcar o mês corrente suprimiria a ocorrência que a
+    // recorrência deve gerar agora.
+    await tx.execute({
+      sql: 'INSERT OR IGNORE INTO recurring_expense_months (recurring_id, month) VALUES (?, ?)',
+      args: [recurringId, params.entryMonth],
+    });
+
+    const insert = await tx.execute({
+      sql: `INSERT INTO expense_entries (user_id, description, category, amount, date, recurring_id)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [params.userId, params.description, params.category, params.amount, params.date, recurringId],
+    });
+
+    await tx.commit();
+    return { entryId: Number(insert.lastInsertRowid ?? 0), recurringId };
+  } finally {
+    tx.close();
+  }
 }
 
 /**
