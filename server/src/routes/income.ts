@@ -113,9 +113,11 @@ router.patch(
       args,
     });
 
+    // Re-SELECT também filtrado por user_id (T-051) — a existência já foi
+    // checada acima, mas o re-SELECT não deve depender só disso.
     const row = await db.execute({
-      sql: 'SELECT * FROM income_sources WHERE id = ?',
-      args: [id],
+      sql: 'SELECT * FROM income_sources WHERE id = ? AND user_id = ?',
+      args: [id, userId],
     });
     res.json(row.rows[0]);
   }),
