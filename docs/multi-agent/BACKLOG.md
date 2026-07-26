@@ -24,15 +24,9 @@
 
 ---
 
-## Tarefas ativas — Ciclo 12: preço por ação ao longo do tempo
+## Tarefas ativas
 
-> Pedido do humano (2026-07-25): "esse grafico de evolucao da carteira mostra a variavel do preco das acoes ao longo do tempo? gostaria de mostrar isso, e gostaria de mostrar por acao tambem ao inves de ser da carteira toda". Dados já existem em `GET /api/snapshots/:ticker`.
-
-### T-060 — Gráfico de evolução de preço por ação na dash
-- **Status**: EM_ANDAMENTO (executor sonnet) · P1 · média
-- **Contexto**: o gráfico da T-058b mostra o valor agregado da carteira; o humano quer também a série de PREÇO por ticker.
-- **Escopo**: card "Preço por ação" na `DashboardPage` com seletor de ticker (posições atuais), consumindo `GET /api/snapshots/:ticker` (rota existente); gráfico reusando `chartGeometry`/padrão do `HistoryChart` com a linha do preço + **linha de referência do preço médio de compra** do usuário naquele ticker; mesma janela 30/90/365; estados de série curta (coleta recém-ligada); guarda de resposta obsoleta ao trocar ticker/janela.
-- **Critério de aceite**: suítes e builds web verdes; funções puras testadas.
+_(vazio — Ciclo 12 CONCLUÍDO E MERGEADO em 2026-07-25, PR #106. Detalhes no `BACKLOG-ARQUIVO.md`. Aguardando direcionamento do humano para o ciclo 13.)_
 
 ## Em espera (decisão do humano — ver `TODO-HUMANO.md`)
 
@@ -69,3 +63,4 @@
 | 9 | Colheita das revisões (5–8) + endurecimento (datas, transação, sessões, user_id) + carteira única | T-043 a T-050b | #84–#92 | 460+177 |
 | 10 | Colheita do ciclo 9 + rigor monetário + dash de ações (projeção de ganhos, gráfico SVG, alocação) | T-051 a T-057c | #93–#102 | 489+250 |
 | 11 | Histórico real da carteira (coleta no boot + /portfolio/history + gráfico de evolução) + colheita do ciclo 10 | T-058a/b, T-059 | #103–#105 | 532+263 |
+| 12 | Preço por ação ao longo do tempo (seletor de ticker + referência do preço médio) | T-060 | #106 | 532+283 |

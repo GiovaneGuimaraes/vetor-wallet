@@ -527,3 +527,9 @@ PRs #103–#105. Suíte ao fim: 532 server + 263 web.
 ### T-059 — Colheita do ciclo 10 — PR #103. Executor Sonnet, revisor Opus: APROVADA. `AND user_id` nos re-SELECT de POST (7 rotas); `isValidMoneyAmount` em `price` (operations/import por linha) e `threshold` (alerts); testes de ordem das validações/clamp/área-path. Achado registrado: threshold percentual limitado a 2 casas (revisitar com a UI de alertas).
 ### T-058a — Coleta diária no boot + `GET /api/portfolio/history` — PR #104. Executor Opus, revisor Opus: APROVADA (verificação numérica da reconstrução por data). `catchUpIfNeeded` pós-listen não-fatal; `portfolioHistory.ts` puro (buildPositionMap por data + forward-fill + seed com preço da 1ª BUY — acabamento do achado nº 1 aplicado antes do merge); tipos em shared. +38 testes.
 ### T-058b — Gráfico de evolução real na dash — PR #105. Executor Sonnet, revisor Sonnet: APROVADA. `HistoryChart` (eixo por índice p/ série com buracos, invested tracejado), seletor 30/90/365 com guarda de resposta obsoleta, estados de coleta recém-ligada. +11 testes.
+
+## Ciclo 12 — Preço por ação ao longo do tempo — CONCLUÍDO E MERGEADO (2026-07-25)
+
+PR #106. Suíte ao fim: 532 server + 283 web. Primeiro ciclo com o roteamento econômico (revisor sempre Sonnet, decisão do humano).
+
+### T-060 — Gráfico de evolução de preço por ação — PR #106. Executor Sonnet, revisor Sonnet: APROVADA (cross-check do preço médio contra applyOperation do server). Card "Preço por ação": seletor de ticker + janela 30/90/365, linha do fechamento (snapshots) + referência do preço médio de compra; guarda de resposta obsoleta nos 2 eixos. +20 testes.

@@ -10,7 +10,13 @@ Carteira financeira pessoal para um único usuário real (Giovane), organizada e
 - **Monorepo pnpm**: `shared` (tipos, types-only), `server` (Express + libsql, SQL puro), `web` (Vite + React), `cli` (job de insights horários).
 - **Testes**: Vitest no `server` e no `web` (funções puras, ambiente node). Contagem atual da suíte: ver "Estado atual" abaixo (evita número duplicado desatualizando aqui).
 
-## Estado atual (2026-07-25, fim do ciclo 11)
+## Estado atual (2026-07-25, fim do ciclo 12)
+
+- Ciclo 12 (PR #106): card "Preço por ação" na `/dash` — seletor de ticker + janela 30/90/365, linha do fechamento (snapshots) + referência do preço médio de compra do usuário. Suíte: 532 server + 283 web.
+- **Roteamento econômico vigente** (decisão do humano, 2026-07-25): revisor SEMPRE Sonnet; Opus só em executor de tarefa alta e spikes Plan.
+- Aguardando direcionamento do ciclo 13. Candidatas fortes: agendador in-process da coleta de snapshots (destrava o valor dos 2 gráficos históricos); aporte mensal/CDI nas projeções.
+
+## Estado anterior (fim do ciclo 11)
 
 - Ciclos 1–11 concluídos e mergeados (PRs #44–#105) — resumo por ciclo no `BACKLOG.md`, detalhes no `BACKLOG-ARQUIVO.md`. Suíte: 532 server + 263 web.
 - Ciclo 11: **histórico real da carteira** — coleta diária de snapshots ligada no boot (era código morto), `GET /api/portfolio/history` (posição por data via `buildPositionMap` + forward-fill com seed do preço da 1ª BUY) e gráfico "Evolução da carteira" na `/dash` (seletor 30/90/365, linha do investido) — + colheita do ciclo 10 (re-SELECT de POST com `user_id`, `price`/`threshold` com 2 casas).
