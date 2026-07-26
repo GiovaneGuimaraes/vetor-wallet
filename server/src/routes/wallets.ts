@@ -28,6 +28,10 @@ router.get(
 );
 
 // POST /api/wallets — carteira única (T-050): só cria se o usuário ainda não tiver nenhuma.
+// T-053: reusa getOrCreateDefaultWallet, passando name/description/color do body como
+// overrides, para que a carteira já nasça com os dados do body (sem UPDATE depois) e a
+// criação também adote operações órfãs (wallet_id IS NULL) — caso raro de usuário legado
+// sem carteira que chega aqui em vez de pelo lazy-create do GET.
 router.post(
   '/',
   asyncHandler(async (req: Request, res: Response) => {
@@ -44,17 +48,23 @@ router.post(
       return;
     }
 
-    const ins = await db.execute({
-      sql: 'INSERT INTO wallets (user_id, name, description, color) VALUES (?, ?, ?, ?)',
-      args: [userId, name.trim(), description, color],
+    const walletId = await getOrCreateDefaultWallet(userId, {
+      name: name.trim(),
+      description,
+      color,
     });
 
     const row = await db.execute({
       sql: 'SELECT * FROM wallets WHERE id = ?',
-      args: [Number(ins.lastInsertRowid)],
+      args: [walletId],
     });
 
-    res.status(201).json(row.rows[0]);
+    const wallet = row.rows[0];
+    if (!wallet) {
+      throw new Error(`wallet ${walletId} not found right after getOrCreateDefaultWallet`);
+    }
+
+    res.status(201).json(wallet);
   }),
 );
 
