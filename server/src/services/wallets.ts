@@ -49,7 +49,15 @@ export async function countWallets(userId: number): Promise<number> {
  *
  * Tolerante a corrida: depois do INSERT relê a mais antiga, então dois requests
  * simultâneos convergem para a mesma carteira (a de menor `id` vence) em vez de
- * cada um usar a sua.
+ * cada um usar a sua. Efeito colateral aceito dessa corrida: os dois INSERTs
+ * acontecem (cada request só relê depois de inserir a sua), então o perdedor
+ * deixa para trás uma linha de carteira ÓRFÃ (nenhuma operação é adotada por
+ * ela, pois o UPDATE seguinte já mira a vencedora) que o GET volta a listar
+ * dali em diante. Nenhuma leitura depende dela para nada, então não há dado
+ * incorreto — só uma linha extra visível. Não vale a pena corrigir com um
+ * DELETE compensatório (mais uma escrita na janela de corrida, mesmo risco) nem
+ * com `UNIQUE(user_id)` (quebraria o boot de bases legadas com 2+ carteiras —
+ * ver o comentário no topo do arquivo).
  */
 export async function getOrCreateDefaultWallet(userId: number): Promise<number> {
   const existing = await findDefaultWallet(userId);

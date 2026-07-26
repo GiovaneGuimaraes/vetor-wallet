@@ -149,7 +149,7 @@ Todas as rotas abaixo (exceto `/api/auth/*`) exigem sessão autenticada via cook
 | `POST` | `/api/auth/logout` | Encerra sessão |
 | `GET` | `/api/auth/me` | Retorna usuário autenticado |
 | `GET` | `/api/wallets` | Lista as carteiras do usuário; lazy-cria a padrão se não houver nenhuma (T-050) |
-| `POST` | `/api/wallets` | Cria a carteira — **carteira única (T-050)**: se o usuário já tiver alguma, responde `400 { error: 'Você já tem uma carteira de ações' }` |
+| `POST` | `/api/wallets` | Cria a carteira — **carteira única (T-050)**: se o usuário já tiver alguma, responde `400 { error: 'voce ja tem uma carteira de acoes' }`. Cria via `getOrCreateDefaultWallet` (T-053), então também adota operações órfãs (`wallet_id IS NULL`) |
 | `GET` | `/api/operations` | Lista operações do usuário (consolidado; `?walletId=` é **ignorado** — T-050) |
 | `POST` | `/api/operations` | Cria operação — `wallet_id` do body é **ignorado**: nasce sempre na carteira padrão (T-050) |
 | `DELETE` | `/api/operations/:id` | Remove operação |

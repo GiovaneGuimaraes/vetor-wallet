@@ -211,7 +211,9 @@ describe('operations routes — SELL validation', () => {
   it('ignores ?walletId= on GET — the list is always the user consolidated history', async () => {
     const all = await agentA.get('/api/operations');
     const filtered = await agentA.get('/api/operations?walletId=999999');
-    expect(filtered.body.length).toBe(all.body.length);
-    expect(all.body.length).toBeGreaterThan(0);
+    const allIds = all.body.map((op: { id: number }) => op.id).sort();
+    const filteredIds = filtered.body.map((op: { id: number }) => op.id).sort();
+    expect(filteredIds).toEqual(allIds);
+    expect(allIds.length).toBeGreaterThan(0);
   });
 });
