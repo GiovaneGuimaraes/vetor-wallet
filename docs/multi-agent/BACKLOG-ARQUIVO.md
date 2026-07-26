@@ -519,3 +519,11 @@ PRs #93–#102. Suíte ao fim: 489 server + 250 web. Ondas: A1 (T-051/T-053/T-05
 ### T-057a — `chartGeometry.ts` — PR #97. Executor Sonnet, revisor Sonnet: APROVADA. Série ≤ 24 pts, scaleLinear, paths, ticks.
 ### T-057b — `ProjectionChart.tsx` (SVG puro) — PR #101. Executor Sonnet, revisor Sonnet: APROVADA. viewBox 320×140, CSS vars (tema de graça), `computeValueDomain`, sem lib nova.
 ### T-057c — Barras de alocação por ticker — PR #102. Executor Sonnet, revisor Sonnet: APROVADA. `allocationRows.ts` puro; null → "—", nunca NaN.
+
+## Ciclo 11 — Histórico real da carteira + colheita do ciclo 10 — CONCLUÍDO E MERGEADO (2026-07-25)
+
+PRs #103–#105. Suíte ao fim: 532 server + 263 web.
+
+### T-059 — Colheita do ciclo 10 — PR #103. Executor Sonnet, revisor Opus: APROVADA. `AND user_id` nos re-SELECT de POST (7 rotas); `isValidMoneyAmount` em `price` (operations/import por linha) e `threshold` (alerts); testes de ordem das validações/clamp/área-path. Achado registrado: threshold percentual limitado a 2 casas (revisitar com a UI de alertas).
+### T-058a — Coleta diária no boot + `GET /api/portfolio/history` — PR #104. Executor Opus, revisor Opus: APROVADA (verificação numérica da reconstrução por data). `catchUpIfNeeded` pós-listen não-fatal; `portfolioHistory.ts` puro (buildPositionMap por data + forward-fill + seed com preço da 1ª BUY — acabamento do achado nº 1 aplicado antes do merge); tipos em shared. +38 testes.
+### T-058b — Gráfico de evolução real na dash — PR #105. Executor Sonnet, revisor Sonnet: APROVADA. `HistoryChart` (eixo por índice p/ série com buracos, invested tracejado), seletor 30/90/365 com guarda de resposta obsoleta, estados de coleta recém-ligada. +11 testes.

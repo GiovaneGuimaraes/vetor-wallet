@@ -10,17 +10,18 @@ Carteira financeira pessoal para um único usuário real (Giovane), organizada e
 - **Monorepo pnpm**: `shared` (tipos, types-only), `server` (Express + libsql, SQL puro), `web` (Vite + React), `cli` (job de insights horários).
 - **Testes**: Vitest no `server` e no `web` (funções puras, ambiente node). Contagem atual da suíte: ver "Estado atual" abaixo (evita número duplicado desatualizando aqui).
 
-## Estado atual (2026-07-25, fim do ciclo 10)
+## Estado atual (2026-07-25, fim do ciclo 11)
 
-- Ciclos 1–10 concluídos e mergeados (PRs #44–#102) — resumo por ciclo no `BACKLOG.md`, detalhes no `BACKLOG-ARQUIVO.md`. Suíte: 489 server + 250 web.
-- Ciclo 10: colheita do ciclo 9 (re-SELECT com `user_id` + teste-spy, rigor monetário de 2 casas decimais em todas as rotas de dinheiro, polimento da carteira única com `overrides`, higiene do web, CLI validando data) + **dash de ações** (pedido do humano): card "Projeção de ganhos" (client-side, taxa default = retorno realizado, aceita negativa) + **gráfico SVG da projeção sem lib** + barras de alocação por ticker.
-- **Diretriz atualizada (2026-07-25)**: gráficos voltaram, mas SÓ na `/dash` de ações — Home/Despesas continuam sem gráficos (decisões de 2026-07-24). Achado do spike: a coleta diária de snapshots nunca foi agendada (`catchUpIfNeeded` é código morto) → gráfico de evolução HISTÓRICA depende da T-058 (candidata do ciclo 11).
+- Ciclos 1–11 concluídos e mergeados (PRs #44–#105) — resumo por ciclo no `BACKLOG.md`, detalhes no `BACKLOG-ARQUIVO.md`. Suíte: 532 server + 263 web.
+- Ciclo 11: **histórico real da carteira** — coleta diária de snapshots ligada no boot (era código morto), `GET /api/portfolio/history` (posição por data via `buildPositionMap` + forward-fill com seed do preço da 1ª BUY) e gráfico "Evolução da carteira" na `/dash` (seletor 30/90/365, linha do investido) — + colheita do ciclo 10 (re-SELECT de POST com `user_id`, `price`/`threshold` com 2 casas).
+- A `/dash` de ações agora tem: resumo consolidado, gráfico de evolução real, card de projeção de ganhos com gráfico, barras de alocação e a lista de operações. Gráficos SÓ nessa page (Home/Despesas seguem sem).
+- **Limitação conhecida**: só o boot dispara a coleta de snapshots — server que fica no ar o dia todo não captura o fechamento; agendador in-process é candidata prioritária.
 - **Modo auto ativo** (autorização permanente do humano, 2026-07-24): após APROVADA do revisor, PR + merge automático; revisão humana a posteriori. Decisões de produto/UX → `TODO-HUMANO.md`.
-- Dívidas de produção restantes: coleta de snapshots/T-058; agendador do job de insights (Lambda/EventBridge); Alertas/Import CSV sem UI.
+- Dívidas de produção: agendador in-process/Lambda da coleta e do job de insights; Alertas/Import CSV sem UI.
 
 ## Prioridade vigente
 
-**Ciclo 10 encerrado — aguardando validação visual do humano (dash de ações) e direcionamento do ciclo 11.** Candidata natural: T-058 (agendar coleta + `GET /api/portfolio/history` + gráfico de evolução real). Decisões paradas: T-020/T-021, aporte mensal/CDI na projeção, editar template de recorrência.
+**Ciclo 11 encerrado — aguardando validação visual do humano (gráfico de evolução) e direcionamento do ciclo 12.** Candidatas fortes: agendador in-process da coleta (barato, destrava o valor do gráfico); aporte mensal/CDI na projeção. Decisões paradas: T-020/T-021, editar template de recorrência.
 
 > Atualize esta seção a cada ciclo. Mudança de prioridade que envolva produto → `TODO-HUMANO.md`.
 
