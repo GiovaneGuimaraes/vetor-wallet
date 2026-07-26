@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getOperations, createOperation, deleteOperation } from '../api';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getOperations, createOperation, deleteOperation, getPortfolioHistory } from '../api';
 import { OperationForm } from '../components/OperationForm';
 import { OperationsList } from '../components/OperationsList';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { ProjectionChart } from '../components/ProjectionChart';
+import { HistoryChart } from '../components/HistoryChart';
 import { useShellContext } from '../layout/ShellContext';
 import { decideWalletFlow } from './walletFlow';
 import { buildProjectionSeries } from './chartGeometry';
+import type { PortfolioHistoryPoint } from '@vetor-wallet/shared';
 import {
   deriveMonthlyReturnPct,
   parseSignedInput,
@@ -68,7 +70,23 @@ const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BR
  * só, sem linha para desenhar). O wrapper do SVG fica fora do
  * `.vw-positions-table-wrap` (scroll horizontal da tabela de posições, mais
  * abaixo) — não tem relação com ele.
+ *
+ * T-058b: card "Evolução da carteira" logo ACIMA do card de projeção (entre
+ * `PortfolioDashboard` e "Projeção de ganhos") — dado real antes de dado
+ * simulado é a ordem de leitura mais natural, e os dois cards de gráfico
+ * ficam agrupados na página em vez de intercalados com a tabela de
+ * operações. Busca `GET /api/portfolio/history?days=` (T-058a) com um
+ * seletor de janela (30/90/365 dias, estado local `historyDays`); o gráfico
+ * (`HistoryChart`, irmão de `ProjectionChart` — ver `historyChart.ts`) só
+ * aparece com `points.length >= 2`. Guarda de resposta obsoleta via
+ * `historyRequestRef` (mesmo padrão de `latestRequestedMonthRef` da T-030):
+ * trocar a janela rapidamente não deixa uma resposta antiga sobrescrever uma
+ * mais nova que chegou primeiro. Falha de fetch mostra um aviso discreto sem
+ * quebrar o resto da página (`historyError`), e a base recém-ligada (T-058a)
+ * com poucos pontos ganha uma mensagem própria em vez do gráfico.
  */
+const HISTORY_WINDOW_OPTIONS = [30, 90, 365] as const;
+const DEFAULT_HISTORY_DAYS = 90;
 export function DashboardPage() {
   const { wallet, walletLoaded, walletLoadError, walletSummary, refreshWallet } =
     useShellContext();
@@ -77,6 +95,42 @@ export function DashboardPage() {
   const [operations, setOperations] = useState<Operation[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [apiError, setApiError] = useState('');
+
+  // Evolução da carteira (T-058b): série real de GET /api/portfolio/history,
+  // com seletor de janela (30/90/365 dias). `historyRequestRef` guarda o
+  // pedido em voo mais recente — trocar a janela rápido não deixa uma
+  // resposta obsoleta sobrescrever a mais nova (mesmo padrão de
+  // `latestRequestedMonthRef` da T-030).
+  const [historyDays, setHistoryDays] = useState<number>(DEFAULT_HISTORY_DAYS);
+  const [historyPoints, setHistoryPoints] = useState<PortfolioHistoryPoint[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState('');
+  const historyRequestRef = useRef(0);
+
+  const hasPositions = walletSummary !== null && walletSummary.positions.length > 0;
+
+  const refreshHistory = useCallback(async (days: number) => {
+    const requestId = ++historyRequestRef.current;
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      const res = await getPortfolioHistory(days);
+      if (historyRequestRef.current !== requestId) return;
+      setHistoryPoints(res.points);
+    } catch (err) {
+      if (historyRequestRef.current !== requestId) return;
+      setHistoryError(
+        err instanceof Error ? err.message : 'Erro ao buscar o histórico da carteira',
+      );
+    } finally {
+      if (historyRequestRef.current === requestId) setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasPositions) return;
+    void refreshHistory(historyDays);
+  }, [hasPositions, historyDays, refreshHistory]);
 
   // Simulador de projeção de ganhos (T-056b) — 100% client-side, mesmo padrão
   // `simTouched` da T-040: os defaults (valor atual da carteira, taxa
@@ -142,12 +196,12 @@ export function DashboardPage() {
 
   async function handleCreate(op: NewOperation) {
     await createOperation(op);
-    await Promise.all([refresh(), refreshWallet()]);
+    await Promise.all([refresh(), refreshWallet(), refreshHistory(historyDays)]);
   }
 
   async function handleDelete(opId: number) {
     await deleteOperation(opId);
-    await Promise.all([refresh(), refreshWallet()]);
+    await Promise.all([refresh(), refreshWallet(), refreshHistory(historyDays)]);
   }
 
   return (
@@ -208,6 +262,57 @@ export function DashboardPage() {
       ) : (
         <>
           <PortfolioDashboard summary={walletSummary} walletColor={wallet?.color} />
+
+          {/*
+            Evolução da carteira (T-058b): oculto sem posições, mesmo guard do
+            card de projeção abaixo — o estado vazio do PortfolioDashboard já
+            cobre "adicione operações".
+          */}
+          {hasPositions && (
+            <div className="vw-form-card">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="vw-form-title">Evolução da carteira</p>
+                <div className="vw-history-window" role="group" aria-label="Janela do histórico">
+                  {HISTORY_WINDOW_OPTIONS.map((days) => (
+                    <button
+                      key={days}
+                      type="button"
+                      disabled={historyLoading && historyDays === days}
+                      onClick={() => setHistoryDays(days)}
+                      className={`vw-history-window-btn ${
+                        historyDays === days ? 'vw-history-window-btn--active' : ''
+                      }`}
+                    >
+                      {days === 365 ? '1a' : `${days}d`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {historyError && (
+                <p className="vw-field-hint vw-field-hint--warn">
+                  {historyError} — o restante do dashboard continua disponível.
+                </p>
+              )}
+
+              {!historyError && historyPoints === null && historyLoading && (
+                <p className="vw-field-hint">Carregando histórico…</p>
+              )}
+
+              {!historyError && historyPoints !== null && historyPoints.length < 2 && (
+                <p className="vw-field-hint">
+                  O histórico da carteira começa a ser coletado a partir de agora — volte em
+                  alguns dias.
+                </p>
+              )}
+
+              {!historyError && historyPoints !== null && historyPoints.length >= 2 && (
+                <div className="vw-history-chart-wrap">
+                  <HistoryChart points={historyPoints} />
+                </div>
+              )}
+            </div>
+          )}
 
           {/*
             Projeção de ganhos (T-056b): oculto sem posições — o estado vazio

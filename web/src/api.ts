@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, IncomeEntry, NewIncomeEntry, IncomeEntryUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, RecurringExpense, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, SavingsTransferRequest, SavingsTransferResult, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, PortfolioHistoryResponse, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, IncomeEntry, NewIncomeEntry, IncomeEntryUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, RecurringExpense, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, SavingsTransferRequest, SavingsTransferResult, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -134,6 +134,19 @@ export async function deleteOperation(id: number): Promise<void> {
 export async function getPortfolio(): Promise<PortfolioSummary> {
   const res = await apiFetch('/api/portfolio');
   if (!res.ok) throw new Error('Falha ao buscar carteira');
+  return res.json();
+}
+
+/**
+ * Série histórica diária valor × custo da carteira (T-058a/b) —
+ * `?days=` (padrão 90 no server; faixa 1..365). Dias sem preço conhecido ou
+ * anteriores à primeira operação ficam ausentes de `points` — quem consome
+ * não deve assumir série contígua.
+ */
+export async function getPortfolioHistory(days?: number): Promise<PortfolioHistoryResponse> {
+  const qs = days !== undefined ? `?days=${encodeURIComponent(String(days))}` : '';
+  const res = await apiFetch(`/api/portfolio/history${qs}`);
+  if (!res.ok) throw new Error('Falha ao buscar o histórico da carteira');
   return res.json();
 }
 
