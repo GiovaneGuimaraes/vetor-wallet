@@ -53,3 +53,21 @@
 .vw-positions-table-wrap {
   overflow-x: auto;
 }
+
+/* ------------------------------------------------------------------ */
+/* Gráfico SVG do card "Projeção de ganhos" (T-057b)                    */
+/*                                                                      */
+/* Puro CSS de layout — nenhuma cor aqui: o SVG usa CSS custom          */
+/* properties diretamente nos atributos de fill/stroke (ver             */
+/* ProjectionChart.tsx), então tema light/dark não precisa de regra     */
+/* própria. Este wrapper fica FORA de .vw-positions-table-wrap — não é  */
+/* a tabela de posições, não deve entrar no scroll dela.                */
+/* ------------------------------------------------------------------ */
+
+.vw-projection-chart-wrap {
+  margin-top: 4px;
+}
+
+.vw-projection-chart-wrap svg {
+  display: block;
+}

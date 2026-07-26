@@ -3,8 +3,10 @@ import { getOperations, createOperation, deleteOperation } from '../api';
 import { OperationForm } from '../components/OperationForm';
 import { OperationsList } from '../components/OperationsList';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
+import { ProjectionChart } from '../components/ProjectionChart';
 import { useShellContext } from '../layout/ShellContext';
 import { decideWalletFlow } from './walletFlow';
+import { buildProjectionSeries } from './chartGeometry';
 import {
   deriveMonthlyReturnPct,
   parseSignedInput,
@@ -56,9 +58,16 @@ const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BR
  * `OperationsList` — simula juros compostos mensais sobre o valor atual da
  * carteira. Mesmo precedente client-side da T-040 (previsão de rendimento da
  * poupança): tudo em `portfolioProjection.ts` (T-056a) e nenhum endpoint
- * novo. O gráfico SVG do resultado é a T-057b, que entra no MESMO card (ver
- * ponto de inserção marcado abaixo) — este card não desenha nada além dos
- * dois números hoje.
+ * novo.
+ *
+ * T-057b: o gráfico SVG (`ProjectionChart`, sem lib — ver `chartGeometry.ts`)
+ * entra no MESMO card, abaixo dos dois números. `projectionSeries` reusa
+ * `buildProjectionSeries` (`chartGeometry.ts`) com os MESMOS 3 inputs já
+ * validados por `projection` — o gráfico só aparece quando a projeção é
+ * válida e a série reamostrada tem >= 2 pontos (`months = 0` gera 1 ponto
+ * só, sem linha para desenhar). O wrapper do SVG fica fora do
+ * `.vw-positions-table-wrap` (scroll horizontal da tabela de posições, mais
+ * abaixo) — não tem relação com ele.
  */
 export function DashboardPage() {
   const { wallet, walletLoaded, walletLoadError, walletSummary, refreshWallet } =
@@ -105,6 +114,15 @@ export function DashboardPage() {
     parsedCurrentValue !== null && parsedRatePct !== null && parsedMonths !== null
       ? projectPortfolio(parsedCurrentValue, parsedRatePct, parsedMonths)
       : null;
+
+  // T-057b: a mesma série que o SVG desenha. Só computada quando a projeção
+  // já é válida (parsedCurrentValue/parsedRatePct/parsedMonths garantidos
+  // não-nulos aqui) — evita recalcular a série reamostrada em toda digitação
+  // inválida.
+  const projectionSeries =
+    projection && parsedCurrentValue !== null && parsedRatePct !== null && parsedMonths !== null
+      ? buildProjectionSeries(parsedCurrentValue, parsedRatePct, parsedMonths)
+      : [];
 
   const refresh = useCallback(async () => {
     setApiError('');
@@ -272,7 +290,16 @@ export function DashboardPage() {
                       {fmtCur.format(projection.totalGain)}
                     </p>
                   </div>
-                  {/* Ponto de inserção do gráfico SVG (T-057b), no mesmo card. */}
+                  {/* T-057b: só entra quando a projeção é válida E a série
+                      reamostrada tem >= 2 pontos — `months = 0` produz um
+                      único ponto (mês 0), sem variação nenhuma para
+                      desenhar uma linha; os hints de entrada inválida acima
+                      já cobrem os demais casos em que a série vem vazia. */}
+                  {projectionSeries.length >= 2 && (
+                    <div className="vw-projection-chart-wrap">
+                      <ProjectionChart series={projectionSeries} />
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="vw-field-hint vw-field-hint--warn">

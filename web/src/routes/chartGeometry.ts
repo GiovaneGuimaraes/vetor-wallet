@@ -159,6 +159,44 @@ export function buildAreaPath(points: ChartPoint[], baselineY: number): string {
   return `${line} L ${round2(last.x)} ${round2(baselineY)} L ${round2(first.x)} ${round2(baselineY)} Z`;
 }
 
+/** Domínio de valores (eixo Y) já com margem, pronto para `scaleLinear`. */
+export interface ValueDomain {
+  min: number;
+  max: number;
+}
+
+/** Fração do intervalo de valores usada como margem acima/abaixo (T-057b). */
+const DOMAIN_PADDING_RATIO = 0.1;
+
+/** Margem mínima absoluta quando o intervalo é degenerado e a baseline é 0. */
+const MIN_ABS_PADDING = 1;
+
+/**
+ * Calcula o domínio de valores (eixo Y) do gráfico de projeção (T-057b):
+ * sempre inclui a `baseline` (valor inicial da simulação) além dos valores da
+ * série, e adiciona uma margem de {@link DOMAIN_PADDING_RATIO} do intervalo
+ * para a linha nunca tocar as bordas do desenho.
+ *
+ * A baseline já costuma estar implícita em `values` (é `series[0].value`),
+ * mas o parâmetro é explícito e sempre considerado — o chamador não precisa
+ * garantir que `values` inclui o mês 0.
+ *
+ * **Intervalo degenerado** (todos os valores iguais — ex.: taxa 0%, reta
+ * horizontal): uma margem proporcional a um intervalo zero também seria zero,
+ * então cai para uma margem baseada no valor absoluto da baseline (10% dela),
+ * com piso {@link MIN_ABS_PADDING} para o caso `baseline === 0` (que geraria
+ * margem 0 de novo).
+ */
+export function computeValueDomain(values: number[], baseline: number): ValueDomain {
+  const all = [...values, baseline];
+  const min = Math.min(...all);
+  const max = Math.max(...all);
+  const range = max - min;
+  const padding =
+    range > 0 ? range * DOMAIN_PADDING_RATIO : Math.max(Math.abs(baseline) * DOMAIN_PADDING_RATIO, MIN_ABS_PADDING);
+  return { min: min - padding, max: max + padding };
+}
+
 /**
  * Escolhe até `count` elementos de `series` para servirem de rótulo de eixo,
  * sempre incluindo o **início e o fim** (legibilidade em 360px: mostrar só
