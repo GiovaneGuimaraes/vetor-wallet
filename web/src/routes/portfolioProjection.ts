@@ -123,6 +123,15 @@ function parseLocalDateMs(isoDate: string): number {
  *    `SELL` não entra: uma venda não é um novo aporte, e incluí-la anteciparia
  *    artificialmente a data média). Sem nenhuma `BUY`, devolve `null` (não há
  *    como estimar há quanto tempo o dinheiro está investido).
+ *
+ *    **Limitação conhecida**: `BUY`s de posições **já vendidas por completo**
+ *    (giro passado, sem posição atual) continuam entrando na média ponderada —
+ *    a heurística não distingue "comprado e ainda em carteira" de "comprado e
+ *    zerado depois". Numa carteira com bastante giro histórico, isso puxa a
+ *    data média para trás e infla `elapsedMonths`, subestimando a taxa mensal
+ *    derivada. Não corrigido nesta tarefa (T-056a/b) — filtrar por posição
+ *    ainda aberta exigiria reconstruir o `buildPositionMap` do server no
+ *    cliente, fora do escopo do simulador.
  * 3. `elapsedMonths` = tempo entre essa data média e hoje, em meses (base
  *    365,2425/12 dias — mesmo padrão de ano civil médio de outras contas de
  *    calendário do app). Períodos menores que 1 mês devolvem `null`:
@@ -159,9 +168,50 @@ export function deriveMonthlyReturnPct(
   if (!Number.isFinite(elapsedMonths) || elapsedMonths < 1) return null;
 
   const pct = summary.totalProfitLossPct;
+  // Guarda explícita ANTES da potência (revisão da T-056a): sem ela, pct
+  // exatamente -100 caía sozinho em `0 ** (1/elapsedMonths) = 0` e devolvia
+  // -100 "por acidente" da aritmética, enquanto pct < -100 (base negativa,
+  // expoente fracionário) já caía na guarda de NaN abaixo — os dois casos são
+  // igualmente "perda total ou pior", e um P&L de -100% não define uma taxa
+  // mensal composta coerente, então ambos devem devolver `null` pela mesma
+  // razão, não por caminhos diferentes do código.
+  if (pct <= -100) return null;
   const monthlyRate = (Math.pow(1 + pct / 100, 1 / elapsedMonths) - 1) * 100;
   if (!Number.isFinite(monthlyRate)) return null;
   return Math.round(monthlyRate * 10000) / 10000;
+}
+
+/** Resultado de {@link resolveDefaultCurrentValue}. */
+export interface DefaultCurrentValue {
+  /** Valor a pré-preencher no campo "Valor atual (R$)" do simulador. */
+  value: number;
+  /**
+   * `true` quando `totalCurrentValue` não estava disponível (cotações fora do
+   * ar) e o valor devolvido é o fallback `totalInvested` — a UI usa isso para
+   * mostrar um hint explicando a origem do default.
+   */
+  usedFallback: boolean;
+}
+
+/**
+ * Deriva o valor default do campo "Valor atual (R$)" do simulador (T-056b): o
+ * valor de mercado da carteira (`totalCurrentValue`) quando disponível, ou o
+ * valor investido (`totalInvested`) como fallback quando as cotações estão
+ * indisponíveis (`totalCurrentValue === null`, tipicamente com
+ * `quotesUnavailable: true` — mas o fallback vale por `totalCurrentValue` ser
+ * `null`, independente do motivo). Sem `summary` (ainda carregando ou falha
+ * no `ShellContext`), devolve `{ value: 0, usedFallback: false }` — o card
+ * fica oculto nesse caso por não haver posições confirmadas, então este
+ * default nunca chega a aparecer na tela.
+ */
+export function resolveDefaultCurrentValue(
+  summary: Pick<PortfolioSummary, 'totalCurrentValue' | 'totalInvested'> | null,
+): DefaultCurrentValue {
+  if (!summary) return { value: 0, usedFallback: false };
+  if (summary.totalCurrentValue !== null) {
+    return { value: summary.totalCurrentValue, usedFallback: false };
+  }
+  return { value: summary.totalInvested, usedFallback: true };
 }
 
 /**

@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import type { Operation, PortfolioSummary } from '@vetor-wallet/shared';
-import { deriveMonthlyReturnPct, parseSignedInput, projectPortfolio } from './portfolioProjection';
+import {
+  deriveMonthlyReturnPct,
+  parseSignedInput,
+  projectPortfolio,
+  resolveDefaultCurrentValue,
+} from './portfolioProjection';
 import { currentMonthKey, shiftMonth } from './expenseMonth';
 
 let nextId = 1;
@@ -186,6 +191,16 @@ describe('deriveMonthlyReturnPct', () => {
     expect(rateWithSell).toBe(rateBuyOnly);
   });
 
+  it('devolve null para pct exatamente -100 (guarda explícita, T-056b)', () => {
+    const ops = [makeOp('BUY', 10, 30, dayIn(-6))];
+    expect(deriveMonthlyReturnPct(ops, makeSummary(-100, 300))).toBeNull();
+  });
+
+  it('devolve null para pct abaixo de -100 (mesmo motivo do caso -100)', () => {
+    const ops = [makeOp('BUY', 10, 30, dayIn(-6))];
+    expect(deriveMonthlyReturnPct(ops, makeSummary(-150, 300))).toBeNull();
+  });
+
   it('a taxa derivada alimenta projectPortfolio', () => {
     const ops = [makeOp('BUY', 10, 100, dayIn(-12))];
     const rate = deriveMonthlyReturnPct(ops, makeSummary(20, 1000));
@@ -219,5 +234,23 @@ describe('parseSignedInput', () => {
     expect(parseSignedInput('abc')).toBeNull();
     expect(parseSignedInput('Infinity')).toBeNull();
     expect(parseSignedInput('-Infinity')).toBeNull();
+  });
+});
+
+describe('resolveDefaultCurrentValue', () => {
+  it('usa totalCurrentValue quando disponível', () => {
+    expect(
+      resolveDefaultCurrentValue({ totalCurrentValue: 1500, totalInvested: 1200 }),
+    ).toEqual({ value: 1500, usedFallback: false });
+  });
+
+  it('cai para totalInvested quando totalCurrentValue é null (cotações indisponíveis)', () => {
+    expect(
+      resolveDefaultCurrentValue({ totalCurrentValue: null, totalInvested: 1200 }),
+    ).toEqual({ value: 1200, usedFallback: true });
+  });
+
+  it('devolve 0 sem fallback quando não há summary', () => {
+    expect(resolveDefaultCurrentValue(null)).toEqual({ value: 0, usedFallback: false });
   });
 });
