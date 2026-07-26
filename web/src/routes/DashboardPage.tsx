@@ -1,11 +1,26 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getOperations, createOperation, deleteOperation } from '../api';
 import { OperationForm } from '../components/OperationForm';
 import { OperationsList } from '../components/OperationsList';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { useShellContext } from '../layout/ShellContext';
 import { decideWalletFlow } from './walletFlow';
+import {
+  deriveMonthlyReturnPct,
+  parseSignedInput,
+  projectPortfolio,
+  resolveDefaultCurrentValue,
+} from './portfolioProjection';
+import {
+  formatDecimalInput,
+  parseMonthsInput,
+  parseNonNegativeInput,
+} from './savingsProjection';
 import type { NewOperation, Operation } from '@vetor-wallet/shared';
+import './layers.css';
+import './layers-savings.css';
+
+const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
 /**
  * Rota `/dash` (T-004/T-013; sem `:id` desde a T-050b): dashboard de ações do
@@ -36,6 +51,14 @@ import type { NewOperation, Operation } from '@vetor-wallet/shared';
  * dado. `refreshWallet` (também do contexto) é chamado junto do `refresh`
  * local após criar/excluir uma operação, para que o hero da Home reflita a
  * mudança sem esperar a próxima navegação.
+ *
+ * T-056b: card "Projeção de ganhos" entre o `PortfolioDashboard` e a
+ * `OperationsList` — simula juros compostos mensais sobre o valor atual da
+ * carteira. Mesmo precedente client-side da T-040 (previsão de rendimento da
+ * poupança): tudo em `portfolioProjection.ts` (T-056a) e nenhum endpoint
+ * novo. O gráfico SVG do resultado é a T-057b, que entra no MESMO card (ver
+ * ponto de inserção marcado abaixo) — este card não desenha nada além dos
+ * dois números hoje.
  */
 export function DashboardPage() {
   const { wallet, walletLoaded, walletLoadError, walletSummary, refreshWallet } =
@@ -45,6 +68,43 @@ export function DashboardPage() {
   const [operations, setOperations] = useState<Operation[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [apiError, setApiError] = useState('');
+
+  // Simulador de projeção de ganhos (T-056b) — 100% client-side, mesmo padrão
+  // `simTouched` da T-040: os defaults (valor atual da carteira, taxa
+  // derivada do P&L realizado) só sobrescrevem o campo enquanto o usuário
+  // ainda não digitou nele, para que um refetch de `walletSummary` não
+  // atropele o que foi digitado.
+  const [simCurrentValue, setSimCurrentValue] = useState('');
+  const [simRatePct, setSimRatePct] = useState('');
+  const [simMonths, setSimMonths] = useState('12');
+  const [simTouched, setSimTouched] = useState({ currentValue: false, ratePct: false });
+
+  const defaultCurrentValue = useMemo(
+    () => resolveDefaultCurrentValue(walletSummary),
+    [walletSummary],
+  );
+  const derivedRatePct = useMemo(
+    () => (walletSummary ? deriveMonthlyReturnPct(operations, walletSummary) : null),
+    [operations, walletSummary],
+  );
+
+  useEffect(() => {
+    if (simTouched.currentValue) return;
+    setSimCurrentValue(formatDecimalInput(defaultCurrentValue.value, 2));
+  }, [defaultCurrentValue, simTouched.currentValue]);
+
+  useEffect(() => {
+    if (simTouched.ratePct) return;
+    setSimRatePct(derivedRatePct !== null ? formatDecimalInput(derivedRatePct, 4) : '');
+  }, [derivedRatePct, simTouched.ratePct]);
+
+  const parsedCurrentValue = parseNonNegativeInput(simCurrentValue);
+  const parsedRatePct = parseSignedInput(simRatePct);
+  const parsedMonths = parseMonthsInput(simMonths);
+  const projection =
+    parsedCurrentValue !== null && parsedRatePct !== null && parsedMonths !== null
+      ? projectPortfolio(parsedCurrentValue, parsedRatePct, parsedMonths)
+      : null;
 
   const refresh = useCallback(async () => {
     setApiError('');
@@ -130,6 +190,99 @@ export function DashboardPage() {
       ) : (
         <>
           <PortfolioDashboard summary={walletSummary} walletColor={wallet?.color} />
+
+          {/*
+            Projeção de ganhos (T-056b): oculto sem posições — o estado vazio
+            do PortfolioDashboard acima já cobre "adicione operações", e uma
+            simulação sobre valor atual 0 não agrega nada.
+          */}
+          {walletSummary && walletSummary.positions.length > 0 && (
+            <div className="vw-form-card">
+              <p className="vw-form-title">Projeção de ganhos</p>
+              <div className="vw-form-grid">
+                <div className="vw-layerpage-field">
+                  <label htmlFor="sim-current-value">Valor atual (R$)</label>
+                  <input
+                    id="sim-current-value"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    value={simCurrentValue}
+                    onChange={(e) => {
+                      setSimTouched((prev) => ({ ...prev, currentValue: true }));
+                      setSimCurrentValue(e.target.value);
+                    }}
+                  />
+                  {defaultCurrentValue.usedFallback && !simTouched.currentValue && (
+                    <span className="vw-field-hint vw-field-hint--warn">
+                      Cotações indisponíveis agora — usando o valor investido como estimativa.
+                    </span>
+                  )}
+                </div>
+                <div className="vw-layerpage-field">
+                  <label htmlFor="sim-return-rate">Retorno mensal (%)</label>
+                  <input
+                    id="sim-return-rate"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Ex.: 0,8"
+                    value={simRatePct}
+                    onChange={(e) => {
+                      setSimTouched((prev) => ({ ...prev, ratePct: true }));
+                      setSimRatePct(e.target.value);
+                    }}
+                  />
+                </div>
+                <div className="vw-layerpage-field">
+                  <label htmlFor="sim-months">Prazo (meses)</label>
+                  <input
+                    id="sim-months"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="12"
+                    value={simMonths}
+                    onChange={(e) => setSimMonths(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <span className="vw-field-hint">
+                {derivedRatePct !== null
+                  ? 'Taxa sugerida a partir do retorno realizado da sua carteira — ajuste à vontade. '
+                  : 'Sem histórico suficiente para sugerir uma taxa — informe o retorno mensal esperado. '}
+                Simulação sobre o valor atual da carteira — não é previsão.
+              </span>
+
+              {projection ? (
+                <div className="vw-savings-projection">
+                  <div className="vw-savings-summary-card">
+                    <p className="vw-savings-summary-label">Valor projetado</p>
+                    <p className="vw-savings-summary-value">{fmtCur.format(projection.futureValue)}</p>
+                  </div>
+                  <div className="vw-savings-summary-card">
+                    <p className="vw-savings-summary-label">
+                      Ganho em {parsedMonths} {parsedMonths === 1 ? 'mês' : 'meses'}
+                    </p>
+                    <p
+                      className={`vw-savings-summary-value ${
+                        projection.totalGain >= 0 ? 'vw-value-up' : 'vw-value-down'
+                      }`}
+                    >
+                      {fmtCur.format(projection.totalGain)}
+                    </p>
+                  </div>
+                  {/* Ponto de inserção do gráfico SVG (T-057b), no mesmo card. */}
+                </div>
+              ) : (
+                <p className="vw-field-hint vw-field-hint--warn">
+                  Informe valor atual (≥ 0), retorno mensal (maior que -100%) e prazo em meses
+                  inteiro para ver a projeção.
+                </p>
+              )}
+            </div>
+          )}
+
           <OperationsList operations={operations} onDelete={handleDelete} />
         </>
       )}
