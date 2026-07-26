@@ -24,9 +24,23 @@
 
 ---
 
-## Tarefas ativas
+## Tarefas ativas — Ciclo 11: histórico real da carteira (T-058) + colheita do ciclo 10
 
-_(vazio — Ciclo 10 CONCLUÍDO E MERGEADO em 2026-07-25, PRs #93–#102. Detalhes no `BACKLOG-ARQUIVO.md`. T-020/T-021 seguem em espera; T-058 — coleta diária de snapshots + gráfico histórico — é a candidata natural do ciclo 11, aguardando confirmação do humano.)_
+> Aprovado pelo humano em 2026-07-25 ("pode seguir para o proximo ciclo"). Ondas: **1** (paralela): T-058a, T-059 → **2**: T-058b (depende da T-058a).
+
+### T-058a — Server: ligar a coleta diária de snapshots + `GET /api/portfolio/history`
+- **Status**: EM_REVISAO (executor opus: catch-up pós-listen não-fatal, `portfolioHistory.ts` puro com forward-fill, rota em portfolio.ts, tipos em shared; 521 server verdes, +32) · P1 · alta
+- **Contexto**: achado do spike da dash — `runSnapshotJob`/`catchUpIfNeeded` (`services/snapshots.ts`) são código morto; `quote_snapshots` tem 11 linhas paradas em 14/07. Sem coleta não há gráfico de evolução.
+- **Escopo**: (1) chamar `catchUpIfNeeded()` no boot (`index.ts`, após `initDb`, não-fatal); (2) `GET /api/portfolio/history?days=90` → `{ points: [{ date, value, invested }] }`, `400` para days inválido/fora de 1..365; agregação em `services/portfolioHistory.ts` puro: posição por data via `buildPositionMap` (sem duplicar preço médio) × último preço conhecido ≤ data (forward-fill); dias sem preço ausentes (cliente preenche); filtro por usuário via operations (snapshots não têm user_id); (3) testes: rota com 2 usuários (isolamento), forward-fill, days inválido, service puro.
+- **Critério de aceite**: suíte server verde; boot faz catch-up sem derrubar o server se a brapi falhar.
+
+### T-058b — Web: gráfico de evolução real da carteira na dash
+- **Status**: PENDENTE (Onda 2) · P1 · média · **Depende de**: T-058a
+- **Escopo**: fetch de `/api/portfolio/history` em `api.ts`; gráfico reusando `chartGeometry`/`ProjectionChart` (ou variante) com a série real + linha do investido; estado vazio para base sem histórico ("o histórico começa a ser coletado a partir de agora"); seletor simples de janela (30/90/365 dias) opcional se couber.
+
+### T-059 — Colheita das revisões do ciclo 10
+- **Status**: CONCLUIDA — PR #103 (2026-07-25). Executor sonnet, revisor opus (APROVADA). Sugestões → candidatas: re-SELECT de alerts/wallets sem user_id (últimos remanescentes); rótulo `'preço'` no erro do CSV; threshold percentual de 2 casas a revisitar com a UI de alertas.
+- **Escopo**: `AND user_id` nos re-SELECT de POST; `isValidMoneyAmount` em `price` (operations/import) e `threshold` (alerts); teste fixando a ordem das validações; teste do clamp de alocação > 100; teste do área-path com 1 ponto.
 
 ## Em espera (decisão do humano — ver `TODO-HUMANO.md`)
 
@@ -45,6 +59,8 @@ _(vazio — Ciclo 10 CONCLUÍDO E MERGEADO em 2026-07-25, PRs #93–#102. Detalh
 - `current_amount` manual obsoleto ao desvincular o último lançamento de uma meta (semântica a decidir).
 - **T-058 (próximo ciclo, destrava o gráfico histórico)**: agendar `catchUpIfNeeded()` no boot (hoje é código morto — `quote_snapshots` tem 11 linhas paradas em 14/07) + `GET /api/portfolio/history?days=` (contrato esboçado no spike da dash) + gráfico de evolução real.
 - Colheita das revisões do Ciclo 10: simetria `AND user_id` nos re-SELECT de POST; `isValidMoneyAmount` também em `price` (operations/import) e `threshold` (alerts); teste fixando a ordem das validações; limite superior explícito de `amount`; teste da corrida de POSTs de wallets; teste do clamp de alocação com valor > 100; teste do área-path com 1 ponto; colisão de rótulos do gráfico com valores na casa dos bilhões.
+- **Agendador in-process da coleta de snapshots** (achado da T-058a): só o boot dispara o catch-up — um server que sobe às 9h e fica no ar nunca captura o fechamento; `setInterval` in-process (ou cron do SO) resolveria barato até o Lambda existir. Backfill via `hourly_quote_insights` também candidato.
+- Colheita da revisão da T-058a: laço do history com um positionMap vivo (O(ops+dias) em vez de O(dias×ops)); piso de data na query de snapshots + `MAX(captured_at)` por ticker (quando a coleta virar diária de verdade); usuário próprio no teste do SELL (estado mutável entre casos).
 - Ampliar `/admin`; backend de cripto (aguardando o humano); agendador do job de insights (Lambda/EventBridge); redesign de Alertas/Import (hoje sem UI).
 
 ## Ciclos concluídos (detalhes no [`BACKLOG-ARQUIVO.md`](./BACKLOG-ARQUIVO.md))
