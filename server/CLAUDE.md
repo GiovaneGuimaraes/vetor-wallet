@@ -14,7 +14,8 @@ API REST em Node + Express + TypeScript (CJS). Expõe os dados da carteira ao fr
 
 ```
 server/src/
-├── index.ts          # entry point: sessão, CORS, rotas, initDb()
+├── index.ts          # entry point: sessão, CORS, rotas, initDb() +
+│                     # catchUpIfNeeded() no boot (não-fatal — T-058a)
 ├── db.ts             # @libsql/client + initDb() — suporta DATABASE_URL
 ├── auth/
 │   ├── service.ts    # hashPassword, verifyPassword, createUser, findUserByEmail
@@ -22,7 +23,8 @@ server/src/
 │   └── router.ts     # POST /register /login /logout  GET /me
 ├── routes/
 │   ├── operations.ts # CRUD de operações (filtrado só por user_id — T-050)
-│   ├── portfolio.ts  # cálculo de posição + cotações (filtrado por user_id)
+│   ├── portfolio.ts  # cálculo de posição + cotações (filtrado por user_id) e
+│   │                 # GET /history — série valor × custo (T-058a)
 │   ├── snapshots.ts  # GET /api/snapshots/:ticker — histórico diário de preços
 │   ├── alerts.ts     # CRUD de alertas (filtrado por user_id)
 │   ├── import.ts     # importação CSV (filtrado por user_id)
@@ -58,6 +60,8 @@ server/src/
 │   │                     # (T-028; duplicada de propósito no web)
 │   ├── quotes.ts         # fetchQuotes → brapi.dev (timeout 5s)
 │   ├── snapshots.ts      # saveSnapshot, runSnapshotJob, resolveActiveTickers, withRetry
+│   ├── portfolioHistory.ts # série histórica diária valor × custo, com
+│   │                     # forward-fill de preço (T-058a; puro)
 │   ├── hourlyInsights.ts # runHourlyInsightsJob — captura horária retroativa via brapi
 │   ├── benchmarks.ts     # fetchCDIAccumulated, fetchIbovespaReturn (timeout 5s)
 │   └── tickers.ts        # busca e cache de tickers disponíveis

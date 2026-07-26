@@ -154,6 +154,7 @@ Todas as rotas abaixo (exceto `/api/auth/*`) exigem sessão autenticada via cook
 | `POST` | `/api/operations` | Cria operação — `wallet_id` do body é **ignorado**: nasce sempre na carteira padrão (T-050) |
 | `DELETE` | `/api/operations/:id` | Remove operação |
 | `GET` | `/api/portfolio` | `PortfolioSummary` com cotações em tempo real (consolidado do usuário; `?walletId=` **ignorado** — T-050) |
+| `GET` | `/api/portfolio/history` | Série histórica valor × custo da carteira (T-058a) — query `?days=N` (default 90, faixa 1..365, `400` para não inteiro ou fora da faixa). Responde `{ points: [{ date, value, invested }] }` em ordem crescente de data; dias sem preço conhecido ou anteriores à primeira operação ficam **ausentes** |
 | `GET` | `/api/snapshots/:ticker` | Histórico diário de preços |
 | `POST` | `/api/import` | Importa CSV de corretora (`?walletId=` **ignorado**; grava na carteira padrão — T-050) |
 | `GET` | `/api/alerts` | Lista alertas |
@@ -646,6 +647,23 @@ Pontos de projeto:
 
 ### Falha de cotações agora é sinalizada (antes silenciosa)
 `fetchQuotes` (`server/src/services/quotes.ts`) continua **não derrubando a request** em erro de rede/timeout/resposta não-ok da brapi — mas agora retorna `{ quotes, failed }` em vez de só o `Map`. `failed: true` sinaliza que a busca falhou por completo (distinto de um ticker pontual vir ausente numa resposta bem-sucedida). `routes/portfolio.ts` propaga isso para `buildPortfolioSummary(positionMap, quotes, failed)`, que seta `PortfolioSummary.quotesUnavailable` (campo opcional). Posições sem cotação continuam exibindo `null` nos campos de valor atual e P&L; o dashboard (`PortfolioDashboard.tsx`) mostra um banner discreto (`--color-warn`) quando `quotesUnavailable` está ativo.
+
+### Coleta diária de snapshots ligada no boot + série histórica (T-058a)
+Até a T-058a, `runSnapshotJob()`/`catchUpIfNeeded()` (`services/snapshots.ts`) existiam mas **nunca eram chamados** — código morto, e `quote_snapshots` de uma base típica tinha uma dúzia de linhas paradas. Agora `index.ts` chama `catchUpIfNeeded()` logo depois do `initDb()`.
+
+- **Por que o boot basta como "guarda"**: `catchUpIfNeeded` já só roda em **dia útil, depois das 18:15 BRT e apenas se não houver snapshot do dia**; o `UNIQUE(ticker, date(captured_at))` fecha a idempotência no banco. Nenhuma guarda nova foi inventada.
+- **Não-fatal e não-bloqueante**: a chamada vem **depois** do `app.listen` e num `.catch` que só loga — mesmo espírito do `createUser` da T-050a. `runSnapshotJob` já engole a falha de fetch (3 tentativas com backoff via `withRetry`); o `catch` do boot cobre o resto (erro de banco, rejeição inesperada). Coberto por teste: `catchUpIfNeeded` **resolve** com a brapi indisponível, sem gravar nada.
+- **Limitação conhecida (segue pendente)**: só o *boot* dispara a coleta. Um server que sobe às 9h e fica no ar o dia inteiro nunca captura o fechamento daquele dia — na prática só coleta quem reinicia depois das 18:15 BRT. Agendador (cron do SO, `setInterval` in-process ou Lambda + EventBridge) continua fora de escopo.
+
+`GET /api/portfolio/history?days=N` monta a série a partir dessas linhas, com a lógica pura em `services/portfolioHistory.ts` (`buildPortfolioHistory`, `buildDateWindow`, `shiftDate` — testadas):
+
+- **Quantidade detida** vem de `buildPositionMap` (a mesma função do `/api/portfolio`) aplicada às operações com `date <= dia` — a regra de preço médio ponderado **não** é reimplementada.
+- **Preço** é o último fechamento conhecido do ticker até aquela data (**forward-fill**): `quote_snapshots` só tem linha nos dias em que o job rodou, e sem o preenchimento cada fim de semana/feriado/dia de server desligado viraria um vale falso no gráfico. A query de snapshots **não tem piso de data** justamente para que o primeiro dia da janela tenha base de forward-fill.
+- **Semântica de `invested`**: custo de aquisição das posições **ainda detidas** na data (`Σ quantidade × preço médio`) — exatamente o `totalInvested` que o dashboard já mostra, e não "dinheiro aportado acumulado". Uma venda reduz `invested` proporcionalmente (o preço médio não muda numa venda), então as duas linhas continuam comparáveis ponto a ponto.
+- **Dias ausentes** (o cliente preenche/interpola — precedente do `/summary` da T-033): dias anteriores à primeira operação, e dias em que **algum** ticker detido ainda não tem nenhum preço conhecido. Essa segunda regra é mais rigorosa que "nenhum preço conhecido": somar só a parte com preço devolveria um valor silenciosamente subestimado — o mesmo vale falso que o forward-fill evita. Já um dia com a carteira toda vendida **entra** com zeros (é um zero verdadeiro); usuário sem nenhuma operação recebe `[]`.
+- **Isolamento**: o filtro por usuário mora na query de `operations` (e a de snapshots só busca os tickers que o próprio usuário operou). `quote_snapshots` **não tem `user_id`** — preço de fechamento é global. Coberto por teste com dois usuários.
+- A âncora de "hoje" é a data **BRT** (`getBRTDate`), a mesma do P&L do dia.
+- **Fora de escopo (segue pendente)**: o web (T-058b), backfill histórico de preços anteriores ao início da coleta e qualquer mudança no shape de `quote_snapshots`/no CLI de insights horários.
 
 ### Job de insights horários sem agendador automático
 O CLI `pnpm --filter vetor-wallet-cli insights:hourly` precisa ser invocado manualmente ou via cron do SO até o deploy em AWS Lambda + EventBridge (issue futura).
