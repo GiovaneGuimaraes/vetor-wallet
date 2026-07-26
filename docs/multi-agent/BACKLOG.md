@@ -24,9 +24,66 @@
 
 ---
 
-## Tarefas ativas
+## Tarefas ativas — Ciclo 10: colheita do ciclo 9 + dash de ações (projeções e gráfico)
 
-_(vazio — Ciclo 9 CONCLUÍDO E MERGEADO em 2026-07-25, PRs #84–#92. Detalhes no `BACKLOG-ARQUIVO.md`. T-020/T-021 seguem em espera por decisão do humano; item aberto no `TODO-HUMANO.md`: P&L consolidado para base legada com 2+ carteiras — default adotado na T-050.)_
+> Aprovado pelo humano em 2026-07-25 (Parte A + pedido novo: "projecoes de ganhos em cima das minhas acoes atuais e algum grafico para melhorar a page" — reverte o "sem gráficos" para a dash de ações). Ondas: **A1** (paralela): T-051, T-053, T-054, T-055 → **A2**: T-052 (mesmo `routes/savings.ts` da T-051) → **B** (após spike): T-056, T-057.
+
+### T-051 — Re-SELECT dos PATCH com `AND user_id` + teste-guarda real
+- **Status**: CONCLUIDA — PR #94 (2026-07-25). Executor sonnet, revisor opus (APROVADA; spy validado por 2 mutações reais). Sugestões → candidatas: simetria nos re-SELECT de POST; `SELECT id IN` do transfer (T-052 olha).
+- **Prioridade**: P2 · **Complexidade**: baixa (toca isolamento → revisor opus)
+- **Contexto**: colheita da revisão da T-044 — o UPDATE já filtra por `user_id`, mas o re-SELECT final que monta a resposta dos PATCH ainda é `WHERE id = ?`; e o teste da T-044 prova o SQLite, não a rota.
+- **Escopo**: `AND user_id = ?` no re-SELECT final dos PATCH (income, expenses, expenseEntries, incomeEntries, savings, recurringExpenses, goals — onde se aplicar); teste espionando `db.execute` que assevera o par sql/args emitido pela rota (pega cláusula e ordem).
+- **Critério de aceite**: re-SELECTs filtrados; teste-spy cobrindo ≥1 rota; suíte server verde.
+
+### T-052 — Rigor monetário em savings
+- **Status**: PENDENTE (Onda A2)
+- **Prioridade**: P2 · **Complexidade**: média (dinheiro → revisor opus)
+- **Depende de**: T-051 (mesmo `routes/savings.ts`)
+- **Escopo**: (1) guard explícito no 201 de `/transfer-to-goal` (`if (!withdraw || !deposit) throw` → 500 do errorHandler) no lugar do `as SavingsEntry`; (2) rejeitar `amount` com > 2 casas decimais na entrada (POST/PATCH de savings e transfer-to-goal; avaliar aplicar o mesmo validador aos demais layers monetários — income/expenses/entries/goals/budgets — por consistência, com testes).
+- **Critério de aceite**: `0.125` → 400 com mensagem clara; guard coberto; suíte verde.
+
+### T-053 — Polimento da carteira única (server)
+- **Status**: EM_REVISAO (executor sonnet: POST via service + UPDATE de campos, adoção de órfãs testada, asserção por ids; 461 verdes, +1; dúvida do executor sobre acentos na mensagem — revisor avalia)
+- **Prioridade**: P3 · **Complexidade**: baixa (revisor opus por tocar adoção de dados)
+- **Escopo**: colheita da revisão da T-050a — `POST /api/wallets` reusa `getOrCreateDefaultWallet` (aplicando o `name` do body; passa a adotar operações órfãs); JSDoc mencionando a linha órfã que a corrida do auto-create pode deixar; asserção por ids (não tamanho) no teste do GET com `?walletId=`; padronizar a mensagem de erro com as vizinhas.
+- **Critério de aceite**: comportamentos cobertos por teste; suíte verde.
+
+### T-054 — Higiene do web (colheita T-049/T-050b)
+- **Status**: CONCLUIDA — PR #95 (2026-07-25). Executor sonnet, revisor sonnet (APROVADA, sem bloqueantes).
+- **Prioridade**: P2 · **Complexidade**: média
+- **Escopo**: `getPortfolio()` fora do `try` do `getWallets()` em `App.tsx`; consolidar o fetch duplicado de `/api/portfolio` (shell + DashboardPage) no contexto; parâmetro `force` no `MonthFetchGuard` para o `refreshEntries` do caminho de erro do delete; remover comentário órfão do `App.css`; teste de `projectSavings(0, entrada inválida, ...)`.
+- **Critério de aceite**: um único fetch de portfolio no primeiro load de `/dash`; suíte e build web verdes.
+
+### T-055 — CLI reusa `isValidIsoDate` + sobras de sessões
+- **Status**: CONCLUIDA — PR #93 (2026-07-25). Executor sonnet, revisor sonnet (APROVADA, sem bloqueantes).
+
+### T-052 — Rigor monetário em savings (+ demais rotas monetárias)
+- **Status**: EM_ANDAMENTO (Onda A2, executor sonnet — inclui notas do revisor da T-051 sobre o `SELECT id IN` do transfer)
+- **Prioridade**: P3 · **Complexidade**: baixa
+- **Escopo**: `cli/src/hourlyInsights.ts` valida a data do argv com o helper do server (path alias); comentário no helper sobre anos 0–99; sessões: asserção mais forte no teste da varredura (sid único/isolamento) e simetria no teste de `touch` (get → null).
+- **Critério de aceite**: `2026-02-30` rejeitado no CLI; suíte server verde.
+
+### Onda B — dash de ações (spike Plan/Opus concluído; achado: `quote_snapshots` quase vazio — coleta nunca foi agendada, `catchUpIfNeeded` é código morto → gráfico HISTÓRICO inviável agora; adotado: curva de PROJEÇÃO + barras de alocação; tudo client-side sem endpoint novo, SVG puro sem lib; T-058 destrava o histórico no próximo ciclo)
+
+### T-056a — `portfolioProjection.ts` (módulo puro de projeção)
+- **Status**: EM_ANDAMENTO (executor sonnet) · P1 · média
+- **Escopo**: `projectPortfolio` (compostos, aceita taxa negativa > -100 — diverge da T-040 de propósito), `deriveMonthlyReturnPct` (retorno geométrico realizado; data de compra média ponderada pelo investido; < 1 mês → null), `parseSignedInput`; reusa parsers de `savingsProjection`.
+
+### T-056b — Card "Projeção de ganhos" na DashboardPage
+- **Status**: PENDENTE · P1 · média · **Depende de**: T-056a, T-054 (mergeada)
+- **Escopo**: 3 campos com `simTouched` (valor = `totalCurrentValue ?? totalInvested`, taxa derivada, prazo 12), resultados com `--color-up/down`, hints (quotesUnavailable, taxa não derivável).
+
+### T-057a — `chartGeometry.ts` (matemática pura do gráfico)
+- **Status**: EM_REVISAO (executor sonnet: 5 funções + 26 testes; rejeita taxa ≤ -100; 203 web verdes) · P1 · média
+- **Escopo**: `buildProjectionSeries` (≤ ~24 pts), `scaleLinear` (domínio degenerado), `buildLinePath`/`buildAreaPath`, `pickTicks`.
+
+### T-057b — `ProjectionChart.tsx` (SVG puro) + ligação no card
+- **Status**: PENDENTE · P1 · média · **Depende de**: T-056b, T-057a (mesmo `DashboardPage.tsx` da T-056b — sequencial)
+- **Escopo**: SVG viewBox 320×140 responsivo, cores via CSS vars (tema de graça), aria/title pt-BR, sem tooltip na v1; estados vazios do plano do spike.
+
+### T-057c — Barras de alocação por ticker
+- **Status**: PENDENTE · P2 · baixa · **Depende de**: T-057b (mesmo DashboardPage)
+- **Escopo**: reusa padrão `.vw-budget-progress-*`; `allocationPct` null → barra vazia, nunca NaN.
 
 ## Em espera (decisão do humano — ver `TODO-HUMANO.md`)
 
@@ -49,6 +106,9 @@ _(vazio — Ciclo 9 CONCLUÍDO E MERGEADO em 2026-07-25, PRs #84–#92. Detalhes
 - Colheita da revisão da T-050b: mover `getPortfolio()` para fora do `try` do `getWallets()` em `App.tsx` (falha do rótulo não deveria zerar o card Ações); consolidar o fetch duplicado de `/api/portfolio` (shell + DashboardPage) no contexto; remover comentário órfão em `App.css`.
 - Editar template de recorrência (valor/dia — decisão de produto: afeta só futuras).
 - `current_amount` manual obsoleto ao desvincular o último lançamento de uma meta (semântica a decidir).
+- **T-058 (próximo ciclo, destrava o gráfico histórico)**: agendar `catchUpIfNeeded()` no boot (hoje é código morto — `quote_snapshots` tem 11 linhas paradas em 14/07) + `GET /api/portfolio/history?days=` (contrato esboçado no spike da dash) + gráfico de evolução real.
+- Aporte mensal na projeção da dash + linha de referência CDI (sugestões do spike, aguardam humano).
+- Colheita da revisão da T-051: simetria `AND user_id` nos re-SELECT de POST (seguros na prática — id do próprio INSERT).
 - Ampliar `/admin`; backend de cripto (aguardando o humano); agendador do job de insights (Lambda/EventBridge); redesign de Alertas/Import (hoje sem UI).
 
 ## Ciclos concluídos (detalhes no [`BACKLOG-ARQUIVO.md`](./BACKLOG-ARQUIVO.md))

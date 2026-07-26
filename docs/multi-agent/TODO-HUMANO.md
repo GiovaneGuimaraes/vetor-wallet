@@ -18,13 +18,21 @@
 
 ## Abertos
 
-### [2026-07-25] Carteira única (T-050): P&L consolidado para base legada com 2+ carteiras
-- **Origem**: orquestrador (spike de design da T-050, Plan/Opus)
-- **Bloqueia**: nada — default adotado, contestável antes/depois do merge
-- **Pergunta/pendência**: com a carteira única, as leituras de operações/portfólio deixam de filtrar por carteira e agregam tudo do usuário. Se você tem hoje **mais de uma** carteira de ações cadastrada, o dashboard passará a mostrar o **consolidado** delas (nenhuma operação some, mas o número de P&L exibido muda). A alternativa — mostrar só a carteira mais antiga — esconderia operações reais e foi rejeitada. Ok com o consolidado, ou prefere outro tratamento?
-- **Resposta do humano**: _(preencher)_
+_(nenhum item aberto no momento)_
 
 ## Resolvidos
+
+### [2026-07-25] Carteira única (T-050): P&L consolidado para base legada com 2+ carteiras
+- **Origem**: orquestrador (spike de design da T-050, Plan/Opus)
+- **Bloqueia**: nada — default adotado
+- **Pergunta/pendência**: com a carteira única, as leituras agregam tudo do usuário; base legada com 2+ carteiras passa a ver o P&L consolidado. Ok?
+- **Resposta do humano**: (via chat, 2026-07-25) **"validei o front e as funcoes"** — validação do fluxo de carteira única sem ressalvas; consolidado aceito.
+
+### [2026-07-25] Ciclo 10 aprovado + decisão nova: gráfico e projeções na dash de ações
+- **Origem**: orquestrador (proposta do ciclo 10)
+- **Bloqueia**: nada — define o ciclo 10
+- **Pergunta/pendência**: escopo do ciclo 10 (colheita do ciclo 9 + escolhas de produto).
+- **Resposta do humano**: (via chat, 2026-07-25) "pode começar a nova onda, porem adicione tasks para melhorar a parte da dash da carteira de acoes (queria projecoes de ganhos em cima das minhas acoes atuais e algum grafico para melhorar a page)". **Nota**: isso reverte, para a dash de ações, a diretriz de 2026-07-24 de "sem gráficos no dashboard" (que segue valendo para a Home). Extensão do simulador (aporte/CDI) e edição de template de recorrência seguem como candidatas sem decisão.
 
 ### [2026-07-25] Ciclo 9 aprovado + decisão: carteira única de ações
 - **Origem**: orquestrador (proposta da "próxima onda")
