@@ -1,5 +1,5 @@
 import type { Operation, PortfolioHistoryPoint } from '@vetor-wallet/shared';
-import { buildPositionMap } from './portfolio';
+import { applyOperation, type PositionEntry } from './portfolio';
 
 /**
  * Um preço de fechamento conhecido de um ticker num dia (uma linha de
@@ -43,9 +43,12 @@ export function buildDateWindow(endDateISO: string, days: number): string[] {
  * janela (T-058a).
  *
  * Para cada dia:
- * - a **quantidade detida** sai de `buildPositionMap` sobre as operações com
- *   `date <= dia` — a MESMA função do cálculo de preço médio do `/api/portfolio`,
- *   sem nenhuma reimplementação da regra de preço médio ponderado aqui;
+ * - a **quantidade detida** vem de um `positionMap` INCREMENTAL (T-063):
+ *   `applyOperation` — a MESMA função que `buildPositionMap` chama por trás —
+ *   é aplicada só às operações NOVAS daquele dia, sem reconstruir o mapa do
+ *   zero a cada iteração (O(ops + dias) em vez de O(dias × ops)). O resultado
+ *   é idêntico a rodar `buildPositionMap` sobre `ops.filter(op => op.date <=
+ *   dia)` a cada dia, porque a ordem de aplicação (por data) é a mesma;
  * - o **preço** é o último fechamento conhecido do ticker com data `<= dia`
  *   (forward-fill). `quote_snapshots` só tem linha nos dias em que o job rodou
  *   (fim de semana, feriado e dia de server desligado ficam vazios); sem o
@@ -104,6 +107,14 @@ export function buildPortfolioHistory(
   const lastPrice = new Map<string, number>();
   const points: PortfolioHistoryPoint[] = [];
 
+  // Positionmap incremental (T-063): mantido entre iterações do laço de dias e
+  // atualizado só com as operações NOVAS de cada dia via `applyOperation` — o
+  // mesmo acumulador de `buildPositionMap`, sem reconstruí-lo do zero
+  // (O(dias × ops)) a cada dia. O resultado é idêntico a
+  // `buildPositionMap(sortedOps.slice(0, opIdx))` porque `applyOperation` é a
+  // função que `buildPositionMap` chama internamente, na mesma ordem.
+  const positionMap = new Map<string, PositionEntry>();
+
   let opIdx = 0;
   let snapIdx = 0;
 
@@ -115,6 +126,7 @@ export function buildPortfolioHistory(
       // um preço já conhecido (fechamento é a fonte preferida). Como o laço de
       // snapshots roda DEPOIS deste, um snapshot do mesmo dia ainda vence o seed.
       if (op.type === 'BUY' && !lastPrice.has(op.ticker)) lastPrice.set(op.ticker, op.price);
+      applyOperation(positionMap, op);
       opIdx += 1;
     }
     while (snapIdx < sortedSnaps.length && sortedSnaps[snapIdx].date <= date) {
@@ -124,8 +136,6 @@ export function buildPortfolioHistory(
     }
 
     if (date < firstOpDate) continue;
-
-    const positionMap = buildPositionMap(sortedOps.slice(0, opIdx));
 
     let value = 0;
     let invested = 0;

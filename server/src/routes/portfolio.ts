@@ -94,16 +94,38 @@ router.get(
 
     let snapshots: SnapshotPoint[] = [];
     if (tickers.length > 0) {
-      // Sem piso de data: o forward-fill do primeiro dia da janela precisa do
-      // último fechamento ANTERIOR a ela como base.
+      // Piso de data (T-063): a query não trafega mais o histórico inteiro do
+      // ticker — só as linhas DENTRO da janela + uma linha de BASE por ticker
+      // (o último fechamento conhecido antes dela), que é o que o
+      // forward-fill do primeiro dia da janela precisa. Sem o piso, a coleta
+      // diária ligada na T-058a/T-061 faz `quote_snapshots` crescer sem
+      // limite e cada request de histórico voltaria a ler a tabela inteira.
+      const windowStart = dates[0];
       const placeholders = tickers.map(() => '?').join(',');
+
       const snapResult = await db.execute({
         sql: `SELECT ticker, date(captured_at) AS date, price FROM quote_snapshots
-              WHERE ticker IN (${placeholders}) AND date(captured_at) <= ?
+              WHERE ticker IN (${placeholders}) AND date(captured_at) >= ? AND date(captured_at) <= ?
               ORDER BY captured_at ASC`,
-        args: [...tickers, endDate],
+        args: [...tickers, windowStart, endDate],
       });
-      snapshots = snapResult.rows.map((row) => ({
+
+      // Base do forward-fill: por ticker, o fechamento mais recente ANTERIOR
+      // ao início da janela (estritamente `<`, para não duplicar uma linha já
+      // trazida pela query acima quando ela cai exatamente em `windowStart`).
+      const baseResult = await db.execute({
+        sql: `SELECT q.ticker AS ticker, date(q.captured_at) AS date, q.price AS price
+              FROM quote_snapshots q
+              INNER JOIN (
+                SELECT ticker, MAX(date(captured_at)) AS max_date
+                FROM quote_snapshots
+                WHERE ticker IN (${placeholders}) AND date(captured_at) < ?
+                GROUP BY ticker
+              ) latest ON latest.ticker = q.ticker AND latest.max_date = date(q.captured_at)`,
+        args: [...tickers, windowStart],
+      });
+
+      snapshots = [...baseResult.rows, ...snapResult.rows].map((row) => ({
         ticker: String(row.ticker),
         date: String(row.date),
         price: Number(row.price),
