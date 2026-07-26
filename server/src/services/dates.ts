@@ -37,6 +37,15 @@ export function isValidIsoDate(value: unknown): value is string {
   // `Date.UTC` normaliza dias fora da faixa do mês (ex.: 30/02 vira 02/03),
   // então checar month/day de volta contra o que foi pedido detecta datas
   // que não existem — incluindo o caso do 29/02 em ano não bissexto.
+  //
+  // Efeito colateral conhecido e aceito (T-055): `Date.UTC` mapeia anos de
+  // 0 a 99 para 1900-1999 (comportamento legado do próprio JS, não desta
+  // função) — então uma data como "0026-07-25" tem seu ano lido de volta
+  // como 2026 (via getUTCFullYear) e diverge do `year` pedido (26),
+  // resultando em `false`. Ou seja: anos com 1-2 dígitos no formato de 4
+  // dígitos (ex.: "0026") são rejeitados por este round-trip, não por uma
+  // checagem explícita de faixa — comportamento desejado, já que o app não
+  // usa datas de calendário anteriores ao ano 100.
   const date = new Date(Date.UTC(year, month - 1, day));
   return (
     date.getUTCFullYear() === year &&

@@ -6,11 +6,15 @@
 import 'dotenv/config';
 import { initDb } from '@vetor-wallet/server/db';
 import { runHourlyInsightsJob } from '@vetor-wallet/server/services/hourlyInsights';
+import { isValidIsoDate } from '@vetor-wallet/server/services/dates';
 
 async function main(): Promise<void> {
   const targetDate = process.argv[2];
-  if (targetDate && !/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-    console.error(`[cli] Invalid date format: "${targetDate}" — expected YYYY-MM-DD`);
+  // T-055: reusa o mesmo validador de calendário real das rotas (T-043) em
+  // vez de um regex próprio de formato — "2026-02-30" (dia inexistente) agora
+  // é rejeitado aqui também, e não só nas rotas HTTP.
+  if (targetDate && !isValidIsoDate(targetDate)) {
+    console.error(`[cli] Invalid date: "${targetDate}" — expected a real YYYY-MM-DD calendar date`);
     process.exit(1);
   }
 

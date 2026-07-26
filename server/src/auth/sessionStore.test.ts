@@ -165,32 +165,46 @@ describe('SqliteSessionStore', () => {
   // maxAge <= 0.
 
   it('cleanupExpiredSessions deletes only rows whose expires_at is at or before "at" (boot sweep)', async () => {
+    // sid único por execução (Date.now + random) evita colisão com sessões
+    // deixadas por outros testes/execuções concorrentes do arquivo — sem
+    // isso, um `deleted` agregado (toBeGreaterThanOrEqual(1)) não provaria
+    // que ESTA varredura removeu ESTA linha expirada, só que "algo" foi
+    // removido em algum lugar do banco de teste.
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const sidExpired = `sid-sweep-expired-${suffix}`;
+    const sidValid = `sid-sweep-valid-${suffix}`;
+
     await db.execute({
       sql: 'INSERT INTO sessions (sid, data, expires_at) VALUES (?, ?, ?)',
-      args: ['sid-sweep-expired', '{}', new Date(Date.now() - 60_000).toISOString()],
+      args: [sidExpired, '{}', new Date(Date.now() - 60_000).toISOString()],
     });
     await db.execute({
       sql: 'INSERT INTO sessions (sid, data, expires_at) VALUES (?, ?, ?)',
-      args: ['sid-sweep-valid', '{}', new Date(Date.now() + 60_000).toISOString()],
+      args: [sidValid, '{}', new Date(Date.now() + 60_000).toISOString()],
     });
 
-    const deleted = await cleanupExpiredSessions(db, new Date());
-    expect(deleted).toBeGreaterThanOrEqual(1);
+    const beforeExpiredRow = await db.execute({
+      sql: 'SELECT sid FROM sessions WHERE sid = ?',
+      args: [sidExpired],
+    });
+    expect(beforeExpiredRow.rows).toHaveLength(1);
+
+    await cleanupExpiredSessions(db, new Date());
 
     const expiredRow = await db.execute({
       sql: 'SELECT sid FROM sessions WHERE sid = ?',
-      args: ['sid-sweep-expired'],
+      args: [sidExpired],
     });
     expect(expiredRow.rows).toHaveLength(0);
 
     const validRow = await db.execute({
       sql: 'SELECT sid FROM sessions WHERE sid = ?',
-      args: ['sid-sweep-valid'],
+      args: [sidValid],
     });
     expect(validRow.rows).toHaveLength(1);
 
     // Limpeza do lançamento auxiliar para não vazar entre testes.
-    await db.execute({ sql: 'DELETE FROM sessions WHERE sid = ?', args: ['sid-sweep-valid'] });
+    await db.execute({ sql: 'DELETE FROM sessions WHERE sid = ?', args: [sidValid] });
   });
 
   it('get fails closed (treats as expired) when expires_at is corrupted/non-ISO, without throwing', async () => {
@@ -257,5 +271,13 @@ describe('SqliteSessionStore', () => {
     });
     const expiresAt = new Date(String(row.rows[0].expires_at)).getTime();
     expect(expiresAt).toBeLessThanOrEqual(Date.now());
+
+    // Simetria com o teste de `set` com maxAge <= 0: não basta o
+    // `expires_at` gravado estar no passado, a leitura seguinte precisa
+    // efetivamente tratar a sessão como inexistente (lazy-delete).
+    const got = await new Promise<SessionData | null | undefined>((resolve, reject) => {
+      store.get('sid-touch-negative', (err, s) => (err ? reject(err) : resolve(s)));
+    });
+    expect(got).toBeNull();
   });
 });
