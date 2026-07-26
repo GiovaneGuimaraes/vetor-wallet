@@ -43,7 +43,7 @@
 - **Critério de aceite**: `0.125` → 400 com mensagem clara; guard coberto; suíte verde.
 
 ### T-053 — Polimento da carteira única (server)
-- **Status**: EM_REVISAO (executor sonnet: POST via service + UPDATE de campos, adoção de órfãs testada, asserção por ids; 461 verdes, +1; dúvida do executor sobre acentos na mensagem — revisor avalia)
+- **Status**: CONCLUIDA — PR #96 (2026-07-25). Executor sonnet, revisor opus (REPROVADA 1ª rodada: remoção de acentos contrariava o padrão do repo — instrução equivocada do orquestrador; corrigida + design com `overrides` no INSERT; APROVADA no re-veredito). Sugestões → candidatas: teste da corrida de POSTs; nuance `description: null`.
 - **Prioridade**: P3 · **Complexidade**: baixa (revisor opus por tocar adoção de dados)
 - **Escopo**: colheita da revisão da T-050a — `POST /api/wallets` reusa `getOrCreateDefaultWallet` (aplicando o `name` do body; passa a adotar operações órfãs); JSDoc mencionando a linha órfã que a corrida do auto-create pode deixar; asserção por ids (não tamanho) no teste do GET com `?walletId=`; padronizar a mensagem de erro com as vizinhas.
 - **Critério de aceite**: comportamentos cobertos por teste; suíte verde.
@@ -58,7 +58,7 @@
 - **Status**: CONCLUIDA — PR #93 (2026-07-25). Executor sonnet, revisor sonnet (APROVADA, sem bloqueantes).
 
 ### T-052 — Rigor monetário em savings (+ demais rotas monetárias)
-- **Status**: EM_ANDAMENTO (Onda A2, executor sonnet — inclui notas do revisor da T-051 sobre o `SELECT id IN` do transfer)
+- **Status**: CONCLUIDA — PR #99 (2026-07-25). Executor sonnet, revisor opus (APROVADA; casos adversariais rodados contra o dist). Sugestões → candidatas: `isValidMoneyAmount` em `price` (operations/import) e `threshold` (alerts); teste da ordem das validações; limite superior de amount. CLAUDE.md corrigido na integração (é o `step="0.01"` que barra no browser).
 - **Prioridade**: P3 · **Complexidade**: baixa
 - **Escopo**: `cli/src/hourlyInsights.ts` valida a data do argv com o helper do server (path alias); comentário no helper sobre anos 0–99; sessões: asserção mais forte no teste da varredura (sid único/isolamento) e simetria no teste de `touch` (get → null).
 - **Critério de aceite**: `2026-02-30` rejeitado no CLI; suíte server verde.
@@ -66,15 +66,15 @@
 ### Onda B — dash de ações (spike Plan/Opus concluído; achado: `quote_snapshots` quase vazio — coleta nunca foi agendada, `catchUpIfNeeded` é código morto → gráfico HISTÓRICO inviável agora; adotado: curva de PROJEÇÃO + barras de alocação; tudo client-side sem endpoint novo, SVG puro sem lib; T-058 destrava o histórico no próximo ciclo)
 
 ### T-056a — `portfolioProjection.ts` (módulo puro de projeção)
-- **Status**: EM_ANDAMENTO (executor sonnet) · P1 · média
+- **Status**: CONCLUIDA — PR #98 (2026-07-25). Executor sonnet, revisor opus (APROVADA; matemática verificada por script independente, testes simulados em todos os dias de 2024–2026). Sugestões 1–2 vão na T-056b.
 - **Escopo**: `projectPortfolio` (compostos, aceita taxa negativa > -100 — diverge da T-040 de propósito), `deriveMonthlyReturnPct` (retorno geométrico realizado; data de compra média ponderada pelo investido; < 1 mês → null), `parseSignedInput`; reusa parsers de `savingsProjection`.
 
 ### T-056b — Card "Projeção de ganhos" na DashboardPage
-- **Status**: PENDENTE · P1 · média · **Depende de**: T-056a, T-054 (mergeada)
+- **Status**: EM_REVISAO (executor sonnet: card com simTouched, `resolveDefaultCurrentValue`, guarda ≤ -100, ponto de inserção p/ T-057b; 239 web verdes) · P1 · média
 - **Escopo**: 3 campos com `simTouched` (valor = `totalCurrentValue ?? totalInvested`, taxa derivada, prazo 12), resultados com `--color-up/down`, hints (quotesUnavailable, taxa não derivável).
 
 ### T-057a — `chartGeometry.ts` (matemática pura do gráfico)
-- **Status**: EM_REVISAO (executor sonnet: 5 funções + 26 testes; rejeita taxa ≤ -100; 203 web verdes) · P1 · média
+- **Status**: CONCLUIDA — PR #97 (2026-07-25). Executor sonnet, revisor sonnet (APROVADA). Sugestão → candidata: teste do área-path com 1 ponto.
 - **Escopo**: `buildProjectionSeries` (≤ ~24 pts), `scaleLinear` (domínio degenerado), `buildLinePath`/`buildAreaPath`, `pickTicks`.
 
 ### T-057b — `ProjectionChart.tsx` (SVG puro) + ligação no card
@@ -109,6 +109,7 @@
 - **T-058 (próximo ciclo, destrava o gráfico histórico)**: agendar `catchUpIfNeeded()` no boot (hoje é código morto — `quote_snapshots` tem 11 linhas paradas em 14/07) + `GET /api/portfolio/history?days=` (contrato esboçado no spike da dash) + gráfico de evolução real.
 - Aporte mensal na projeção da dash + linha de referência CDI (sugestões do spike, aguardam humano).
 - Colheita da revisão da T-051: simetria `AND user_id` nos re-SELECT de POST (seguros na prática — id do próprio INSERT).
+- Colheita da revisão da T-052: `isValidMoneyAmount` também em `price` (`POST /api/operations` e import) e `threshold` (alerts); teste fixando a ordem das validações (negativo → mensagem antiga); limite superior explícito de `amount` (hoje o corte é onde o V8 vira notação científica).
 - Ampliar `/admin`; backend de cripto (aguardando o humano); agendador do job de insights (Lambda/EventBridge); redesign de Alertas/Import (hoje sem UI).
 
 ## Ciclos concluídos (detalhes no [`BACKLOG-ARQUIVO.md`](./BACKLOG-ARQUIVO.md))
