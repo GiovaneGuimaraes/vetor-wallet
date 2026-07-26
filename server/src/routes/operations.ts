@@ -84,9 +84,10 @@ router.post(
     });
 
     const newId = insert.lastInsertRowid ?? 0;
+    // Re-SELECT também filtrado por user_id (T-059, simetria com o PATCH — T-051).
     const row = await db.execute({
-      sql: 'SELECT * FROM operations WHERE id = ?',
-      args: [Number(newId)],
+      sql: 'SELECT * FROM operations WHERE id = ? AND user_id = ?',
+      args: [Number(newId), userId],
     });
     res.status(201).json(row.rows[0]);
   }),
