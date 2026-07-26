@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { PortfolioSummary, Position } from '@vetor-wallet/shared';
+import { buildAllocationRows } from '../routes/allocationRows';
 import '../routes/dashboard.css';
 
 interface Props {
@@ -213,6 +214,8 @@ export function PortfolioDashboard({ summary, walletColor = '#e3d5b8' }: Props) 
   const resultSentiment: SentimentColor =
     totalProfitLoss === null ? null : totalProfitLoss >= 0 ? 'up' : 'down';
 
+  const allocationRows = buildAllocationRows(positions);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Warning banner — distingue falha na busca (quotesUnavailable, sinalizado
@@ -317,6 +320,49 @@ export function PortfolioDashboard({ summary, walletColor = '#e3d5b8' }: Props) 
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/*
+        Alocação da carteira (T-057c): uma barra por posição, dentro do
+        PortfolioDashboard (mesmo card family da tabela de posições, que já
+        exibe os mesmos tickers) — evita um card solto na DashboardPage sem
+        relação direta com o resto do simulador de projeção (T-056b/T-057b).
+        `allocationPct` nulo (cotação indisponível) vira barra vazia com "—",
+        nunca NaN (ver `buildAllocationRows`, allocationRows.ts).
+      */}
+      <div
+        style={{
+          background: 'var(--card-1)',
+          border: '1px solid var(--color-edge)',
+          borderRadius: 'var(--radius-card)',
+          padding: '20px 0',
+        }}
+      >
+        <h2
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: 'var(--color-ink)',
+            paddingInline: 22,
+            marginBottom: 8,
+          }}
+        >
+          Alocação da carteira
+        </h2>
+
+        <div>
+          {allocationRows.map((row) => (
+            <div className="vw-alloc-row" key={row.ticker}>
+              <span className="vw-alloc-ticker">{row.ticker}</span>
+              <div className="vw-alloc-bar-col">
+                <div className="vw-alloc-track">
+                  <div className="vw-alloc-fill" style={{ width: `${row.pctClamped}%` }} />
+                </div>
+              </div>
+              <span className="vw-alloc-pct">{row.pctLabel}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
