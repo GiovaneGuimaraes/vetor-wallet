@@ -15,7 +15,8 @@ API REST em Node + Express + TypeScript (CJS). Expõe os dados da carteira ao fr
 ```
 server/src/
 ├── index.ts          # entry point: sessão, CORS, rotas, initDb() +
-│                     # catchUpIfNeeded() no boot (não-fatal — T-058a)
+│                     # catchUpIfNeeded() no boot (não-fatal — T-058a) +
+│                     # startSnapshotScheduler() reexecutando a cada 30min (T-061)
 ├── db.ts             # @libsql/client + initDb() — suporta DATABASE_URL
 ├── auth/
 │   ├── service.ts    # hashPassword, verifyPassword, createUser, findUserByEmail
@@ -60,6 +61,8 @@ server/src/
 │   │                     # (T-028; duplicada de propósito no web)
 │   ├── quotes.ts         # fetchQuotes → brapi.dev (timeout 5s)
 │   ├── snapshots.ts      # saveSnapshot, runSnapshotJob, resolveActiveTickers, withRetry
+│   ├── snapshotScheduler.ts # startSnapshotScheduler — setInterval in-process
+│   │                     # que reexecuta catchUpIfNeeded (T-061)
 │   ├── portfolioHistory.ts # série histórica diária valor × custo, com
 │   │                     # forward-fill de preço (T-058a; puro)
 │   ├── hourlyInsights.ts # runHourlyInsightsJob — captura horária retroativa via brapi

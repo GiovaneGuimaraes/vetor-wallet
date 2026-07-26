@@ -24,6 +24,7 @@ import goalsRouter from './routes/goals';
 import budgetsRouter from './routes/budgets';
 import { errorHandler } from './middleware/errorHandler';
 import { catchUpIfNeeded } from './services/snapshots';
+import { startSnapshotScheduler } from './services/snapshotScheduler';
 
 const app = express();
 
@@ -70,6 +71,10 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT ?? 3001;
 
+// T-061: reexecuta o catch-up periodicamente, para além do boot — ver
+// startSnapshotScheduler() e o comentário abaixo, junto do dispatch inicial.
+const SNAPSHOT_SCHEDULER_INTERVAL_MS = 30 * 60 * 1000; // 30 min
+
 initDb()
   .then(() => {
     app.listen(PORT, () => {
@@ -88,6 +93,16 @@ initDb()
     catchUpIfNeeded().catch((err) => {
       console.error('[snapshots] Catch-up on startup failed (server continues):', err);
     });
+
+    // T-061: o boot sozinho só cobre quem reinicia depois das 18:15 BRT — um
+    // server que sobe de manhã e fica no ar o dia inteiro nunca reexecutava a
+    // checagem. Este agendador in-process reexecuta `catchUpIfNeeded()` a
+    // cada 30min; as guardas de dia útil/horário/snapshot-do-dia já existentes
+    // dentro dela (mais o UNIQUE(ticker, date(captured_at)) no banco) seguem
+    // sendo a única idempotência — nenhuma guarda nova foi criada aqui. O
+    // timer é `.unref()`'d (não segura o processo) e morre com ele: não é
+    // cron, não persiste, não substitui o Lambda + EventBridge do roadmap.
+    startSnapshotScheduler(SNAPSHOT_SCHEDULER_INTERVAL_MS, catchUpIfNeeded);
   })
   .catch((err) => {
     console.error('Failed to initialize database:', err);
