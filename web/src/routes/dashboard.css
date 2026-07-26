@@ -73,6 +73,55 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* Gráfico SVG do card "Evolução da carteira" (T-058b)                  */
+/*                                                                      */
+/* Mesmo padrão do wrap acima (T-057b): puro CSS de layout, nenhuma cor  */
+/* literal aqui — o SVG usa CSS custom properties diretamente.          */
+/* ------------------------------------------------------------------ */
+
+.vw-history-chart-wrap {
+  margin-top: 4px;
+}
+
+.vw-history-chart-wrap svg {
+  display: block;
+}
+
+/* Seletor de janela (30/90/365 dias) — grupo de botões simples, mesmo tom
+   de `.vw-btn-ghost` no estado inativo e `--color-accent` no ativo. */
+.vw-history-window {
+  display: flex;
+  gap: 6px;
+}
+
+.vw-history-window-btn {
+  border: 1px solid var(--color-edge);
+  background: transparent;
+  color: var(--color-dim);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.vw-history-window-btn:hover:not(:disabled) {
+  color: var(--color-ink);
+}
+
+.vw-history-window-btn.vw-history-window-btn--active {
+  background: var(--btn-1);
+  border-color: var(--btn-1);
+  color: var(--btn-ink);
+}
+
+.vw-history-window-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ------------------------------------------------------------------ */
 /* Barras de alocação por ticker (T-057c)                               */
 /*                                                                      */
 /* Classes próprias em vez de reusar `.vw-budget-progress-*` de         */
