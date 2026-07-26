@@ -92,6 +92,12 @@ describe('budgets routes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects amount with more than 2 decimal places (400) (T-052)', async () => {
+    const res = await agentA.post('/api/budgets').send({ category: 'Mercado', amount: 0.125 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/2 casas decimais/);
+  });
+
   it('creates a budget storing the category in canonical form (T-028)', async () => {
     const res = await agentA.post('/api/budgets').send({ category: 'Mercado', amount: 500 });
     expect(res.status).toBe(201);

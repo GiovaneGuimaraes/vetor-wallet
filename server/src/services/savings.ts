@@ -85,3 +85,28 @@ export function computeReservedTotal(entries: SavingsBalanceEntry[]): number {
 export function computeFreeBalance(entries: SavingsBalanceEntry[]): number {
   return roundCents(computeBalance(entries) - computeReservedTotal(entries));
 }
+
+/**
+ * T-052: guard explícito do 201 de `POST /api/savings/transfer-to-goal`.
+ *
+ * As duas pernas foram gravadas no MESMO `db.batch(..., 'write')` logo antes
+ * do re-SELECT, então na prática ambas sempre existem — mas antes desta
+ * checagem o handler fazia `.find(...) as SavingsEntry`, um cast que
+ * mascararia silenciosamente um `undefined` (ex.: re-SELECT filtrado por um
+ * `user_id` errado, ou uma corrida improvável no banco) atrás de um 201 com
+ * uma perna faltando, em vez de um erro diagnosticável. Lançar aqui deixa o
+ * `errorHandler` converter em 500 — nunca deveria acontecer, mas se acontecer
+ * fica visível.
+ */
+export function pickTransferLegs<T extends { id: number | string | bigint }>(
+  rows: T[],
+  withdrawId: number,
+  depositId: number,
+): { withdraw: T; deposit: T } {
+  const withdraw = rows.find((row) => Number(row.id) === withdrawId);
+  const deposit = rows.find((row) => Number(row.id) === depositId);
+  if (!withdraw || !deposit) {
+    throw new Error('transferência gravada sem as duas pernas');
+  }
+  return { withdraw, deposit };
+}

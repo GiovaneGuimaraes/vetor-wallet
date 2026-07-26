@@ -9,6 +9,7 @@ import type { NewIncomeEntry, IncomeEntryUpdate } from '@vetor-wallet/shared';
 // despesas está fora do escopo da T-036.
 import { currentMonth } from './expenseEntries';
 import { isValidIsoDate } from '../services/dates';
+import { isValidMoneyAmount, moneyDecimalsError } from '../services/money';
 
 const router = Router();
 
@@ -64,6 +65,10 @@ router.post(
       res.status(400).json({ error: 'amount deve ser um número maior que 0' });
       return;
     }
+    if (!isValidMoneyAmount(amount)) {
+      res.status(400).json({ error: moneyDecimalsError() });
+      return;
+    }
     if (!date || typeof date !== 'string' || !isValidIsoDate(date)) {
       res.status(400).json({ error: 'date inválida (use YYYY-MM-DD)' });
       return;
@@ -107,6 +112,10 @@ router.patch(
       (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0)
     ) {
       res.status(400).json({ error: 'amount deve ser um número maior que 0' });
+      return;
+    }
+    if (amount !== undefined && !isValidMoneyAmount(amount)) {
+      res.status(400).json({ error: moneyDecimalsError() });
       return;
     }
     if (date !== undefined && (typeof date !== 'string' || !isValidIsoDate(date))) {

@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import type { NewGoal, GoalUpdate } from '@vetor-wallet/shared';
 import { listGoalsWithProgress, getGoalWithProgress, getGoalLinkAggregate } from '../services/goals';
+import { isValidMoneyAmount, moneyDecimalsError } from '../services/money';
 
 const router = Router();
 
@@ -31,8 +32,16 @@ router.post(
       res.status(400).json({ error: 'target_amount deve ser um número maior que 0' });
       return;
     }
+    if (!isValidMoneyAmount(target_amount)) {
+      res.status(400).json({ error: moneyDecimalsError('target_amount') });
+      return;
+    }
     if (typeof current_amount !== 'number' || !Number.isFinite(current_amount) || current_amount < 0) {
       res.status(400).json({ error: 'current_amount deve ser um número maior ou igual a 0' });
+      return;
+    }
+    if (!isValidMoneyAmount(current_amount)) {
+      res.status(400).json({ error: moneyDecimalsError('current_amount') });
       return;
     }
 
@@ -68,11 +77,19 @@ router.patch(
       res.status(400).json({ error: 'target_amount deve ser um número maior que 0' });
       return;
     }
+    if (target_amount !== undefined && !isValidMoneyAmount(target_amount)) {
+      res.status(400).json({ error: moneyDecimalsError('target_amount') });
+      return;
+    }
     if (
       current_amount !== undefined &&
       (typeof current_amount !== 'number' || !Number.isFinite(current_amount) || current_amount < 0)
     ) {
       res.status(400).json({ error: 'current_amount deve ser um número maior ou igual a 0' });
+      return;
+    }
+    if (current_amount !== undefined && !isValidMoneyAmount(current_amount)) {
+      res.status(400).json({ error: moneyDecimalsError('current_amount') });
       return;
     }
 

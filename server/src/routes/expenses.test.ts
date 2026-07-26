@@ -88,6 +88,14 @@ describe('expenses routes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects creation with amount with more than 2 decimal places (400) (T-052)', async () => {
+    const res = await agentA
+      .post('/api/expenses')
+      .send({ name: 'Aluguel', category: 'Moradia', amount: 0.125 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/2 casas decimais/);
+  });
+
   it('creates a fixed expense', async () => {
     const res = await agentA.post('/api/expenses').send({ name: 'Aluguel', category: 'Moradia', amount: 1500 });
     expect(res.status).toBe(201);
@@ -201,6 +209,13 @@ describe('expenses routes', () => {
         .set('Content-Type', 'application/json')
         .send('{"amount":1e999}');
       expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with amount with more than 2 decimal places (400) (T-052)', async () => {
+      const id = await newExpense();
+      const res = await agentA.patch(`/api/expenses/${id}`).send({ amount: 1.234 });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/2 casas decimais/);
     });
 
     it('returns 404 when patching another user fixed expense', async () => {

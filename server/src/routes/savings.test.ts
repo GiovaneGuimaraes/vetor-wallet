@@ -90,6 +90,14 @@ describe('savings routes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects creation with amount with more than 2 decimal places (400) (T-052)', async () => {
+    const res = await agentA
+      .post('/api/savings')
+      .send({ type: 'DEPOSIT', amount: 0.125, date: '2025-01-01' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/2 casas decimais/);
+  });
+
   it('rejects creation with invalid date format (400)', async () => {
     const res = await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 100, date: '01/01/2025' });
     expect(res.status).toBe(400);
@@ -253,6 +261,13 @@ describe('savings routes', () => {
         .set('Content-Type', 'application/json')
         .send('{"amount":1e999}');
       expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with amount with more than 2 decimal places (400) (T-052)', async () => {
+      const id = await newEntry();
+      const res = await agentA.patch(`/api/savings/${id}`).send({ amount: 1.234 });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/2 casas decimais/);
     });
 
     it('rejects PATCH with malformed date (400)', async () => {
@@ -604,6 +619,16 @@ describe('savings routes', () => {
         .set('Content-Type', 'application/json')
         .send(`{"goalId":${goalId},"amount":1e999,"date":"${today}"}`);
       expect(res.status).toBe(400);
+    });
+
+    it('rejects amount with more than 2 decimal places (400) (T-052)', async () => {
+      const agent = await freshAgent();
+      const goalId = await goal(agent);
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ goalId, amount: 0.125, date: today });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/2 casas decimais/);
     });
 
     it('rejects an invalid date (400)', async () => {
