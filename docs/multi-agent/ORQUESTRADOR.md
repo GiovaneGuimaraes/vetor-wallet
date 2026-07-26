@@ -10,17 +10,17 @@ Carteira financeira pessoal para um único usuário real (Giovane), organizada e
 - **Monorepo pnpm**: `shared` (tipos, types-only), `server` (Express + libsql, SQL puro), `web` (Vite + React), `cli` (job de insights horários).
 - **Testes**: Vitest no `server` e no `web` (funções puras, ambiente node). Contagem atual da suíte: ver "Estado atual" abaixo (evita número duplicado desatualizando aqui).
 
-## Estado atual (2026-07-25, fim do ciclo 9)
+## Estado atual (2026-07-25, fim do ciclo 10)
 
-- Ciclos 1–9 concluídos e mergeados (PRs #44–#92) — resumo por ciclo no `BACKLOG.md`, detalhes no `BACKLOG-ARQUIVO.md`. Suíte: 460 server + 177 web.
-- Ciclo 9 (aprovado pelo humano em 2026-07-25): colheita das revisões dos ciclos 5–8 (refinos do simulador e da transferência, higiene de fetch mensal + `endMonth`), endurecimento (validação de data de calendário em todas as rotas, POST recorrente transacional, `AND user_id` nos UPDATEs de PATCH, robustez de sessões) e **carteira única de ações** (T-050a/b, pedido do humano — `POST /api/wallets` → 400 com carteira existente, `walletId` ignorado, SELL contra o consolidado, web sem `CarteirasPage`/`WalletSelector`).
-- **Modo auto ativo** (autorização permanente do humano, 2026-07-24): após APROVADA do revisor, o orquestrador abre PR e faz merge automático, resolvendo conflitos; revisão humana a posteriori. Decisões de produto/UX continuam indo ao `TODO-HUMANO.md`.
-- Dívidas de produção restantes: agendador do job de insights (Lambda/EventBridge); Alertas/Import CSV sem UI (aguardando redesign). Sessões persistem no SQLite (T-034, endurecidas na T-046).
-- Direções dadas pelo humano: melhorar funções básicas antes de cripto/ações; sem gráficos no dashboard/home; carteira única implementada (T-050).
+- Ciclos 1–10 concluídos e mergeados (PRs #44–#102) — resumo por ciclo no `BACKLOG.md`, detalhes no `BACKLOG-ARQUIVO.md`. Suíte: 489 server + 250 web.
+- Ciclo 10: colheita do ciclo 9 (re-SELECT com `user_id` + teste-spy, rigor monetário de 2 casas decimais em todas as rotas de dinheiro, polimento da carteira única com `overrides`, higiene do web, CLI validando data) + **dash de ações** (pedido do humano): card "Projeção de ganhos" (client-side, taxa default = retorno realizado, aceita negativa) + **gráfico SVG da projeção sem lib** + barras de alocação por ticker.
+- **Diretriz atualizada (2026-07-25)**: gráficos voltaram, mas SÓ na `/dash` de ações — Home/Despesas continuam sem gráficos (decisões de 2026-07-24). Achado do spike: a coleta diária de snapshots nunca foi agendada (`catchUpIfNeeded` é código morto) → gráfico de evolução HISTÓRICA depende da T-058 (candidata do ciclo 11).
+- **Modo auto ativo** (autorização permanente do humano, 2026-07-24): após APROVADA do revisor, PR + merge automático; revisão humana a posteriori. Decisões de produto/UX → `TODO-HUMANO.md`.
+- Dívidas de produção restantes: coleta de snapshots/T-058; agendador do job de insights (Lambda/EventBridge); Alertas/Import CSV sem UI.
 
 ## Prioridade vigente
 
-**Ciclo 9 encerrado — aguardando direcionamento do humano para o ciclo 10.** Item aberto no `TODO-HUMANO.md`: P&L consolidado para base legada com 2+ carteiras (default adotado na T-050, contestável). Enquanto isso: candidatas no `BACKLOG.md` (colheita das revisões do ciclo 9) + decisões paradas (T-020/T-021).
+**Ciclo 10 encerrado — aguardando validação visual do humano (dash de ações) e direcionamento do ciclo 11.** Candidata natural: T-058 (agendar coleta + `GET /api/portfolio/history` + gráfico de evolução real). Decisões paradas: T-020/T-021, aporte mensal/CDI na projeção, editar template de recorrência.
 
 > Atualize esta seção a cada ciclo. Mudança de prioridade que envolva produto → `TODO-HUMANO.md`.
 

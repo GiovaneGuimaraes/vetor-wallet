@@ -503,3 +503,19 @@ PRs #84–#92. Suíte ao fim: 460 server + 177 web. Ondas: 1 (T-044/T-046/T-047 
 ### T-050a — Server: invariante de carteira única — PR #91. Executor Opus, revisor Opus: APROVADA, 0 bloqueantes (varredura de `wallet_id` residual zerada). `services/wallets.ts` (`getOrCreateDefaultWallet`, sem UNIQUE por causa do legado); `POST /api/wallets` → 400 com carteira existente; `DELETE` removido; `walletId` ignorado nas 3 rotas de dados (fecha buraco de posse do `wallet_id` do body); SELL contra o consolidado; `createUser` cria a padrão; canário da T-019 convertido. +11 testes.
 
 ### T-050b — Web: fluxo de carteira única — PR #92. Executor Opus, revisor Opus: APROVADA, 0 bloqueantes (traçou os 4 caminhos do auto-create; zero referências mortas). `api.ts` sem `walletId`; `walletFlow` reescrito (invariante T-027 estrutural) + `resolvePrimaryWallet`; `ShellContext`/`App` singulares; `/dash` com redirects de `/dash/:id` e `/carteiras`; removidos `CarteirasPage`/`WalletSelector`/`walletChip(+test)` (divergência consciente do precedente T-026). Suíte web 183 → 177.
+
+## Ciclo 10 — Colheita do ciclo 9 + dash de ações (projeção e gráfico) — CONCLUÍDO E MERGEADO (2026-07-25)
+
+PRs #93–#102. Suíte ao fim: 489 server + 250 web. Ondas: A1 (T-051/T-053/T-054/T-055 paralelas) → A2 (T-052) → B (T-056a/T-057a paralelas → T-056b → T-057b → T-057c, spike Plan/Opus antes).
+
+### T-051 — Re-SELECT dos PATCH com `AND user_id` + teste-spy — PR #94. Executor Sonnet, revisor Opus: APROVADA (spy validado por 2 mutações reais). 6 rotas; goals já filtrava.
+### T-052 — Rigor monetário: máx. 2 casas decimais — PR #99. Executor Sonnet, revisor Opus: APROVADA (casos adversariais contra o dist). `services/money.ts` via `toString` (única estratégia que pega 1.005); 7 rotas; `pickTransferLegs` no 201 do transfer. +27 testes.
+### T-053 — Polimento carteira única — PR #96. Executor Sonnet, revisor Opus: REPROVADA 1ª (remoção de acentos contrariava o padrão do repo — instrução equivocada do orquestrador), corrigida com design melhor (`overrides` no INSERT do service, elimina janela create→UPDATE), APROVADA.
+### T-054 — Higiene do web — PR #95. Executor Sonnet, revisor Sonnet: APROVADA. Fetch único de portfolio (hoisted p/ ShellContext), promises independentes, `shouldFetch({force})`.
+### T-055 — CLI valida data + sobras de sessões — PR #93. Executor Sonnet, revisor Sonnet: APROVADA. CLI rejeita 2026-02-30 antes do initDb.
+### Spike dash (Plan/Opus) — achado: coleta de snapshots nunca agendada (código morto, 11 linhas) → histórico inviável; adotado curva de projeção + alocação, SVG puro, client-side. T-058 (coleta+history) → candidata ciclo 11.
+### T-056a — `portfolioProjection.ts` — PR #98. Executor Sonnet, revisor Opus: APROVADA (matemática verificada por script; testes simulados em todos os dias 2024–2026). Taxa negativa aceita (> -100), taxa default = retorno geométrico realizado.
+### T-056b — Card "Projeção de ganhos" na dash — PR #100. Executor Sonnet, revisor Sonnet: APROVADA. simTouched, `resolveDefaultCurrentValue`, guarda ≤ -100.
+### T-057a — `chartGeometry.ts` — PR #97. Executor Sonnet, revisor Sonnet: APROVADA. Série ≤ 24 pts, scaleLinear, paths, ticks.
+### T-057b — `ProjectionChart.tsx` (SVG puro) — PR #101. Executor Sonnet, revisor Sonnet: APROVADA. viewBox 320×140, CSS vars (tema de graça), `computeValueDomain`, sem lib nova.
+### T-057c — Barras de alocação por ticker — PR #102. Executor Sonnet, revisor Sonnet: APROVADA. `allocationRows.ts` puro; null → "—", nunca NaN.
