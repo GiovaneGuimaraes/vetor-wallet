@@ -54,6 +54,16 @@ describe('buildAllocationRows', () => {
     expect(row.pctLabel).toBe('100,0%');
   });
 
+  // T-059: caso de valor DE FATO acima de 100 (o teste acima só cobre o
+  // limite exato) — o percentual bruto/label preservam o valor real, só a
+  // largura da barra (`pctClamped`) é limitada a 100.
+  it('clamps pct above 100 for the bar width, keeping the real value in pct/pctLabel', () => {
+    const [row] = buildAllocationRows([pos('AAA3', 142.7)]);
+    expect(row.pct).toBe(142.7);
+    expect(row.pctClamped).toBe(100);
+    expect(row.pctLabel).toBe('142,7%');
+  });
+
   it('does not mutate the input array', () => {
     const positions = [pos('AAA3', 10), pos('BBB3', 90)];
     buildAllocationRows(positions);

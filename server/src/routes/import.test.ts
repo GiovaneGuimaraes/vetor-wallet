@@ -161,6 +161,22 @@ describe('import routes — CSV SELL validation', () => {
     expect(res.body.errors[1].error).toMatch(/preço inválido/);
   });
 
+  // T-059: mesmo padrão da T-052 (isValidMoneyAmount), agora também no CSV.
+  it('rejects a row with price with more than 2 decimal places, importing the other valid rows', async () => {
+    const csv = [
+      'ticker,type,quantity,price,date',
+      'BBAS3,BUY,10,20,2026-04-01', // valid
+      'BBAS3,BUY,5,20.125,2026-04-02', // 3 decimal places — rejected
+    ].join('\n');
+
+    const res = await agentA.post('/api/import').type('text/csv').send(csv);
+    expect(res.status).toBe(200);
+    expect(res.body.imported).toBe(1);
+    expect(res.body.errors).toHaveLength(1);
+    expect(res.body.errors[0]).toMatchObject({ line: 3 });
+    expect(res.body.errors[0].error).toMatch(/2 casas decimais/);
+  });
+
   // T-043: uma data com formato válido mas inexistente no calendário é
   // rejeitada linha a linha, igual às demais validações de linha.
   it('rejects a row with a nonexistent calendar date (2026-02-30) while importing the other valid rows', async () => {

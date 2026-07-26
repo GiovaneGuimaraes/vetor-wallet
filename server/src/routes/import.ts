@@ -7,6 +7,7 @@ import { buildPositionMap, applyOperation, wouldExceedPosition } from '../servic
 import { getUnknownTickers } from '../services/tickers';
 import { isValidIsoDate } from '../services/dates';
 import { getOrCreateDefaultWallet } from '../services/wallets';
+import { isValidMoneyAmount, moneyDecimalsError } from '../services/money';
 import type { NewOperation, CsvRowError, CsvImportResult, Operation } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -44,6 +45,8 @@ function parseRows(body: string): { rows: ParsedRow[]; errors: CsvRowError[] } {
     if (!Number.isFinite(quantity) || quantity <= 0) colErrors.push('quantidade inválida');
     const price = parseFloat(priceStr);
     if (!Number.isFinite(price) || price <= 0) colErrors.push('preço inválido');
+    // T-059: mesmo padrão da T-052 (isValidMoneyAmount), aplicado a price no CSV.
+    else if (!isValidMoneyAmount(price)) colErrors.push(moneyDecimalsError('price'));
     if (!isValidIsoDate(date)) colErrors.push('data inválida (use YYYY-MM-DD)');
 
     if (colErrors.length > 0) {

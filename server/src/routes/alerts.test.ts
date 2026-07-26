@@ -72,6 +72,25 @@ describe('alerts routes', () => {
     expect(res.status).toBe(400);
   });
 
+  // Ordem das validações (sugestão da T-052): threshold <= 0 responde com a
+  // mensagem antiga ("maior que 0"), não a de casas decimais — a checagem de
+  // sinal/finitude roda ANTES da de granularidade.
+  it('rejects threshold <= 0 with the "maior que 0" message, not the decimals one', async () => {
+    const res = await agentA.post('/api/alerts').send({ ticker: 'PETR4', type: 'PRICE_ABOVE', threshold: -1 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/maior que 0/);
+    expect(res.body.error).not.toMatch(/casas decimais/);
+  });
+
+  // T-059: mesmo padrão da T-052 (isValidMoneyAmount), agora também em threshold.
+  it('rejects threshold with more than 2 decimal places (400)', async () => {
+    const res = await agentA
+      .post('/api/alerts')
+      .send({ ticker: 'PETR4', type: 'PRICE_ABOVE', threshold: 0.125 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/2 casas decimais/);
+  });
+
   it('rejects creation with non-finite threshold (Infinity) (400)', async () => {
     const res = await agentA
       .post('/api/alerts')

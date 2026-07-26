@@ -5,6 +5,7 @@ import { requireAuth } from '../auth/middleware';
 import { buildPositionMap, wouldExceedPosition } from '../services/portfolio';
 import { isValidIsoDate } from '../services/dates';
 import { getOrCreateDefaultWallet } from '../services/wallets';
+import { isValidMoneyAmount, moneyDecimalsError } from '../services/money';
 import type { NewOperation, Operation } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -50,6 +51,11 @@ router.post(
       res.status(400).json({ error: 'price deve ser maior que 0' });
       return;
     }
+    // T-059: mesmo padrão da T-052 (isValidMoneyAmount), aplicado a price.
+    if (!isValidMoneyAmount(price)) {
+      res.status(400).json({ error: moneyDecimalsError('price') });
+      return;
+    }
     if (!date || !isValidIsoDate(date)) {
       res.status(400).json({ error: 'date invalida (use YYYY-MM-DD)' });
       return;
@@ -78,9 +84,10 @@ router.post(
     });
 
     const newId = insert.lastInsertRowid ?? 0;
+    // Re-SELECT também filtrado por user_id (T-059, simetria com o PATCH — T-051).
     const row = await db.execute({
-      sql: 'SELECT * FROM operations WHERE id = ?',
-      args: [Number(newId)],
+      sql: 'SELECT * FROM operations WHERE id = ? AND user_id = ?',
+      args: [Number(newId), userId],
     });
     res.status(201).json(row.rows[0]);
   }),

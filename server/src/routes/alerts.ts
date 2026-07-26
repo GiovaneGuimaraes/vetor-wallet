@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { isValidMoneyAmount, moneyDecimalsError } from '../services/money';
 import type { NewAlertRule } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -38,6 +39,11 @@ router.post(
     }
     if (threshold === undefined || typeof threshold !== 'number' || !Number.isFinite(threshold) || threshold <= 0) {
       res.status(400).json({ error: 'threshold deve ser maior que 0' });
+      return;
+    }
+    // T-059: mesmo padrão da T-052 (isValidMoneyAmount), aplicado a threshold.
+    if (!isValidMoneyAmount(threshold)) {
+      res.status(400).json({ error: moneyDecimalsError('threshold') });
       return;
     }
 
