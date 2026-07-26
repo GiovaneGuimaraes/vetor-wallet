@@ -6,8 +6,17 @@ import { getPreviousCloseSnapshots, getBRTDate } from '../services/snapshots';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import type { Operation } from '@vetor-wallet/shared';
+import {
+  buildDateWindow,
+  buildPortfolioHistory,
+  type SnapshotPoint,
+} from '../services/portfolioHistory';
 
 const router = Router();
+
+const DEFAULT_HISTORY_DAYS = 90;
+const MAX_HISTORY_DAYS = 365;
+const historyDaysError = `days inválido (use um inteiro entre 1 e ${MAX_HISTORY_DAYS})`;
 
 router.get(
   '/',
@@ -38,6 +47,70 @@ router.get(
     const summary = buildPortfolioSummary(positionMap, quotes, failed, previousCloses);
 
     res.json(summary);
+  }),
+);
+
+// T-058a: série histórica valor × custo, um ponto por dia da janela. Precisa
+// vir depois de `GET /` (não há `/:id` neste router, então não há conflito de
+// rota — mas mantém a ordem óbvia de leitura).
+router.get(
+  '/history',
+  requireAuth,
+  asyncHandler(async (req: Request, res: Response) => {
+    const userId = res.locals.userId as number;
+    const rawDays = req.query.days;
+
+    let days = DEFAULT_HISTORY_DAYS;
+    if (rawDays !== undefined) {
+      // Mesmo padrão do `?months=` de `/api/expense-entries/summary`: só
+      // inteiro decimal — `1.5`, `-1` e `abc` caem aqui antes do range.
+      if (typeof rawDays !== 'string' || !/^\d+$/.test(rawDays)) {
+        res.status(400).json({ error: historyDaysError });
+        return;
+      }
+      days = Number(rawDays);
+      if (days < 1 || days > MAX_HISTORY_DAYS) {
+        res.status(400).json({ error: historyDaysError });
+        return;
+      }
+    }
+
+    // Mesma âncora de "hoje" usada pelo P&L do dia em `GET /` — data BRT, não UTC.
+    const endDate = getBRTDate().toISOString().split('T')[0];
+    const dates = buildDateWindow(endDate, days);
+
+    const opsResult = await db.execute({
+      sql: `SELECT * FROM operations
+            WHERE user_id = ? AND date <= ?
+            ORDER BY date ASC, created_at ASC`,
+      args: [userId, endDate],
+    });
+    const ops = opsResult.rows as unknown as Operation[];
+
+    // O isolamento por usuário mora aqui, nas operações: `quote_snapshots` não
+    // tem `user_id` (preço de fechamento é global) e só é consultada para os
+    // tickers que o próprio usuário já operou.
+    const tickers = [...new Set(ops.map((op) => op.ticker))];
+
+    let snapshots: SnapshotPoint[] = [];
+    if (tickers.length > 0) {
+      // Sem piso de data: o forward-fill do primeiro dia da janela precisa do
+      // último fechamento ANTERIOR a ela como base.
+      const placeholders = tickers.map(() => '?').join(',');
+      const snapResult = await db.execute({
+        sql: `SELECT ticker, date(captured_at) AS date, price FROM quote_snapshots
+              WHERE ticker IN (${placeholders}) AND date(captured_at) <= ?
+              ORDER BY captured_at ASC`,
+        args: [...tickers, endDate],
+      });
+      snapshots = snapResult.rows.map((row) => ({
+        ticker: String(row.ticker),
+        date: String(row.date),
+        price: Number(row.price),
+      }));
+    }
+
+    res.json({ points: buildPortfolioHistory(ops, snapshots, dates) });
   }),
 );
 
