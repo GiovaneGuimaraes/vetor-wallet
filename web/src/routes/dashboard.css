@@ -71,3 +71,55 @@
 .vw-projection-chart-wrap svg {
   display: block;
 }
+
+/* ------------------------------------------------------------------ */
+/* Barras de alocação por ticker (T-057c)                               */
+/*                                                                      */
+/* Classes próprias em vez de reusar `.vw-budget-progress-*` de         */
+/* `layers.css`: mesmo padrão visual (barra fina, trilha em              */
+/* --color-edge, preenchimento em --color-accent), mas a dash não       */
+/* deveria acoplar seu CSS ao de layers/orçamento — são domínios sem     */
+/* relação, e um redesign futuro de um não deve arriscar o outro.       */
+/* ------------------------------------------------------------------ */
+
+.vw-alloc-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 22px;
+}
+
+.vw-alloc-ticker {
+  flex: 0 0 84px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.vw-alloc-bar-col {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.vw-alloc-track {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--color-edge);
+  overflow: hidden;
+}
+
+.vw-alloc-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--color-accent);
+  transition: width 0.3s ease;
+}
+
+.vw-alloc-pct {
+  flex: 0 0 56px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-dim);
+  font-variant-numeric: tabular-nums;
+}
