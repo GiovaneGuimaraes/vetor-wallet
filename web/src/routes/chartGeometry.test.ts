@@ -3,6 +3,7 @@ import {
   buildAreaPath,
   buildLinePath,
   buildProjectionSeries,
+  computeValueDomain,
   MAX_SERIES_POINTS,
   pickTicks,
   scaleLinear,
@@ -116,6 +117,33 @@ describe('scaleLinear', () => {
     expect(scale(500)).toBe(100);
     expect(scale(0)).toBe(100);
     expect(scale(9999)).toBe(100);
+  });
+});
+
+describe('computeValueDomain', () => {
+  it('spans min/max of values plus baseline, with a 10% padding', () => {
+    const domain = computeValueDomain([1000, 1010, 1020.1], 1000);
+    const range = 1020.1 - 1000;
+    expect(domain.min).toBeCloseTo(1000 - range * 0.1, 6);
+    expect(domain.max).toBeCloseTo(1020.1 + range * 0.1, 6);
+  });
+
+  it('always includes the baseline even if outside the values range', () => {
+    const domain = computeValueDomain([500, 600], 100);
+    expect(domain.min).toBeLessThanOrEqual(100);
+    expect(domain.max).toBeGreaterThanOrEqual(600);
+  });
+
+  it('pads a degenerate (flat) range proportionally to a non-zero baseline', () => {
+    const domain = computeValueDomain([1000, 1000, 1000], 1000);
+    expect(domain.min).toBeCloseTo(900, 6);
+    expect(domain.max).toBeCloseTo(1100, 6);
+  });
+
+  it('falls back to the minimum absolute padding when the baseline is 0', () => {
+    const domain = computeValueDomain([0, 0], 0);
+    expect(domain.min).toBe(-1);
+    expect(domain.max).toBe(1);
   });
 });
 
