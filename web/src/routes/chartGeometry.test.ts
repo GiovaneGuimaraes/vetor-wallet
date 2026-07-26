@@ -8,6 +8,7 @@ import {
   pickTicks,
   scaleLinear,
 } from './chartGeometry';
+import { projectPortfolio } from './portfolioProjection';
 
 describe('buildProjectionSeries', () => {
   it('projects with a positive rate (compound growth)', () => {
@@ -94,6 +95,76 @@ describe('buildProjectionSeries', () => {
 
   it('returns [] when the composition overflows number range', () => {
     expect(buildProjectionSeries(1e300, 1000, 500)).toEqual([]);
+  });
+
+  // ---------------------------------------------------------------------
+  // T-062 — aporte mensal recorrente
+  // ---------------------------------------------------------------------
+
+  it('T-062: aporte ausente é idêntico a aporte 0 (retrocompatibilidade)', () => {
+    expect(buildProjectionSeries(1000, 1, 12, 0)).toEqual(buildProjectionSeries(1000, 1, 12));
+    expect(buildProjectionSeries(1000, -10, 2, 0)).toEqual(buildProjectionSeries(1000, -10, 2));
+  });
+
+  it('T-062: incorpora o aporte ponto a ponto (anuidade ordinária)', () => {
+    // Mês 0 não tem aporte nenhum; o aporte do mês m entra no fim dele.
+    expect(buildProjectionSeries(1000, 10, 2, 100)).toEqual([
+      { month: 0, value: 1000 },
+      { month: 1, value: 1200 }, // 1000×1,1 + 100
+      { month: 2, value: 1420 }, // 1200×1,1 + 100
+    ]);
+  });
+
+  it('T-062: taxa 0 com aporte cresce em linha reta', () => {
+    expect(buildProjectionSeries(500, 0, 3, 50)).toEqual([
+      { month: 0, value: 500 },
+      { month: 1, value: 550 },
+      { month: 2, value: 600 },
+      { month: 3, value: 650 },
+    ]);
+  });
+
+  it('T-062: valor atual 0 com aporte > 0 gera série válida', () => {
+    expect(buildProjectionSeries(0, 10, 2, 100)).toEqual([
+      { month: 0, value: 0 },
+      { month: 1, value: 100 },
+      { month: 2, value: 210 },
+    ]);
+  });
+
+  it('T-062: rejeita aporte negativo ou não finito', () => {
+    expect(buildProjectionSeries(1000, 1, 12, -1)).toEqual([]);
+    expect(buildProjectionSeries(1000, 1, 12, Number.NaN)).toEqual([]);
+    expect(buildProjectionSeries(1000, 1, 12, Number.POSITIVE_INFINITY)).toEqual([]);
+  });
+
+  it('T-062: último ponto da série == futureValue de projectPortfolio (fonte única)', () => {
+    const cases: Array<[number, number, number, number]> = [
+      [1000, 1, 12, 100],
+      [1000, 1, 12, 0],
+      [0, 0.8, 36, 250],
+      [5000, -1.5, 24, 300],
+      [1234.56, 0.87, 120, 321.99], // prazo longo → série reamostrada
+      [2500, 0, 18, 125],
+    ];
+    for (const [value, rate, months, contribution] of cases) {
+      const series = buildProjectionSeries(value, rate, months, contribution);
+      const projection = projectPortfolio(value, rate, months, contribution);
+      expect(projection).not.toBeNull();
+      expect(series.length).toBeGreaterThan(0);
+      const last = series[series.length - 1];
+      expect(last.month).toBe(months);
+      expect(last.value).toBe(projection!.futureValue);
+      // E o primeiro ponto é sempre o valor de partida (mês 0, sem aporte).
+      expect(series[0]).toEqual({ month: 0, value: Math.round(value * 100) / 100 });
+    }
+  });
+
+  it('T-062: série vazia quando projectPortfolio rejeita a entrada com aporte', () => {
+    // A validação da série é a do próprio projectPortfolio — não há um segundo
+    // conjunto de regras aqui.
+    expect(buildProjectionSeries(0, 100, 5000, 100)).toEqual([]);
+    expect(projectPortfolio(0, 100, 5000, 100)).toBeNull();
   });
 });
 

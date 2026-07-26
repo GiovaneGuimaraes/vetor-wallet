@@ -55,15 +55,27 @@ function makeSummary(
 describe('projectPortfolio', () => {
   it('aplica juros compostos mensais', () => {
     // 1000 × 1,01^12 = 1126,825…
-    expect(projectPortfolio(1000, 1, 12)).toEqual({ futureValue: 1126.83, totalGain: 126.83 });
+    expect(projectPortfolio(1000, 1, 12)).toEqual({
+      futureValue: 1126.83,
+      totalGain: 126.83,
+      totalContributed: 0,
+    });
   });
 
   it('prazo 0 devolve o próprio valor atual e ganho zero', () => {
-    expect(projectPortfolio(1000, 0.9, 0)).toEqual({ futureValue: 1000, totalGain: 0 });
+    expect(projectPortfolio(1000, 0.9, 0)).toEqual({
+      futureValue: 1000,
+      totalGain: 0,
+      totalContributed: 0,
+    });
   });
 
   it('taxa 0 não altera o valor em nenhum prazo', () => {
-    expect(projectPortfolio(2500, 0, 36)).toEqual({ futureValue: 2500, totalGain: 0 });
+    expect(projectPortfolio(2500, 0, 36)).toEqual({
+      futureValue: 2500,
+      totalGain: 0,
+      totalContributed: 0,
+    });
   });
 
   it('taxa negativa projeta perda (divergência deliberada da T-040)', () => {
@@ -75,11 +87,19 @@ describe('projectPortfolio', () => {
   });
 
   it('valor atual 0 é simulação válida e não rende nada, mesmo com taxa negativa', () => {
-    expect(projectPortfolio(0, -50, 24)).toEqual({ futureValue: 0, totalGain: 0 });
+    expect(projectPortfolio(0, -50, 24)).toEqual({
+      futureValue: 0,
+      totalGain: 0,
+      totalContributed: 0,
+    });
   });
 
   it('curto-circuita valor atual 0 mesmo com taxa/prazo extremos que estourariam Math.pow', () => {
-    expect(projectPortfolio(0, 100, 5000)).toEqual({ futureValue: 0, totalGain: 0 });
+    expect(projectPortfolio(0, 100, 5000)).toEqual({
+      futureValue: 0,
+      totalGain: 0,
+      totalContributed: 0,
+    });
   });
 
   it('rejeita taxa -100 e abaixo', () => {
@@ -120,6 +140,99 @@ describe('projectPortfolio', () => {
     expect(result).not.toBeNull();
     expect(result!.futureValue).toBeGreaterThan(1000);
     expect(Number.isFinite(result!.futureValue)).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------
+  // T-062 — aporte mensal recorrente
+  // ---------------------------------------------------------------------
+
+  it('T-062: aporte ausente é idêntico a aporte 0 (retrocompatibilidade)', () => {
+    expect(projectPortfolio(1000, 1, 12, 0)).toEqual(projectPortfolio(1000, 1, 12));
+    expect(projectPortfolio(0, -50, 24, 0)).toEqual(projectPortfolio(0, -50, 24));
+    expect(projectPortfolio(2500, 0, 36, 0)).toEqual(projectPortfolio(2500, 0, 36));
+  });
+
+  it('T-062: aporte > 0 compõe pela anuidade ordinária', () => {
+    expect(projectPortfolio(1000, 1, 12, 100)).toEqual({
+      futureValue: 2395.08,
+      totalGain: 195.08,
+      totalContributed: 1200,
+    });
+  });
+
+  it('T-062: taxa 0 com aporte devolve VP + A × n, sem ganho', () => {
+    expect(projectPortfolio(2500, 0, 12, 250)).toEqual({
+      futureValue: 5500,
+      totalGain: 0,
+      totalContributed: 3000,
+    });
+  });
+
+  it('T-062: valor atual 0 com aporte > 0 é simulação válida (não devolve null)', () => {
+    expect(projectPortfolio(0, 1, 12, 100)).toEqual({
+      futureValue: 1268.25,
+      totalGain: 68.25,
+      totalContributed: 1200,
+    });
+  });
+
+  it('T-062: taxa NEGATIVA com aporte não produz NaN/Infinity', () => {
+    // A fórmula da anuidade com i < 0 é matematicamente válida: numerador e
+    // denominador são ambos negativos, então o termo do aporte é positivo — e
+    // menor que A × n, porque cada aporte encolhe até o fim do prazo.
+    // 1000 × 0,99^12 = 886,3848… ; 100 × (0,99^12 − 1)/(−0,01) = 1136,1512…
+    const result = projectPortfolio(1000, -1, 12, 100);
+    expect(result).toEqual({
+      futureValue: 2022.54,
+      totalGain: -177.46,
+      totalContributed: 1200,
+    });
+    expect(Number.isFinite(result!.futureValue)).toBe(true);
+    // O aporte perde valor: o "ganho" é negativo mesmo tendo entrado dinheiro.
+    expect(result!.futureValue).toBeLessThan(1000 + 1200);
+  });
+
+  it('T-062: taxa negativa extrema (perto de -100%) com aporte segue finita', () => {
+    const result = projectPortfolio(1000, -99.99, 24, 500);
+    expect(result).not.toBeNull();
+    expect(Number.isFinite(result!.futureValue)).toBe(true);
+    expect(Number.isFinite(result!.totalGain)).toBe(true);
+    // Com queda quase total mensal, só o aporte do último mês sobrevive.
+    expect(result!.futureValue).toBeGreaterThan(0);
+    expect(result!.totalGain).toBeLessThan(0);
+  });
+
+  it('T-062: prazo 0 com aporte não aporta nada', () => {
+    expect(projectPortfolio(1000, 0.9, 0, 500)).toEqual({
+      futureValue: 1000,
+      totalGain: 0,
+      totalContributed: 0,
+    });
+  });
+
+  it('T-062: mantém atual + aportes + ganho = valor futuro em centavos', () => {
+    const result = projectPortfolio(1234.56, -0.87, 7, 321.99);
+    expect(result).not.toBeNull();
+    const { futureValue, totalGain, totalContributed } = result!;
+    expect(futureValue).toBe(Math.round(futureValue * 100) / 100);
+    expect(totalGain).toBe(Math.round(totalGain * 100) / 100);
+    expect(totalContributed).toBe(Math.round(321.99 * 7 * 100) / 100);
+    expect(Math.round((1234.56 + totalContributed + totalGain) * 100)).toBe(
+      Math.round(futureValue * 100),
+    );
+  });
+
+  it('T-062: rejeita aporte negativo ou não finito', () => {
+    // Aporte negativo seria uma retirada mensal — cenário fora do escopo do
+    // simulador, e a assimetria com a TAXA (que pode ser negativa) é
+    // deliberada.
+    expect(projectPortfolio(1000, 1, 12, -1)).toBeNull();
+    expect(projectPortfolio(1000, 1, 12, Number.NaN)).toBeNull();
+    expect(projectPortfolio(1000, 1, 12, Number.POSITIVE_INFINITY)).toBeNull();
+  });
+
+  it('T-062: com aporte > 0 o estouro de number volta a devolver null mesmo com valor atual 0', () => {
+    expect(projectPortfolio(0, 100, 5000, 100)).toBeNull();
   });
 });
 

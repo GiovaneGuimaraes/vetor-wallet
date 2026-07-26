@@ -1,3 +1,5 @@
+import { projectPortfolio } from './portfolioProjection';
+
 /**
  * Matemática pura do gráfico de projeção de ações em `/dash` (T-057a).
  *
@@ -7,10 +9,13 @@
  * React+router e o custo de uma lib inteira não se justifica para uma linha
  * de projeção composta.
  *
- * `buildProjectionSeries` usa a MESMA fórmula de juros compostos mensais do
- * simulador de poupança (T-040, `savingsProjection.ts`: `VF = VP × (1 + i)^m`)
- * e é pensada para ter assinatura compatível com `projectPortfolio` (T-056a,
- * em implementação paralela) — mesmas validações de entrada inválida.
+ * `buildProjectionSeries` **delega o cálculo de cada ponto a
+ * `projectPortfolio`** (`portfolioProjection.ts`, T-056a) desde a T-062, em vez
+ * de repetir a fórmula: com o aporte mensal recorrente entrando na conta, ter
+ * duas cópias da fórmula composta (uma para os números do card, outra para a
+ * linha do gráfico) seria duas fontes de verdade que divergiriam na primeira
+ * mudança. As validações de entrada e a guarda de overflow vêm de graça pelo
+ * mesmo caminho.
  */
 
 /** Ponto da série de projeção: mês (0..N) e valor projetado naquele mês. */
@@ -32,11 +37,6 @@ export interface ChartPoint {
  * embutido como uma lib de gráficos teria.
  */
 export const MAX_SERIES_POINTS = 24;
-
-/** Arredondamento em centavos, mesmo padrão dos valores monetários do app. */
-function roundCents(value: number): number {
-  return Math.round(value * 100) / 100;
-}
 
 /**
  * Escolhe os índices de mês (0..months) a materializar na série, no máximo
@@ -61,7 +61,13 @@ function resampleMonthIndices(months: number, maxPoints: number): number[] {
 
 /**
  * Constrói a série mês 0..N da projeção composta do valor de mercado da
- * carteira, por juros compostos mensais (`VP × (1 + i)^m`).
+ * carteira, com aporte mensal recorrente opcional (T-062).
+ *
+ * Cada ponto do mês `m` é exatamente `projectPortfolio(currentValue,
+ * monthlyRatePct, m, monthlyContribution).futureValue` — a MESMA função que
+ * produz os números do card, chamada com o prazo parcial. Consequência
+ * desejada: o último ponto da série é sempre igual ao `futureValue` exibido
+ * (coberto por teste), e nenhuma fórmula é duplicada aqui.
  *
  * @param currentValue valor atual da carteira (R$), deve ser finito e ≥ 0
  * @param monthlyRatePct taxa mensal em pontos percentuais; **negativa é
@@ -70,10 +76,14 @@ function resampleMonthIndices(months: number, maxPoints: number): number[] {
  *   uma projeção de mercado sensata)
  * @param months prazo em meses, inteiro ≥ 0 (0 = série de 1 ponto, sem
  *   nenhuma composição)
+ * @param monthlyContribution aporte mensal em reais, ≥ 0 (default `0`, o
+ *   comportamento pré-T-062)
  *
- * Entrada inválida (não finita, `currentValue` negativo, taxa ≤ -100,
- * `months` não inteiro ou negativo, ou estouro de `number` na composição)
- * devolve série **vazia** `[]` — nunca `NaN` num ponto do gráfico.
+ * Entrada inválida (não finita, `currentValue`/`monthlyContribution`
+ * negativos, taxa ≤ -100, `months` não inteiro ou negativo, ou estouro de
+ * `number` na composição) devolve série **vazia** `[]` — nunca `NaN` num ponto
+ * do gráfico. A validação é a do próprio `projectPortfolio`: se o prazo cheio
+ * não produz projeção, não há série para desenhar.
  *
  * Séries longas são reamostradas para no máximo {@link MAX_SERIES_POINTS}
  * pontos (ver {@link resampleMonthIndices}), sempre preservando mês 0 e mês N.
@@ -82,19 +92,22 @@ export function buildProjectionSeries(
   currentValue: number,
   monthlyRatePct: number,
   months: number,
+  monthlyContribution = 0,
 ): ProjectionPoint[] {
-  if (!Number.isFinite(currentValue) || currentValue < 0) return [];
-  if (!Number.isFinite(monthlyRatePct) || monthlyRatePct <= -100) return [];
-  if (!Number.isInteger(months) || months < 0) return [];
+  // Uma única chamada com o prazo cheio valida os quatro argumentos e detecta
+  // overflow no ponto mais extremo da série antes de materializar nada.
+  if (projectPortfolio(currentValue, monthlyRatePct, months, monthlyContribution) === null) {
+    return [];
+  }
 
-  const rate = monthlyRatePct / 100;
   const monthIndices = resampleMonthIndices(months, MAX_SERIES_POINTS);
-
   const series: ProjectionPoint[] = [];
   for (const month of monthIndices) {
-    const raw = currentValue * Math.pow(1 + rate, month);
-    if (!Number.isFinite(raw)) return [];
-    series.push({ month, value: roundCents(raw) });
+    // Um mês intermediário pode estourar mesmo com o prazo cheio válido? Não,
+    // mas a checagem é barata e mantém a promessa de nunca emitir `NaN`.
+    const point = projectPortfolio(currentValue, monthlyRatePct, month, monthlyContribution);
+    if (point === null) return [];
+    series.push({ month, value: point.futureValue });
   }
   return series;
 }
