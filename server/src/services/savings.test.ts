@@ -3,6 +3,7 @@ import {
   computeBalance,
   computeFreeBalance,
   computeReservedTotal,
+  pickTransferLegs,
   sumReservedByGoal,
   toCents,
   type SavingsBalanceEntry,
@@ -15,6 +16,38 @@ function entry(
 ): SavingsBalanceEntry {
   return { type, amount, goal_id };
 }
+
+describe('pickTransferLegs (T-052)', () => {
+  it('returns the withdraw/deposit rows when both are present', () => {
+    const rows = [
+      { id: 1, type: 'WITHDRAW' },
+      { id: 2, type: 'DEPOSIT' },
+    ];
+    const { withdraw, deposit } = pickTransferLegs(rows, 1, 2);
+    expect(withdraw).toEqual({ id: 1, type: 'WITHDRAW' });
+    expect(deposit).toEqual({ id: 2, type: 'DEPOSIT' });
+  });
+
+  it('throws when the withdraw leg is missing', () => {
+    const rows = [{ id: 2, type: 'DEPOSIT' }];
+    expect(() => pickTransferLegs(rows, 1, 2)).toThrow(
+      'transferência gravada sem as duas pernas',
+    );
+  });
+
+  it('throws when the deposit leg is missing', () => {
+    const rows = [{ id: 1, type: 'WITHDRAW' }];
+    expect(() => pickTransferLegs(rows, 1, 2)).toThrow(
+      'transferência gravada sem as duas pernas',
+    );
+  });
+
+  it('throws when both legs are missing', () => {
+    expect(() => pickTransferLegs([], 1, 2)).toThrow(
+      'transferência gravada sem as duas pernas',
+    );
+  });
+});
 
 describe('toCents', () => {
   it('converts reais to integer cents', () => {

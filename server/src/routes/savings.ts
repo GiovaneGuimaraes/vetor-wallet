@@ -3,8 +3,9 @@ import { randomUUID } from 'crypto';
 import { db } from '../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
-import { computeFreeBalance, toCents } from '../services/savings';
+import { computeFreeBalance, pickTransferLegs, toCents } from '../services/savings';
 import { isValidIsoDate } from '../services/dates';
+import { isValidMoneyAmount, moneyDecimalsError } from '../services/money';
 import type {
   NewSavingsEntry,
   SavingsEntryType,
@@ -69,6 +70,10 @@ router.post(
     }
     if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
       res.status(400).json({ error: 'amount deve ser um número maior que 0' });
+      return;
+    }
+    if (!isValidMoneyAmount(amount)) {
+      res.status(400).json({ error: moneyDecimalsError() });
       return;
     }
     if (!date || !isValidIsoDate(date)) {
@@ -154,6 +159,10 @@ router.post(
       res.status(400).json({ error: 'amount deve ser um número maior que 0' });
       return;
     }
+    if (!isValidMoneyAmount(amount)) {
+      res.status(400).json({ error: moneyDecimalsError() });
+      return;
+    }
     if (!date || typeof date !== 'string' || !isValidIsoDate(date)) {
       res.status(400).json({ error: 'date inválida (use YYYY-MM-DD)' });
       return;
@@ -217,16 +226,21 @@ router.post(
 
     const withdrawId = Number(withdrawResult.lastInsertRowid ?? 0);
     const depositId = Number(depositResult.lastInsertRowid ?? 0);
+    // Filtrado por user_id por simetria com o re-SELECT do PATCH (T-051) —
+    // os ids vêm do próprio batch acima (já seguro na prática), mas custa um
+    // arg a mais e fecha a mesma classe de achado por consistência.
     const rows = await db.execute({
-      sql: 'SELECT * FROM savings_entries WHERE id IN (?, ?)',
-      args: [withdrawId, depositId],
+      sql: 'SELECT * FROM savings_entries WHERE id IN (?, ?) AND user_id = ?',
+      args: [withdrawId, depositId, userId],
     });
     const created = rows.rows as unknown as SavingsEntry[];
 
     // As duas linhas foram gravadas no mesmo batch logo acima, então ambas
-    // existem — a não-nulidade aqui é garantida pela transação, não checada.
-    const withdraw = created.find((entry) => Number(entry.id) === withdrawId) as SavingsEntry;
-    const deposit = created.find((entry) => Number(entry.id) === depositId) as SavingsEntry;
+    // deveriam existir — mas em vez de assumir isso com `as SavingsEntry`
+    // (T-052), `pickTransferLegs` lança se alguma faltar, e o `errorHandler`
+    // converte isso em 500 diagnosticável em vez de um 201 com `undefined`
+    // numa das pernas.
+    const { withdraw, deposit } = pickTransferLegs(created, withdrawId, depositId);
     const result: SavingsTransferResult = { withdraw, deposit };
     res.status(201).json(result);
   }),
@@ -273,6 +287,10 @@ router.patch(
       (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0)
     ) {
       res.status(400).json({ error: 'amount deve ser um número maior que 0' });
+      return;
+    }
+    if (amount !== undefined && !isValidMoneyAmount(amount)) {
+      res.status(400).json({ error: moneyDecimalsError() });
       return;
     }
     if (date !== undefined && (typeof date !== 'string' || !isValidIsoDate(date))) {

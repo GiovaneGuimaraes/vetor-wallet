@@ -143,6 +143,14 @@ describe('expense entries routes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects amount with more than 2 decimal places (400) (T-052)', async () => {
+    const res = await agentA
+      .post('/api/expense-entries')
+      .send({ description: 'Padaria', amount: 0.125, date: '2026-07-01' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/2 casas decimais/);
+  });
+
   it('rejects missing or malformed date (400)', async () => {
     const missing = await agentA
       .post('/api/expense-entries')
@@ -312,6 +320,13 @@ describe('expense entries routes', () => {
         .set('Content-Type', 'application/json')
         .send('{"amount":1e999}');
       expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with amount with more than 2 decimal places (400) (T-052)', async () => {
+      const id = await newEntry();
+      const res = await agentA.patch(`/api/expense-entries/${id}`).send({ amount: 1.005 });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/2 casas decimais/);
     });
 
     it('rejects PATCH with malformed date (400)', async () => {

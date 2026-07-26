@@ -88,6 +88,14 @@ describe('income routes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects creation with amount with more than 2 decimal places (400) (T-052)', async () => {
+    const res = await agentA
+      .post('/api/income')
+      .send({ name: 'Salário', type: 'SALARIO', amount: 0.125 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/2 casas decimais/);
+  });
+
   it('creates an income source', async () => {
     const res = await agentA.post('/api/income').send({ name: 'Salário CLT', type: 'SALARIO', amount: 5000 });
     expect(res.status).toBe(201);
@@ -196,6 +204,13 @@ describe('income routes', () => {
       const id = await newSource();
       const res = await agentA.patch(`/api/income/${id}`).send({ amount: 'abc' });
       expect(res.status).toBe(400);
+    });
+
+    it('rejects PATCH with amount with more than 2 decimal places (400) (T-052)', async () => {
+      const id = await newSource();
+      const res = await agentA.patch(`/api/income/${id}`).send({ amount: 1.234 });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/2 casas decimais/);
     });
 
     it('returns 404 when patching another user income source', async () => {

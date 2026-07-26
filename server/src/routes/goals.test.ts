@@ -125,6 +125,29 @@ describe('goals routes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects creation with target_amount with more than 2 decimal places (400) (T-052)', async () => {
+    const res = await agentA.post('/api/goals').send({ name: 'Viagem', target_amount: 0.125 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/2 casas decimais/);
+  });
+
+  it('rejects creation with current_amount with more than 2 decimal places (400) (T-052)', async () => {
+    const res = await agentA
+      .post('/api/goals')
+      .send({ name: 'Viagem', target_amount: 1000, current_amount: 1.234 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/2 casas decimais/);
+  });
+
+  it('rejects PATCH with target_amount with more than 2 decimal places (400) (T-052)', async () => {
+    const created = await agentA.post('/api/goals').send({ name: 'Patch decimais', target_amount: 3000 });
+    const id = created.body.id;
+
+    const res = await agentA.patch(`/api/goals/${id}`).send({ target_amount: 1.005 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/2 casas decimais/);
+  });
+
   it('creates a goal', async () => {
     const res = await agentA.post('/api/goals').send({ name: 'Viagem', target_amount: 5000 });
     expect(res.status).toBe(201);
