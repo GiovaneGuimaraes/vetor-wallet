@@ -10,24 +10,23 @@ Carteira financeira pessoal para um único usuário real (Giovane), organizada e
 - **Monorepo pnpm**: `shared` (tipos, types-only), `server` (Express + libsql, SQL puro), `web` (Vite + React), `cli` (job de insights horários).
 - **Testes**: Vitest no `server` e no `web` (funções puras, ambiente node). Contagem atual da suíte: ver "Estado atual" abaixo (evita número duplicado desatualizando aqui).
 
-## Estado atual (2026-07-25, fim do ciclo 12)
+## Estado atual (2026-07-26, fim do ciclo 13)
 
-- Ciclo 12 (PR #106): card "Preço por ação" na `/dash` — seletor de ticker + janela 30/90/365, linha do fechamento (snapshots) + referência do preço médio de compra do usuário. Suíte: 532 server + 283 web.
+- Ciclo 13 (PRs #107–#109): **agendador in-process da coleta de snapshots** (`snapshotScheduler.ts`, tick de 30 min reexecutando `catchUpIfNeeded` — o boot deixou de ser o único gatilho; segue in-process, morre com o processo), **aporte mensal recorrente nas duas projeções** (poupança e dash — anuidade ordinária, `totalContributed` no resultado, `buildProjectionSeries` delegando a `projectPortfolio`) e **colheita da revisão da T-058a** (positionMap incremental no history, piso de data na query de snapshots, teste de SELL com usuário próprio por caso). Suíte: 537 server + 309 web.
 - **Roteamento econômico vigente** (decisão do humano, 2026-07-25): revisor SEMPRE Sonnet; Opus só em executor de tarefa alta e spikes Plan.
-- Aguardando direcionamento do ciclo 13. Candidatas fortes: agendador in-process da coleta de snapshots (destrava o valor dos 2 gráficos históricos); aporte mensal/CDI nas projeções.
+- Aguardando direcionamento do ciclo 14. Candidatas fortes: comparação com CDI/Ibovespa nas projeções (rota `/api/benchmarks` já existe; confirmar exibição com o humano); índice `quote_snapshots(ticker, captured_at)` (sugestão do revisor da T-063); backfill via `hourly_quote_insights`.
 
-## Estado anterior (fim do ciclo 11)
+## Estado anterior (fim do ciclo 12)
 
-- Ciclos 1–11 concluídos e mergeados (PRs #44–#105) — resumo por ciclo no `BACKLOG.md`, detalhes no `BACKLOG-ARQUIVO.md`. Suíte: 532 server + 263 web.
-- Ciclo 11: **histórico real da carteira** — coleta diária de snapshots ligada no boot (era código morto), `GET /api/portfolio/history` (posição por data via `buildPositionMap` + forward-fill com seed do preço da 1ª BUY) e gráfico "Evolução da carteira" na `/dash` (seletor 30/90/365, linha do investido) — + colheita do ciclo 10 (re-SELECT de POST com `user_id`, `price`/`threshold` com 2 casas).
-- A `/dash` de ações agora tem: resumo consolidado, gráfico de evolução real, card de projeção de ganhos com gráfico, barras de alocação e a lista de operações. Gráficos SÓ nessa page (Home/Despesas seguem sem).
-- **Limitação conhecida**: só o boot dispara a coleta de snapshots — server que fica no ar o dia todo não captura o fechamento; agendador in-process é candidata prioritária.
+- Ciclos 1–12 concluídos e mergeados (PRs #44–#106) — resumo por ciclo no `BACKLOG.md`, detalhes no `BACKLOG-ARQUIVO.md`.
+- Ciclo 12 (PR #106): card "Preço por ação" na `/dash` — seletor de ticker + janela 30/90/365, linha do fechamento (snapshots) + referência do preço médio de compra do usuário.
+- A `/dash` de ações tem: resumo consolidado, gráfico de evolução real, preço por ação, card de projeção de ganhos com gráfico, barras de alocação e a lista de operações. Gráficos SÓ nessa page (Home/Despesas seguem sem).
 - **Modo auto ativo** (autorização permanente do humano, 2026-07-24): após APROVADA do revisor, PR + merge automático; revisão humana a posteriori. Decisões de produto/UX → `TODO-HUMANO.md`.
-- Dívidas de produção: agendador in-process/Lambda da coleta e do job de insights; Alertas/Import CSV sem UI.
+- Dívidas de produção: Lambda/EventBridge da coleta e do job de insights (o agendador da T-061 é in-process); Alertas/Import CSV sem UI.
 
 ## Prioridade vigente
 
-**Ciclo 11 encerrado — aguardando validação visual do humano (gráfico de evolução) e direcionamento do ciclo 12.** Candidatas fortes: agendador in-process da coleta (barato, destrava o valor do gráfico); aporte mensal/CDI na projeção. Decisões paradas: T-020/T-021, editar template de recorrência.
+**Ciclo 13 encerrado — aguardando direcionamento do ciclo 14.** Candidatas fortes: CDI/Ibovespa nas projeções; índice em `quote_snapshots`; backfill via `hourly_quote_insights`. Decisões paradas: T-020/T-021, editar template de recorrência.
 
 > Atualize esta seção a cada ciclo. Mudança de prioridade que envolva produto → `TODO-HUMANO.md`.
 

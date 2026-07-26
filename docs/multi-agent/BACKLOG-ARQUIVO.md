@@ -533,3 +533,13 @@ PRs #103–#105. Suíte ao fim: 532 server + 263 web.
 PR #106. Suíte ao fim: 532 server + 283 web. Primeiro ciclo com o roteamento econômico (revisor sempre Sonnet, decisão do humano).
 
 ### T-060 — Gráfico de evolução de preço por ação — PR #106. Executor Sonnet, revisor Sonnet: APROVADA (cross-check do preço médio contra applyOperation do server). Card "Preço por ação": seletor de ticker + janela 30/90/365, linha do fechamento (snapshots) + referência do preço médio de compra; guarda de resposta obsoleta nos 2 eixos. +20 testes.
+
+## Ciclo 13 — Agendador da coleta + aporte mensal nas projeções + colheita da T-058a — CONCLUÍDO E MERGEADO (2026-07-26)
+
+PRs #107–#109. Suíte ao fim: 537 server + 309 web. Onda A: T-061 ∥ T-062; Onda B: T-063.
+
+### T-061 — Agendador in-process da coleta diária de snapshots — PR #107. Executor Sonnet, revisor Sonnet: APROVADA sem bloqueantes. `snapshotScheduler.ts` novo: `startSnapshotScheduler(intervalMs, runner)` com `.unref()`, runner via `Promise.resolve().then` (throw síncrono e rejeição caem no mesmo `.catch`, só loga), handle `{ stop }` idempotente; ligado em `index.ts` a cada 30 min após o `initDb()`. Sem guarda nova (as de `catchUpIfNeeded` + UNIQUE do banco bastam). +4 testes (fake timers). Sugestão não bloqueante: consolidar comentário duplicado em `index.ts`.
+
+### T-062 — Aporte mensal recorrente nas projeções (poupança + dash) — PR #109. Executor Opus (alta), revisor Sonnet: APROVADA sem bloqueantes. `monthlyContribution` opcional (default 0) em `projectSavings`/`projectPortfolio`/`buildProjectionSeries`; anuidade ordinária (`VF = VP×(1+i)^n + A×((1+i)^n−1)/i`, `i=0` → `VP + A×n`); `totalContributed` no resultado (invariante de centavos garantido na função); `buildProjectionSeries` delega a `projectPortfolio` (fonte única); curto-circuito de `initial===0` restrito a aporte 0; borda documentada: série de zeros em vez de `[]`; UI com campo vazio = 0, fora do `simTouched`, sublabels de ganho excluindo aportes. +26 testes.
+
+### T-063 — Colheita da revisão da T-058a — PR #108. Executor Sonnet, revisor Sonnet: APROVADA sem bloqueantes. positionMap incremental em `buildPortfolioHistory` (O(ops+dias)); piso de data na query de snapshots (janela + base por ticker via `MAX(date(captured_at)) < windowStart`), forward-fill/seed preservados; `operations.test.ts` com usuário próprio por caso. `portfolioHistory.test.ts` com diff vazio (contrato preservado). +1 teste. Sugestão registrada nas candidatas: índice `quote_snapshots(ticker, captured_at)`.
