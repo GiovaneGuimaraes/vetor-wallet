@@ -177,6 +177,15 @@ describe('buildAreaPath', () => {
   it('returns an empty string for an empty series', () => {
     expect(buildAreaPath([], 50)).toBe('');
   });
+
+  // T-059: pinning do comportamento atual para série de 1 ponto (ex.: months = 0
+  // em buildProjectionSeries) — o path fecha um polígono degenerado (largura
+  // zero, mesmo x no início/fim), mas continua sendo um `d` de path válido, sem
+  // erro/NaN. Documentado como comportamento esperado, não um bug.
+  it('produces a degenerate but valid path for a single-point series', () => {
+    const path = buildAreaPath([{ x: 5, y: 10 }], 50);
+    expect(path).toBe('M 5 10 L 5 50 L 5 50 Z');
+  });
 });
 
 describe('pickTicks', () => {
