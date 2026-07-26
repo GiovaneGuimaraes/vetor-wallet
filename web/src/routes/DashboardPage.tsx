@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getOperations, createOperation, deleteOperation, getPortfolioHistory } from '../api';
+import { getOperations, createOperation, deleteOperation, getPortfolioHistory, getSnapshots } from '../api';
 import { OperationForm } from '../components/OperationForm';
 import { OperationsList } from '../components/OperationsList';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { ProjectionChart } from '../components/ProjectionChart';
 import { HistoryChart } from '../components/HistoryChart';
+import { PriceChart } from '../components/PriceChart';
 import { useShellContext } from '../layout/ShellContext';
 import { decideWalletFlow } from './walletFlow';
 import { buildProjectionSeries } from './chartGeometry';
-import type { PortfolioHistoryPoint } from '@vetor-wallet/shared';
+import type { PortfolioHistoryPoint, QuoteSnapshot } from '@vetor-wallet/shared';
 import {
   deriveMonthlyReturnPct,
   parseSignedInput,
@@ -20,6 +21,7 @@ import {
   parseMonthsInput,
   parseNonNegativeInput,
 } from './savingsProjection';
+import { computeAveragePrice, computeFromDate, selectDefaultTicker } from './priceChart';
 import type { NewOperation, Operation } from '@vetor-wallet/shared';
 import './layers.css';
 import './layers-savings.css';
@@ -84,6 +86,22 @@ const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BR
  * mais nova que chegou primeiro. Falha de fetch mostra um aviso discreto sem
  * quebrar o resto da página (`historyError`), e a base recém-ligada (T-058a)
  * com poucos pontos ganha uma mensagem própria em vez do gráfico.
+ *
+ * T-060: card "Preço por ação" logo ABAIXO do "Evolução da carteira" — um
+ * seletor de ticker (posições atuais, default a maior alocação via
+ * `selectDefaultTicker`, `priceChart.ts`) + o MESMO padrão de seletor de
+ * janela 30/90/365, mas com estado PRÓPRIO (`priceDays`), independente de
+ * `historyDays`: são dois gráficos com propósitos distintos (carteira toda
+ * vs. um ativo). Busca `GET /api/snapshots/:ticker?from=` (rota já existente
+ * desde antes da T-058) com `from` derivado da janela
+ * (`computeFromDate`) para não trafegar o histórico inteiro do ticker.
+ * Trocar o TICKER ou a JANELA refaz o fetch, com a mesma guarda de resposta
+ * obsoleta de `historyRequestRef` (`priceRequestRef`, cobrindo os dois
+ * eixos de troca — o `useEffect` depende de ambos). `PriceChart` (irmão de
+ * `HistoryChart`) desenha a linha de fechamento + a referência tracejada do
+ * preço médio de compra do usuário (`computeAveragePrice`, derivado de
+ * `operations` já carregadas — sem endpoint novo, mesmo precedente
+ * client-side da T-040/T-056).
  */
 const HISTORY_WINDOW_OPTIONS = [30, 90, 365] as const;
 const DEFAULT_HISTORY_DAYS = 90;
@@ -131,6 +149,55 @@ export function DashboardPage() {
     if (!hasPositions) return;
     void refreshHistory(historyDays);
   }, [hasPositions, historyDays, refreshHistory]);
+
+  // Preço por ação (T-060): seletor de ticker + janela PRÓPRIA (independente
+  // de `historyDays`). `priceTicker` default é a maior alocação
+  // (`selectDefaultTicker`); some das posições atuais (venda total) faz o
+  // efeito recair no novo default em vez de manter um ticker fantasma.
+  const [priceTicker, setPriceTicker] = useState<string | null>(null);
+  const [priceDays, setPriceDays] = useState<number>(DEFAULT_HISTORY_DAYS);
+  const [priceSnapshots, setPriceSnapshots] = useState<QuoteSnapshot[] | null>(null);
+  const [priceLoading, setPriceLoading] = useState(false);
+  const [priceError, setPriceError] = useState('');
+  const priceRequestRef = useRef(0);
+
+  useEffect(() => {
+    if (!walletSummary) return;
+    setPriceTicker((prev) => {
+      if (prev && walletSummary.positions.some((p) => p.ticker === prev)) return prev;
+      return selectDefaultTicker(walletSummary.positions);
+    });
+  }, [walletSummary]);
+
+  const refreshPrice = useCallback(async (ticker: string, days: number) => {
+    const requestId = ++priceRequestRef.current;
+    setPriceLoading(true);
+    setPriceError('');
+    try {
+      const from = computeFromDate(days);
+      const snapshots = await getSnapshots(ticker, from);
+      if (priceRequestRef.current !== requestId) return;
+      setPriceSnapshots(snapshots);
+    } catch (err) {
+      if (priceRequestRef.current !== requestId) return;
+      setPriceError(err instanceof Error ? err.message : 'Erro ao buscar o histórico de preço');
+    } finally {
+      if (priceRequestRef.current === requestId) setPriceLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!priceTicker) {
+      setPriceSnapshots(null);
+      return;
+    }
+    void refreshPrice(priceTicker, priceDays);
+  }, [priceTicker, priceDays, refreshPrice]);
+
+  const priceAveragePrice = useMemo(
+    () => (priceTicker ? computeAveragePrice(operations, priceTicker) : null),
+    [operations, priceTicker],
+  );
 
   // Simulador de projeção de ganhos (T-056b) — 100% client-side, mesmo padrão
   // `simTouched` da T-040: os defaults (valor atual da carteira, taxa
@@ -309,6 +376,73 @@ export function DashboardPage() {
               {!historyError && historyPoints !== null && historyPoints.length >= 2 && (
                 <div className="vw-history-chart-wrap">
                   <HistoryChart points={historyPoints} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/*
+            Preço por ação (T-060): oculto sem posições, mesmo guard dos
+            outros cards de gráfico — sem ticker nenhum para selecionar.
+          */}
+          {hasPositions && walletSummary && priceTicker && (
+            <div className="vw-form-card">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="vw-form-title">Preço por ação</p>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="vw-layerpage-field" style={{ marginBottom: 0 }}>
+                    <label htmlFor="price-ticker" className="sr-only">
+                      Ativo
+                    </label>
+                    <select
+                      id="price-ticker"
+                      value={priceTicker}
+                      onChange={(e) => setPriceTicker(e.target.value)}
+                    >
+                      {walletSummary.positions.map((p) => (
+                        <option key={p.ticker} value={p.ticker}>
+                          {p.ticker}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="vw-history-window" role="group" aria-label="Janela do gráfico de preço">
+                    {HISTORY_WINDOW_OPTIONS.map((days) => (
+                      <button
+                        key={days}
+                        type="button"
+                        disabled={priceLoading && priceDays === days}
+                        onClick={() => setPriceDays(days)}
+                        className={`vw-history-window-btn ${
+                          priceDays === days ? 'vw-history-window-btn--active' : ''
+                        }`}
+                      >
+                        {days === 365 ? '1a' : `${days}d`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {priceError && (
+                <p className="vw-field-hint vw-field-hint--warn">
+                  {priceError} — o restante do dashboard continua disponível.
+                </p>
+              )}
+
+              {!priceError && priceSnapshots === null && priceLoading && (
+                <p className="vw-field-hint">Carregando histórico de preço…</p>
+              )}
+
+              {!priceError && priceSnapshots !== null && priceSnapshots.length < 2 && (
+                <p className="vw-field-hint">
+                  O histórico de preços deste ativo começa a ser coletado a partir de agora.
+                </p>
+              )}
+
+              {!priceError && priceSnapshots !== null && priceSnapshots.length >= 2 && (
+                <div className="vw-history-chart-wrap">
+                  <PriceChart snapshots={priceSnapshots} averagePrice={priceAveragePrice} />
                 </div>
               )}
             </div>
