@@ -117,12 +117,15 @@ export function RendaPage() {
     }
   }, []);
 
-  const refreshEntries = useCallback(async (month: string) => {
+  const refreshEntries = useCallback(async (month: string, options?: { force?: boolean }) => {
     // T-049: se já há um fetch em andamento para este MESMO mês, não dispara
     // outro — evita requests duplicados (ex.: cliques rápidos que resolvem no
     // mesmo mês, ou o efeito reexecutando duas vezes em StrictMode).
-    if (entriesFetchGuardRef.current.isInFlight(month)) return;
-    entriesFetchGuardRef.current.start(month);
+    // T-054: `force` (usado pelo refetch de reconciliação após falha de
+    // delete, abaixo) ignora esse dedupe — a remoção otimista já aconteceu na
+    // lista e precisa ser corrigida mesmo que o guard ache que já há um fetch
+    // deste mês em voo.
+    if (!entriesFetchGuardRef.current.shouldFetch(month, options)) return;
     latestRequestedMonthRef.current = month;
     setEntries('loading');
     try {
@@ -390,7 +393,10 @@ export function RendaPage() {
       await deleteIncomeEntry(id);
       setEntries((prev) => (Array.isArray(prev) ? prev.filter((e) => e.id !== id) : prev));
     } catch {
-      refreshEntries(monthKey);
+      // T-054: force — a remoção otimista acima já mexeu na lista; se o dedupe
+      // do MonthFetchGuard achasse que já há um fetch deste mês em voo, essa
+      // reconciliação seria engolida e o item ficaria removido indevidamente.
+      refreshEntries(monthKey, { force: true });
     } finally {
       setDeletingEntryId(null);
     }

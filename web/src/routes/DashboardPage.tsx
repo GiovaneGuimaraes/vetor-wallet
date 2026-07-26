@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getOperations, createOperation, deleteOperation, getPortfolio } from '../api';
+import { getOperations, createOperation, deleteOperation } from '../api';
 import { OperationForm } from '../components/OperationForm';
 import { OperationsList } from '../components/OperationsList';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { useShellContext } from '../layout/ShellContext';
 import { decideWalletFlow } from './walletFlow';
-import type { NewOperation, Operation, PortfolioSummary } from '@vetor-wallet/shared';
+import type { NewOperation, Operation } from '@vetor-wallet/shared';
 
 /**
  * Rota `/dash` (T-004/T-013; sem `:id` desde a T-050b): dashboard de ações do
@@ -27,22 +27,29 @@ import type { NewOperation, Operation, PortfolioSummary } from '@vetor-wallet/sh
  * render `AlertsPanel` e `CsvImport` — os componentes, a lógica de
  * `utils/alerts.ts` e as rotas `/api/alerts`/`/api/import` do server
  * permanecem intactos para um redesign futuro; só saem da UI.
+ *
+ * T-054: o `GET /api/portfolio` deixou de ser buscado aqui — a página
+ * consome `walletSummary` do `ShellContext`, o mesmo consolidado que
+ * alimenta o hero da Home (`App.refreshWallet`). Antes, no primeiro load de
+ * `/dash`, o shell buscava o portfolio para a Home e esta página buscava de
+ * novo para o próprio dashboard — dois `GET /api/portfolio` para o mesmo
+ * dado. `refreshWallet` (também do contexto) é chamado junto do `refresh`
+ * local após criar/excluir uma operação, para que o hero da Home reflita a
+ * mudança sem esperar a próxima navegação.
  */
 export function DashboardPage() {
-  const { wallet, walletLoaded, walletLoadError, refreshWallet } = useShellContext();
+  const { wallet, walletLoaded, walletLoadError, walletSummary, refreshWallet } =
+    useShellContext();
   const walletFlow = decideWalletFlow(wallet, walletLoaded, walletLoadError);
 
   const [operations, setOperations] = useState<Operation[]>([]);
-  const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [apiError, setApiError] = useState('');
 
   const refresh = useCallback(async () => {
     setApiError('');
     try {
-      const [ops, port] = await Promise.all([getOperations(), getPortfolio()]);
-      setOperations(ops);
-      setPortfolio(port);
+      setOperations(await getOperations());
     } catch (err) {
       setApiError(err instanceof Error ? err.message : 'Erro ao conectar com a API');
     } finally {
@@ -57,12 +64,12 @@ export function DashboardPage() {
 
   async function handleCreate(op: NewOperation) {
     await createOperation(op);
-    await refresh();
+    await Promise.all([refresh(), refreshWallet()]);
   }
 
   async function handleDelete(opId: number) {
     await deleteOperation(opId);
-    await refresh();
+    await Promise.all([refresh(), refreshWallet()]);
   }
 
   return (
@@ -113,11 +120,16 @@ export function DashboardPage() {
 
       <OperationForm onSubmit={handleCreate} />
 
-      {loadingData ? (
+      {/* T-054: `walletLoaded` (contexto) cobre o carregamento do portfolio
+          consolidado, que a página não busca mais sozinha — combinado com o
+          `loadingData` local (só das operações) para não renderizar o
+          dashboard "pela metade" enquanto qualquer um dos dois ainda está em
+          voo no primeiro load. */}
+      {loadingData || !walletLoaded ? (
         <div className="text-center py-16 text-dim text-sm">Carregando...</div>
       ) : (
         <>
-          <PortfolioDashboard summary={portfolio} walletColor={wallet?.color} />
+          <PortfolioDashboard summary={walletSummary} walletColor={wallet?.color} />
           <OperationsList operations={operations} onDelete={handleDelete} />
         </>
       )}
