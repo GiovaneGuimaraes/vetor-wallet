@@ -79,7 +79,7 @@ describe('wallets routes — carteira única (T-050)', () => {
   it('rejects creating a second wallet with 400', async () => {
     const res = await agentA.post('/api/wallets').send({ name: 'Carteira B' });
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/ja tem uma carteira/i);
+    expect(res.body.error).toMatch(/já tem uma carteira/i);
 
     const list = await agentA.get('/api/wallets');
     expect(list.body).toHaveLength(1);

@@ -28,9 +28,10 @@ router.get(
 );
 
 // POST /api/wallets — carteira única (T-050): só cria se o usuário ainda não tiver nenhuma.
-// T-053: reusa getOrCreateDefaultWallet (em vez de um INSERT próprio) para que criar a
-// primeira carteira pela rota também adote operações órfãs (wallet_id IS NULL) — caso raro
-// de usuário legado sem carteira que chega aqui em vez de pelo lazy-create do GET.
+// T-053: reusa getOrCreateDefaultWallet, passando name/description/color do body como
+// overrides, para que a carteira já nasça com os dados do body (sem UPDATE depois) e a
+// criação também adote operações órfãs (wallet_id IS NULL) — caso raro de usuário legado
+// sem carteira que chega aqui em vez de pelo lazy-create do GET.
 router.post(
   '/',
   asyncHandler(async (req: Request, res: Response) => {
@@ -43,15 +44,14 @@ router.post(
     }
 
     if ((await countWallets(userId)) > 0) {
-      res.status(400).json({ error: 'voce ja tem uma carteira de acoes' });
+      res.status(400).json({ error: 'Você já tem uma carteira de ações' });
       return;
     }
 
-    const walletId = await getOrCreateDefaultWallet(userId);
-
-    await db.execute({
-      sql: 'UPDATE wallets SET name = ?, description = ?, color = ? WHERE id = ?',
-      args: [name.trim(), description, color, walletId],
+    const walletId = await getOrCreateDefaultWallet(userId, {
+      name: name.trim(),
+      description,
+      color,
     });
 
     const row = await db.execute({
@@ -59,7 +59,12 @@ router.post(
       args: [walletId],
     });
 
-    res.status(201).json(row.rows[0]);
+    const wallet = row.rows[0];
+    if (!wallet) {
+      throw new Error(`wallet ${walletId} not found right after getOrCreateDefaultWallet`);
+    }
+
+    res.status(201).json(wallet);
   }),
 );
 
