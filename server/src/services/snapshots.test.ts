@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   isBusinessDay,
   getBRTDate,
   resolveActiveTickers,
   saveSnapshot,
   getPreviousCloseSnapshots,
+  catchUpIfNeeded,
 } from './snapshots';
 
 vi.mock('../db', () => ({
@@ -130,6 +131,68 @@ describe('saveSnapshot', () => {
     const call = mockExecute.mock.calls[0][0] as { sql: string; args: unknown[] };
     expect(call.args).toEqual(['ITUB4', 25.0]);
   });
+});
+
+// ── catchUpIfNeeded (T-058a: chamado no boot do server) ───────────────────────
+
+describe('catchUpIfNeeded', () => {
+  const okResult = { rows: [], rowsAffected: 0, lastInsertRowid: undefined };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Só a data é falsa — os `setTimeout` do backoff do withRetry precisam
+    // continuar reais, senão o retry ficaria pendurado para sempre.
+    vi.useFakeTimers({ toFake: ['Date'] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('does nothing on a weekend', async () => {
+    vi.setSystemTime(new Date('2024-01-06T23:00:00Z')); // sábado, 20h BRT
+    await catchUpIfNeeded();
+    expect(mockExecute).not.toHaveBeenCalled();
+  });
+
+  it('does nothing before 18:15 BRT on a business day', async () => {
+    vi.setSystemTime(new Date('2024-01-08T21:00:00Z')); // segunda, 18:00 BRT
+    await catchUpIfNeeded();
+    expect(mockExecute).not.toHaveBeenCalled();
+  });
+
+  // A guarda de "já rodou hoje" é o que torna seguro chamar a cada boot.
+  it('skips the job when a snapshot for today already exists', async () => {
+    vi.setSystemTime(new Date('2024-01-08T22:00:00Z')); // segunda, 19h BRT
+    mockExecute.mockResolvedValue({ ...okResult, rows: [{ cnt: 2 }] } as never);
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await catchUpIfNeeded();
+
+    expect(mockExecute).toHaveBeenCalledTimes(1); // só a contagem do dia
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  // Boot com a brapi indisponível: o job desiste depois dos retries e a
+  // promise RESOLVE — o `catch` de index.ts é a segunda linha de defesa,
+  // nada aqui pode derrubar o processo.
+  it('resolves (never rejects) when brapi is unavailable', async () => {
+    vi.setSystemTime(new Date('2024-01-08T22:00:00Z'));
+    mockExecute
+      .mockResolvedValueOnce({ ...okResult, rows: [{ cnt: 0 }] } as never)
+      .mockResolvedValueOnce({ ...okResult, rows: [{ ticker: 'PETR4' }] } as never);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new Error('getaddrinfo ENOTFOUND brapi.dev')),
+    );
+
+    await expect(catchUpIfNeeded()).resolves.toBeUndefined();
+
+    // nenhuma escrita de snapshot aconteceu (só a contagem + os tickers ativos)
+    expect(mockExecute).toHaveBeenCalledTimes(2);
+  }, 20000);
 });
 
 // ── getPreviousCloseSnapshots (T-016) ─────────────────────────────────────────

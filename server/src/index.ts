@@ -23,6 +23,7 @@ import savingsRouter from './routes/savings';
 import goalsRouter from './routes/goals';
 import budgetsRouter from './routes/budgets';
 import { errorHandler } from './middleware/errorHandler';
+import { catchUpIfNeeded } from './services/snapshots';
 
 const app = express();
 
@@ -73,6 +74,19 @@ initDb()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Vetor Wallet API running on http://localhost:${PORT}`);
+    });
+
+    // T-058a: liga a coleta diária de fechamentos. `catchUpIfNeeded` já traz a
+    // própria guarda ("dia útil, depois das 18:15 BRT e ainda sem snapshot de
+    // hoje") e o UNIQUE(ticker, date(captured_at)) garante a idempotência no
+    // banco, então chamar a cada boot não duplica nada.
+    //
+    // NÃO bloqueia o listen e NUNCA derruba o processo: a brapi indisponível é
+    // um erro logado, do mesmo espírito do `createUser` da T-050a. `runSnapshotJob`
+    // já engole a falha de fetch; o `catch` aqui cobre o que sobra (erro de
+    // banco na checagem, rejeição inesperada).
+    catchUpIfNeeded().catch((err) => {
+      console.error('[snapshots] Catch-up on startup failed (server continues):', err);
     });
   })
   .catch((err) => {

@@ -55,6 +55,21 @@ export interface PortfolioSummary {
   dayProfitLossPct?: number | null;
 }
 
+/**
+ * Um dia da série histórica da carteira (T-058a, `GET /api/portfolio/history`).
+ * `value` = valor de mercado (quantidade detida × último fechamento conhecido
+ * até a data); `invested` = custo de aquisição das posições detidas na data.
+ */
+export interface PortfolioHistoryPoint {
+  date: string; // YYYY-MM-DD
+  value: number;
+  invested: number;
+}
+
+export interface PortfolioHistoryResponse {
+  points: PortfolioHistoryPoint[];
+}
+
 export type AlertRuleType = 'PRICE_ABOVE' | 'PRICE_BELOW' | 'CHANGE_PCT' | 'ALLOCATION_PCT';
 
 export interface AlertRule {
