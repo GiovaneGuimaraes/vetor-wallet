@@ -215,4 +215,29 @@ describe('GET /api/portfolio/history (T-058a)', () => {
     const res = await agentA.get('/api/portfolio/history?days=365');
     expect(res.status).toBe(200);
   });
+
+  // T-063: a query de snapshots ganhou piso de data (só a janela + a linha de
+  // base por ticker); um fechamento bem anterior ao início da janela precisa
+  // continuar servindo de base do forward-fill do primeiro dia dela.
+  it('uses a snapshot older than the requested window as the forward-fill base of its first day', async () => {
+    const agentE = request.agent(app);
+    await agentE
+      .post('/api/auth/register')
+      .send({ email: 'history-e@test.com', password: 'password123' });
+
+    // compra antiga, bem fora da janela de 3 dias pedida abaixo
+    await agentE
+      .post('/api/operations')
+      .send({ ticker: 'ITSA4', type: 'BUY', quantity: 10, price: 5, date: d(-30) });
+    // único fechamento conhecido: também fora da janela (mas depois da compra)
+    await saveSnapshotAt('ITSA4', d(-20), 8);
+
+    const res = await agentE.get('/api/portfolio/history?days=3');
+    expect(res.status).toBe(200);
+    expect(res.body.points as HistoryPoint[]).toEqual([
+      { date: d(-2), value: 80, invested: 50 },
+      { date: d(-1), value: 80, invested: 50 },
+      { date: today, value: 80, invested: 50 },
+    ]);
+  });
 });
