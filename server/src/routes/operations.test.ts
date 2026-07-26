@@ -128,6 +128,27 @@ describe('operations routes — SELL validation', () => {
     expect(res.status).toBe(400);
   });
 
+  // T-059: mesmo padrão da T-052 (isValidMoneyAmount), agora também em price.
+  it('rejects price with more than 2 decimal places (400)', async () => {
+    const res = await agentA
+      .post('/api/operations')
+      .send({ ticker: 'ITUB4', type: 'BUY', quantity: 10, price: 0.125, date: '2024-03-01' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/2 casas decimais/);
+  });
+
+  // Ordem das validações (sugestão da T-052): um price <= 0 deve responder
+  // com a mensagem antiga ("maior que 0"), não a de casas decimais — a
+  // checagem de sinal/finitude roda ANTES da de granularidade.
+  it('rejects price <= 0 with the "maior que 0" message, not the decimals one', async () => {
+    const res = await agentA
+      .post('/api/operations')
+      .send({ ticker: 'ITUB4', type: 'BUY', quantity: 10, price: -1, date: '2024-03-01' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/maior que 0/);
+    expect(res.body.error).not.toMatch(/casas decimais/);
+  });
+
   // T-043: DATE_RE sozinho aceita datas com formato válido mas que não
   // existem no calendário — o helper isValidIsoDate rejeita as duas.
   it('rejects a date that does not exist on the calendar (2026-02-30) (400)', async () => {
