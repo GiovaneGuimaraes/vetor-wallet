@@ -62,39 +62,51 @@ export default function App() {
    * T-050a o server ignora `?walletId=` e agrega tudo do usuário). Numa base
    * legada com 2+ carteiras, `resolvePrimaryWallet` escolhe só o RÓTULO
    * exibido; o portfolio continua sendo o consolidado.
+   *
+   * T-054 (achado das revisões T-049/T-050b): as duas buscas rodam em
+   * promises INDEPENDENTES, não uma aninhada dentro da outra. Antes,
+   * `getPortfolio()` vivia num `try` aninhado DENTRO do `try` de
+   * `getWallets()` — o que parecia isolar a falha do portfolio, mas se o
+   * próprio `getWallets()` rejeitasse, a execução pulava direto pro `catch`
+   * externo e `getPortfolio()` nunca chegava a ser chamado, zerando o card
+   * "Ações" da Home só porque o RÓTULO da carteira falhou (o portfolio é do
+   * usuário, não da carteira). `walletLoadError` continua refletindo só o
+   * resultado de `getWallets()` — uma falha do portfolio não o seta.
    */
   const refreshWallet = useCallback(async () => {
-    try {
-      const ws = await getWallets();
-      setWallet(resolvePrimaryWallet(ws));
+    const walletPromise = (async () => {
+      try {
+        const ws = await getWallets();
+        setWallet(resolvePrimaryWallet(ws));
+        // T-027: só sinaliza sucesso real — `walletLoadError` fica limpo
+        // apenas quando `getWallets()` de fato resolveu, para não mascarar
+        // uma falha anterior atrás de uma tentativa que ainda nem terminou.
+        setWalletLoadError(false);
+      } catch {
+        // T-027 (achado do revisor): NÃO tocamos em `wallet` aqui. Se essa
+        // foi a primeira carga da sessão, `wallet` permanece `null` — e é
+        // exatamente essa ambiguidade ("null real" vs "null por falha de
+        // rede") que `walletLoadError` existe para desfazer. `decideWalletFlow`
+        // trata `walletLoadError && wallet === null` como estado de erro,
+        // nunca como "crie a carteira automaticamente".
+        setWalletLoadError(true);
+      }
+    })();
 
-      // O portfolio é independente do rótulo: falhar aqui não invalida a
-      // carteira que acabou de carregar, então vai em try próprio.
+    const portfolioPromise = (async () => {
       try {
         setWalletSummary(await getPortfolio());
       } catch {
         /* card de ações fica com o valor anterior; nada a sinalizar aqui */
       }
+    })();
 
-      // T-027: só sinaliza sucesso real — `walletLoadError` fica limpo apenas
-      // quando `getWallets()` de fato resolveu, para não mascarar uma falha
-      // anterior atrás de uma tentativa que ainda nem terminou.
-      setWalletLoadError(false);
-    } catch {
-      // T-027 (achado do revisor): NÃO tocamos em `wallet` aqui. Se essa foi a
-      // primeira carga da sessão, `wallet` permanece `null` — e é exatamente
-      // essa ambiguidade ("null real" vs "null por falha de rede") que
-      // `walletLoadError` existe para desfazer. `decideWalletFlow` trata
-      // `walletLoadError && wallet === null` como estado de erro, nunca como
-      // "crie a carteira automaticamente".
-      setWalletLoadError(true);
-    } finally {
-      // Marcado mesmo em erro — senão o dashboard ficaria travado em
-      // "carregando" para sempre após uma falha de rede; a distinção entre
-      // "carregou e não tem" e "falhou ao carregar" fica por conta de
-      // `walletLoadError`, não de `walletLoaded`.
-      setWalletLoaded(true);
-    }
+    await Promise.all([walletPromise, portfolioPromise]);
+    // Marcado mesmo em erro — senão o dashboard ficaria travado em
+    // "carregando" para sempre após uma falha de rede; a distinção entre
+    // "carregou e não tem" e "falhou ao carregar" fica por conta de
+    // `walletLoadError`, não de `walletLoaded`.
+    setWalletLoaded(true);
   }, []);
 
   useEffect(() => {

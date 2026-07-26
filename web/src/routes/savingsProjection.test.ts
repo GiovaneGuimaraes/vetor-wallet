@@ -86,6 +86,18 @@ describe('projectSavings', () => {
   it('rejeita resultado que estoura o alcance de number', () => {
     expect(projectSavings(1e308, 100, 5000)).toBeNull();
   });
+
+  it('T-054: valida taxa/prazo mesmo com inicial 0 (validação vem antes do curto-circuito)', () => {
+    // O curto-circuito de `initial === 0` só existe para pular a potência
+    // quando a simulação é válida — não para mascarar uma entrada inválida
+    // nos OUTROS argumentos. Sem a validação vindo primeiro, `projectSavings`
+    // devolveria `{ futureValue: 0, totalYield: 0 }` para uma taxa/prazo que
+    // não descrevem simulação nenhuma.
+    expect(projectSavings(0, Number.NaN, 12)).toBeNull();
+    expect(projectSavings(0, -1, 12)).toBeNull();
+    expect(projectSavings(0, 1, -3)).toBeNull();
+    expect(projectSavings(0, 1, 12.5)).toBeNull();
+  });
 });
 
 describe('deriveMonthlyRatePct', () => {

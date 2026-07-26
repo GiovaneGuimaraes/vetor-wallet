@@ -42,3 +42,37 @@ describe('MonthFetchGuard (T-049)', () => {
     expect(guard.isInFlight('2026-07')).toBe(true);
   });
 });
+
+describe('MonthFetchGuard.shouldFetch (T-054)', () => {
+  it('allows the fetch and marks the month in flight when nothing is in flight', () => {
+    const guard = new MonthFetchGuard();
+    expect(guard.shouldFetch('2026-07')).toBe(true);
+    expect(guard.isInFlight('2026-07')).toBe(true);
+  });
+
+  it('skips a fetch for a month already in flight', () => {
+    const guard = new MonthFetchGuard();
+    guard.start('2026-07');
+    expect(guard.shouldFetch('2026-07')).toBe(false);
+  });
+
+  it('allows a fetch for a different month even while another is in flight', () => {
+    const guard = new MonthFetchGuard();
+    guard.start('2026-07');
+    expect(guard.shouldFetch('2026-08')).toBe(true);
+    expect(guard.isInFlight('2026-08')).toBe(true);
+  });
+
+  it('force bypasses the dedupe even for the same month already in flight', () => {
+    const guard = new MonthFetchGuard();
+    guard.start('2026-07');
+    expect(guard.shouldFetch('2026-07', { force: true })).toBe(true);
+    expect(guard.isInFlight('2026-07')).toBe(true);
+  });
+
+  it('without force behaves like the plain isInFlight + start pair', () => {
+    const guard = new MonthFetchGuard();
+    expect(guard.shouldFetch('2026-07', { force: false })).toBe(true);
+    expect(guard.shouldFetch('2026-07', { force: false })).toBe(false);
+  });
+});

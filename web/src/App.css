@@ -14,9 +14,6 @@ body,
   overflow-x: hidden;
 }
 
-/* T-050b: as regras .wallet-selector-* saíram junto com o WalletSelector —
-   a tela de selecao de carteiras deixou de existir (carteira unica). */
-
 /* ------------------------------------------------------------------ */
 /* Shell v4 — header sticky compartilhado + animacao de entrada (T-004) */
 /* Consome as variaveis CSS de web/src/index.css (dono: T-001/T-003) -- */

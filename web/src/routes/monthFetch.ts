@@ -40,4 +40,23 @@ export class MonthFetchGuard {
       this.inFlightMonth = null;
     }
   }
+
+  /**
+   * Decide se um fetch para `month` deve prosseguir (T-054). Encapsula o par
+   * `isInFlight` + `start` que `refreshEntries` já fazia manualmente — e
+   * acrescenta `force`, para o caminho de RECONCILIAÇÃO após falha de delete
+   * em `DespesasPage`/`RendaPage`: lá o item já foi removido da lista de
+   * forma otimista, e o refetch de reconciliação precisa rodar mesmo que o
+   * dedupe ache que já existe um fetch em voo para o mesmo mês (ex.: o efeito
+   * de carga inicial ainda não resolveu) — sem isso, o dedupe engoliria esse
+   * refetch e a remoção otimista indevida ficaria sem correção na tela.
+   *
+   * Retorna `true` (e já marca `month` como em voo) quando o fetch deve
+   * disparar; `false` quando deve ser pulado por já haver um em andamento.
+   */
+  shouldFetch(month: string, options?: { force?: boolean }): boolean {
+    if (!options?.force && this.isInFlight(month)) return false;
+    this.start(month);
+    return true;
+  }
 }
