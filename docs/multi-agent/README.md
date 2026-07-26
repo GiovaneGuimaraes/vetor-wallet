@@ -63,11 +63,11 @@ O orquestrador classifica cada tarefa do `BACKLOG.md` com um campo **Complexidad
 |---|---|---|---|
 | **baixa** | mudança mecânica/repetitiva, docs, ajuste de estilo/CSS, renomear, asset estático | `haiku` ou `sonnet` | `sonnet` |
 | **média** | feature padrão sobre padrões existentes (nova rota espelhando outra, tela nova sobre API pronta, teste novo) | `sonnet` (default) | `sonnet` |
-| **alta** | cálculo financeiro (preço médio, P&L, saldo), mudança de schema/migração, auth/isolamento por `user_id`, refactor multi-pacote (`shared`+`server`+`web`), lógica com muitos casos de borda, débito que já causou reprovação antes | `opus` | `opus` |
+| **alta** | cálculo financeiro (preço médio, P&L, saldo), mudança de schema/migração, auth/isolamento por `user_id`, refactor multi-pacote (`shared`+`server`+`web`), lógica com muitos casos de borda, débito que já causou reprovação antes | `opus` | `sonnet` |
 
 Regras complementares:
 
-- **Revisão pareada ao risco**: tarefa executada em Opus → revisor em Opus. Tarefa média que toque dinheiro/auth/schema → revisor em Opus mesmo com executor Sonnet (revisar é mais barato que retrabalhar).
+- **Revisor é sempre Sonnet por decisão de custo do humano (2026-07-25)** — o Opus na revisão encareceu demais o loop. Exceções pontuais só com pedido explícito do humano. Se um revisor Sonnet se declarar inseguro num ponto de dinheiro/auth, o orquestrador pode verificar aquele ponto específico ele mesmo em vez de escalar o modelo.
 - **Escalonamento automático**: 2 vereditos REPROVADA seguidos na mesma tarefa → o orquestrador re-delega o próximo ciclo com executor `opus`, incluindo no prompt o histórico dos achados das reprovações.
 - **Spike de design (opcional, recomendado para alta)**: antes de delegar uma tarefa alta, o orquestrador pode spawnar o agente `Plan` com `model: "opus"` para produzir plano de implementação (arquivos-alvo, abordagem, riscos, casos de borda). O plano entra na íntegra no prompt do executor — reduz retrabalho e permite até executar em Sonnet com plano de Opus quando o desafio é de *design*, não de *execução*.
 - **Na dúvida entre média e alta, escolha alta.** O custo extra de Opus numa tarefa é menor que um ciclo executar→reprovar→corrigir→re-revisar.

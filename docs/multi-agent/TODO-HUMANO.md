@@ -22,6 +22,12 @@ _(nenhum item aberto no momento)_
 
 ## Resolvidos
 
+### [2026-07-25] Custo do multi-agente: revisor volta a ser Sonnet
+- **Origem**: humano (via chat, durante o ciclo 12)
+- **Bloqueia**: nada — muda o roteamento de modelos
+- **Pergunta/pendência**: —
+- **Resposta do humano**: "o opus incluido no fluxo deixou o multi agente muito caro, podemos voltar com o sonnet para revisar tambem" → revisor é **sempre Sonnet** a partir de agora (README.md atualizado); executor Opus continua reservado a tarefas de complexidade alta.
+
 ### [2026-07-25] Carteira única (T-050): P&L consolidado para base legada com 2+ carteiras
 - **Origem**: orquestrador (spike de design da T-050, Plan/Opus)
 - **Bloqueia**: nada — default adotado
