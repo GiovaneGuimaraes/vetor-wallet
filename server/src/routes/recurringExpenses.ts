@@ -89,9 +89,10 @@ router.patch(
       return;
     }
 
+    // Re-SELECT também filtrado por user_id (T-051).
     const row = await db.execute({
-      sql: 'SELECT * FROM recurring_expenses WHERE id = ?',
-      args: [id],
+      sql: 'SELECT * FROM recurring_expenses WHERE id = ? AND user_id = ?',
+      args: [id, userId],
     });
     res.json(row.rows[0]);
   }),

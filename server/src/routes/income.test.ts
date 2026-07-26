@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import type { Express } from 'express';
 import express from 'express';
 import session from 'express-session';
@@ -233,6 +233,45 @@ describe('income routes', () => {
     it('returns 404 for a nonexistent id', async () => {
       const res = await agentA.patch('/api/income/999999').send({ amount: 1 });
       expect(res.status).toBe(404);
+    });
+
+    // T-051: a T-044 provou o comportamento do SQLite (um UPDATE manual com
+    // `AND user_id` não afeta linha alheia), não o comportamento REAL da rota.
+    // Este teste espiona `db.execute` e assevera o par sql/args que a própria
+    // rota emite para o UPDATE e para o re-SELECT que monta a resposta —
+    // cobrindo tanto a cláusula quanto a ORDEM dos parâmetros.
+    it('emite UPDATE e re-SELECT finais com "AND user_id = ?" (spy em db.execute)', async () => {
+      const { db } = await import('../db');
+      const me = await agentA.get('/api/auth/me');
+      const userId = me.body.id as number;
+
+      const id = await newSource('Espiado pelo spy', 55);
+
+      const spy = vi.spyOn(db, 'execute');
+      try {
+        const res = await agentA.patch(`/api/income/${id}`).send({ amount: 60 });
+        expect(res.status).toBe(200);
+
+        const calls = spy.mock.calls.map((call) => call[0]) as { sql: string; args: unknown[] }[];
+
+        const updateCall = calls.find((c) => /^\s*UPDATE income_sources/i.test(c.sql));
+        expect(updateCall).toBeDefined();
+        expect(updateCall!.sql).toBe(
+          'UPDATE income_sources SET amount = ? WHERE id = ? AND user_id = ?',
+        );
+        expect(updateCall!.args).toEqual([60, String(id), userId]);
+
+        // Re-SELECT final que monta a resposta do PATCH — precisa ser o ÚLTIMO
+        // SELECT * (o primeiro SELECT * é a checagem de existência que usa
+        // `id` sozinho como coluna, não `SELECT *`).
+        const selectStarCalls = calls.filter((c) => /^\s*SELECT \* FROM income_sources/i.test(c.sql));
+        expect(selectStarCalls.length).toBeGreaterThan(0);
+        const finalSelect = selectStarCalls[selectStarCalls.length - 1];
+        expect(finalSelect.sql).toBe('SELECT * FROM income_sources WHERE id = ? AND user_id = ?');
+        expect(finalSelect.args).toEqual([String(id), userId]);
+      } finally {
+        spy.mockRestore();
+      }
     });
   });
 
