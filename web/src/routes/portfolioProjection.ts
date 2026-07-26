@@ -8,10 +8,18 @@ import type { Operation, PortfolioSummary } from '@vetor-wallet/shared';
  * simulação não é persistida. As funções vivem fora do componente para
  * poderem ser testadas sem DOM (política de testes do CLAUDE.md).
  *
- * Escopo do cálculo: juros compostos mensais sobre um **valor atual único**
- * (o valor de mercado da carteira). Aporte mensal recorrente NÃO entra na
- * projeção (fora de escopo), então a fórmula é sempre
- * `VF = VP × (1 + i)^n`, igual à T-040.
+ * Escopo do cálculo: juros compostos mensais sobre o valor de mercado atual da
+ * carteira, mais um **aporte mensal recorrente opcional** (T-062) — a mesma
+ * fórmula e a mesma convenção de `projectSavings` (T-040):
+ *
+ * ```
+ * VF = VP × (1 + i)^n + A × ((1 + i)^n − 1) / i        (i ≠ 0)
+ * VF = VP + A × n                                      (i = 0)
+ * ```
+ *
+ * Aporte no **fim** de cada mês (anuidade ordinária) e `totalGain = VF − VP −
+ * A × n` — os aportes do usuário não são ganho. Ver o doc-header de
+ * `savingsProjection.ts` para o porquê das duas escolhas.
  *
  * **Divergência deliberada da T-040**: lá a taxa era sempre ≥ 0 (rendimento
  * de poupança não é negativo). Aqui a taxa mensal ACEITA valores negativos
@@ -33,10 +41,19 @@ import type { Operation, PortfolioSummary } from '@vetor-wallet/shared';
 
 /** Resultado da projeção, já arredondado em centavos. */
 export interface PortfolioProjection {
-  /** Valor futuro ao final do prazo (`VP × (1 + i)^n`). */
+  /** Valor futuro ao final do prazo (valor atual + aportes + ganho). */
   futureValue: number;
-  /** Ganho (ou perda, se negativo) acumulado no período (`futureValue − valor atual`). */
+  /**
+   * Ganho (ou perda, se negativo) acumulado no período — `futureValue − valor
+   * atual − aportes`. Os aportes do usuário NÃO contam como ganho (T-062).
+   */
   totalGain: number;
+  /**
+   * Total aportado no período (`aporte mensal × meses`), para a UI conseguir
+   * explicar de onde vem a diferença entre valor atual e valor projetado.
+   * `0` quando não há aporte mensal.
+   */
+  totalContributed: number;
 }
 
 /** Arredondamento em centavos, mesmo padrão dos valores monetários do app. */
@@ -54,40 +71,72 @@ function roundCents(value: number): number {
  *   100%/mês ou mais zeraria/inverteria o valor, o que não faz sentido para
  *   uma taxa composta mensal).
  * @param months prazo em meses, inteiro ≥ 0 (0 = sem variação)
+ * @param monthlyContribution aporte mensal em reais, ≥ 0 (T-062). Default `0`
+ *   — omitir reproduz exatamente o comportamento pré-T-062
+ *   (`VF = VP × (1 + i)^n`). Aporte no **fim** de cada mês. Note a assimetria
+ *   deliberada: a **taxa** pode ser negativa aqui, o **aporte** nunca (um
+ *   "aporte negativo" seria uma retirada mensal, cenário que este simulador
+ *   não promete modelar).
  *
  * Devolve `null` — em vez de `NaN`/lixo na tela — para toda entrada que não
  * descreve uma simulação possível: valor não finito (`NaN`, `Infinity`),
  * `currentValue` negativo, taxa não finita ou `<= -100`, `months` não
- * inteiro ou negativo, ou resultado que estoura o alcance de `number`.
+ * inteiro ou negativo, `monthlyContribution` não finito ou negativo, ou
+ * resultado que estoura o alcance de `number`.
  *
- * `futureValue` e `totalGain` são arredondados em centavos sem divergência
- * entre si: `round((valor atual + totalGain) * 100) === round(futureValue * 100)`
+ * Com taxa **negativa** (faixa `> -100`) a fórmula da anuidade continua
+ * válida e finita: `(1 + i)^n − 1` e `i` são ambos negativos, então o termo do
+ * aporte é positivo (e menor que `A × n`, porque cada aporte encolhe até o
+ * fim do prazo). Nenhum ramo especial foi necessário para isso.
+ *
+ * Os três números devolvidos são arredondados em centavos sem divergência
+ * entre si:
+ * `round((valor atual + totalContributed + totalGain) * 100) === round(futureValue * 100)`
  * (a igualdade estrita em float não vale para valores grandes).
  *
- * Curto-circuito: `currentValue === 0` devolve `{ futureValue: 0, totalGain: 0 }`
- * direto, sem passar pela potência — `0 × (1 + i)^n` já é 0 matematicamente,
- * mas com taxa e/ou prazo extremos `Math.pow` pode estourar para `Infinity`
- * antes de multiplicar por 0, e `0 × Infinity = NaN` faria a simulação
- * devolver `null` para uma entrada perfeitamente válida (carteira zerada).
+ * Curto-circuito: `currentValue === 0` **e** `monthlyContribution === 0`
+ * devolve zeros direto, sem passar pela potência — `0 × (1 + i)^n` já é 0
+ * matematicamente, mas com taxa e/ou prazo extremos `Math.pow` pode estourar
+ * para `Infinity` antes de multiplicar por 0, e `0 × Infinity = NaN` faria a
+ * simulação devolver `null` para uma entrada perfeitamente válida (carteira
+ * zerada). Com aporte > 0 o curto-circuito **deixa de valer** (T-062):
+ * "carteira zerada + aporto X por mês" é uma simulação legítima com valor
+ * futuro positivo.
  */
 export function projectPortfolio(
   currentValue: number,
   monthlyRatePct: number,
   months: number,
+  monthlyContribution = 0,
 ): PortfolioProjection | null {
   if (!Number.isFinite(currentValue) || currentValue < 0) return null;
   if (!Number.isFinite(monthlyRatePct) || monthlyRatePct <= -100) return null;
   if (!Number.isInteger(months) || months < 0) return null;
+  if (!Number.isFinite(monthlyContribution) || monthlyContribution < 0) return null;
 
-  if (currentValue === 0) return { futureValue: 0, totalGain: 0 };
+  if (currentValue === 0 && monthlyContribution === 0) {
+    return { futureValue: 0, totalGain: 0, totalContributed: 0 };
+  }
 
   const rate = monthlyRatePct / 100;
-  const futureValueRaw = currentValue * Math.pow(1 + rate, months);
+  const growth = Math.pow(1 + rate, months);
+  if (!Number.isFinite(growth)) return null;
+
+  // `i = 0` é caso especial: a fórmula da anuidade divide por `i` e daria
+  // 0/0 = NaN. Sem variação, o valor futuro é só o principal mais os aportes.
+  const contributionsFV =
+    rate === 0 ? monthlyContribution * months : monthlyContribution * ((growth - 1) / rate);
+  const futureValueRaw = currentValue * growth + contributionsFV;
   if (!Number.isFinite(futureValueRaw)) return null;
 
   const currentValueRounded = roundCents(currentValue);
+  const totalContributed = roundCents(monthlyContribution * months);
   const futureValue = roundCents(futureValueRaw);
-  return { futureValue, totalGain: roundCents(futureValue - currentValueRounded) };
+  return {
+    futureValue,
+    totalGain: roundCents(futureValue - currentValueRounded - totalContributed),
+    totalContributed,
+  };
 }
 
 /** Milissegundos médios por mês civil (`365,2425 / 12` — considera anos bissextos). */

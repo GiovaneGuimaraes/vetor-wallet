@@ -64,9 +64,16 @@ const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BR
  * poupança): tudo em `portfolioProjection.ts` (T-056a) e nenhum endpoint
  * novo.
  *
+ * T-062: o card ganhou um 4º campo, "Aporte mensal (R$)" — opcional, campo
+ * vazio = sem aporte. O aporte entra tanto no `projectPortfolio` dos números
+ * quanto no `buildProjectionSeries` do gráfico (mesmo argumento, mesma
+ * fórmula), e os sublabels dos dois cards deixam explícito que o "ganho"
+ * exclui os aportes — sem isso o número pareceria errado ao lado do valor
+ * projetado.
+ *
  * T-057b: o gráfico SVG (`ProjectionChart`, sem lib — ver `chartGeometry.ts`)
  * entra no MESMO card, abaixo dos dois números. `projectionSeries` reusa
- * `buildProjectionSeries` (`chartGeometry.ts`) com os MESMOS 3 inputs já
+ * `buildProjectionSeries` (`chartGeometry.ts`) com os MESMOS inputs já
  * validados por `projection` — o gráfico só aparece quando a projeção é
  * válida e a série reamostrada tem >= 2 pontos (`months = 0` gera 1 ponto
  * só, sem linha para desenhar). O wrapper do SVG fica fora do
@@ -207,6 +214,9 @@ export function DashboardPage() {
   const [simCurrentValue, setSimCurrentValue] = useState('');
   const [simRatePct, setSimRatePct] = useState('');
   const [simMonths, setSimMonths] = useState('12');
+  // T-062: aporte mensal recorrente, opcional. Nasce vazio (= sem aporte) e
+  // NÃO entra no `simTouched` — não há default derivado para ele sobrescrever.
+  const [simContribution, setSimContribution] = useState('');
   const [simTouched, setSimTouched] = useState({ currentValue: false, ratePct: false });
 
   const defaultCurrentValue = useMemo(
@@ -231,9 +241,18 @@ export function DashboardPage() {
   const parsedCurrentValue = parseNonNegativeInput(simCurrentValue);
   const parsedRatePct = parseSignedInput(simRatePct);
   const parsedMonths = parseMonthsInput(simMonths);
+  // T-062: campo de aporte VAZIO significa "sem aporte" (0), não entrada
+  // inválida — `parseNonNegativeInput` devolveria `null` nos dois casos.
+  // Aporte é sempre ≥ 0 (só a TAXA aceita sinal nesta tela).
+  const trimmedContribution = simContribution.trim();
+  const parsedContribution =
+    trimmedContribution === '' ? 0 : parseNonNegativeInput(trimmedContribution);
   const projection =
-    parsedCurrentValue !== null && parsedRatePct !== null && parsedMonths !== null
-      ? projectPortfolio(parsedCurrentValue, parsedRatePct, parsedMonths)
+    parsedCurrentValue !== null &&
+    parsedRatePct !== null &&
+    parsedMonths !== null &&
+    parsedContribution !== null
+      ? projectPortfolio(parsedCurrentValue, parsedRatePct, parsedMonths, parsedContribution)
       : null;
 
   // T-057b: a mesma série que o SVG desenha. Só computada quando a projeção
@@ -241,8 +260,17 @@ export function DashboardPage() {
   // não-nulos aqui) — evita recalcular a série reamostrada em toda digitação
   // inválida.
   const projectionSeries =
-    projection && parsedCurrentValue !== null && parsedRatePct !== null && parsedMonths !== null
-      ? buildProjectionSeries(parsedCurrentValue, parsedRatePct, parsedMonths)
+    projection &&
+    parsedCurrentValue !== null &&
+    parsedRatePct !== null &&
+    parsedMonths !== null &&
+    parsedContribution !== null
+      ? buildProjectionSeries(
+          parsedCurrentValue,
+          parsedRatePct,
+          parsedMonths,
+          parsedContribution,
+        )
       : [];
 
   const refresh = useCallback(async () => {
@@ -502,6 +530,17 @@ export function DashboardPage() {
                     onChange={(e) => setSimMonths(e.target.value)}
                   />
                 </div>
+                <div className="vw-layerpage-field">
+                  <label htmlFor="sim-contribution">Aporte mensal (R$)</label>
+                  <input
+                    id="sim-contribution"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Opcional"
+                    value={simContribution}
+                    onChange={(e) => setSimContribution(e.target.value)}
+                  />
+                </div>
               </div>
 
               <span className="vw-field-hint">
@@ -516,6 +555,11 @@ export function DashboardPage() {
                   <div className="vw-savings-summary-card">
                     <p className="vw-savings-summary-label">Valor projetado</p>
                     <p className="vw-savings-summary-value">{fmtCur.format(projection.futureValue)}</p>
+                    {projection.totalContributed > 0 && (
+                      <p className="vw-savings-summary-sub">
+                        Inclui {fmtCur.format(projection.totalContributed)} aportados no período.
+                      </p>
+                    )}
                   </div>
                   <div className="vw-savings-summary-card">
                     <p className="vw-savings-summary-label">
@@ -528,6 +572,14 @@ export function DashboardPage() {
                     >
                       {fmtCur.format(projection.totalGain)}
                     </p>
+                    {/* T-062: o ganho EXCLUI os aportes — sem dizer isso, o
+                        número parece errado ao lado do valor projetado. */}
+                    {projection.totalContributed > 0 && (
+                      <p className="vw-savings-summary-sub">
+                        Só a valorização — os {fmtCur.format(projection.totalContributed)} aportados
+                        não contam como ganho.
+                      </p>
+                    )}
                   </div>
                   {/* T-057b: só entra quando a projeção é válida E a série
                       reamostrada tem >= 2 pontos — `months = 0` produz um
@@ -542,8 +594,8 @@ export function DashboardPage() {
                 </div>
               ) : (
                 <p className="vw-field-hint vw-field-hint--warn">
-                  Informe valor atual (≥ 0), retorno mensal (maior que -100%) e prazo em meses
-                  inteiro para ver a projeção.
+                  Informe valor atual (≥ 0), retorno mensal (maior que -100%), prazo em meses
+                  inteiro e aporte mensal (≥ 0, opcional) para ver a projeção.
                 </p>
               )}
             </div>

@@ -89,6 +89,12 @@ interface SimState {
   ratePct: string;
   /** Prazo em meses (texto do input). */
   months: string;
+  /**
+   * Aporte mensal recorrente em reais (T-062), opcional: campo **vazio = 0**
+   * (sem aporte). Não tem default derivado — nasce vazio e por isso fica fora
+   * do `simTouched`.
+   */
+  contribution: string;
 }
 
 /**
@@ -140,6 +146,7 @@ export function PoupancaPage() {
     initial: '',
     ratePct: '',
     months: DEFAULT_SIM_MONTHS,
+    contribution: '',
   });
   // Enquanto o usuário não mexer no campo, ele acompanha o default derivado
   // (saldo do `summary` / taxa do histórico), que só chega depois do fetch.
@@ -235,9 +242,17 @@ export function PoupancaPage() {
   const simInitial = parseNonNegativeInput(sim.initial);
   const simRate = parseNonNegativeInput(sim.ratePct);
   const simMonths = parseMonthsInput(sim.months);
+  // T-062: aporte é OPCIONAL — campo vazio significa "sem aporte" (0), não
+  // entrada inválida. `parseNonNegativeInput` devolve `null` tanto para vazio
+  // quanto para lixo digitado, então só o texto em branco vira 0; qualquer
+  // outro `null` continua invalidando a projeção (mesmo tratamento dos outros
+  // campos).
+  const simContributionRaw = sim.contribution.trim();
+  const simContribution =
+    simContributionRaw === '' ? 0 : parseNonNegativeInput(simContributionRaw);
   const projection =
-    simInitial !== null && simRate !== null && simMonths !== null
-      ? projectSavings(simInitial, simRate, simMonths)
+    simInitial !== null && simRate !== null && simMonths !== null && simContribution !== null
+      ? projectSavings(simInitial, simRate, simMonths, simContribution)
       : null;
 
   const goalNameById = new Map(goals.map((goal) => [goal.id, goal.name]));
@@ -546,8 +561,9 @@ export function PoupancaPage() {
 
           {/*
             Previsão de rendimento (T-040): simulação de juros compostos sobre o
-            valor inicial, recalculada a cada tecla. Sem aporte mensal (fora de
-            escopo) e sem gráfico (decisão do humano).
+            valor inicial, recalculada a cada tecla. T-062: com aporte mensal
+            recorrente opcional (anuidade ordinária — o aporte entra no fim de
+            cada mês). Segue sem gráfico (decisão do humano).
           */}
           <div className="vw-form-card">
             <p className="vw-form-title">Previsão de rendimento</p>
@@ -592,6 +608,17 @@ export function PoupancaPage() {
                   onChange={(e) => setSim({ ...sim, months: e.target.value })}
                 />
               </div>
+              <div className="vw-layerpage-field">
+                <label htmlFor="sim-contribution">Aporte mensal (R$)</label>
+                <input
+                  id="sim-contribution"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Opcional"
+                  value={sim.contribution}
+                  onChange={(e) => setSim({ ...sim, contribution: e.target.value })}
+                />
+              </div>
             </div>
 
             <span className="vw-field-hint">
@@ -605,6 +632,11 @@ export function PoupancaPage() {
                 <div className="vw-savings-summary-card">
                   <p className="vw-savings-summary-label">Valor futuro</p>
                   <p className="vw-savings-summary-value">{fmtCur.format(projection.futureValue)}</p>
+                  {projection.totalContributed > 0 && (
+                    <p className="vw-savings-summary-sub">
+                      Inclui {fmtCur.format(projection.totalContributed)} aportados no período.
+                    </p>
+                  )}
                 </div>
                 <div className="vw-savings-summary-card">
                   <p className="vw-savings-summary-label">
@@ -613,12 +645,20 @@ export function PoupancaPage() {
                   <p className="vw-savings-summary-value vw-value-up">
                     {fmtCur.format(projection.totalYield)}
                   </p>
+                  {/* T-062: sem esta linha, o rendimento (que exclui os
+                      aportes) parece pequeno demais para o valor futuro. */}
+                  {projection.totalContributed > 0 && (
+                    <p className="vw-savings-summary-sub">
+                      Só os juros — os {fmtCur.format(projection.totalContributed)} aportados não
+                      contam como rendimento.
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (
               <p className="vw-field-hint vw-field-hint--warn">
-                Informe valor inicial, taxa mensal (ambos ≥ 0) e prazo em meses inteiro para ver a
-                projeção.
+                Informe valor inicial, taxa mensal e aporte mensal (todos ≥ 0, aporte opcional) e
+                prazo em meses inteiro para ver a projeção.
               </p>
             )}
           </div>

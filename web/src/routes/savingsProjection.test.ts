@@ -37,29 +37,53 @@ function dayIn(delta: number, day = 10): string {
 describe('projectSavings', () => {
   it('aplica juros compostos mensais', () => {
     // 1000 × 1,01^12 = 1126,825…
-    expect(projectSavings(1000, 1, 12)).toEqual({ futureValue: 1126.83, totalYield: 126.83 });
+    expect(projectSavings(1000, 1, 12)).toEqual({
+      futureValue: 1126.83,
+      totalYield: 126.83,
+      totalContributed: 0,
+    });
   });
 
   it('prazo 0 devolve o próprio valor inicial e rendimento zero', () => {
-    expect(projectSavings(1000, 0.9, 0)).toEqual({ futureValue: 1000, totalYield: 0 });
+    expect(projectSavings(1000, 0.9, 0)).toEqual({
+      futureValue: 1000,
+      totalYield: 0,
+      totalContributed: 0,
+    });
   });
 
   it('taxa 0 não rende nada em nenhum prazo', () => {
-    expect(projectSavings(2500, 0, 36)).toEqual({ futureValue: 2500, totalYield: 0 });
+    expect(projectSavings(2500, 0, 36)).toEqual({
+      futureValue: 2500,
+      totalYield: 0,
+      totalContributed: 0,
+    });
   });
 
   it('valor inicial 0 é simulação válida e rende 0', () => {
-    expect(projectSavings(0, 1.5, 24)).toEqual({ futureValue: 0, totalYield: 0 });
+    expect(projectSavings(0, 1.5, 24)).toEqual({
+      futureValue: 0,
+      totalYield: 0,
+      totalContributed: 0,
+    });
   });
 
   it('curto-circuita inicial 0 mesmo com taxa/prazo extremos que estourariam Math.pow', () => {
     // Sem o curto-circuito, 0 × Infinity = NaN faria isto devolver null.
-    expect(projectSavings(0, 100, 5000)).toEqual({ futureValue: 0, totalYield: 0 });
+    expect(projectSavings(0, 100, 5000)).toEqual({
+      futureValue: 0,
+      totalYield: 0,
+      totalContributed: 0,
+    });
   });
 
   it('suporta taxa alta', () => {
     // 100 × 2^10 = 102400
-    expect(projectSavings(100, 100, 10)).toEqual({ futureValue: 102400, totalYield: 102300 });
+    expect(projectSavings(100, 100, 10)).toEqual({
+      futureValue: 102400,
+      totalYield: 102300,
+      totalContributed: 0,
+    });
   });
 
   it('arredonda em centavos e mantém inicial + rendimento = valor futuro', () => {
@@ -97,6 +121,92 @@ describe('projectSavings', () => {
     expect(projectSavings(0, -1, 12)).toBeNull();
     expect(projectSavings(0, 1, -3)).toBeNull();
     expect(projectSavings(0, 1, 12.5)).toBeNull();
+  });
+
+  // ---------------------------------------------------------------------
+  // T-062 — aporte mensal recorrente
+  // ---------------------------------------------------------------------
+
+  it('T-062: aporte ausente é idêntico a aporte 0 (retrocompatibilidade)', () => {
+    expect(projectSavings(1000, 1, 12, 0)).toEqual(projectSavings(1000, 1, 12));
+    expect(projectSavings(0, 1.5, 24, 0)).toEqual(projectSavings(0, 1.5, 24));
+    expect(projectSavings(2500, 0, 36, 0)).toEqual(projectSavings(2500, 0, 36));
+  });
+
+  it('T-062: aporte > 0 compõe pela anuidade ordinária', () => {
+    // 1000 × 1,01^12 = 1126,8250… ; 100 × (1,01^12 − 1)/0,01 = 1268,2503…
+    expect(projectSavings(1000, 1, 12, 100)).toEqual({
+      futureValue: 2395.08,
+      totalYield: 195.08,
+      totalContributed: 1200,
+    });
+  });
+
+  it('T-062: o aporte do ÚLTIMO mês não rende (aporte no fim do mês)', () => {
+    // Convenção documentada: anuidade ordinária. Com 1 mês de prazo, o único
+    // aporte entra no fim dele e não rende nada — se a convenção fosse
+    // antecipada, o valor futuro seria 110 (o aporte renderia os 10%).
+    expect(projectSavings(0, 10, 1, 100)).toEqual({
+      futureValue: 100,
+      totalYield: 0,
+      totalContributed: 100,
+    });
+    // 2 meses: o 1º aporte rende um mês (110), o 2º não → 210.
+    expect(projectSavings(0, 10, 2, 100)).toEqual({
+      futureValue: 210,
+      totalYield: 10,
+      totalContributed: 200,
+    });
+  });
+
+  it('T-062: taxa 0 com aporte devolve VP + A × n, sem rendimento', () => {
+    expect(projectSavings(1000, 0, 12, 100)).toEqual({
+      futureValue: 2200,
+      totalYield: 0,
+      totalContributed: 1200,
+    });
+  });
+
+  it('T-062: valor inicial 0 com aporte > 0 é simulação válida (não devolve null)', () => {
+    // O curto-circuito de `initial === 0` (T-047) só vale quando NÃO há aporte;
+    // aqui o valor futuro é positivo e vem só dos aportes compostos.
+    expect(projectSavings(0, 1, 12, 100)).toEqual({
+      futureValue: 1268.25,
+      totalYield: 68.25,
+      totalContributed: 1200,
+    });
+  });
+
+  it('T-062: prazo 0 com aporte não aporta nada', () => {
+    expect(projectSavings(1000, 0.9, 0, 500)).toEqual({
+      futureValue: 1000,
+      totalYield: 0,
+      totalContributed: 0,
+    });
+  });
+
+  it('T-062: mantém inicial + aportes + rendimento = valor futuro em centavos', () => {
+    const result = projectSavings(1234.56, 0.87, 7, 321.99);
+    expect(result).not.toBeNull();
+    const { futureValue, totalYield, totalContributed } = result!;
+    expect(futureValue).toBe(Math.round(futureValue * 100) / 100);
+    expect(totalYield).toBe(Math.round(totalYield * 100) / 100);
+    expect(totalContributed).toBe(Math.round(321.99 * 7 * 100) / 100);
+    expect(Math.round((1234.56 + totalContributed + totalYield) * 100)).toBe(
+      Math.round(futureValue * 100),
+    );
+  });
+
+  it('T-062: rejeita aporte negativo ou não finito', () => {
+    expect(projectSavings(1000, 1, 12, -1)).toBeNull();
+    expect(projectSavings(1000, 1, 12, Number.NaN)).toBeNull();
+    expect(projectSavings(1000, 1, 12, Number.POSITIVE_INFINITY)).toBeNull();
+  });
+
+  it('T-062: com aporte > 0 o estouro de number volta a devolver null mesmo com inicial 0', () => {
+    // Sem aporte isto seria curto-circuitado para zeros (teste acima); com
+    // aporte a composição é real e realmente estoura.
+    expect(projectSavings(0, 100, 5000, 100)).toBeNull();
   });
 });
 
@@ -219,6 +329,7 @@ describe('deriveMonthlyRatePct', () => {
     expect(projectSavings(1010, rate!, 12)).toEqual({
       futureValue: 1138.09,
       totalYield: 128.09,
+      totalContributed: 0,
     });
   });
 });
