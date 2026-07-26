@@ -50,6 +50,14 @@ export function buildDateWindow(endDateISO: string, days: number): string[] {
  *   (forward-fill). `quote_snapshots` só tem linha nos dias em que o job rodou
  *   (fim de semana, feriado e dia de server desligado ficam vazios); sem o
  *   forward-fill cada buraco viraria um vale falso no gráfico.
+ * - o forward-fill é **semeado pelo preço da primeira BUY** de cada ticker, na
+ *   data dela, quando ainda não há nenhum fechamento conhecido para ele. O
+ *   preço pago é um preço real e conhecido; sem o seed, comprar um ticker
+ *   inédito truncava a série inteira do dia da compra até o primeiro snapshot
+ *   — o que, com a coleta rodando só no boot do server, pode levar dias.
+ *   Snapshots posteriores continuam sobrepondo o seed normalmente; um snapshot
+ *   ANTERIOR já conhecido **não** é sobreposto pela compra (o fechamento é a
+ *   fonte preferida sempre que existe).
  *
  * Semântica de `invested`: **custo de aquisição das posições ainda detidas
  * naquela data** — `Σ quantidade × preço médio`, exatamente o `totalInvested`
@@ -66,6 +74,9 @@ export function buildDateWindow(endDateISO: string, days: number): string[] {
  *   preço devolveria um valor silenciosamente subestimado, exatamente o vale
  *   falso que o forward-fill existe para evitar. Ausente é honesto — o cliente
  *   consegue ver o buraco; um número errado ele não consegue.
+ *   **Com o seed da primeira BUY esse segundo caso é inalcançável por
+ *   construção** (só um BUY, que tem preço, cria quantidade positiva) — o
+ *   descarte fica como defesa, não como caminho esperado.
  *
  * Um dia sem NENHUMA posição aberta (tudo vendido) **entra** com `value` e
  * `invested` zerados: é um zero verdadeiro, não um buraco de dados. Já uma
@@ -97,7 +108,15 @@ export function buildPortfolioHistory(
   let snapIdx = 0;
 
   for (const date of dates) {
-    while (opIdx < sortedOps.length && sortedOps[opIdx].date <= date) opIdx += 1;
+    while (opIdx < sortedOps.length && sortedOps[opIdx].date <= date) {
+      const op = sortedOps[opIdx];
+      // Seed do forward-fill: o preço pago na primeira BUY de um ticker sem
+      // nenhum fechamento conhecido ainda. Só preenche buraco — nunca sobrepõe
+      // um preço já conhecido (fechamento é a fonte preferida). Como o laço de
+      // snapshots roda DEPOIS deste, um snapshot do mesmo dia ainda vence o seed.
+      if (op.type === 'BUY' && !lastPrice.has(op.ticker)) lastPrice.set(op.ticker, op.price);
+      opIdx += 1;
+    }
     while (snapIdx < sortedSnaps.length && sortedSnaps[snapIdx].date <= date) {
       const snap = sortedSnaps[snapIdx];
       lastPrice.set(snap.ticker, snap.price);

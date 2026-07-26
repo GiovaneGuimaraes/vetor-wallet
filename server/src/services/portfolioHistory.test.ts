@@ -68,17 +68,64 @@ describe('buildPortfolioHistory', () => {
     ]);
   });
 
-  it('omits days before the first operation and days with no known price yet', () => {
+  it('omits days before the first operation', () => {
+    const ops = [op('PETR4', 'BUY', 10, 10, d(-4))];
+    const snaps = [snap('PETR4', d(-4), 10)];
+
+    const points = buildPortfolioHistory(ops, snaps, [d(-6), d(-5), d(-4)]);
+
+    expect(points.map((p) => p.date)).toEqual([d(-4)]);
+  });
+
+  // Seed do forward-fill (achado nº 1 da revisão da T-058a).
+  it('seeds the forward-fill with the price of the first BUY when the ticker has no snapshot yet', () => {
+    const ops = [op('PETR4', 'BUY', 10, 10, d(-4))];
+    const snaps: SnapshotPoint[] = []; // nenhuma coleta aconteceu ainda
+
+    const points = buildPortfolioHistory(ops, snaps, [d(-5), d(-4), d(-3), d(-2)]);
+
+    // a série começa no dia da compra, ao preço pago — não fica truncada
+    expect(points).toEqual([
+      { date: d(-4), value: 100, invested: 100 },
+      { date: d(-3), value: 100, invested: 100 },
+      { date: d(-2), value: 100, invested: 100 },
+    ]);
+  });
+
+  it('lets the first snapshot take over from the seeded buy price', () => {
     const ops = [op('PETR4', 'BUY', 10, 10, d(-4))];
     const snaps = [snap('PETR4', d(-2), 11)];
 
-    const points = buildPortfolioHistory(ops, snaps, [d(-5), d(-4), d(-3), d(-2), d(-1)]);
+    const points = buildPortfolioHistory(ops, snaps, [d(-4), d(-3), d(-2), d(-1)]);
 
-    // d(-5): antes da primeira operação; d(-4)/d(-3): posição existe mas o
-    // ticker ainda não tem nenhum fechamento conhecido → ausentes.
-    expect(points.map((p) => p.date)).toEqual([d(-2), d(-1)]);
-    expect(points[0]).toEqual({ date: d(-2), value: 110, invested: 100 });
-    expect(points[1]).toEqual({ date: d(-1), value: 110, invested: 100 });
+    expect(points).toEqual([
+      { date: d(-4), value: 100, invested: 100 }, // seed da compra
+      { date: d(-3), value: 100, invested: 100 },
+      { date: d(-2), value: 110, invested: 100 }, // fechamento assume
+      { date: d(-1), value: 110, invested: 100 },
+    ]);
+  });
+
+  it('does not let a later BUY override an already known closing price', () => {
+    const ops = [op('PETR4', 'BUY', 10, 10, d(-4)), op('PETR4', 'BUY', 10, 9, d(-2))];
+    const snaps = [snap('PETR4', d(-3), 15)];
+
+    const points = buildPortfolioHistory(ops, snaps, [d(-3), d(-2)]);
+
+    // o preço da segunda compra (9) NÃO substitui o fechamento conhecido (15)
+    expect(points).toEqual([
+      { date: d(-3), value: 150, invested: 100 },
+      { date: d(-2), value: 300, invested: 190 },
+    ]);
+  });
+
+  it('lets a same-day snapshot win over the seed of the buy', () => {
+    const ops = [op('PETR4', 'BUY', 10, 10, d(-2))];
+    const snaps = [snap('PETR4', d(-2), 12)];
+
+    const points = buildPortfolioHistory(ops, snaps, [d(-2)]);
+
+    expect(points).toEqual([{ date: d(-2), value: 120, invested: 100 }]);
   });
 
   it('uses a snapshot older than the window as the forward-fill base of day 1', () => {
@@ -93,16 +140,36 @@ describe('buildPortfolioHistory', () => {
     ]);
   });
 
-  it('omits a day where ANY held ticker has no known price (never a partial, understated value)', () => {
+  // Antes do seed, comprar um ticker inédito truncava a série inteira até o
+  // primeiro snapshot dele — inclusive a parte já conhecida dos outros tickers.
+  it('does not truncate the series when a brand-new ticker enters the portfolio', () => {
     const ops = [op('PETR4', 'BUY', 10, 10, d(-3)), op('VALE3', 'BUY', 2, 50, d(-2))];
     const snaps = [snap('PETR4', d(-3), 10), snap('VALE3', d(-1), 60)];
 
     const points = buildPortfolioHistory(ops, snaps, [d(-3), d(-2), d(-1)]);
 
-    // d(-2) tem VALE3 na carteira sem nenhum preço conhecido → ausente,
-    // em vez de reportar apenas os 100 de PETR4.
-    expect(points.map((p) => p.date)).toEqual([d(-3), d(-1)]);
-    expect(points[1]).toEqual({ date: d(-1), value: 220, invested: 200 });
+    expect(points).toEqual([
+      { date: d(-3), value: 100, invested: 100 },
+      // VALE3 ainda sem fechamento: entra pelo preço de compra (2 × 50)
+      { date: d(-2), value: 200, invested: 200 },
+      { date: d(-1), value: 220, invested: 200 },
+    ]);
+  });
+
+  // O descarte por "ticker detido sem preço" virou defesa inalcançável: só um
+  // BUY (que sempre tem preço) cria quantidade positiva, então todo ticker
+  // detido tem base de forward-fill por construção.
+  it('never drops a day for missing price once every held ticker came from a BUY', () => {
+    const ops = [
+      op('PETR4', 'BUY', 10, 10, d(-4)),
+      op('VALE3', 'BUY', 3, 40, d(-3)),
+      op('ITUB4', 'BUY', 5, 20, d(-2)),
+    ];
+
+    const points = buildPortfolioHistory([...ops], [], [d(-4), d(-3), d(-2), d(-1)]);
+
+    expect(points.map((p) => p.date)).toEqual([d(-4), d(-3), d(-2), d(-1)]);
+    expect(points[3]).toEqual({ date: d(-1), value: 320, invested: 320 });
   });
 
   it('reduces the position on the exact date of the SELL', () => {

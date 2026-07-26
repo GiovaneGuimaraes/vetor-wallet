@@ -192,6 +192,25 @@ describe('GET /api/portfolio/history (T-058a)', () => {
     expect(res.body.error).toMatch(/days/);
   });
 
+  // Seed do forward-fill: um ticker recém-comprado, ainda sem nenhuma coleta,
+  // não pode truncar a série (com a coleta só-no-boot isso levaria dias).
+  it('includes a ticker bought with no snapshot at all, priced at the buy price', async () => {
+    const agentD = request.agent(app);
+    await agentD
+      .post('/api/auth/register')
+      .send({ email: 'history-d@test.com', password: 'password123' });
+    await agentD
+      .post('/api/operations')
+      .send({ ticker: 'BBAS3', type: 'BUY', quantity: 5, price: 20, date: d(-1) });
+
+    const res = await agentD.get('/api/portfolio/history?days=3');
+    expect(res.status).toBe(200);
+    expect(res.body.points as HistoryPoint[]).toEqual([
+      { date: d(-1), value: 100, invested: 100 },
+      { date: today, value: 100, invested: 100 },
+    ]);
+  });
+
   it('accepts the upper bound days=365', async () => {
     const res = await agentA.get('/api/portfolio/history?days=365');
     expect(res.status).toBe(200);
