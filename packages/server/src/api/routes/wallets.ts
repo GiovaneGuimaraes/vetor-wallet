@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
-import { countWallets, getOrCreateDefaultWallet } from '../services/wallets';
+import { countWallets, getOrCreateDefaultWallet, withUserLock } from '../services/wallets';
 import type { NewWallet } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -43,28 +43,44 @@ router.post(
       return;
     }
 
-    if ((await countWallets(userId)) > 0) {
+    // T-065: "checar depois agir" (countWallets → getOrCreateDefaultWallet)
+    // precisa ser atômico por usuário — sem o lock, dois POSTs simultâneos
+    // do mesmo usuário passavam os dois pela checagem de countWallets antes
+    // de qualquer INSERT, e os dois criavam carteira (violando T-050).
+    const outcome = await withUserLock(userId, async () => {
+      if ((await countWallets(userId)) > 0) {
+        return { conflict: true as const };
+      }
+
+      const walletId = await getOrCreateDefaultWallet(userId, {
+        name: name.trim(),
+        description,
+        color,
+      });
+
+      // T-065: re-SELECT também filtrado por user_id (mesmo padrão do
+      // re-SELECT de operations/alerts) — walletId vem do próprio
+      // getOrCreateDefaultWallet deste request, seguro na prática, mas o
+      // filtro fecha o mesmo descuido.
+      const row = await db.execute({
+        sql: 'SELECT * FROM wallets WHERE id = ? AND user_id = ?',
+        args: [walletId, userId],
+      });
+
+      const wallet = row.rows[0];
+      if (!wallet) {
+        throw new Error(`wallet ${walletId} not found right after getOrCreateDefaultWallet`);
+      }
+
+      return { conflict: false as const, wallet };
+    });
+
+    if (outcome.conflict) {
       res.status(400).json({ error: 'Você já tem uma carteira de ações' });
       return;
     }
 
-    const walletId = await getOrCreateDefaultWallet(userId, {
-      name: name.trim(),
-      description,
-      color,
-    });
-
-    const row = await db.execute({
-      sql: 'SELECT * FROM wallets WHERE id = ?',
-      args: [walletId],
-    });
-
-    const wallet = row.rows[0];
-    if (!wallet) {
-      throw new Error(`wallet ${walletId} not found right after getOrCreateDefaultWallet`);
-    }
-
-    res.status(201).json(wallet);
+    res.status(201).json(outcome.wallet);
   }),
 );
 

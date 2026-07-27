@@ -5,7 +5,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { computeFreeBalance, pickTransferLegs, toCents } from '../services/savings';
 import { isValidIsoDate } from '../services/dates';
-import { isValidMoneyAmount, moneyDecimalsError } from '../services/money';
+import { isValidMoneyAmount, moneyAmountError } from '../services/money';
 import type {
   NewSavingsEntry,
   SavingsEntryType,
@@ -73,7 +73,7 @@ router.post(
       return;
     }
     if (!isValidMoneyAmount(amount)) {
-      res.status(400).json({ error: moneyDecimalsError() });
+      res.status(400).json({ error: moneyAmountError(amount) });
       return;
     }
     if (!date || !isValidIsoDate(date)) {
@@ -161,7 +161,7 @@ router.post(
       return;
     }
     if (!isValidMoneyAmount(amount)) {
-      res.status(400).json({ error: moneyDecimalsError() });
+      res.status(400).json({ error: moneyAmountError(amount) });
       return;
     }
     if (!date || typeof date !== 'string' || !isValidIsoDate(date)) {
@@ -291,7 +291,7 @@ router.patch(
       return;
     }
     if (amount !== undefined && !isValidMoneyAmount(amount)) {
-      res.status(400).json({ error: moneyDecimalsError() });
+      res.status(400).json({ error: moneyAmountError(amount) });
       return;
     }
     if (date !== undefined && (typeof date !== 'string' || !isValidIsoDate(date))) {

@@ -152,6 +152,32 @@ describe('wallets routes — carteira única (T-050)', () => {
     expect(await getOrCreateDefaultWallet(legacyUserId)).toBe(walletId);
   });
 
+  // T-065: dois POSTs simultâneos do mesmo usuário não podem criar 2 carteiras
+  // — antes do lock por usuário (withUserLock), "countWallets == 0" era
+  // checado pelos dois requests antes de qualquer INSERT rodar.
+  it('two concurrent POSTs from the same user do not create two wallets', async () => {
+    const agentD = request.agent(app);
+    const reg = await agentD
+      .post('/api/auth/register')
+      .send({ email: 'wallets-d@test.com', password: 'password123' });
+    const userDId = Number(reg.body.id);
+
+    // createUser (T-050a) already gave this user a default wallet — delete it
+    // so this test exercises the race from the pre-wallets state.
+    await db.execute({ sql: 'DELETE FROM wallets WHERE user_id = ?', args: [userDId] });
+
+    const [resX, resY] = await Promise.all([
+      agentD.post('/api/wallets').send({ name: 'Carteira X' }),
+      agentD.post('/api/wallets').send({ name: 'Carteira Y' }),
+    ]);
+
+    const statuses = [resX.status, resY.status].sort();
+    expect(statuses).toEqual([201, 400]);
+
+    const list = await agentD.get('/api/wallets');
+    expect(list.body).toHaveLength(1);
+  });
+
   it('POST creates via getOrCreateDefaultWallet and adopts orphan operations (T-053)', async () => {
     const agentC = request.agent(app);
     const reg = await agentC

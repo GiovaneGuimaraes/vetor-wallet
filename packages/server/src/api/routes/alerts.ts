@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
-import { isValidMoneyAmount, moneyDecimalsError } from '../services/money';
+import { isValidMoneyAmount, moneyAmountError } from '../services/money';
 import type { NewAlertRule } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -43,7 +43,7 @@ router.post(
     }
     // T-059: mesmo padrão da T-052 (isValidMoneyAmount), aplicado a threshold.
     if (!isValidMoneyAmount(threshold)) {
-      res.status(400).json({ error: moneyDecimalsError('threshold') });
+      res.status(400).json({ error: moneyAmountError(threshold, 'threshold') });
       return;
     }
 
@@ -53,9 +53,13 @@ router.post(
     });
 
     const newId = insert.lastInsertRowid ?? 0;
+    // T-065: re-SELECT também filtrado por user_id (simetria com o padrão da
+    // T-059/T-051 em operations/savings) — os ids vêm do próprio INSERT deste
+    // request, então na prática já é seguro, mas o filtro custa só um argumento
+    // a mais e fecha a mesma classe de descuido documentada alhures.
     const row = await db.execute({
-      sql: 'SELECT * FROM alert_rules WHERE id = ?',
-      args: [Number(newId)],
+      sql: 'SELECT * FROM alert_rules WHERE id = ? AND user_id = ?',
+      args: [Number(newId), userId],
     });
     res.status(201).json(row.rows[0]);
   }),

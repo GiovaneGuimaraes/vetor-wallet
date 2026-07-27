@@ -7,7 +7,7 @@ import { buildPositionMap, applyOperation, wouldExceedPosition } from '../servic
 import { getUnknownTickers } from '../services/tickers';
 import { isValidIsoDate } from '../services/dates';
 import { getOrCreateDefaultWallet } from '../services/wallets';
-import { isValidMoneyAmount, moneyDecimalsError } from '../services/money';
+import { isValidMoneyAmount, moneyAmountError } from '../services/money';
 import type { NewOperation, CsvRowError, CsvImportResult, Operation } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -46,7 +46,12 @@ function parseRows(body: string): { rows: ParsedRow[]; errors: CsvRowError[] } {
     const price = parseFloat(priceStr);
     if (!Number.isFinite(price) || price <= 0) colErrors.push('preço inválido');
     // T-059: mesmo padrão da T-052 (isValidMoneyAmount), aplicado a price no CSV.
-    else if (!isValidMoneyAmount(price)) colErrors.push(moneyDecimalsError('price'));
+    // T-065: o rótulo era 'price' (inglês, incoerente com as outras mensagens de
+    // erro desta rota, todas em pt-BR — ex.: 'quantidade inválida' logo acima) e
+    // também podia soar como se falasse do campo `quantity`; 'preço' identifica
+    // exatamente a coluna e casa com o `moneyAmountError` (T-065a) que já decide
+    // entre 'casas decimais' e 'limite máximo' sozinho.
+    else if (!isValidMoneyAmount(price)) colErrors.push(moneyAmountError(price, 'preço'));
     if (!isValidIsoDate(date)) colErrors.push('data inválida (use YYYY-MM-DD)');
 
     if (colErrors.length > 0) {

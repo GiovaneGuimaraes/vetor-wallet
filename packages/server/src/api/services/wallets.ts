@@ -70,6 +70,35 @@ export async function countWallets(userId: number): Promise<number> {
  * `findDefaultWallet` reler a mais antiga), então dois `POST` simultâneos
  * fazem o segundo corpo perder — a carteira final leva o nome do primeiro.
  */
+/**
+ * Lock por usuário, em memória (T-065): serializa seções críticas de
+ * "checar depois agir" que dependem de contagem de carteiras — como
+ * `POST /api/wallets`, que confere `countWallets(userId) === 0` e só então
+ * insere. Sem isso, dois POSTs simultâneos do mesmo usuário passam ambos pela
+ * checagem antes de qualquer INSERT acontecer, e os dois criam carteira
+ * (violando a regra "carteira única", T-050).
+ *
+ * Deliberadamente NÃO é um índice `UNIQUE(user_id)` no banco: essa alternativa
+ * já foi descartada em `wallets-portfolio.md` porque quebraria o boot de bases
+ * legadas com 2+ carteiras. O lock em memória resolve só a corrida de escrita
+ * *nova*, sem tocar no schema nem nas carteiras legadas já existentes — e é
+ * suficiente porque o processo do server é single-instance (não há múltiplos
+ * pods concorrendo pelo mesmo lock).
+ */
+const userLocks = new Map<number, Promise<unknown>>();
+
+export async function withUserLock<T>(userId: number, fn: () => Promise<T>): Promise<T> {
+  const previous = userLocks.get(userId) ?? Promise.resolve();
+  const run = previous.then(fn, fn);
+  // Guarda a promise (sem propagar rejeição pro próximo da fila) só para
+  // encadear a ordem; o valor/erro de fato é devolvido pelo `await run` abaixo.
+  userLocks.set(
+    userId,
+    run.catch(() => undefined),
+  );
+  return run;
+}
+
 export async function getOrCreateDefaultWallet(
   userId: number,
   overrides?: { name?: string; description?: string; color?: string },
