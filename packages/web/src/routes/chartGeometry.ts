@@ -1,4 +1,5 @@
 import { projectPortfolio } from './portfolioProjection';
+import { MIN_ABS_PADDING } from './chartAxisFormat';
 
 /**
  * Matemática pura do gráfico de projeção de ações em `/dash` (T-057a).
@@ -180,9 +181,6 @@ export interface ValueDomain {
 
 /** Fração do intervalo de valores usada como margem acima/abaixo (T-057b). */
 const DOMAIN_PADDING_RATIO = 0.1;
-
-/** Margem mínima absoluta quando o intervalo é degenerado e a baseline é 0. */
-const MIN_ABS_PADDING = 1;
 
 /**
  * Calcula o domínio de valores (eixo Y) do gráfico de projeção (T-057b):

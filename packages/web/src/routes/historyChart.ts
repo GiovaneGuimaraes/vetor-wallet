@@ -1,5 +1,6 @@
 import type { PortfolioHistoryPoint } from '@vetor-wallet/shared';
 import { scaleLinear, type ValueDomain } from './chartGeometry';
+import { MIN_ABS_PADDING } from './chartAxisFormat';
 
 /**
  * Matemática pura do gráfico "Evolução da carteira" em `/dash` (T-058b) —
@@ -15,9 +16,6 @@ import { scaleLinear, type ValueDomain } from './chartGeometry';
 
 /** Fração do intervalo de valores usada como margem acima/abaixo do eixo Y. */
 const DOMAIN_PADDING_RATIO = 0.1;
-
-/** Margem mínima absoluta quando o intervalo é degenerado (todos os valores iguais) e a base é 0. */
-const MIN_ABS_PADDING = 1;
 
 /**
  * Domínio do eixo Y cobrindo `value` E `invested` de todos os pontos — a
