@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { initDb } from '@vetor-wallet/server/db';
-import { grantRole } from '@vetor-wallet/server/auth/service';
+import { grantRole } from '@vetor-wallet/server/api/auth/service';
 
 async function main(): Promise<void> {
   const email = process.argv[2];
