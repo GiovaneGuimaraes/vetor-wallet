@@ -26,7 +26,7 @@
 
 ## Tarefas ativas
 
-_(vazio — Ciclo 13 CONCLUÍDO E MERGEADO em 2026-07-26, PRs #107–#109. Detalhes no `BACKLOG-ARQUIVO.md`. Aguardando direcionamento do humano para o ciclo 14.)_
+_(vazio — Ciclo 14 CONCLUÍDO E MERGEADO em 2026-07-27, PRs #110–#114. Detalhes no `BACKLOG-ARQUIVO.md`. Aguardando direcionamento do humano para o ciclo 15.)_
 
 ## Em espera (decisão do humano — ver `TODO-HUMANO.md`)
 
@@ -40,12 +40,11 @@ _(vazio — Ciclo 13 CONCLUÍDO E MERGEADO em 2026-07-26, PRs #107–#109. Detal
 
 > As colheitas dos ciclos 9 e 10 foram resolvidas pelas tarefas T-051–T-055 (Ciclo 10). Abaixo, só o que segue aberto.
 
-- Comparação com CDI/Ibovespa nas projeções (poupança e dash — o aporte mensal foi entregue na T-062; a rota `/api/benchmarks` já existe; confirmar com o humano como exibir).
+- Comparação com CDI/Ibovespa em outros pontos (simulador da poupança, projeções de aporte, card resumo) — o humano aprovou a opção do gráfico de evolução (T-068); as demais ficam como extensão futura.
 - Editar template de recorrência (valor/dia — decisão de produto: afeta só futuras).
 - `current_amount` manual obsoleto ao desvincular o último lançamento de uma meta (semântica a decidir).
-- Sobras das revisões dos ciclos 10–11: limite superior explícito de `amount`; teste da corrida de POSTs de wallets; colisão de rótulos do gráfico com valores na casa dos bilhões; re-SELECT de alerts/wallets sem `user_id` (últimos remanescentes); rótulo `'preço'` no erro de casas decimais do CSV; threshold percentual de 2 casas a revisitar com a UI de alertas; `MIN_ABS_PADDING` compartilhado entre chartGeometry/historyChart; tooltip/hover nos gráficos.
+- Threshold percentual de 2 casas a revisitar com a UI de alertas (demais sobras das revisões 10–11 entraram no Ciclo 14: T-064–T-067).
 - Backfill histórico de snapshots via `hourly_quote_insights` (o agendador in-process foi entregue na T-061; Lambda/EventBridge segue como dívida de produção).
-- Índice em `quote_snapshots(ticker, captured_at)` — sugestão do revisor da T-063: a query de base do piso de data faz full scan; relevante quando a coleta diária (T-061) acumular volume.
 - Ampliar `/admin`; backend de cripto (aguardando o humano); agendador do job de insights (Lambda/EventBridge); redesign de Alertas/Import (hoje sem UI).
 
 ## Ciclos concluídos (detalhes no [`BACKLOG-ARQUIVO.md`](./BACKLOG-ARQUIVO.md))
@@ -65,3 +64,4 @@ _(vazio — Ciclo 13 CONCLUÍDO E MERGEADO em 2026-07-26, PRs #107–#109. Detal
 | 11 | Histórico real da carteira (coleta no boot + /portfolio/history + gráfico de evolução) + colheita do ciclo 10 | T-058a/b, T-059 | #103–#105 | 532+263 |
 | 12 | Preço por ação ao longo do tempo (seletor de ticker + referência do preço médio) | T-060 | #106 | 532+283 |
 | 13 | Agendador in-process da coleta de snapshots + aporte mensal nas projeções + colheita da T-058a | T-061 a T-063 | #107–#109 | 537+309 |
+| 14 | Colheita (índice, sobras server, charts) + tooltips + benchmarks CDI/IBOV no gráfico | T-064 a T-068 | #110–#114 | 565+351 |
