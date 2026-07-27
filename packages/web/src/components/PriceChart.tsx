@@ -1,8 +1,11 @@
+import { useState, type PointerEvent } from 'react';
 import type { QuoteSnapshot } from '@vetor-wallet/shared';
 import { buildAreaPath, buildLinePath, pickTicks, scaleLinear } from '../routes/chartGeometry';
 import { buildHistoryIndexScale } from '../routes/historyChart';
 import { computePriceDomain, isPriceSeriesDown, snapshotDate } from '../routes/priceChart';
 import { formatDayMonth } from '../routes/expenseMonth';
+import { findNearestIndex, positionTooltip } from '../routes/chartHover';
+import { svgPointFromPointerEvent } from '../routes/svgPointer';
 
 /**
  * Gráfico SVG puro do card "Preço por ação" em `/dash` (T-060) — irmão de
@@ -14,7 +17,9 @@ import { formatDayMonth } from '../routes/expenseMonth';
  * Linha do preço de fechamento (eixo X por ÍNDICE do ponto — a série tem
  * buracos de fim de semana/feriado, mesmo motivo do `HistoryChart`) + linha
  * de referência HORIZONTAL tracejada do preço médio de compra, quando
- * houver. Sem tooltip/hover (mesmo precedente dos outros gráficos da dash).
+ * houver. Hover/tooltip (T-067): mesmo mecanismo do `HistoryChart`
+ * (`chartHover.ts`/`svgPointer.ts`) — destaca o fechamento mais próximo do
+ * ponteiro e mostra data + preço.
  */
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -32,6 +37,8 @@ export interface PriceChartProps {
 }
 
 export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
   if (snapshots.length < 2) return null;
 
   const chartLeft = PADDING.left;
@@ -74,12 +81,32 @@ export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
 
   const avgY = averagePrice !== null ? yScale(averagePrice) : null;
 
+  const pointXs = pricePoints.map((p) => p.x);
+  const hoverSnapshot = hoverIndex !== null ? snapshots[hoverIndex] : null;
+  const tooltipWidth = 96;
+  const tooltip =
+    hoverSnapshot !== null
+      ? positionTooltip(pricePoints[hoverIndex as number].x, pricePoints[hoverIndex as number].y, VIEW_WIDTH, tooltipWidth)
+      : null;
+
+  function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
+    const svgPoint = svgPointFromPointerEvent(event.currentTarget, event);
+    if (svgPoint === null) return;
+    setHoverIndex(findNearestIndex(pointXs, svgPoint.x));
+  }
+
+  function handlePointerLeave() {
+    setHoverIndex(null);
+  }
+
   return (
     <svg
       viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
       style={{ width: '100%', height: 'auto' }}
       role="img"
       className="vw-price-chart"
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
     >
       <title>Gráfico de preço da ação</title>
       <desc>{description}</desc>
@@ -158,6 +185,28 @@ export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
           </g>
         );
       })}
+
+      {hoverSnapshot !== null && tooltip !== null && (
+        <g pointerEvents="none">
+          <line
+            x1={pricePoints[hoverIndex as number].x}
+            y1={chartTop}
+            x2={pricePoints[hoverIndex as number].x}
+            y2={chartBottom}
+            stroke="var(--color-dim)"
+            strokeWidth={1}
+            strokeDasharray="2 2"
+            vectorEffect="non-scaling-stroke"
+          />
+          <circle cx={pricePoints[hoverIndex as number].x} cy={pricePoints[hoverIndex as number].y} r={3.5} fill={lineColor} />
+          <foreignObject x={tooltip.anchor === 'end' ? tooltip.x - tooltipWidth : tooltip.x} y={Math.max(tooltip.y - 34, 0)} width={tooltipWidth} height={34}>
+            <div className="vw-chart-tooltip">
+              <div className="vw-chart-tooltip-date">{formatDayMonth(snapshotDate(hoverSnapshot.captured_at))}</div>
+              <div className="vw-chart-tooltip-value">{fmtCur.format(hoverSnapshot.price)}</div>
+            </div>
+          </foreignObject>
+        </g>
+      )}
     </svg>
   );
 }

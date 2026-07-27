@@ -1,8 +1,11 @@
+import { useState, type PointerEvent } from 'react';
 import type { PortfolioHistoryPoint } from '@vetor-wallet/shared';
 import { buildAreaPath, buildLinePath, pickTicks, scaleLinear } from '../routes/chartGeometry';
 import { buildHistoryIndexScale, computeHistoryDomain, isHistoryDown } from '../routes/historyChart';
 import { formatDayMonth } from '../routes/expenseMonth';
 import { formatAxisValue } from '../routes/chartAxisFormat';
+import { findNearestIndex, positionTooltip } from '../routes/chartHover';
+import { svgPointFromPointerEvent } from '../routes/svgPointer';
 
 /**
  * Gráfico SVG puro do card "Evolução da carteira" em `/dash` (T-058b) —
@@ -19,8 +22,11 @@ import { formatAxisValue } from '../routes/chartAxisFormat';
  * data REAL de cada ponto (`formatDayMonth`) em vez de assumir uma série
  * contígua de dias.
  *
- * Sem tooltip/hover (mesmo precedente do `ProjectionChart`): os únicos
- * pontos de leitura são os marcadores de início/meio/fim.
+ * Hover/tooltip (T-067): `onPointerMove` converte a posição do ponteiro para
+ * coordenadas de `viewBox` (`svgPointFromPointerEvent`, DOM puro via
+ * `getScreenCTM()`) e `findNearestIndex` (`chartHover.ts`) escolhe o ponto
+ * mais próximo — mesma função pura usada por `PriceChart`/`ProjectionChart`.
+ * `onPointerLeave` limpa o destaque.
  */
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -36,6 +42,8 @@ export interface HistoryChartProps {
 }
 
 export function HistoryChart({ points }: HistoryChartProps) {
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
   if (points.length < 2) return null;
 
   const chartLeft = PADDING.left;
@@ -78,12 +86,32 @@ export function HistoryChart({ points }: HistoryChartProps) {
     last.invested,
   )}.`;
 
+  const pointXs = valuePoints.map((p) => p.x);
+  const hoverPoint = hoverIndex !== null ? points[hoverIndex] : null;
+  const tooltipWidth = 96;
+  const tooltip =
+    hoverPoint !== null
+      ? positionTooltip(valuePoints[hoverIndex as number].x, valuePoints[hoverIndex as number].y, VIEW_WIDTH, tooltipWidth)
+      : null;
+
+  function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
+    const svgPoint = svgPointFromPointerEvent(event.currentTarget, event);
+    if (svgPoint === null) return;
+    setHoverIndex(findNearestIndex(pointXs, svgPoint.x));
+  }
+
+  function handlePointerLeave() {
+    setHoverIndex(null);
+  }
+
   return (
     <svg
       viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
       style={{ width: '100%', height: 'auto' }}
       role="img"
       className="vw-history-chart"
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
     >
       <title>Gráfico de evolução da carteira</title>
       <desc>{description}</desc>
@@ -152,6 +180,28 @@ export function HistoryChart({ points }: HistoryChartProps) {
           </g>
         );
       })}
+
+      {hoverPoint !== null && tooltip !== null && (
+        <g pointerEvents="none">
+          <line
+            x1={valuePoints[hoverIndex as number].x}
+            y1={chartTop}
+            x2={valuePoints[hoverIndex as number].x}
+            y2={chartBottom}
+            stroke="var(--color-dim)"
+            strokeWidth={1}
+            strokeDasharray="2 2"
+            vectorEffect="non-scaling-stroke"
+          />
+          <circle cx={valuePoints[hoverIndex as number].x} cy={valuePoints[hoverIndex as number].y} r={3.5} fill={lineColor} />
+          <foreignObject x={tooltip.anchor === 'end' ? tooltip.x - tooltipWidth : tooltip.x} y={Math.max(tooltip.y - 34, 0)} width={tooltipWidth} height={34}>
+            <div className="vw-chart-tooltip">
+              <div className="vw-chart-tooltip-date">{formatDayMonth(hoverPoint.date)}</div>
+              <div className="vw-chart-tooltip-value">{fmtCur.format(hoverPoint.value)}</div>
+            </div>
+          </foreignObject>
+        </g>
+      )}
     </svg>
   );
 }
