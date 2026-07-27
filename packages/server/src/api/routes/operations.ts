@@ -5,7 +5,7 @@ import { requireAuth } from '../auth/middleware';
 import { buildPositionMap, wouldExceedPosition } from '../services/portfolio';
 import { isValidIsoDate } from '../services/dates';
 import { getOrCreateDefaultWallet } from '../services/wallets';
-import { isValidMoneyAmount, moneyDecimalsError } from '../services/money';
+import { isValidMoneyAmount, moneyAmountError } from '../services/money';
 import type { NewOperation, Operation } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -53,7 +53,7 @@ router.post(
     }
     // T-059: mesmo padrão da T-052 (isValidMoneyAmount), aplicado a price.
     if (!isValidMoneyAmount(price)) {
-      res.status(400).json({ error: moneyDecimalsError('price') });
+      res.status(400).json({ error: moneyAmountError(price, 'price') });
       return;
     }
     if (!date || !isValidIsoDate(date)) {

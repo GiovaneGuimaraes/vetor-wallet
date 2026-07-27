@@ -113,6 +113,29 @@ describe('alerts routes', () => {
     expect(res.body).toMatchObject({ ticker: 'PETR4', type: 'PRICE_ABOVE', threshold: 35.5 });
   });
 
+  // T-065: rejeita threshold absurdamente grande (limite explícito de isValidMoneyAmount).
+  it('rejects threshold above the maximum money amount (400)', async () => {
+    const res = await agentA
+      .post('/api/alerts')
+      .send({ ticker: 'PETR4', type: 'PRICE_ABOVE', threshold: 1e14 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/limite máximo/);
+  });
+
+  // T-065: o re-SELECT pós-INSERT do POST agora filtra por user_id (simetria com
+  // operations/T-051) — a criação de A não deve nunca conseguir devolver a linha
+  // de outro usuário, mesmo que os ids colidissem por acaso.
+  it('the created row returned by POST always belongs to the requesting user', async () => {
+    const resA = await agentA.post('/api/alerts').send({ ticker: 'MGLU3', type: 'PRICE_ABOVE', threshold: 12 });
+    expect(resA.status).toBe(201);
+
+    const listA = await agentA.get('/api/alerts');
+    expect(listA.body.some((item: { id: number }) => item.id === resA.body.id)).toBe(true);
+
+    const listB = await agentB.get('/api/alerts');
+    expect(listB.body.some((item: { id: number }) => item.id === resA.body.id)).toBe(false);
+  });
+
   it('lists only the requesting user alert rules', async () => {
     await agentB.post('/api/alerts').send({ ticker: 'VALE3', type: 'PRICE_BELOW', threshold: 60 });
 

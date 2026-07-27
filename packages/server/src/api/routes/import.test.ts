@@ -175,6 +175,10 @@ describe('import routes — CSV SELL validation', () => {
     expect(res.body.errors).toHaveLength(1);
     expect(res.body.errors[0]).toMatchObject({ line: 3 });
     expect(res.body.errors[0].error).toMatch(/2 casas decimais/);
+    // T-065: rótulo deve identificar o campo em pt-BR ('preço'), não o
+    // genérico/em inglês 'price' que a mensagem usava antes.
+    expect(res.body.errors[0].error).toMatch(/^preço /);
+    expect(res.body.errors[0].error).not.toMatch(/^price /);
   });
 
   // T-043: uma data com formato válido mas inexistente no calendário é

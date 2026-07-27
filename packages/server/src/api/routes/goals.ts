@@ -4,7 +4,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import type { NewGoal, GoalUpdate } from '@vetor-wallet/shared';
 import { listGoalsWithProgress, getGoalWithProgress, getGoalLinkAggregate } from '../services/goals';
-import { isValidMoneyAmount, moneyDecimalsError } from '../services/money';
+import { isValidMoneyAmount, moneyAmountError } from '../services/money';
 
 const router = Router();
 
@@ -33,7 +33,7 @@ router.post(
       return;
     }
     if (!isValidMoneyAmount(target_amount)) {
-      res.status(400).json({ error: moneyDecimalsError('target_amount') });
+      res.status(400).json({ error: moneyAmountError(target_amount, 'target_amount') });
       return;
     }
     if (typeof current_amount !== 'number' || !Number.isFinite(current_amount) || current_amount < 0) {
@@ -41,7 +41,7 @@ router.post(
       return;
     }
     if (!isValidMoneyAmount(current_amount)) {
-      res.status(400).json({ error: moneyDecimalsError('current_amount') });
+      res.status(400).json({ error: moneyAmountError(current_amount, 'current_amount') });
       return;
     }
 
@@ -78,7 +78,7 @@ router.patch(
       return;
     }
     if (target_amount !== undefined && !isValidMoneyAmount(target_amount)) {
-      res.status(400).json({ error: moneyDecimalsError('target_amount') });
+      res.status(400).json({ error: moneyAmountError(target_amount, 'target_amount') });
       return;
     }
     if (
@@ -89,7 +89,7 @@ router.patch(
       return;
     }
     if (current_amount !== undefined && !isValidMoneyAmount(current_amount)) {
-      res.status(400).json({ error: moneyDecimalsError('current_amount') });
+      res.status(400).json({ error: moneyAmountError(current_amount, 'current_amount') });
       return;
     }
 

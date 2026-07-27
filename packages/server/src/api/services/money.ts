@@ -25,9 +25,21 @@
  * Notação científica (`1e-7`, `1e21`...) é tratada como inválida: só aparece
  * para valores muito pequenos ou muito grandes, fora do universo de valores
  * monetários razoáveis do app — não vale a pena decompor o expoente.
+ *
+ * **Limite superior (T-065)**: além das casas decimais, valores absurdamente
+ * grandes (`> MAX_MONEY_AMOUNT`, 1e13 — 10 trilhões) também são rejeitados.
+ * Nenhum valor monetário legítimo do app (patrimônio pessoal, aporte, meta)
+ * chega perto disso; sem o limite, um valor digitado errado (dígitos a mais)
+ * passava por `Number.isFinite` e pelas 2 casas decimais sem barreira
+ * nenhuma. `moneyAmountError` devolve a mensagem certa pra cada motivo de
+ * rejeição (casas decimais × limite), em vez do texto genérico de casas
+ * decimais aparecer também pro caso de valor grande demais.
  */
+export const MAX_MONEY_AMOUNT = 1e13;
+
 export function isValidMoneyAmount(value: number): boolean {
   if (typeof value !== 'number' || !Number.isFinite(value)) return false;
+  if (Math.abs(value) > MAX_MONEY_AMOUNT) return false;
   const str = value.toString();
   if (str.includes('e') || str.includes('E')) return false;
   const dotIndex = str.indexOf('.');
@@ -38,4 +50,19 @@ export function isValidMoneyAmount(value: number): boolean {
 /** Mensagem de erro padrão (acentuada, no estilo do repo) para o campo informado. */
 export function moneyDecimalsError(field: string = 'amount'): string {
   return `${field} deve ter no máximo 2 casas decimais`;
+}
+
+/** Mensagem de erro para valor acima do limite máximo aceito (T-065). */
+export function moneyRangeError(field: string = 'amount'): string {
+  return `${field} excede o limite máximo permitido (${MAX_MONEY_AMOUNT.toLocaleString('pt-BR')})`;
+}
+
+/**
+ * Mensagem de erro apropriada para um `value` que falhou `isValidMoneyAmount`
+ * — decide entre "casas decimais" e "limite máximo" olhando o próprio motivo,
+ * em vez do chamador precisar saber qual dos dois falhou.
+ */
+export function moneyAmountError(value: number, field: string = 'amount'): string {
+  if (Math.abs(value) > MAX_MONEY_AMOUNT) return moneyRangeError(field);
+  return moneyDecimalsError(field);
 }

@@ -4,7 +4,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import type { NewCategoryBudget } from '@vetor-wallet/shared';
 import { normalizeCategory } from '../services/categories';
-import { isValidMoneyAmount, moneyDecimalsError } from '../services/money';
+import { isValidMoneyAmount, moneyAmountError } from '../services/money';
 
 const router = Router();
 
@@ -47,7 +47,7 @@ router.post(
       return;
     }
     if (!isValidMoneyAmount(amount)) {
-      res.status(400).json({ error: moneyDecimalsError() });
+      res.status(400).json({ error: moneyAmountError(amount) });
       return;
     }
 

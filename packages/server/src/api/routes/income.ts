@@ -3,7 +3,7 @@ import { db } from '../../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import type { NewIncomeSource, IncomeSourceType, IncomeSourceUpdate } from '@vetor-wallet/shared';
-import { isValidMoneyAmount, moneyDecimalsError } from '../services/money';
+import { isValidMoneyAmount, moneyAmountError } from '../services/money';
 
 const router = Router();
 
@@ -42,7 +42,7 @@ router.post(
       return;
     }
     if (!isValidMoneyAmount(amount)) {
-      res.status(400).json({ error: moneyDecimalsError() });
+      res.status(400).json({ error: moneyAmountError(amount) });
       return;
     }
 
@@ -89,7 +89,7 @@ router.patch(
       return;
     }
     if (amount !== undefined && !isValidMoneyAmount(amount)) {
-      res.status(400).json({ error: moneyDecimalsError() });
+      res.status(400).json({ error: moneyAmountError(amount) });
       return;
     }
 
