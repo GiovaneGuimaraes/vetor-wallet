@@ -1,3 +1,4 @@
+import { useState, type PointerEvent } from 'react';
 import {
   buildAreaPath,
   buildLinePath,
@@ -7,6 +8,8 @@ import {
   type ProjectionPoint,
 } from '../routes/chartGeometry';
 import { formatAxisValue } from '../routes/chartAxisFormat';
+import { findNearestIndex, positionTooltip } from '../routes/chartHover';
+import { svgPointFromPointerEvent } from '../routes/svgPointer';
 
 /**
  * Gráfico SVG puro do card "Projeção de ganhos" em `/dash` (T-057b).
@@ -19,11 +22,13 @@ import { formatAxisValue } from '../routes/chartAxisFormat';
  * `computeValueDomain` (adicionada aqui, T-057b) — nenhuma lógica de dados
  * nova vive neste arquivo.
  *
- * Sem tooltip/hover (decisão do spike) — os únicos pontos de leitura são os
- * marcadores de início/meio/fim com o valor já escrito ao lado. Tema
- * light/dark sai de graça: nenhuma cor é literal, tudo vem das CSS custom
- * properties de `index.css` (`--color-up`/`--color-down`/`--color-edge`/
- * `--color-dim`), então o componente não precisa saber em qual tema está.
+ * Hover/tooltip (T-067, revertendo a decisão "sem tooltip" do spike a
+ * pedido do humano): além dos marcadores fixos de início/meio/fim, mover o
+ * mouse sobre a linha destaca o mês mais próximo (`findNearestIndex`,
+ * `chartHover.ts`) e mostra o valor projetado naquele mês. Tema light/dark
+ * sai de graça: nenhuma cor é literal, tudo vem das CSS custom properties de
+ * `index.css` (`--color-up`/`--color-down`/`--color-edge`/`--color-dim`),
+ * então o componente não precisa saber em qual tema está.
  *
  * O chamador (`DashboardPage`) só renderiza este componente quando a
  * projeção é válida e a série tem >= 2 pontos — mas o guard abaixo (`return
@@ -46,6 +51,8 @@ export interface ProjectionChartProps {
 }
 
 export function ProjectionChart({ series }: ProjectionChartProps) {
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
   if (series.length < 2) return null;
 
   const baseline = series[0].value;
@@ -93,12 +100,32 @@ export function ProjectionChart({ series }: ProjectionChartProps) {
         months === 1 ? 'mês' : 'meses'
       }.`;
 
+  const pointXs = points.map((p) => p.x);
+  const hoverPoint = hoverIndex !== null ? series[hoverIndex] : null;
+  const tooltipWidth = 96;
+  const tooltip =
+    hoverPoint !== null
+      ? positionTooltip(points[hoverIndex as number].x, points[hoverIndex as number].y, VIEW_WIDTH, tooltipWidth)
+      : null;
+
+  function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
+    const svgPoint = svgPointFromPointerEvent(event.currentTarget, event);
+    if (svgPoint === null) return;
+    setHoverIndex(findNearestIndex(pointXs, svgPoint.x));
+  }
+
+  function handlePointerLeave() {
+    setHoverIndex(null);
+  }
+
   return (
     <svg
       viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
       style={{ width: '100%', height: 'auto' }}
       role="img"
       className="vw-projection-chart"
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
     >
       <title>Gráfico da projeção de ganhos da carteira</title>
       <desc>{description}</desc>
@@ -167,6 +194,35 @@ export function ProjectionChart({ series }: ProjectionChartProps) {
           </g>
         );
       })}
+
+      {hoverPoint !== null && tooltip !== null && (
+        <g pointerEvents="none">
+          <line
+            x1={points[hoverIndex as number].x}
+            y1={chartTop}
+            x2={points[hoverIndex as number].x}
+            y2={chartBottom}
+            stroke="var(--color-dim)"
+            strokeWidth={1}
+            strokeDasharray="2 2"
+            vectorEffect="non-scaling-stroke"
+          />
+          <circle cx={points[hoverIndex as number].x} cy={points[hoverIndex as number].y} r={3.5} fill={lineColor} />
+          <foreignObject
+            x={tooltip.anchor === 'end' ? tooltip.x - tooltipWidth : tooltip.x}
+            y={Math.max(tooltip.y - 34, 0)}
+            width={tooltipWidth}
+            height={34}
+          >
+            <div className="vw-chart-tooltip">
+              <div className="vw-chart-tooltip-date">
+                {`Mês ${hoverPoint.month}`}
+              </div>
+              <div className="vw-chart-tooltip-value">{fmtCur.format(hoverPoint.value)}</div>
+            </div>
+          </foreignObject>
+        </g>
+      )}
     </svg>
   );
 }
