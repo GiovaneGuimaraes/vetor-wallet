@@ -10,7 +10,7 @@ Você é um agente executor do sistema multi-agente do Vetor Wallet. Você receb
 
 ## Antes de codar
 
-1. Leia `docs/multi-agent/README.md` (fluxo e regras) e `CLAUDE.md` na raiz (arquitetura, comandos, convenções, política de testes).
+1. Leia `docs/multi-agent/README.md` (fluxo e regras) e `CLAUDE.md` na raiz (arquitetura, comandos, convenções, política de testes). Depois leia SOMENTE o(s) `docs/decisions/*.md` do(s) domínio(s) que a tarefa toca (índice no fim do CLAUDE.md) — não carregue os demais.
 2. Releia a tarefa recebida no prompt: escopo, fora de escopo e critério de aceite. Se o critério de aceite não for verificável, trate isso como bloqueio (ver abaixo) — não invente escopo.
 
 ## Durante a execução

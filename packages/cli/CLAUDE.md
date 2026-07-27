@@ -6,7 +6,7 @@ Instruções específicas do package `cli/`. Leia em conjunto com o `CLAUDE.md` 
 
 ## Responsabilidade
 
-CLIs de coleta e manutenção de dados, sem dependência do Express. Cada script é uma função pura exportada do `server/services/` envelopada num entry point mínimo — estruturada para virar um handler Lambda fino no futuro.
+CLIs de coleta e manutenção de dados, sem dependência do Express. Cada script é uma função pura exportada do `packages/server/src/api/services/` envelopada num entry point mínimo — estruturada para virar um handler Lambda fino no futuro.
 
 ---
 
@@ -27,7 +27,7 @@ cli/
 
 ```bash
 # 1. Criar o .env (necessário apenas na primeira vez)
-cp cli/.env.example cli/.env
+cp packages/cli/.env.example packages/cli/.env
 
 # 2. Rodar o job (a partir da raiz do workspace)
 pnpm --filter vetor-wallet-cli insights:hourly
@@ -47,7 +47,7 @@ Sem argumento de data, o job usa o dia útil anterior em BRT.
 | `DATABASE_URL` | `file:../server/data/wallet.db` | **Sim** |
 | `BRAPI_TOKEN` | — | Não (limite maior com token) |
 
-`DATABASE_URL` é relativo ao diretório onde o script roda (`cli/`), então `../server/data/wallet.db` aponta corretamente para o banco do server. Para Turso: `libsql://seu-db.turso.io?authToken=...`.
+`DATABASE_URL` é relativo ao diretório onde o script roda (`packages/cli/`), então `../server/data/wallet.db` aponta corretamente para o banco do server. Para Turso: `libsql://seu-db.turso.io?authToken=...`.
 
 ---
 
@@ -64,10 +64,10 @@ Isso permite importar serviços e o cliente de banco do server sem duplicar cód
 
 ```typescript
 import { initDb } from '@vetor-wallet/server/db';
-import { runHourlyInsightsJob } from '@vetor-wallet/server/services/hourlyInsights';
+import { runHourlyInsightsJob } from '@vetor-wallet/server/api/services/hourlyInsights';
 ```
 
-**Não adicione lógica de negócio diretamente nos arquivos de `cli/src/`** — ela pertence a `server/src/services/`. O CLI só chama `initDb()`, invoca o job e loga o resultado.
+**Não adicione lógica de negócio diretamente nos arquivos de `cli/src/`** — ela pertence a `packages/server/src/api/services/`. O CLI só chama `initDb()`, invoca o job e loga o resultado.
 
 ---
 
@@ -75,7 +75,7 @@ import { runHourlyInsightsJob } from '@vetor-wallet/server/services/hourlyInsigh
 
 1. Criar `cli/src/<nome>.ts` — chama `initDb()` + função do serviço + loga + `process.exit`.
 2. Adicionar script em `cli/package.json`: `"<nome>": "tsx src/<nome>.ts"`.
-3. A lógica de negócio fica em `server/src/services/<nome>.ts` com seus testes Vitest.
+3. A lógica de negócio fica em `packages/server/src/api/services/<nome>.ts` com seus testes Vitest.
 
 ---
 
@@ -86,7 +86,7 @@ Quando o deploy em AWS Lambda + EventBridge for feito, cada `cli/src/*.ts` vira 
 ```typescript
 // lambda/hourlyInsights.ts (exemplo)
 import { initDb } from '@vetor-wallet/server/db';
-import { runHourlyInsightsJob } from '@vetor-wallet/server/services/hourlyInsights';
+import { runHourlyInsightsJob } from '@vetor-wallet/server/api/services/hourlyInsights';
 
 export const handler = async () => {
   await initDb();

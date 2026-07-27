@@ -1,0 +1,205 @@
+# Schema do banco
+
+> Extraído do CLAUDE.md raiz. O schema é gerenciado em `packages/server/src/db/schema.ts > initDb()` via `CREATE TABLE IF NOT EXISTS` e `ALTER TABLE` idempotentes; migrações de dados em `db/migrations.ts`.
+
+Gerenciado em `packages/server/src/db/ > initDb()` via `CREATE TABLE IF NOT EXISTS` e `ALTER TABLE` idempotentes.
+
+```sql
+-- Usuários
+CREATE TABLE IF NOT EXISTS users (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  email        TEXT    NOT NULL UNIQUE,
+  password_hash TEXT   NOT NULL,
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Carteira do usuário. Desde a T-050 é UMA por usuário — invariante de
+-- APLICAÇÃO (POST /api/wallets recusa a segunda), sem UNIQUE(user_id): o
+-- índice quebraria o boot de bases legadas que já têm 2+. Ver "Carteira única".
+CREATE TABLE IF NOT EXISTS wallets (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id),
+  name        TEXT    NOT NULL,
+  description TEXT    NOT NULL DEFAULT '',
+  color       TEXT    NOT NULL DEFAULT '#e3d5b8',
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Operações de compra/venda
+CREATE TABLE IF NOT EXISTS operations (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticker     TEXT    NOT NULL,
+  type       TEXT    NOT NULL CHECK(type IN ('BUY', 'SELL')),
+  quantity   REAL    NOT NULL,
+  price      REAL    NOT NULL,
+  date       TEXT    NOT NULL,   -- YYYY-MM-DD
+  user_id    INTEGER REFERENCES users(id),
+  wallet_id  INTEGER REFERENCES wallets(id),
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Snapshot diário de preço (um por ticker por dia)
+CREATE TABLE IF NOT EXISTS quote_snapshots (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticker      TEXT    NOT NULL,
+  price       REAL    NOT NULL,
+  captured_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+-- UNIQUE(ticker, date(captured_at))
+
+-- Preços horários do pregão (alimentados pelo CLI de insights)
+CREATE TABLE IF NOT EXISTS hourly_quote_insights (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticker      TEXT    NOT NULL,
+  quote_date  TEXT    NOT NULL,   -- YYYY-MM-DD
+  hour        INTEGER NOT NULL CHECK(hour BETWEEN 0 AND 23),  -- hora BRT
+  price       REAL    NOT NULL,
+  captured_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+-- UNIQUE(ticker, quote_date, hour)
+
+-- Alertas de preço/alocação
+CREATE TABLE IF NOT EXISTS alert_rules (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticker    TEXT    NOT NULL,
+  type      TEXT    NOT NULL CHECK(type IN ('PRICE_ABOVE','PRICE_BELOW','CHANGE_PCT','ALLOCATION_PCT')),
+  threshold REAL    NOT NULL,
+  active    INTEGER NOT NULL DEFAULT 1,
+  user_id   INTEGER REFERENCES users(id),
+  created_at TEXT   NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Fontes de renda mensal (itens fixos cadastrados, não lançamentos datados)
+CREATE TABLE IF NOT EXISTS income_sources (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  name       TEXT    NOT NULL,
+  type       TEXT    NOT NULL DEFAULT 'OUTRO' CHECK(type IN ('SALARIO', 'FREELA', 'OUTRO')),
+  amount     REAL    NOT NULL,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Lançamentos de renda variável (renda avulsa datada: freela pontual, venda,
+-- bônus; a visão mensal filtra por substr(date, 1, 7) = 'YYYY-MM'). Distinto de
+-- income_sources, que não tem data e vale para todo mês. Sem categoria e sem
+-- recorrência (fora de escopo da T-036).
+CREATE TABLE IF NOT EXISTS income_entries (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id),
+  description TEXT    NOT NULL,
+  amount      REAL    NOT NULL,
+  date        TEXT    NOT NULL,   -- YYYY-MM-DD
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_income_entries_user_date ON income_entries(user_id, date);
+
+-- Despesas fixas mensais (itens fixos cadastrados, não lançamentos datados)
+CREATE TABLE IF NOT EXISTS fixed_expenses (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  name       TEXT    NOT NULL,
+  category   TEXT    NOT NULL DEFAULT '',
+  amount     REAL    NOT NULL,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Lançamentos de despesas variáveis (gastos datados do dia a dia; a visão mensal
+-- filtra por substr(date, 1, 7) = 'YYYY-MM'). Distinto de fixed_expenses, que
+-- não tem data e vale para todo mês.
+CREATE TABLE IF NOT EXISTS expense_entries (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(id),
+  description TEXT    NOT NULL,
+  category    TEXT    NOT NULL DEFAULT '',
+  amount      REAL    NOT NULL,
+  date        TEXT    NOT NULL,   -- YYYY-MM-DD
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_expense_entries_user_date ON expense_entries(user_id, date);
+-- ALTER idempotente: recurring_id INTEGER REFERENCES recurring_expenses(id)
+--   recorrência que gerou a ocorrência (T-035). NULL = lançamento manual.
+
+-- Template de recorrência mensal de despesa variável (T-035). Só o template
+-- vive aqui; as ocorrências são expense_entries normais com recurring_id.
+-- Encerrar é SEMPRE soft (active = 0 + ended_at) — a linha nunca é apagada.
+CREATE TABLE IF NOT EXISTS recurring_expenses (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL REFERENCES users(id),
+  description  TEXT    NOT NULL,
+  category     TEXT    NOT NULL DEFAULT '',   -- normalizada (T-028)
+  amount       REAL    NOT NULL,
+  day_of_month INTEGER NOT NULL CHECK(day_of_month BETWEEN 1 AND 31),
+  start_month  TEXT    NOT NULL,   -- YYYY-MM: mês de CRIAÇÃO (ou o mês do
+                                   -- lançamento, se futuro). Meses anteriores
+                                   -- nunca são gerados — não retroage.
+  active       INTEGER NOT NULL DEFAULT 1,
+  ended_at     TEXT,               -- NULL enquanto ativa
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_recurring_expenses_user_active
+  ON recurring_expenses(user_id, active);
+
+-- Livro-razão de "meses já gerados" de cada recorrência (T-035). É a chave
+-- única daqui — e não a existência da ocorrência — que garante idempotência;
+-- a linha SOBREVIVE ao delete da ocorrência, então excluir um lançamento
+-- gerado não o recria no próximo GET.
+CREATE TABLE IF NOT EXISTS recurring_expense_months (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  recurring_id INTEGER NOT NULL REFERENCES recurring_expenses(id),
+  month        TEXT    NOT NULL,   -- YYYY-MM
+  created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+-- UNIQUE(recurring_id, month)
+
+-- Lançamentos de poupança/reserva (livro de lançamentos; saldo é derivado no server:
+-- DEPOSIT + YIELD − WITHDRAW). Sem vínculo com wallet.
+CREATE TABLE IF NOT EXISTS savings_entries (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  type       TEXT    NOT NULL CHECK(type IN ('DEPOSIT', 'WITHDRAW', 'YIELD')),
+  amount     REAL    NOT NULL,
+  date       TEXT    NOT NULL,   -- YYYY-MM-DD
+  note       TEXT    NOT NULL DEFAULT '',
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+-- ALTER idempotente: goal_id INTEGER REFERENCES goals(id)
+--   vínculo opcional com uma meta (T-024). NULL = sem vínculo. Apenas
+--   DEPOSIT/WITHDRAW podem ser vinculados.
+-- INDEX idx_savings_entries_goal (user_id, goal_id)
+-- ALTER idempotente: transfer_group TEXT
+--   uuid comum às duas pernas de uma transferência poupança → meta (T-041).
+--   NULL = lançamento normal. É etiqueta de PROCEDÊNCIA, não invariante: nada é
+--   validado entre as pernas e o PATCH não aceita o campo.
+
+-- Metas financeiras. `current_amount` é o valor MANUAL de fallback: quando a
+-- meta tem lançamentos de poupança vinculados (savings_entries.goal_id), o
+-- valor exposto pela API é DERIVADO desses lançamentos e esta coluna deixa de
+-- ser lida (nem é materializada — ver "Progresso de metas").
+CREATE TABLE IF NOT EXISTS goals (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id        INTEGER NOT NULL REFERENCES users(id),
+  name           TEXT    NOT NULL,
+  target_amount  REAL    NOT NULL,
+  current_amount REAL    NOT NULL DEFAULT 0,
+  created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Orçamento mensal por categoria (T-023): teto de gasto sem vínculo com mês —
+-- vale para qualquer mês exibido em Despesas, só o gasto comparado varia.
+-- UNIQUE(user_id, category); POST faz upsert (substitui o amount existente).
+-- `category` é gravada na forma canônica normalizada (T-028), igual a
+-- fixed_expenses.category e expense_entries.category — ver "Categoria é
+-- normalizada nas 3 telas de despesas/orçamento".
+CREATE TABLE IF NOT EXISTS category_budgets (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id),
+  category   TEXT    NOT NULL,
+  amount     REAL    NOT NULL,
+  created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+```
+
+Driver: `@libsql/client` (libsql/SQLite). Sem ORM; queries são SQL puro.
+
+---
+
