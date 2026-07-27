@@ -2,6 +2,7 @@ import type { PortfolioHistoryPoint } from '@vetor-wallet/shared';
 import { buildAreaPath, buildLinePath, pickTicks, scaleLinear } from '../routes/chartGeometry';
 import { buildHistoryIndexScale, computeHistoryDomain, isHistoryDown } from '../routes/historyChart';
 import { formatDayMonth } from '../routes/expenseMonth';
+import { formatAxisValue } from '../routes/chartAxisFormat';
 
 /**
  * Gráfico SVG puro do card "Evolução da carteira" em `/dash` (T-058b) —
@@ -137,7 +138,7 @@ export function HistoryChart({ points }: HistoryChartProps) {
           <g key={`tick-${tick.date}`}>
             <circle cx={tick.x} cy={tick.y} r={2.5} fill={lineColor} />
             <text x={tick.x} y={valueLabelY} textAnchor={anchor} fontSize={9} fill="var(--color-dim)">
-              {fmtCur.format(tick.value)}
+              {formatAxisValue(tick.value)}
             </text>
             <text
               x={tick.x}

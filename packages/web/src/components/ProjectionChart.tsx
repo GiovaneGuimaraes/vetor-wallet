@@ -6,6 +6,7 @@ import {
   scaleLinear,
   type ProjectionPoint,
 } from '../routes/chartGeometry';
+import { formatAxisValue } from '../routes/chartAxisFormat';
 
 /**
  * Gráfico SVG puro do card "Projeção de ganhos" em `/dash` (T-057b).
@@ -161,7 +162,7 @@ export function ProjectionChart({ series }: ProjectionChartProps) {
               fontSize={9}
               fill="var(--color-dim)"
             >
-              {fmtCur.format(tick.value)}
+              {formatAxisValue(tick.value)}
             </text>
           </g>
         );
