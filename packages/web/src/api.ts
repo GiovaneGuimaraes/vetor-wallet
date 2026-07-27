@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, PortfolioHistoryResponse, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, IncomeEntry, NewIncomeEntry, IncomeEntryUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, RecurringExpense, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, SavingsTransferRequest, SavingsTransferResult, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, PortfolioHistoryResponse, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, BenchmarkHistoryResponse, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, IncomeEntry, NewIncomeEntry, IncomeEntryUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, RecurringExpense, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, SavingsTransferRequest, SavingsTransferResult, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -177,6 +177,17 @@ export async function deleteAlertRule(id: number): Promise<void> {
 export async function getBenchmarks(): Promise<BenchmarkData> {
   const res = await apiFetch('/api/benchmarks');
   if (!res.ok) throw new Error('Falha ao buscar benchmarks');
+  return res.json();
+}
+
+/**
+ * Séries diárias de CDI/Ibovespa da MESMA janela do histórico da carteira
+ * (T-068). `days` segue a mesma faixa de `getPortfolioHistory`.
+ */
+export async function getBenchmarkHistory(days?: number): Promise<BenchmarkHistoryResponse> {
+  const qs = days !== undefined ? `?days=${encodeURIComponent(String(days))}` : '';
+  const res = await apiFetch(`/api/benchmarks/history${qs}`);
+  if (!res.ok) throw new Error('Falha ao buscar o histórico dos benchmarks');
   return res.json();
 }
 

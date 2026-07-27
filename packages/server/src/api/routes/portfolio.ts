@@ -11,6 +11,7 @@ import {
   buildPortfolioHistory,
   type SnapshotPoint,
 } from '../services/portfolioHistory';
+import { parseDaysParam } from '../services/dates';
 
 const router = Router();
 
@@ -60,19 +61,11 @@ router.get(
     const userId = res.locals.userId as number;
     const rawDays = req.query.days;
 
-    let days = DEFAULT_HISTORY_DAYS;
-    if (rawDays !== undefined) {
-      // Mesmo padrão do `?months=` de `/api/expense-entries/summary`: só
-      // inteiro decimal — `1.5`, `-1` e `abc` caem aqui antes do range.
-      if (typeof rawDays !== 'string' || !/^\d+$/.test(rawDays)) {
-        res.status(400).json({ error: historyDaysError });
-        return;
-      }
-      days = Number(rawDays);
-      if (days < 1 || days > MAX_HISTORY_DAYS) {
-        res.status(400).json({ error: historyDaysError });
-        return;
-      }
+    // Regra de parse compartilhada com `GET /api/benchmarks/history` (T-068).
+    const days = parseDaysParam(rawDays, DEFAULT_HISTORY_DAYS, MAX_HISTORY_DAYS);
+    if (days === null) {
+      res.status(400).json({ error: historyDaysError });
+      return;
     }
 
     // Mesma âncora de "hoje" usada pelo P&L do dia em `GET /` — data BRT, não UTC.

@@ -117,6 +117,24 @@ export interface BenchmarkData {
   ibovespa: number | null;
 }
 
+/** Ponto de uma série histórica de benchmark (`GET /api/benchmarks/history`, T-068). */
+export interface BenchmarkSeriesPoint {
+  date: string; // YYYY-MM-DD
+  /** Índice acumulado (CDI, base 100 no início da série) ou fechamento (Ibovespa). */
+  value: number;
+}
+
+/**
+ * Séries diárias de CDI/Ibovespa para comparar com a evolução da carteira
+ * (T-068). `null` por série = indisponível (falha da fonte externa ou sem
+ * dado no período) — a UI simplesmente não desenha aquela linha.
+ */
+export interface BenchmarkHistoryResponse {
+  period: { from: string; to: string };
+  cdi: BenchmarkSeriesPoint[] | null;
+  ibovespa: BenchmarkSeriesPoint[] | null;
+}
+
 export interface User {
   id: number;
   email: string;

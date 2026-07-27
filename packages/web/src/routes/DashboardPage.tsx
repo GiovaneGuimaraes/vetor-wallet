@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getOperations, createOperation, deleteOperation, getPortfolioHistory, getSnapshots } from '../api';
+import {
+  getOperations,
+  createOperation,
+  deleteOperation,
+  getPortfolioHistory,
+  getBenchmarkHistory,
+  getSnapshots,
+} from '../api';
 import { OperationForm } from '../components/OperationForm';
 import { OperationsList } from '../components/OperationsList';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
@@ -9,7 +16,12 @@ import { PriceChart } from '../components/PriceChart';
 import { useShellContext } from '../layout/ShellContext';
 import { decideWalletFlow } from './walletFlow';
 import { buildProjectionSeries } from './chartGeometry';
-import type { PortfolioHistoryPoint, QuoteSnapshot } from '@vetor-wallet/shared';
+import type {
+  BenchmarkHistoryResponse,
+  PortfolioHistoryPoint,
+  QuoteSnapshot,
+} from '@vetor-wallet/shared';
+import { buildBenchmarkLine } from './benchmarkSeries';
 import {
   deriveMonthlyReturnPct,
   parseSignedInput,
@@ -156,6 +168,56 @@ export function DashboardPage() {
     if (!hasPositions) return;
     void refreshHistory(historyDays);
   }, [hasPositions, historyDays, refreshHistory]);
+
+  // Comparação com CDI/Ibovespa (T-068): séries da MESMA janela, buscadas em
+  // paralelo ao histórico e com a mesma guarda de resposta obsoleta. Ligar/
+  // desligar uma série é só render (`showCdi`/`showIbov`) — não refaz fetch,
+  // porque a resposta traz as duas de uma vez. Uma falha aqui é SILENCIOSA no
+  // lugar do gráfico e só aparece como aviso discreto: a comparação é um
+  // extra, o gráfico da carteira continua correto sem ela.
+  const [benchmarkSeries, setBenchmarkSeries] = useState<BenchmarkHistoryResponse | null>(null);
+  const [benchmarkError, setBenchmarkError] = useState('');
+  const [showCdi, setShowCdi] = useState(false);
+  const [showIbov, setShowIbov] = useState(false);
+  const benchmarkRequestRef = useRef(0);
+
+  useEffect(() => {
+    if (!hasPositions) return;
+    if (!showCdi && !showIbov) return;
+    const requestId = ++benchmarkRequestRef.current;
+    setBenchmarkError('');
+    void (async () => {
+      try {
+        const res = await getBenchmarkHistory(historyDays);
+        if (benchmarkRequestRef.current !== requestId) return;
+        setBenchmarkSeries(res);
+      } catch (err) {
+        if (benchmarkRequestRef.current !== requestId) return;
+        setBenchmarkSeries(null);
+        setBenchmarkError(
+          err instanceof Error ? err.message : 'Erro ao buscar os benchmarks',
+        );
+      }
+    })();
+  }, [hasPositions, historyDays, showCdi, showIbov]);
+
+  const cdiLine = useMemo(
+    () =>
+      showCdi && historyPoints ? buildBenchmarkLine(benchmarkSeries?.cdi, historyPoints) : null,
+    [showCdi, benchmarkSeries, historyPoints],
+  );
+  const ibovLine = useMemo(
+    () =>
+      showIbov && historyPoints
+        ? buildBenchmarkLine(benchmarkSeries?.ibovespa, historyPoints)
+        : null,
+    [showIbov, benchmarkSeries, historyPoints],
+  );
+  // Pedida mas indisponível (fonte externa sem dado no período): avisa em vez
+  // de deixar o usuário achar que o toggle não funcionou.
+  const benchmarkUnavailable =
+    (showCdi && benchmarkSeries !== null && cdiLine === null) ||
+    (showIbov && benchmarkSeries !== null && ibovLine === null);
 
   // Preço por ação (T-060): seletor de ticker + janela PRÓPRIA (independente
   // de `historyDays`). `priceTicker` default é a maior alocação
@@ -367,6 +429,41 @@ export function DashboardPage() {
             <div className="vw-form-card">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <p className="vw-form-title">Evolução da carteira</p>
+                {/* Comparativo (T-068): dois toggles independentes — cada
+                    linha mostra quanto o MESMO dinheiro do primeiro dia da
+                    janela valeria no benchmark. */}
+                <div className="vw-history-window" role="group" aria-label="Comparar com benchmarks">
+                  <button
+                    type="button"
+                    aria-pressed={showCdi}
+                    onClick={() => setShowCdi((v) => !v)}
+                    className={`vw-history-window-btn ${
+                      showCdi ? 'vw-history-window-btn--active' : ''
+                    }`}
+                  >
+                    <span
+                      className="vw-bench-toggle-dot"
+                      style={{ color: 'var(--color-bench-cdi)' }}
+                      aria-hidden="true"
+                    />
+                    CDI
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={showIbov}
+                    onClick={() => setShowIbov((v) => !v)}
+                    className={`vw-history-window-btn ${
+                      showIbov ? 'vw-history-window-btn--active' : ''
+                    }`}
+                  >
+                    <span
+                      className="vw-bench-toggle-dot"
+                      style={{ color: 'var(--color-bench-ibov)' }}
+                      aria-hidden="true"
+                    />
+                    Ibovespa
+                  </button>
+                </div>
                 <div className="vw-history-window" role="group" aria-label="Janela do histórico">
                   {HISTORY_WINDOW_OPTIONS.map((days) => (
                     <button
@@ -401,9 +498,21 @@ export function DashboardPage() {
                 </p>
               )}
 
+              {benchmarkError && (
+                <p className="vw-field-hint vw-field-hint--warn">
+                  {benchmarkError} — o gráfico da carteira continua disponível.
+                </p>
+              )}
+
+              {!benchmarkError && benchmarkUnavailable && (
+                <p className="vw-field-hint">
+                  Sem dados de benchmark para este período — tente uma janela maior.
+                </p>
+              )}
+
               {!historyError && historyPoints !== null && historyPoints.length >= 2 && (
                 <div className="vw-history-chart-wrap">
-                  <HistoryChart points={historyPoints} />
+                  <HistoryChart points={historyPoints} cdiLine={cdiLine} ibovLine={ibovLine} />
                 </div>
               )}
             </div>
