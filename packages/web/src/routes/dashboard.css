@@ -200,3 +200,57 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+
+/* Linha extra do tooltip (benchmark, T-068) — a cor vem inline, da mesma
+   custom property usada no traço da linha, para que rótulo e linha nunca
+   divirjam. */
+.vw-chart-tooltip-row {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ */
+/* Legenda das séries do gráfico de evolução (T-068)                    */
+/* ------------------------------------------------------------------ */
+
+.vw-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  color: var(--color-mid);
+}
+
+.vw-chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* `currentColor` + cor inline no <span>: um swatch só, servindo qualquer
+   série, sem uma classe por cor. */
+.vw-chart-legend-swatch {
+  width: 14px;
+  height: 0;
+  border-top: 2px solid currentColor;
+}
+
+.vw-chart-legend-swatch--dashed {
+  border-top-style: dashed;
+}
+
+/* Toggles das linhas de benchmark — reusam a pílula do seletor de janela
+   (`.vw-history-window-btn`), mas com estado de ligado/desligado próprio
+   (`aria-pressed`) em vez de seleção exclusiva; a bolinha à esquerda usa a
+   cor da série para amarrar botão e linha. */
+.vw-bench-toggle-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  margin-right: 5px;
+  vertical-align: middle;
+}

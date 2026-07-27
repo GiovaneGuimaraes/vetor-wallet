@@ -57,7 +57,7 @@ O SQLite (`packages/server/data/wallet.db`) é criado no primeiro boot.
 | snapshots | GET /api/snapshots/:ticker | histórico diário de preços |
 | import | POST /api/import | CSV de corretora; rejeição por linha |
 | alerts | GET, POST, DELETE /api/alerts[/:id] | backend ativo, sem UI (T-026) |
-| benchmarks | GET /api/benchmarks | CDI/Ibovespa |
+| benchmarks | GET /api/benchmarks, GET /api/benchmarks/history?days= | CDI/Ibovespa: acumulado do período (número) e série diária p/ o gráfico (T-068) |
 | tickers | GET /api/tickers | busca na brapi |
 | admin | POST /api/admin/run-insights-job | requireAdmin |
 | income | CRUD /api/income[/:id] | fontes fixas mensais, sem data |

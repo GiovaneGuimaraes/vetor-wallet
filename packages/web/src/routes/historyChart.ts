@@ -23,11 +23,24 @@ const DOMAIN_PADDING_RATIO = 0.1;
  * mercado é maior/menor. `[]`/`[ponto único]` devolvem um domínio degenerado
  * centrado no único valor disponível (ou em 0 para série vazia), com a mesma
  * margem mínima de {@link MIN_ABS_PADDING} usada em `computeValueDomain`.
+ *
+ * `extraValues` (T-068) entra na mesma conta de min/max: são os valores das
+ * linhas de benchmark VISÍVEIS, já convertidas para reais
+ * (`benchmarkSeries.ts`). Sem isso, um CDI/Ibovespa que rendeu mais que a
+ * carteira sairia do desenho. Ligar/desligar uma série muda o domínio, e é
+ * intencional: o eixo se ajusta ao que está sendo comparado.
  */
-export function computeHistoryDomain(points: PortfolioHistoryPoint[]): ValueDomain {
-  if (points.length === 0) return { min: -MIN_ABS_PADDING, max: MIN_ABS_PADDING };
+export function computeHistoryDomain(
+  points: PortfolioHistoryPoint[],
+  extraValues: number[] = [],
+): ValueDomain {
+  const extras = extraValues.filter((v) => Number.isFinite(v));
+  if (points.length === 0) {
+    if (extras.length === 0) return { min: -MIN_ABS_PADDING, max: MIN_ABS_PADDING };
+    return { min: Math.min(...extras) - MIN_ABS_PADDING, max: Math.max(...extras) + MIN_ABS_PADDING };
+  }
 
-  const all = points.flatMap((p) => [p.value, p.invested]);
+  const all = [...points.flatMap((p) => [p.value, p.invested]), ...extras];
   const min = Math.min(...all);
   const max = Math.max(...all);
   const range = max - min;

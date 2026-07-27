@@ -47,6 +47,27 @@ describe('computeHistoryDomain', () => {
     expect(domain.min).toBeLessThanOrEqual(900);
     expect(domain.max).toBeGreaterThanOrEqual(1050);
   });
+
+  it('inclui os valores das linhas de benchmark visíveis no domínio (T-068)', () => {
+    const points = [point('2026-07-01', 1000, 1000), point('2026-07-02', 1010, 1000)];
+    const withoutBench = computeHistoryDomain(points);
+    const withBench = computeHistoryDomain(points, [1000, 2000]);
+    expect(withoutBench.max).toBeLessThan(2000);
+    expect(withBench.max).toBeGreaterThanOrEqual(2000);
+  });
+
+  it('extraValues não finitos são ignorados (sem NaN no domínio)', () => {
+    const points = [point('2026-07-01', 1000, 1000)];
+    const domain = computeHistoryDomain(points, [Number.NaN, Number.POSITIVE_INFINITY]);
+    expect(Number.isFinite(domain.min)).toBe(true);
+    expect(Number.isFinite(domain.max)).toBe(true);
+  });
+
+  it('série vazia com benchmark visível ainda devolve domínio finito', () => {
+    const domain = computeHistoryDomain([], [500, 700]);
+    expect(domain.min).toBeLessThan(500);
+    expect(domain.max).toBeGreaterThan(700);
+  });
 });
 
 describe('isHistoryDown', () => {

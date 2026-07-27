@@ -33,6 +33,12 @@
   --color-up:   #10b981;
   --color-down: #f43f5e;
   --color-warn: #f59e0b;
+  /* Benchmarks (T-068) — identidade de SÉRIE, não sentimento: cada linha do
+     comparativo do gráfico de evolução tem uma cor fixa, distinta de
+     up/down (que já significam alta/baixa da carteira) e de --color-dim (a
+     linha de custo). Como up/down/warn, são inalteradas entre temas. */
+  --color-bench-cdi:  #3b82f6;
+  --color-bench-ibov: #8b5cf6;
 }
 
 /* ------------------------------------------------------------------ */
