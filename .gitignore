@@ -1,6 +1,6 @@
 node_modules/
 dist/
-server/data/
+packages/server/data/
 *.log
 .env
 .env.local

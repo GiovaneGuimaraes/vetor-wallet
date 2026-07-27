@@ -6,8 +6,8 @@ Carteira financeira pessoal organizada em layers — Renda mensal, Despesas (fix
 
 ## Stack
 
-- **web/** — Vite + React + TypeScript
-- **server/** — Node + Express + TypeScript, SQLite via `@libsql/client`
+- **packages/web/** — Vite + React + TypeScript
+- **packages/server/** — Node + Express + TypeScript, SQLite via `@libsql/client`
 - **Cotações** — [brapi.dev](https://brapi.dev) (API gratuita)
 
 ## Como funciona
@@ -34,12 +34,12 @@ pnpm install
 
 ```bash
 # server
-cp server/.env.example server/.env
+cp packages/server/.env.example packages/server/.env
 # Opcional: adicione seu token da brapi.dev para maior limite de requisições
 # BRAPI_TOKEN=seu_token_aqui
 
 # web
-cp web/.env.example web/.env
+cp packages/web/.env.example packages/web/.env
 ```
 
 ### Desenvolvimento

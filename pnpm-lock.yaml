@@ -8,7 +8,7 @@ importers:
 
   .: {}
 
-  cli:
+  packages/cli:
     dependencies:
       '@libsql/client':
         specifier: ^0.14.0
@@ -30,7 +30,7 @@ importers:
         specifier: ^5.4.5
         version: 5.9.3
 
-  server:
+  packages/server:
     dependencies:
       '@libsql/client':
         specifier: ^0.14.0
@@ -109,9 +109,9 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@20.19.43)(lightningcss@1.32.0)
 
-  shared: {}
+  packages/shared: {}
 
-  web:
+  packages/web:
     dependencies:
       '@vetor-wallet/shared':
         specifier: workspace:*
