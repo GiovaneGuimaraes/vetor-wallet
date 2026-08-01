@@ -40,7 +40,7 @@ pnpm --filter vetor-wallet-cli insights:hourly [YYYY-MM-DD]
 
 | Pacote | Principais variáveis |
 |---|---|
-| server | `PORT` (3001), `SESSION_SECRET`*, `ALLOWED_ORIGIN`*, `NODE_ENV`*, `BRAPI_TOKEN`, `DATABASE_URL` (default `process.cwd()/data/wallet.db`) — * obrigatórias em prod |
+| server | `PORT` (3001), `SESSION_SECRET`*, `ALLOWED_ORIGIN`*, `NODE_ENV`*, `BRAPI_TOKEN`, `DATABASE_URL` (default `process.cwd()/data/wallet.db`), `ABACATEPAY_API_KEY`, `ABACATEPAY_API_URL` (default `https://api.abacatepay.com/v2`), `ABACATEPAY_WEBHOOK_SECRET`, `BILLING_ENABLED` (default false; obrigatória true em prod com billing) — * obrigatórias em prod |
 | web | `VITE_API_URL` (http://localhost:3001) |
 | cli | `DATABASE_URL=file:../server/data/wallet.db` (relativo a packages/cli/), `BRAPI_TOKEN` |
 

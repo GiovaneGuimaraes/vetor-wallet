@@ -197,6 +197,79 @@ CREATE TABLE IF NOT EXISTS category_budgets (
   amount     REAL    NOT NULL,
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- Billing / Assinatura Pix (T-069)
+-- ─────────────────────────────────────────────────────────────────────────
+-- ATENÇÃO — neste layer dinheiro é CENTAVOS (INTEGER), nunca REAL. A API
+-- da AbacatePay transaciona valores inteiros em centavos; arredondar de/para
+-- REAL abriria espaço para divergência de 1 centavo entre registro do app e
+-- o que o PSP cobrou (reconciliação quebrada). Aqui a representação segue a
+-- do provedor; converter para reais é papel da camada de apresentação.
+
+-- Catálogo global de planos — sem vínculo de usuário.
+CREATE TABLE IF NOT EXISTS plans (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  code        TEXT    NOT NULL,                              -- chave estável ('pro_monthly', 'pro_yearly')
+  name        TEXT    NOT NULL,
+  description TEXT    NOT NULL DEFAULT '',
+  price_cents INTEGER NOT NULL,                              -- em CENTAVOS
+  interval    TEXT    NOT NULL CHECK(interval IN ('monthly', 'yearly')),
+  active      INTEGER NOT NULL DEFAULT 1,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_plans_code ON plans(code);
+
+-- Uma assinatura por usuário (T-050: decisão de carteira única replicada aqui).
+-- Trocar de plano é UPDATE da linha existente (plan_id/status), nunca uma
+-- segunda linha; sem isso "qual é o plano do usuário?" deixa de ter resposta única.
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id            INTEGER NOT NULL REFERENCES users(id),
+  plan_id            INTEGER NOT NULL REFERENCES plans(id),
+  status             TEXT    NOT NULL DEFAULT 'pending'
+                             CHECK(status IN ('pending', 'active', 'expired', 'canceled')),
+  current_period_end TEXT,                                   -- SQLite UTC 'YYYY-MM-DD HH:MM:SS', ou null
+  created_at         TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at         TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id);
+
+-- Cobrança Pix gerada para uma assinatura. Provém da API da AbacatePay via
+-- external_id = id local; webhook e polling (`GET /api/pix-charges/:id`)
+-- consultam status aqui.
+CREATE TABLE IF NOT EXISTS pix_charges (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id           INTEGER NOT NULL REFERENCES users(id),
+  plan_id           INTEGER NOT NULL REFERENCES plans(id),
+  abacate_charge_id TEXT    NOT NULL,                        -- id único no provedor
+  amount_cents      INTEGER NOT NULL,                        -- em CENTAVOS
+  status            TEXT    NOT NULL DEFAULT 'PENDING'
+                           CHECK(status IN ('PENDING', 'PAID', 'EXPIRED', 'CANCELLED', 'REFUNDED')),
+  br_code           TEXT    NOT NULL DEFAULT '',             -- payload Pix copia-e-cola
+  br_code_base64    TEXT    NOT NULL DEFAULT '',             -- QR Code base64
+  expires_at        TEXT,                                    -- SQLite UTC ou null
+  paid_at           TEXT,
+  created_at        TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pix_charges_abacate_id
+  ON pix_charges(abacate_charge_id);
+-- Leitura típica: "a cobrança PENDING mais recente deste usuário"
+CREATE INDEX IF NOT EXISTS idx_pix_charges_user_status
+  ON pix_charges(user_id, status, created_at);
+
+-- Log idempotente de webhook. Evento recebido → `INSERT OR IGNORE` aqui;
+-- duplicata é ignorada (UNIQUE(event_id)) e o efeito colateral (ativar
+-- assinatura) não é reaplicado.
+CREATE TABLE IF NOT EXISTS billing_webhook_events (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id    TEXT NOT NULL,
+  event_type  TEXT NOT NULL DEFAULT '',
+  charge_id   TEXT NOT NULL DEFAULT '',
+  received_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_webhook_events_event
+  ON billing_webhook_events(event_id);
 ```
 
 Driver: `@libsql/client` (libsql/SQLite). Sem ORM; queries são SQL puro.
