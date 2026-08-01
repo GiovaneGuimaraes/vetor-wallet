@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { getMe, logout, getPortfolio, getWallets, createWallet } from './api';
 import { ProtectedShell } from './layout/ProtectedShell';
 import type { ShellContext } from './layout/ShellContext';
@@ -11,6 +11,7 @@ import { PoupancaPage } from './routes/PoupancaPage';
 import { MetasPage } from './routes/MetasPage';
 import { CriptoPage } from './routes/CriptoPage';
 import { DashboardPage } from './routes/DashboardPage';
+import { PlanosPage } from './routes/PlanosPage';
 import { AdminRoute } from './routes/AdminRoute';
 import { decideWalletFlow, resolvePrimaryWallet } from './routes/walletFlow';
 import type { User, Wallet, PortfolioSummary } from '@vetor-wallet/shared';
@@ -29,6 +30,7 @@ import { getStoredTheme, setTheme as applyAndPersistTheme, type Theme } from './
  */
 export default function App() {
   const navigate = useNavigate();
+  const location = useLocation();
   // Mecânica de tema centralizada em web/src/theme.ts (T-003); a aplicação
   // inicial no <html> acontece em main.tsx (initTheme) e no pré-paint do
   // index.html — aqui só espelhamos o valor em estado para re-render.
@@ -56,6 +58,24 @@ export default function App() {
   useEffect(() => {
     getMe().then(setUser).catch(() => setUser(null));
   }, []);
+
+  // T-072: 402 SUBSCRIPTION_REQUIRED (ver `api.ts`) manda o usuário para a
+  // vitrine de planos. Guarda contra rajada: se o evento disparar de novo
+  // enquanto já estamos em `/planos` (ex.: várias chamadas 402 em paralelo),
+  // não empilha navegações — `location.pathname` é lido dentro do handler via
+  // ref para não precisar recriar o listener a cada troca de rota.
+  const pathnameRef = useRef(location.pathname);
+  pathnameRef.current = location.pathname;
+
+  useEffect(() => {
+    const handler = () => {
+      if (pathnameRef.current !== '/planos') {
+        navigate('/planos');
+      }
+    };
+    window.addEventListener('billing:subscription-required', handler);
+    return () => window.removeEventListener('billing:subscription-required', handler);
+  }, [navigate]);
 
   /**
    * T-050b: uma busca de carteira + UM `getPortfolio()` (sem id — desde a
@@ -190,6 +210,7 @@ export default function App() {
         <Route path="/metas" element={<MetasPage />} />
         <Route path="/cripto" element={<CriptoPage />} />
         <Route path="/dash" element={<DashboardPage />} />
+        <Route path="/planos" element={<PlanosPage />} />
         {/* T-050b: bookmarks antigos do fluxo multi-carteira. `/carteiras` e
             `/dash/:id` não existem mais — a carteira é única e o dashboard não
             recebe id. Redirect em vez de 404 para não quebrar link salvo. */}

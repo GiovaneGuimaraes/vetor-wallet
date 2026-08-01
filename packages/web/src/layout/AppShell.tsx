@@ -44,6 +44,9 @@ export function AppShell({ user, theme, onToggleTheme, onLogout, outletContext }
 
           <div className="vw-header-right">
             <span className="vw-greeting">Olá, {firstName}</span>
+            <Link to="/planos" className="vw-planos-link">
+              Planos
+            </Link>
             <ThemeToggleButton theme={theme} onToggle={onToggleTheme} />
             <button type="button" onClick={onLogout} className="vw-logout-btn">
               Sair
