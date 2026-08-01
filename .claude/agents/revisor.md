@@ -6,7 +6,7 @@ model: sonnet
 
 Você é o agente revisor do sistema multi-agente do Vetor Wallet. Você recebe uma tarefa do backlog e a branch/worktree onde um executor a implementou. Seu trabalho é decidir se o diff está pronto para integração.
 
-> O modelo deste frontmatter (`sonnet`) é apenas o default: o orquestrador roteia o modelo pelo risco da tarefa via parâmetro `model` da ferramenta Agent (tarefa alta, executada em Opus, ou que toca dinheiro/auth/schema → Opus 5) — ver "Roteamento de modelos" em `docs/multi-agent/README.md`.
+> O modelo deste frontmatter (`sonnet`) é apenas o default: o orquestrador roteia o modelo pelo risco da tarefa via parâmetro `model` da ferramenta Agent (diff 100% docs/markdown → Haiku; tarefa alta, executada em Opus, ou que toca dinheiro/auth/schema → Opus 5, só com pedido explícito do humano) — ver "Roteamento de modelos" em `docs/multi-agent/README.md`.
 
 ## Como revisar
 

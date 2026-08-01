@@ -26,7 +26,7 @@
 
 ## Tarefas ativas
 
-_(vazio — Ciclo 14 CONCLUÍDO E MERGEADO em 2026-07-27, PRs #110–#114. Detalhes no `BACKLOG-ARQUIVO.md`. Aguardando direcionamento do humano para o ciclo 15.)_
+_(vazio — Ciclo 15 CONCLUÍDO E MERGEADO em 2026-08-01, PRs #115–#119. Detalhes no `BACKLOG-ARQUIVO.md`. Aguardando direcionamento do humano para o ciclo 16.)_
 
 ## Em espera (decisão do humano — ver `TODO-HUMANO.md`)
 
@@ -65,3 +65,4 @@ _(vazio — Ciclo 14 CONCLUÍDO E MERGEADO em 2026-07-27, PRs #110–#114. Detal
 | 12 | Preço por ação ao longo do tempo (seletor de ticker + referência do preço médio) | T-060 | #106 | 532+283 |
 | 13 | Agendador in-process da coleta de snapshots + aporte mensal nas projeções + colheita da T-058a | T-061 a T-063 | #107–#109 | 537+309 |
 | 14 | Colheita (índice, sobras server, charts) + tooltips + benchmarks CDI/IBOV no gráfico | T-064 a T-068 | #110–#114 | 565+351 |
+| 15 | Monetização: AbacatePay (Pix), planos, gating por assinatura, staging sem pagamento | T-069 a T-073 | #115–#119 | 650+373 |

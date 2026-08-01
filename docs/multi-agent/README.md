@@ -61,11 +61,14 @@ O orquestrador classifica cada tarefa do `BACKLOG.md` com um campo **Complexidad
 
 | Complexidade | Sinais típicos | Executor | Revisor |
 |---|---|---|---|
-| **baixa** | mudança mecânica/repetitiva, docs, ajuste de estilo/CSS, renomear, asset estático | `haiku` ou `sonnet` | `sonnet` |
+| **baixa** | mudança mecânica/repetitiva, docs, ajuste de estilo/CSS, renomear, asset estático | `haiku` (default) | `sonnet` (docs puros: `haiku`) |
 | **média** | feature padrão sobre padrões existentes (nova rota espelhando outra, tela nova sobre API pronta, teste novo) | `sonnet` (default) | `sonnet` |
 | **alta** | cálculo financeiro (preço médio, P&L, saldo), mudança de schema/migração, auth/isolamento por `user_id`, refactor multi-pacote (`shared`+`server`+`web`), lógica com muitos casos de borda, débito que já causou reprovação antes | `opus` | `sonnet` |
 
 Regras complementares:
+
+- **Baixa roda em Haiku por decisão de custo (2026-08-01)** — "haiku ou sonnet" na prática virava sempre Sonnet; agora Haiku é o default para complexidade baixa. Critério de segurança: a tarefa baixa só pode ir para Haiku se **não** tocar lógica de negócio nem SQL (docs, CSS/estilo, rename, texto de UI, asset, config trivial). Tocou qualquer código com comportamento testável → classifique como média (Sonnet). O revisor continua Sonnet, exceto diffs 100% de docs/markdown, que podem ser revisados em Haiku.
+- **Escalonamento Haiku → Sonnet**: 1 veredito REPROVADA em tarefa executada por Haiku já re-delega o próximo ciclo em Sonnet (não espere as 2 reprovações da regra do Opus).
 
 - **Revisor é sempre Sonnet por decisão de custo do humano (2026-07-25)** — o Opus na revisão encareceu demais o loop. Exceções pontuais só com pedido explícito do humano. Se um revisor Sonnet se declarar inseguro num ponto de dinheiro/auth, o orquestrador pode verificar aquele ponto específico ele mesmo em vez de escalar o modelo.
 - **Escalonamento automático**: 2 vereditos REPROVADA seguidos na mesma tarefa → o orquestrador re-delega o próximo ciclo com executor `opus`, incluindo no prompt o histórico dos achados das reprovações.

@@ -555,3 +555,17 @@ PRs #107–#109. Suíte ao fim: 537 server + 309 web. Onda A: T-061 ∥ T-062; O
 ### T-067 — Tooltip/hover nos gráficos SVG — PR #113. Executor Sonnet, revisor Sonnet: APROVADA. `chartHover.ts` puro (findNearestIndex/positionTooltip, 12 testes de borda) + `svgPointer.ts` (wrapper DOM sem teste, justificado por jsdom); HistoryChart/PriceChart/ProjectionChart com onPointerMove/Leave, linha vertical tracejada, ponto destacado e tooltip via foreignObject com pointer-events none; PointerEvent unifica mouse/touch. Sugestões não bloqueantes: teste de empate com 3+ pontos; box-shadow via custom property.
 
 ### T-068 — Comparação CDI/Ibovespa no gráfico de evolução — PR #114. Executor Opus (alta), revisor Sonnet: APROVADA sem bloqueantes (matemática da reancoragem e composição do CDI verificadas manualmente). Nova rota `GET /api/benchmarks/history?days=N` (requireAuth; CDI BCB SGS 12 composto em índice; IBOV brapi ^BVSP 1d; timeout 5s, falha de fonte → null isolado); `parseDaysParam` extraído para services/dates.ts. Web: `benchmarkSeries.ts` reancora cada benchmark no primeiro dia comparável e escala ao valor da carteira (mesmo eixo BRL); forward-fill em buracos no meio/fim, null sem back-fill no início, splitSegments contra retas inventadas; toggles por série (aria-pressed) + legenda + tooltip da T-067 integrado; `computeHistoryDomain` com extraValues; cores `--color-bench-cdi/--color-bench-ibov`. HistoryChart passou a fragmento (svg + ul da legenda). Sugestão não bloqueante: aviso de indisponibilidade não distingue qual benchmark falhou.
+
+## Ciclo 15 — Monetização: AbacatePay (Pix) + planos + staging (2026-08-01, PRs #115–#119)
+
+Pedido do humano: integrar https://www.abacatepay.com, vender planos via Pix e ter staging sem precisar pagar. Spike de design em Plan/Opus antes das tarefas altas.
+
+| Tarefa | Conteúdo | Executor | Revisor | PR |
+|---|---|---|---|---|
+| T-069 | Schema (`plans`, `subscriptions` UNIQUE por usuário, `pix_charges`, `billing_webhook_events`) + service `abacatepay.ts` (10s timeout, erro explícito) + seed Pro Mensal R$ 9,90 / Pro Anual R$ 99,00 | Opus | Sonnet | #115 |
+| T-070 | `GET /plans`, `POST /subscriptions` (cobrança Pix, reaproveita PENDING), `GET /subscriptions/me`, `GET /pix-charges/:id` (polling ativa), webhook HMAC sobre body cru (montado ANTES do `express.json()`), simulate dev-only (404 em prod); `markChargePaidAndActivate` única | Opus | Sonnet | #116 |
+| T-071 | `requireActiveSubscription` (402 `SUBSCRIPTION_REQUIRED` só em escrita) + `BILLING_ENABLED` default false (staging = no-op sem query) | Opus | Sonnet | #117 |
+| T-072 | Página `/planos`: QR base64, copia-e-cola, countdown, polling com backoff, 402 global → redirect, banner staging, simulate só em dev | Sonnet | Sonnet | #118 |
+| T-073 | `billing.md` completo + guia staging/prod, tabelas no `db-schema.md`, envs no `CLAUDE.md`, fix de comentários de data no shared | **Haiku** (1ª tarefa do roteamento de baixa; qualidade validada pelo revisor) | Sonnet | #119 |
+
+Suíte ao fim: **650 (server) + 373 (web)**. Riscos aceitos documentados: cobrança órfã no provedor se INSERT falhar pós-criação; `alerts.ts` sem gating (fora da lista — candidata futura). Decisões: centavos/INTEGER no layer de billing; uma assinatura por usuário; datas UTC formato SQLite com clamp de dia; renovação soma ao fim do período vigente. Pendência humana (TODO-HUMANO): conta AbacatePay + API key sandbox; em prod, webhook no dashboard + `BILLING_ENABLED=true`.

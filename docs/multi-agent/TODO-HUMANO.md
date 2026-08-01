@@ -18,7 +18,12 @@
 
 ## Abertos
 
-_(nenhum item aberto no momento)_
+### [2026-08-01] Credenciais AbacatePay (dev agora, prod depois)
+- **Origem**: orquestrador (Ciclo 15 — T-069/T-070)
+- **Bloqueia**: nada para o desenvolvimento (executores usam fetch mockado nos testes); bloqueia apenas o **teste real em dev mode** e o deploy em produção
+- **Pergunta/pendência**: (1) criar conta em https://www.abacatepay.com (nasce em Dev Mode), gerar a API key de sandbox e colocar em `packages/server/.env` como `ABACATEPAY_API_KEY`; (2) para produção, futuramente: completar o cadastro/aprovação da conta, gerar chave de produção, cadastrar o webhook no dashboard apontando para `https://<seu-host>/api/webhooks/abacatepay?webhookSecret=<secret>` e definir `ABACATEPAY_WEBHOOK_SECRET` + `BILLING_ENABLED=true` no ambiente de prod. Staging/local fica com `BILLING_ENABLED=false` (default) e não exige pagamento.
+- **Preços dos planos (default adotado, contestável)**: Pro Mensal R$ 9,90 e Pro Anual R$ 99,00 — ajuste na tabela `plans` se quiser outros valores.
+- **Resposta do humano**: _(preencher)_
 
 ## Resolvidos
 
