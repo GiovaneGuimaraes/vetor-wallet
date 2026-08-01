@@ -3,6 +3,7 @@ import express from 'express';
 import { db } from '../../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import { buildPositionMap, applyOperation, wouldExceedPosition } from '../services/portfolio';
 import { getUnknownTickers } from '../services/tickers';
 import { isValidIsoDate } from '../services/dates';
@@ -77,6 +78,7 @@ function parseRows(body: string): { rows: ParsedRow[]; errors: CsvRowError[] } {
 router.post(
   '/',
   requireAuth,
+  requireActiveSubscription,
   express.text({ type: '*/*', limit: '1mb' }),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;

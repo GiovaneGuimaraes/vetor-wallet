@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import type { NewExpenseEntry, ExpenseEntryUpdate } from '@vetor-wallet/shared';
 import { normalizeCategory } from '../services/categories';
 import {
@@ -57,6 +58,7 @@ export function shiftMonthKey(monthKey: string, delta: number): string {
 }
 
 router.use(requireAuth);
+router.use(requireActiveSubscription);
 
 // T-033: precisa vir ANTES de qualquer rota GET com `/:id` no mesmo router
 // (não há uma hoje, mas evita a armadilha de "summary" casar como um `:id`

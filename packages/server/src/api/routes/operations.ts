@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import { buildPositionMap, wouldExceedPosition } from '../services/portfolio';
 import { isValidIsoDate } from '../services/dates';
 import { getOrCreateDefaultWallet } from '../services/wallets';
@@ -11,6 +12,7 @@ import type { NewOperation, Operation } from '@vetor-wallet/shared';
 const router = Router();
 
 router.use(requireAuth);
+router.use(requireActiveSubscription);
 
 // Carteira única (T-050): o escopo é o USUÁRIO. `?walletId=` é ignorado —
 // a lista é sempre consolidada, inclusive sobre carteiras legadas.
