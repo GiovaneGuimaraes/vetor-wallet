@@ -1,5 +1,5 @@
 import { db } from './client';
-import { normalizeExistingCategories } from './migrations';
+import { normalizeExistingCategories, seedPlans } from './migrations';
 import { cleanupExpiredSessions } from './sessionStore';
 
 export async function initDb() {
@@ -233,6 +233,105 @@ export async function initDb() {
     )
   `);
 
+  // ── Billing / assinatura Pix (T-069) ──────────────────────────────────────
+  //
+  // ATENÇÃO — este é o ÚNICO layer do banco em que dinheiro é guardado em
+  // CENTAVOS (INTEGER), e não em REAL como o resto do app (`amount`, `price`,
+  // `target_amount`…). O motivo é externo: a API da AbacatePay transaciona
+  // valores inteiros em centavos, e arredondar de/para REAL a cada cobrança
+  // abriria espaço para divergência de 1 centavo entre o que o app registra e
+  // o que o PSP cobrou. Em cobrança isso é reconciliação quebrada, então aqui
+  // a representação segue a do provedor. Converter para reais é
+  // responsabilidade da camada de apresentação.
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS plans (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      code        TEXT    NOT NULL,
+      name        TEXT    NOT NULL,
+      description TEXT    NOT NULL DEFAULT '',
+      price_cents INTEGER NOT NULL,
+      interval    TEXT    NOT NULL CHECK(interval IN ('monthly', 'yearly')),
+      active      INTEGER NOT NULL DEFAULT 1,
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  // `code` é a chave estável do plano (o id numérico é detalhe de storage):
+  // é por ele que o seed é idempotente e que o front referencia o plano.
+  await db.execute(`CREATE UNIQUE INDEX IF NOT EXISTS idx_plans_code ON plans(code)`);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id            INTEGER NOT NULL REFERENCES users(id),
+      plan_id            INTEGER NOT NULL REFERENCES plans(id),
+      status             TEXT    NOT NULL DEFAULT 'pending'
+                                 CHECK(status IN ('pending', 'active', 'expired', 'canceled')),
+      current_period_end TEXT,
+      created_at         TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at         TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  // UMA assinatura por usuário — mesma decisão da carteira única (T-050).
+  // Trocar de plano é UPDATE da linha existente (plan_id/status), nunca uma
+  // segunda linha; sem isso "qual é o plano do usuário?" deixa de ter resposta
+  // única e a leitura precisaria de regra de desempate.
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id)`,
+  );
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS pix_charges (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id           INTEGER NOT NULL REFERENCES users(id),
+      plan_id           INTEGER NOT NULL REFERENCES plans(id),
+      abacate_charge_id TEXT    NOT NULL,
+      amount_cents      INTEGER NOT NULL,
+      status            TEXT    NOT NULL DEFAULT 'PENDING'
+                                CHECK(status IN ('PENDING', 'PAID', 'EXPIRED', 'CANCELLED', 'REFUNDED')),
+      br_code           TEXT    NOT NULL DEFAULT '',
+      br_code_base64    TEXT    NOT NULL DEFAULT '',
+      expires_at        TEXT,
+      paid_at           TEXT,
+      created_at        TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  // O id da cobrança no provedor é único do nosso lado também: é a chave que o
+  // webhook usa para achar a linha a atualizar, e duplicá-la tornaria o
+  // processamento ambíguo.
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_pix_charges_abacate_id
+     ON pix_charges(abacate_charge_id)`,
+  );
+
+  // Leitura típica: "a cobrança PENDING mais recente deste usuário".
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_pix_charges_user_status
+     ON pix_charges(user_id, status, created_at)`,
+  );
+
+  // Log de idempotência de webhook. Entra já nesta tarefa de propósito (schema
+  // mora num arquivo só); quem passa a escrever nela é a T-070: o handler
+  // insere o `event_id` e, se o UNIQUE recusar, o evento é reentrega e o
+  // efeito colateral (ativar assinatura) NÃO é reaplicado.
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS billing_webhook_events (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_id    TEXT NOT NULL,
+      event_type  TEXT NOT NULL DEFAULT '',
+      charge_id   TEXT NOT NULL DEFAULT '',
+      received_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_webhook_events_event
+     ON billing_webhook_events(event_id)`,
+  );
+
   // Add user_id column to existing tables (idempotent — ignored if already present)
   for (const sql of [
     'ALTER TABLE operations ADD COLUMN user_id INTEGER REFERENCES users(id)',
@@ -287,4 +386,5 @@ export async function initDb() {
   await cleanupExpiredSessions(db);
 
   await normalizeExistingCategories();
+  await seedPlans();
 }

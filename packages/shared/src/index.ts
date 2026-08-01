@@ -500,3 +500,79 @@ export interface NewCategoryBudget {
   category: string;
   amount: number;
 }
+
+/**
+ * Billing / assinatura Pix (T-069).
+ *
+ * ATENÇÃO — neste domínio (e SÓ neste) o dinheiro trafega em **centavos**
+ * (`price_cents`, `amount_cents`), inteiro, e não em reais como o resto do app.
+ * É a unidade da AbacatePay: manter a mesma representação evita divergência de
+ * arredondamento entre o que registramos e o que o provedor cobrou. Formatar em
+ * BRL é responsabilidade da UI (dividir por 100 na apresentação).
+ */
+export type PlanInterval = 'monthly' | 'yearly';
+
+export interface Plan {
+  id: number;
+  /** Chave estável do plano (`pro_monthly`, `pro_yearly`). */
+  code: string;
+  name: string;
+  description: string;
+  /** Em CENTAVOS. */
+  price_cents: number;
+  interval: PlanInterval;
+  active: boolean;
+}
+
+/**
+ * - `pending`: assinatura criada, aguardando pagamento da cobrança Pix.
+ * - `active`: paga e dentro do período (`current_period_end` no futuro).
+ * - `expired`: período venceu sem renovação.
+ * - `canceled`: cancelada pelo usuário.
+ */
+export type SubscriptionStatus = 'pending' | 'active' | 'expired' | 'canceled';
+
+/** Uma assinatura por usuário (espelha a carteira única, T-050). */
+export interface Subscription {
+  id: number;
+  plan_id: number;
+  status: SubscriptionStatus;
+  /** ISO 8601, ou null enquanto nunca houve pagamento confirmado. */
+  current_period_end: string | null;
+  created_at: string;
+}
+
+export type PixChargeStatus = 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'REFUNDED';
+
+export interface PixCharge {
+  id: number;
+  plan_id: number;
+  /** Em CENTAVOS. */
+  amount_cents: number;
+  status: PixChargeStatus;
+  /** Payload Pix copia-e-cola. */
+  br_code: string;
+  /** QR Code em base64 (data URI). */
+  br_code_base64: string;
+  expires_at: string | null;
+  created_at: string;
+}
+
+/**
+ * Estado de billing do usuário logado. `billingEnabled` reflete a flag do
+ * server (`BILLING_ENABLED`): quando false a UI não deve oferecer assinatura,
+ * mesmo que existam planos cadastrados.
+ */
+export interface MySubscriptionResponse {
+  billingEnabled: boolean;
+  subscription: Subscription | null;
+  /** O plano da assinatura acima, já resolvido. */
+  plan: Plan | null;
+  /** Cobrança PENDING mais recente, se houver — é o QR Code a exibir. */
+  pendingCharge: PixCharge | null;
+}
+
+export interface CreateSubscriptionResponse {
+  subscription: Subscription;
+  charge: PixCharge;
+}

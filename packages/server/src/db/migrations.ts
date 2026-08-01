@@ -74,3 +74,45 @@ export async function normalizeExistingCategories() {
     });
   }
 }
+
+/**
+ * Catálogo de planos do app (T-069). `price_cents` em CENTAVOS — ver o comentário
+ * do bloco de billing em `schema.ts` para o porquê da divergência de unidade.
+ */
+export const DEFAULT_PLANS = [
+  {
+    code: 'pro_monthly',
+    name: 'Pro Mensal',
+    description: 'Acesso completo ao Vetor Wallet, cobrado mês a mês.',
+    price_cents: 990,
+    interval: 'monthly',
+  },
+  {
+    code: 'pro_yearly',
+    name: 'Pro Anual',
+    description: 'Acesso completo ao Vetor Wallet por 12 meses, com desconto.',
+    price_cents: 9900,
+    interval: 'yearly',
+  },
+] as const;
+
+/**
+ * Semeia os planos padrão (T-069). Roda a cada `initDb()` e é idempotente:
+ * `INSERT OR IGNORE` contra o UNIQUE de `code` — na segunda execução nenhuma
+ * linha é inserida e os ids permanecem estáveis.
+ *
+ * O seed **nunca atualiza** um plano já existente (preço, nome ou descrição).
+ * É decisão de produto, não descuido: alterar `price_cents` de um plano vigente
+ * mudaria o valor cobrado de quem já assinou aquele plano, sem trilha do preço
+ * antigo. Reajuste de preço se faz criando um plano com novo `code` (ou por
+ * migração explícita e deliberada), não editando esta constante.
+ */
+export async function seedPlans() {
+  for (const plan of DEFAULT_PLANS) {
+    await db.execute({
+      sql: `INSERT OR IGNORE INTO plans (code, name, description, price_cents, interval, active)
+            VALUES (?, ?, ?, ?, ?, 1)`,
+      args: [plan.code, plan.name, plan.description, plan.price_cents, plan.interval],
+    });
+  }
+}
