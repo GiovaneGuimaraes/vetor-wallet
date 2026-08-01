@@ -104,8 +104,88 @@ de banco **não** é capturado: 500 faz o provedor reentregar, que é o desejáv
   de wallets é o lazy-create do onboarding e bloquear ele travaria o usuário
   antes de ele conseguir pagar.
 
+## T-072 — UI de planos e pagamento Pix
+
+Rota `/planos` (web) com:
+- **Vitrine de planos**: cards com preço em BRL (formatado via `Intl.NumberFormat`),
+  intervalo (/mês, /ano), descrição e botão "Assinar".
+- **Painel Pix**: após clicar "Assinar", exibe QR Code (`brCodeBase64` + `br_code`
+  para copia-e-cola) + contagem regressiva de expiração (polling do `expires_at`).
+- **Polling com backoff**: `GET /api/pix-charges/:id` a cada ~2s, com backoff
+  exponencial até 30s. Ao receber PAID, ativa a assinatura (transitivo: não
+  precisa re-GET `/subscriptions/me`, a UI já sabe).
+- **402 global → redirect**: quando uma rota responde 402
+  `{code:'SUBSCRIPTION_REQUIRED'}`, middleware de rota redireciona para `/planos`
+  (convite implícito a pagar).
+- **Banner de staging**: quando `billingEnabled: false`, a página exibe aviso de
+  que nenhum pagamento será processado (staging/dev).
+- **Botão "Simular pagamento"** (dev only): disponível apenas quando
+  `import.meta.env.DEV`, chama `POST /api/billing/simulate/:chargeId` (T-070)
+  para ativar uma cobrança sem passar pelo Pix real. Desaparece em produção.
+
+Lógica pura (parsing, polling, estado de UI, formatação) vive em `web/src/routes/planos.ts`
+com testes ao lado; componentes são apenas renderização.
+
+## Guia de staging e produção
+
+### Staging (local + CI)
+
+Por padrão, `BILLING_ENABLED=false`:
+- Middleware de gating vira no-op → sem bloqueio de 402, tudo funciona como se
+  não houvesse billing.
+- API de billing (`/api/plans`, `/api/subscriptions`, `/api/pix-charges`) continua
+  funcionando (útil para testes automatizados).
+- Se quiser **testar o fluxo Pix completo** sem pagar:
+  1. Criar conta na [AbacatePay](https://www.abacatepay.com) em modo Dev (sandbox).
+  2. Copiar API Key de sandbox e definir `ABACATEPAY_API_KEY` + `ABACATEPAY_API_URL`
+     (que já tem default `https://api.abacatepay.com/v2`).
+  3. Manter `BILLING_ENABLED=false` ou ativar com `=true` para ver o gating.
+  4. Usar botão "Simular pagamento" na UI (`POST /api/billing/simulate/:chargeId`,
+     disponível apenas em `NODE_ENV !== 'production'`) para marcar a cobrança
+     como PAID sem Pix real.
+
+### Produção
+
+1. **Definir variáveis obrigatórias** no servidor:
+   - `BILLING_ENABLED=true`
+   - `ABACATEPAY_API_KEY=<chave de produção da AbacatePay>`
+   - `ABACATEPAY_API_URL=https://api.abacatepay.com/v2` (pode omitir se usar default)
+   - `ABACATEPAY_WEBHOOK_SECRET=<secret gerado pela AbacatePay>` (obrigatório para
+     webhook)
+   - `NODE_ENV=production`
+
+2. **Registrar webhook** no dashboard da AbacatePay:
+   - URL: `https://<seu-dominio>/api/webhooks/abacatepay?webhookSecret=<ABACATEPAY_WEBHOOK_SECRET>`
+   - Eventos: `transparent.completed`, `checkout.completed` (cobrança paga)
+   - O servidor valida HMAC-SHA256 (`x-webhook-signature`) + query secret dupla
+     verificação obrigatória.
+
+3. **Monitoramento**:
+   - Middleware gating bloqueia gravações (POST/PATCH/DELETE) sem assinatura ativa
+     → 402 `{code:'SUBSCRIPTION_REQUIRED'}`.
+   - Cobrança órfã (INSERT falho após criar no provedor): monitorar
+     `pix_charges` com `status = 'PENDING'` sem `user_id` correspondente ou com
+     `created_at` antigo — nunca causa prejuízo (webhook responde `unknownCharge`),
+     mas reduz ruído nos logs da AbacatePay.
+
+## Risco aceito: cobrança órfã
+
+Fluxo de assinatura:
+1. `POST /api/subscriptions {planId}` chama `abacatepay.createPixCharge()` (rede).
+2. Resposta traz `brCode`, `expiresAt`, `id` do provedor.
+3. **Antes de 3 vir de fato:** se o `INSERT` em `pix_charges` falhar (DB travado,
+   crash imediato…), a cobrança gerada no provedor fica órfã: ninguém tem o QR,
+   se alguém paga, o webhook responde `200 unknownCharge` (idempotente).
+
+Alternativa (criar before paying): ainda riscado — cobrança criada sem seu id no
+provedor fica órfã igualmente.
+
+**Decisão**: aceitar o risco porque (a) é raro, (b) não causa prejuízo (o cliente
+já não recebeu um QR para pagar), (c) webhook é idempotente, (d) logs da
+AbacatePay mostram eventos órfãos para reconciliação manual se necessário.
+
 ## Env
 
-`ABACATEPAY_API_KEY`, `ABACATEPAY_API_URL`, `ABACATEPAY_WEBHOOK_SECRET`,
-`BILLING_ENABLED` (`'true'` liga; exposto em `GET /api/subscriptions/me` como
-`billingEnabled` para a UI esconder a oferta).
+`ABACATEPAY_API_KEY`, `ABACATEPAY_API_URL` (default `https://api.abacatepay.com/v2`),
+`ABACATEPAY_WEBHOOK_SECRET`, `BILLING_ENABLED` (default `false`; `'true'` ativa gating;
+exposto em `GET /api/subscriptions/me` como `billingEnabled` para a UI esconder a oferta em staging).
