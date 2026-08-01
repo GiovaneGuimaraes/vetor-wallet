@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import type { RecurringExpenseUpdate } from '@vetor-wallet/shared';
 
 /**
@@ -21,6 +22,7 @@ import type { RecurringExpenseUpdate } from '@vetor-wallet/shared';
 const router = Router();
 
 router.use(requireAuth);
+router.use(requireActiveSubscription);
 
 /** Lista apenas as recorrências ATIVAS — encerradas saem da gestão da UI. */
 router.get(

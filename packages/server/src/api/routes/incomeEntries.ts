@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import type { NewIncomeEntry, IncomeEntryUpdate } from '@vetor-wallet/shared';
 // Mês corrente no fuso local do processo — a MESMA função usada pela visão
 // mensal de despesas (T-022). Importada de lá em vez de duplicada: mover o
@@ -16,6 +17,7 @@ const router = Router();
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 router.use(requireAuth);
+router.use(requireActiveSubscription);
 
 /**
  * Lançamentos de renda variável de um mês (T-036). Espelha

@@ -80,6 +80,30 @@ fallback `` `${event}:${chargeId}` ``) → 200 `duplicate`; então
 `markChargePaidAndActivate`. Cobrança desconhecida → 200 `unknownCharge`. Erro
 de banco **não** é capturado: 500 faz o provedor reentregar, que é o desejável.
 
+## Gating (T-071)
+
+`api/middleware/requireActiveSubscription.ts`, sempre montado com um único
+`router.use(...)` logo depois do `router.use(requireAuth)`.
+
+- **Flag desligada = no-op literal**: sem `BILLING_ENABLED=true` chama `next()`
+  sem tocar o banco (staging não paga a query; a suíte existente segue verde sem
+  saber de assinatura). Flag ausente conta como `false`.
+- **Só escrita**: `GET`/`HEAD`/`OPTIONS` passam sempre — é o que permite o
+  `router.use` único, sem enumerar handler por handler. Quem não paga continua
+  lendo os próprios dados, só não grava. Efeito colateral aceito: a
+  materialização lazy de recorrências (T-035) roda no `GET` de expense-entries e
+  segue livre.
+- Sem assinatura válida (`isSubscriptionActive`) → **402**
+  `{ error, code: 'SUBSCRIPTION_REQUIRED' }`. Erro de banco → `next(err)`, nunca
+  liberação "por precaução".
+- **Onde está**: operations, import, income, income-entries, expenses,
+  expense-entries, recurring-expenses, savings, goals, budgets.
+- **Onde NÃO está** (de propósito): auth, plans, subscriptions, pix-charges,
+  billing/simulate, webhooks (senão o usuário não conseguiria comprar), leitura
+  (portfolio, benchmarks, snapshots, tickers), admin e **wallets** — o `POST`
+  de wallets é o lazy-create do onboarding e bloquear ele travaria o usuário
+  antes de ele conseguir pagar.
+
 ## Env
 
 `ABACATEPAY_API_KEY`, `ABACATEPAY_API_URL`, `ABACATEPAY_WEBHOOK_SECRET`,

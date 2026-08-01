@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { db } from '../../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import { computeFreeBalance, pickTransferLegs, toCents } from '../services/savings';
 import { isValidIsoDate } from '../services/dates';
 import { isValidMoneyAmount, moneyAmountError } from '../services/money';
@@ -21,6 +22,7 @@ const router = Router();
 const VALID_TYPES: SavingsEntryType[] = ['DEPOSIT', 'WITHDRAW', 'YIELD'];
 
 router.use(requireAuth);
+router.use(requireActiveSubscription);
 
 // Somado em centavos inteiros, alinhado a `computeFreeBalance`/`computeBalance`
 // (services/savings.ts): somar em float direto pode divergir em um centavo de

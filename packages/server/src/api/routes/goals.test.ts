@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import type { Express } from 'express';
 import express from 'express';
 import session from 'express-session';
@@ -387,6 +387,55 @@ describe('goals routes', () => {
       const kept = savings.body.entries.find((e: { id: number }) => e.id === entry.body.id);
       expect(kept).toBeTruthy();
       expect(kept.goal_id).toBeNull();
+    });
+  });
+
+  // Gating por assinatura (T-071) no router real. Só este bloco liga a flag; o
+  // default (desligada) é o que mantém todo o resto da suíte verde.
+  describe('subscription gating (BILLING_ENABLED)', () => {
+    const originalFlag = process.env.BILLING_ENABLED;
+
+    afterEach(async () => {
+      if (originalFlag === undefined) delete process.env.BILLING_ENABLED;
+      else process.env.BILLING_ENABLED = originalFlag;
+      const { db } = await import('../../db');
+      await db.execute('DELETE FROM subscriptions');
+    });
+
+    it('blocks POST with 402 when billing is on and the user has no subscription', async () => {
+      process.env.BILLING_ENABLED = 'true';
+      const res = await agentA.post('/api/goals').send({ name: 'Sem assinatura', target_amount: 100 });
+      expect(res.status).toBe(402);
+      expect(res.body.code).toBe('SUBSCRIPTION_REQUIRED');
+    });
+
+    it('allows POST once an active subscription exists', async () => {
+      process.env.BILLING_ENABLED = 'true';
+      const { db } = await import('../../db');
+      const { toSqliteUtc } = await import('../services/billing');
+
+      const me = await agentA.get('/api/auth/me');
+      const plan = await db.execute({
+        sql: `INSERT INTO plans (code, name, description, price_cents, interval, active)
+              VALUES ('goals-gating', 'Teste', 'Plano de teste', 1990, 'monthly', 1)
+              ON CONFLICT(code) DO UPDATE SET name = excluded.name
+              RETURNING id`,
+        args: [],
+      });
+      await db.execute({
+        sql: `INSERT INTO subscriptions (user_id, plan_id, status, current_period_end)
+              VALUES (?, ?, 'active', ?)
+              ON CONFLICT(user_id) DO UPDATE SET
+                status = 'active', current_period_end = excluded.current_period_end`,
+        args: [
+          me.body.id as number,
+          Number(plan.rows[0].id),
+          toSqliteUtc(new Date(Date.now() + 86_400_000)),
+        ],
+      });
+
+      const res = await agentA.post('/api/goals').send({ name: 'Com assinatura', target_amount: 100 });
+      expect(res.status).toBe(201);
     });
   });
 });

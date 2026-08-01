@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import type { NewIncomeSource, IncomeSourceType, IncomeSourceUpdate } from '@vetor-wallet/shared';
 import { isValidMoneyAmount, moneyAmountError } from '../services/money';
 
@@ -10,6 +11,7 @@ const router = Router();
 const VALID_TYPES: IncomeSourceType[] = ['SALARIO', 'FREELA', 'OUTRO'];
 
 router.use(requireAuth);
+router.use(requireActiveSubscription);
 
 router.get(
   '/',

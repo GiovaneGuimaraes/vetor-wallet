@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '../../db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import type { NewFixedExpense, FixedExpenseUpdate } from '@vetor-wallet/shared';
 import { normalizeCategory } from '../services/categories';
 import { isValidMoneyAmount, moneyAmountError } from '../services/money';
@@ -9,6 +10,7 @@ import { isValidMoneyAmount, moneyAmountError } from '../services/money';
 const router = Router();
 
 router.use(requireAuth);
+router.use(requireActiveSubscription);
 
 router.get(
   '/',

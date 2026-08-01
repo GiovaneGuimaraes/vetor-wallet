@@ -101,6 +101,6 @@ Leia o arquivo do domínio antes de mexer nele:
 - **expenses-budgets.md** — fixas × variáveis, recorrência lazy/idempotente (T-035), histórico mensal (T-033/T-049), orçamento por categoria (T-023/T-037), categoria normalizada (T-028), edição inline (T-031), dedupe de fetch (T-049).
 - **income.md** — renda fixa × variável (T-036), sobra do mês real na Home (T-025).
 - **validation-money-dates.md** — data de calendário real (T-043), máx. 2 casas decimais (T-052).
-- **billing.md** — assinatura Pix AbacatePay (T-069/T-070): centavos, datas UTC no formato SQLite, ativação idempotente única, webhook com HMAC antes do `express.json()`.
+- **billing.md** — assinatura Pix AbacatePay (T-069/T-070): centavos, datas UTC no formato SQLite, ativação idempotente única, webhook com HMAC antes do `express.json()`, gating de escrita por assinatura sob `BILLING_ENABLED` (T-071).
 - **sessions-auth.md** — sessões persistentes no SQLite (T-034/T-046).
 - **snapshots-history.md** — coleta diária no boot + agendador (T-058a/T-061/T-063), gráfico de evolução (T-058b), preço por ação (T-060), insights horários, DATABASE_URL/Turso.
