@@ -68,6 +68,11 @@ O SQLite (`packages/server/data/wallet.db`) é criado no primeiro boot.
 | savings | CRUD /api/savings[/:id], POST /savings/transfer-to-goal | DEPOSIT/WITHDRAW/YIELD + summary; transferência = par atômico (T-041) |
 | goals | CRUD /api/goals[/:id] | progresso manual OU derivado de aportes vinculados (T-024) |
 | budgets | GET, POST (upsert), DELETE /api/budgets[/:id] | teto por categoria, sem vínculo com mês |
+| plans | GET /api/plans | catálogo global de planos (`active = 1`); ÚNICA rota de dados sem filtro por `user_id` |
+| subscriptions | POST /api/subscriptions, GET /api/subscriptions/me | assina (cria/reaproveita cobrança Pix) e lê estado de billing (T-070) |
+| pix-charges | GET /api/pix-charges/:id | polling do pagamento (id LOCAL); falha do provedor → 200 + `providerUnavailable` |
+| billing (dev) | POST /api/billing/simulate/:chargeId | simula pagamento; 404 em `NODE_ENV=production` |
+| webhooks | POST /api/webhooks/abacatepay | SEM sessão; `express.raw` + HMAC; montado ANTES do `express.json()` |
 
 PATCHes são parciais: campo a campo com a mesma validação da criação; corpo vazio → 400; registro de outro usuário → 404. Toda rota de dados filtra por `user_id`.
 
@@ -96,5 +101,6 @@ Leia o arquivo do domínio antes de mexer nele:
 - **expenses-budgets.md** — fixas × variáveis, recorrência lazy/idempotente (T-035), histórico mensal (T-033/T-049), orçamento por categoria (T-023/T-037), categoria normalizada (T-028), edição inline (T-031), dedupe de fetch (T-049).
 - **income.md** — renda fixa × variável (T-036), sobra do mês real na Home (T-025).
 - **validation-money-dates.md** — data de calendário real (T-043), máx. 2 casas decimais (T-052).
+- **billing.md** — assinatura Pix AbacatePay (T-069/T-070): centavos, datas UTC no formato SQLite, ativação idempotente única, webhook com HMAC antes do `express.json()`.
 - **sessions-auth.md** — sessões persistentes no SQLite (T-034/T-046).
 - **snapshots-history.md** — coleta diária no boot + agendador (T-058a/T-061/T-063), gráfico de evolução (T-058b), preço por ação (T-060), insights horários, DATABASE_URL/Turso.

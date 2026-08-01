@@ -21,6 +21,11 @@ import recurringExpensesRouter from './routes/recurringExpenses';
 import savingsRouter from './routes/savings';
 import goalsRouter from './routes/goals';
 import budgetsRouter from './routes/budgets';
+import plansRouter from './routes/plans';
+import subscriptionsRouter from './routes/subscriptions';
+import pixChargesRouter from './routes/pixCharges';
+import billingSimulateRouter from './routes/billingSimulate';
+import webhooksRouter from './routes/webhooks';
 import { errorHandler } from './middleware/errorHandler';
 import { catchUpIfNeeded } from './services/snapshots';
 import { startSnapshotScheduler } from './services/snapshotScheduler';
@@ -30,6 +35,13 @@ const app = express();
 const allowedOrigin = process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173';
 
 app.use(cors({ origin: allowedOrigin, credentials: true }));
+// T-070 — ORDEM CRÍTICA: o webhook da AbacatePay verifica um HMAC sobre os
+// BYTES do corpo e por isso usa `express.raw`. Ele precisa vir ANTES do
+// `express.json()` global: o json consome o stream e marca `req._body`, o que
+// faz o `raw` do router ser pulado e o HMAC ser calculado sobre um corpo
+// reserializado — que nunca bate. Esta linha não pode descer.
+app.use('/api/webhooks', webhooksRouter);
+
 app.use(express.json());
 app.use(
   session({
@@ -65,6 +77,10 @@ app.use('/api/recurring-expenses', recurringExpensesRouter);
 app.use('/api/savings', savingsRouter);
 app.use('/api/goals', goalsRouter);
 app.use('/api/budgets', budgetsRouter);
+app.use('/api/plans', plansRouter);
+app.use('/api/subscriptions', subscriptionsRouter);
+app.use('/api/pix-charges', pixChargesRouter);
+app.use('/api/billing', billingSimulateRouter);
 
 app.use(errorHandler);
 

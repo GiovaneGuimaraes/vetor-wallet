@@ -15,7 +15,7 @@
 
 import { timingSafeEqual } from 'crypto';
 import { db } from '../../db';
-import type { Plan, PlanInterval, Subscription } from '@vetor-wallet/shared';
+import type { Plan, PlanInterval, PixCharge, Subscription } from '@vetor-wallet/shared';
 
 /** true quando o billing está ligado por env — a UI usa isso para esconder a oferta. */
 export function isBillingEnabled(): boolean {
@@ -59,6 +59,19 @@ export function toSqliteUtc(date: Date): string {
     `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}` +
     ` ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`
   );
+}
+
+/**
+ * Converte um instante vindo do provedor (ISO 8601 com `T`/`Z`) para o formato
+ * do banco. Gravar o ISO cru quebraria a comparação `expires_at > ?` — ver
+ * invariante 1 no topo do arquivo. Entrada inválida vira `null` ("sem expiração
+ * conhecida"), nunca `'Invalid Date'`.
+ */
+export function toSqliteUtcFromProvider(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const parsed = parseInstant(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return toSqliteUtc(parsed);
 }
 
 function daysInUtcMonth(year: number, monthIndex: number): number {
@@ -167,6 +180,72 @@ export async function getSubscriptionRow(userId: number): Promise<SubscriptionRo
     args: [userId],
   });
   return (res.rows[0] as unknown as SubscriptionRow) ?? null;
+}
+
+export interface PixChargeRow {
+  id: number;
+  user_id: number;
+  plan_id: number;
+  abacate_charge_id: string;
+  amount_cents: number;
+  status: PixCharge['status'];
+  br_code: string;
+  br_code_base64: string;
+  expires_at: string | null;
+  paid_at: string | null;
+  created_at: string;
+}
+
+export function toSubscription(row: SubscriptionRow): Subscription {
+  return {
+    id: Number(row.id),
+    plan_id: Number(row.plan_id),
+    status: row.status,
+    current_period_end: row.current_period_end ?? null,
+    created_at: String(row.created_at),
+  };
+}
+
+/**
+ * Projeta a linha de cobrança na forma exposta pela API. O `user_id` e o
+ * `abacate_charge_id` ficam de fora de propósito: o primeiro é redundante (a
+ * rota já é do usuário logado) e o segundo é identificador do provedor, que só
+ * o webhook precisa conhecer.
+ */
+export function toPixCharge(row: PixChargeRow): PixCharge {
+  return {
+    id: Number(row.id),
+    plan_id: Number(row.plan_id),
+    amount_cents: Number(row.amount_cents),
+    status: row.status,
+    br_code: String(row.br_code),
+    br_code_base64: String(row.br_code_base64),
+    expires_at: row.expires_at ?? null,
+    created_at: String(row.created_at),
+  };
+}
+
+/**
+ * Cobrança PENDING mais recente do usuário que ainda não expirou.
+ * `expires_at IS NULL` conta como "sem expiração conhecida" e por isso é
+ * incluída — o provedor é a fonte da verdade sobre o prazo, e descartar uma
+ * cobrança que talvez esteja válida faria o usuário pagar duas vezes.
+ */
+export async function getPendingCharge(
+  userId: number,
+  nowIso: string,
+  planId?: number,
+): Promise<PixChargeRow | null> {
+  const res = await db.execute({
+    sql: `SELECT * FROM pix_charges
+          WHERE user_id = ? AND status = 'PENDING'
+            AND (expires_at IS NULL OR expires_at > ?)
+            ${planId === undefined ? '' : 'AND plan_id = ?'}
+          ORDER BY created_at DESC, id DESC
+          LIMIT 1`,
+    args: planId === undefined ? [userId, nowIso] : [userId, nowIso, planId],
+  });
+  return (res.rows[0] as unknown as PixChargeRow) ?? null;
 }
 
 export interface ActivationResult {
