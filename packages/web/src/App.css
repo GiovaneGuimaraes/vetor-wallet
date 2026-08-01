@@ -132,6 +132,19 @@ body,
   color: var(--color-ink);
 }
 
+/* T-072: entrada discreta para /planos, no mesmo estilo do "Sair". */
+.vw-planos-link {
+  color: var(--color-dim);
+  font-size: 13px;
+  text-decoration: none;
+  padding: 4px 0;
+  transition: color 0.2s;
+}
+
+.vw-planos-link:hover {
+  color: var(--color-ink);
+}
+
 .vw-main {
   max-width: 1120px;
   margin: 0 auto;

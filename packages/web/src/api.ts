@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, PortfolioHistoryResponse, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, BenchmarkHistoryResponse, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, IncomeEntry, NewIncomeEntry, IncomeEntryUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, RecurringExpense, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, SavingsTransferRequest, SavingsTransferResult, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, PortfolioHistoryResponse, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, BenchmarkHistoryResponse, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, IncomeEntry, NewIncomeEntry, IncomeEntryUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, RecurringExpense, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, SavingsTransferRequest, SavingsTransferResult, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget, Plan, MySubscriptionResponse, CreateSubscriptionResponse, PixCharge } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -6,6 +6,21 @@ async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(`${BASE}${input}`, { ...init, credentials: 'include' });
   if (res.status === 401) {
     window.dispatchEvent(new Event('auth:unauthorized'));
+  }
+  // T-072: 402 é o sinal do backend de "assinatura obrigatória" (billing
+  // gate — ver docs/decisions/billing.md). `res.clone()` é obrigatório: o
+  // corpo só pode ser lido uma vez e o CHAMADOR desta função ainda precisa
+  // ler o body original (mensagem de erro etc.) — sem o clone, o segundo
+  // `.json()` explodiria com "body stream already read".
+  if (res.status === 402) {
+    try {
+      const body = await res.clone().json();
+      if (body?.code === 'SUBSCRIPTION_REQUIRED') {
+        window.dispatchEvent(new Event('billing:subscription-required'));
+      }
+    } catch {
+      /* corpo não é JSON — nada a sinalizar */
+    }
   }
   return res;
 }
@@ -581,4 +596,56 @@ export async function upsertBudget(budget: NewCategoryBudget): Promise<CategoryB
 export async function deleteBudget(id: number): Promise<void> {
   const res = await apiFetch(`/api/budgets/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Falha ao remover orçamento');
+}
+
+// ── Billing / assinatura Pix (T-072) ─────────────────────────────────────────
+
+export async function getPlans(): Promise<Plan[]> {
+  const res = await apiFetch('/api/plans');
+  if (!res.ok) throw new Error('Falha ao buscar planos');
+  return res.json();
+}
+
+export async function getMySubscription(): Promise<MySubscriptionResponse> {
+  const res = await apiFetch('/api/subscriptions/me');
+  if (!res.ok) throw new Error('Falha ao buscar assinatura');
+  return res.json();
+}
+
+/**
+ * Cria (ou reaproveita) a assinatura/cobrança do plano. O chamador precisa
+ * inspecionar o `code` do erro para os casos especiais do backend
+ * (`ALREADY_SUBSCRIBED` 409, `BILLING_NOT_CONFIGURED` 503,
+ * `PAYMENT_PROVIDER_ERROR` 502) — ver `docs/decisions/billing.md`.
+ */
+export async function createSubscription(planId: number): Promise<CreateSubscriptionResponse> {
+  const res = await apiFetch('/api/subscriptions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ planId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    const e = new Error(err.error ?? 'Falha ao assinar o plano') as Error & { code?: string };
+    e.code = err.code;
+    throw e;
+  }
+  return res.json();
+}
+
+/** Polling do pagamento; `providerUnavailable` sinaliza blip do provedor (ver billing.md). */
+export async function getPixCharge(id: number): Promise<PixCharge & { providerUnavailable?: boolean }> {
+  const res = await apiFetch(`/api/pix-charges/${id}`);
+  if (!res.ok) throw new Error('Falha ao consultar a cobrança');
+  return res.json();
+}
+
+/** Atalho de dev — a rota nem existe em produção (404). */
+export async function simulatePixPayment(chargeId: number): Promise<PixCharge> {
+  const res = await apiFetch(`/api/billing/simulate/${chargeId}`, { method: 'POST' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao simular pagamento');
+  }
+  return res.json();
 }
