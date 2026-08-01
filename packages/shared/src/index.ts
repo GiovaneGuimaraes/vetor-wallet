@@ -537,7 +537,7 @@ export interface Subscription {
   id: number;
   plan_id: number;
   status: SubscriptionStatus;
-  /** ISO 8601, ou null enquanto nunca houve pagamento confirmado. */
+  /** SQLite UTC format `'YYYY-MM-DD HH:MM:SS'`, ou null enquanto nunca houve pagamento confirmado. */
   current_period_end: string | null;
   created_at: string;
 }
@@ -554,6 +554,7 @@ export interface PixCharge {
   br_code: string;
   /** QR Code em base64 (data URI). */
   br_code_base64: string;
+  /** SQLite UTC format `'YYYY-MM-DD HH:MM:SS'`, ou null se sem expiração conhecida. */
   expires_at: string | null;
   created_at: string;
 }
