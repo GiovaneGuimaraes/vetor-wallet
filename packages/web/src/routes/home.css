@@ -39,3 +39,11 @@
 .vw-hero-metric-sublabel--warn {
   color: var(--color-warn);
 }
+
+/* CTA de onboarding (T-080): substitui o valor zerado do card quando o layer
+   ainda não tem nenhum registro (ver isXLayerEmpty em homeMetrics.ts). Cor de
+   destaque para diferenciar de um valor monetário comum. */
+.vw-layer-card-cta {
+  color: var(--color-accent, var(--color-primary, inherit));
+  font-size: 0.9em;
+}

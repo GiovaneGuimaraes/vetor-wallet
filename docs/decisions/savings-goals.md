@@ -50,3 +50,8 @@ O server aceita `WITHDRAW` acima do saldo da poupança — permissividade intenc
 - Passo de confirmação **inline no form** de "Novo lançamento" (`PoupancaPage.tsx`), não `window.confirm`: a página ainda não tinha um padrão de confirmação próprio, e um passo inline é mais fácil de testar e mais consistente com o resto do form. Ao detectar overdraw num WITHDRAW, o primeiro submit não envia o POST — só marca `overdrawConfirmPending`, troca o texto do botão para "Confirmar retirada" e mostra um aviso; o segundo submit (com o mesmo valor) segue para a API. Qualquer edição no form depois do aviso (tipo, valor, data, nota, meta) derruba a confirmação pendente — ela vale só para os dados exatos que o usuário viu.
 - **Não-bloqueante de verdade**: nenhuma validação nova impede o envio, o aviso só atrasa por um clique extra. O server continua sendo a única autoridade sobre se o saque é aceito.
 
+### CTA de onboarding no card "Poupança" da Home (T-080)
+`isSavingsLayerEmpty` (`packages/web/src/routes/homeMetrics.ts`) decide se o card mostra o CTA "Faça seu primeiro aporte →" no lugar do valor. A Home só recebe o agregado `SavingsSummary` (sem a lista de `savings_entries`), então não há como checar "existe lançamento" diretamente como nos demais layers.
+
+- **Proxy adotado**: `totalDeposits === 0 && totalYield === 0 && totalWithdrawals === 0`. Qualquer `DEPOSIT`/`YIELD`/`WITHDRAW` soma um valor > 0 em pelo menos uma dessas três somas, então as três zeradas só ocorrem com zero lançamentos — `balance` sozinho não bastaria (um saque total zeraria o saldo sem esvaziar o histórico).
+- `summary === null` (ainda não carregou ou a busca falhou) **não** é tratado como vazio — evita falso positivo (CTA sugerindo uma ação que já foi feita).
