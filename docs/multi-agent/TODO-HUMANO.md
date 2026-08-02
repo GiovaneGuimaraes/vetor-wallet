@@ -18,6 +18,12 @@
 
 ## Abertos
 
+### [2026-08-02] Credenciais do Meu Pluggy para o job `pluggy:sync` (T-087)
+- **Origem**: sessão de revisão com o Claude (planejamento do ciclo 16)
+- **Bloqueia**: T-087 (o resto da Onda C — T-084/T-085/T-086 — não depende disso)
+- **Pergunta/pendência**: criar conta em https://meu.pluggy.ai, conectar as contas bancárias/corretoras via Open Finance (Conector 200), gerar `CLIENT_ID`/`CLIENT_SECRET` no painel e colocar em `packages/cli/.env` (`PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`). Sem custo — o Meu Pluggy é gratuito para uso pessoal (não pode virar produto multi-CPF comercial). Enquanto isso, o executor da T-087 pode trabalhar com mocks, mas a validação final precisa das credenciais reais.
+- **Resposta do humano**: _(preencher)_
+
 ### [2026-08-01] Credenciais AbacatePay (dev agora, prod depois)
 - **Origem**: orquestrador (Ciclo 15 — T-069/T-070)
 - **Bloqueia**: nada para o desenvolvimento (executores usam fetch mockado nos testes); bloqueia apenas o **teste real em dev mode** e o deploy em produção

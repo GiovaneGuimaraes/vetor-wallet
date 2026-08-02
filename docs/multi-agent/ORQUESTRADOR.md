@@ -26,7 +26,7 @@ Carteira financeira pessoal para um único usuário real (Giovane), organizada e
 
 ## Prioridade vigente
 
-**Ciclo 13 encerrado — aguardando direcionamento do ciclo 14.** Candidatas fortes: CDI/Ibovespa nas projeções; índice em `quote_snapshots`; backfill via `hourly_quote_insights`. Decisões paradas: T-020/T-021, editar template de recorrência.
+**Ciclo 16 definido pelo humano (2026-08-02) — três ondas no `BACKLOG.md`, executar em ordem**: Onda A "modo consulta" nos layers (T-074 a T-078 — T-074 primeiro, depois T-075–T-078 em paralelo), Onda B achados menores da revisão (T-079 a T-083), Onda C importação bancária OFX + Pluggy (T-084 → T-085 → T-086; T-087 BLOQUEADA por credenciais — ver `TODO-HUMANO.md`). Origem: revisão completa do app em sessão com o Claude (tour como usuário real, screenshots, pesquisa de integrações bancárias e Supabase). Decisões paradas: T-020/T-021, editar template de recorrência.
 
 > Atualize esta seção a cada ciclo. Mudança de prioridade que envolva produto → `TODO-HUMANO.md`.
 
