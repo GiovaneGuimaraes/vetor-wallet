@@ -33,7 +33,7 @@
 > Diretriz do humano: "acho muito carregado as pages dentro dos layers — todas têm forms e às vezes o user só quer ver a situação e as projeções". Padrão único: **página abre em modo consulta** (resumo → gráficos/projeções → listas); formulários ficam recolhidos atrás de um botão "+ Adicionar" por página. Edição inline dos itens de lista (T-031) permanece como está.
 
 ### T-074 — Padrão de formulário recolhível + aplicar em /despesas
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA — PR #120 mergeado (2026-08-02). Executor Sonnet, revisor Sonnet (APROVADA sem bloqueantes). 385 testes web (12 novos em `despesasForm.test.ts`). Componente `CollapsibleSection` genérico (controle externo via `open`/`onOpenChange` p/ deep-link da T-076). NOTA p/ T-082: a seção de orçamentos NÃO era renderizada na `main` (fora do render desde a T-037) — a T-082 precisa REINTRODUZIR a seção, não só o caso 0%. Sugestões não-bloqueantes do revisor: extrair `emptyFields` interno em `despesasForm.ts`; catch de `handleAddSubmit` referencia `parsed` fora do try (risco teórico).
 - **Prioridade**: P1
 - **Complexidade**: média
 - **Depende de**: —
@@ -45,7 +45,7 @@
 - **Resultado**:
 
 ### T-075 — /renda em modo consulta
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA — PR #123 mergeado (2026-08-02). Executor Sonnet, revisor Sonnet (APROVADA). 396 testes web (11 novos em `rendaForm.test.ts`); campo `type` da fonte fixa preservado.
 - **Prioridade**: P1
 - **Complexidade**: baixa
 - **Depende de**: T-074
@@ -57,7 +57,7 @@
 - **Resultado**:
 
 ### T-076 — /poupanca em modo consulta + projeção pré-preenchida
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA — PR #124 mergeado (2026-08-02). Executor Sonnet, revisor Sonnet. REPROVADA 1× (race: `defaultOpen` não-controlado congelava antes do fetch popular `derivedRatePct`), corrigida (seção controlada + sync única em `loading → false`) e APROVADA na re-revisão. 398 testes web. Sugestão não-bloqueante do revisor: PoupancaPage não tem teste de render (só módulos puros) — teste de componente com fetch mockado evitaria essa classe de bug.
 - **Prioridade**: P1
 - **Complexidade**: média
 - **Depende de**: T-074
@@ -69,7 +69,7 @@
 - **Resultado**:
 
 ### T-077 — /dash em modo consulta (resumo antes do form) + overflow mobile
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA — PR #122 mergeado (2026-08-02). Executor Sonnet, revisor Sonnet (APROVADA). Overflow mobile já era garantido pelo CSS existente (verificado por inspeção — nenhuma mudança de CSS); sem teste novo (reorder de JSX, justificativa validada).
 - **Prioridade**: P1
 - **Complexidade**: média
 - **Depende de**: T-074
@@ -81,7 +81,7 @@
 - **Resultado**:
 
 ### T-078 — /metas: form "Nova meta" recolhido
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA — PR #121 mergeado (2026-08-02). Executor Haiku (1ª tarefa Haiku do roteamento novo — aprovada de primeira), revisor Sonnet (APROVADA sem achados).
 - **Prioridade**: P2
 - **Complexidade**: baixa
 - **Depende de**: T-074
@@ -95,7 +95,7 @@
 ### Onda B — Achados menores da revisão de 2026-08-02
 
 ### T-079 — Aviso não-bloqueante de saque acima do saldo na poupança
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA — PR #126 mergeado (2026-08-02). Executor Sonnet, revisor Sonnet (APROVADA). Confirmação inline no form (sem `window.confirm`); `wouldOverdrawBalance` em centavos inteiros, 404 testes web. Sugestão não-bloqueante: mensagem distinta quando o saldo JÁ está negativo antes do saque (edge case).
 - **Prioridade**: P2
 - **Complexidade**: média
 - **Depende de**: T-076 (mesmo arquivo)
@@ -107,7 +107,7 @@
 - **Resultado**:
 
 ### T-080 — Onboarding na Home vazia (CTAs por card)
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA — PR #128 mergeado (2026-08-02). Executor Sonnet, revisor Sonnet. REPROVADA 1× (CTA de Ações sem gate `walletLoaded && !walletLoadError`), corrigida e APROVADA na re-revisão. 424 testes web; proxy de "poupança vazia" documentado em `savings-goals.md`.
 - **Prioridade**: P2
 - **Complexidade**: baixa
 - **Depende de**: —
@@ -119,7 +119,7 @@
 - **Resultado**:
 
 ### T-081 — Corrigir alegação "dados criptografados" no rodapé da landing
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA — PR #125 mergeado (2026-08-02). Executor Haiku; diff de 1 linha verificado inline pelo orquestrador (sem revisor — correção trivial de copy).
 - **Prioridade**: P2
 - **Complexidade**: baixa
 - **Depende de**: —
@@ -131,7 +131,7 @@
 - **Resultado**:
 
 ### T-082 — Orçamentos sempre visíveis em /despesas (barra 0%)
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA — PR #127 mergeado (2026-08-02). Executor Sonnet, revisor Sonnet (APROVADA). Descoberta: `computeBudgetProgress` sempre produziu 0% — o problema era a seção fora do render desde a T-037; seção reintroduzida (lista sempre visível + form em CollapsibleSection). 400 testes web.
 - **Prioridade**: P2
 - **Complexidade**: média
 - **Depende de**: T-074 (mesmo arquivo)
@@ -143,7 +143,7 @@
 - **Resultado**:
 
 ### T-083 — Navegação de volta nos layers ("← Início")
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA — PR #129 mergeado (2026-08-02). Executor Haiku, revisor Sonnet (APROVADA). `BackToHomeLink` reutilizável nas 6 pages; CriptoPage trocou botão hardcoded pelo componente. 426 testes web. **ONDA B COMPLETA.**
 - **Prioridade**: P3
 - **Complexidade**: baixa
 - **Depende de**: T-074, T-075, T-076, T-077, T-078 (evita conflito nas mesmas pages)
@@ -159,7 +159,7 @@
 > Estratégia decidida com o humano (2026-08-02): OFX como fundação sem dependência de terceiros (todos os bancos brasileiros relevantes exportam OFX), Pluggy/Meu Pluggy (Conector 200, gratuito para uso pessoal) como automação por cima do mesmo pipeline. Integração direta com Open Finance/bancos foi descartada (inviável para PF; pesquisa registrada na sessão de 2026-08-02).
 
 ### T-084 — `external_id` + importação idempotente em income/expense entries
-- **Status**: PENDENTE
+- **Status**: PENDENTE — PRONTA PARA EXECUTAR: spike Plan (Opus) concluído em 2026-08-02, plano completo em `docs/multi-agent/plano-t-084.md` (deve entrar NA ÍNTEGRA no prompt do executor Opus). Um executor foi iniciado e interrompido pelo humano antes de qualquer commit — recomeçar do zero a partir da `main`.
 - **Prioridade**: P1
 - **Complexidade**: alta
 - **Depende de**: —
