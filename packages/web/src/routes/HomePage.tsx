@@ -17,7 +17,17 @@ import {
   getIncomeSources,
   getSavings,
 } from '../api';
-import { computeGoalsSummary, computeMonthCashFlow, computeStockTotals, sumAmounts } from './homeMetrics';
+import {
+  computeGoalsSummary,
+  computeMonthCashFlow,
+  computeStockTotals,
+  sumAmounts,
+  isIncomeLayerEmpty,
+  isExpensesLayerEmpty,
+  isSavingsLayerEmpty,
+  isStocksLayerEmpty,
+  isGoalsLayerEmpty,
+} from './homeMetrics';
 import { currentMonthKey } from './expenseMonth';
 import './home.css';
 
@@ -138,6 +148,34 @@ export function HomePage() {
 
   const dash = '—';
 
+  // T-080: CTA curto exibido no lugar do valor quando o layer ainda não tem
+  // nenhum registro (não apenas soma zero — ver predicados em homeMetrics.ts).
+  // Cripto fica de fora: segue sempre "em breve" via `chip`.
+  const CTA_BY_KEY: Record<string, string> = {
+    renda: 'Cadastre sua renda →',
+    despesas: 'Registre um gasto →',
+    poupanca: 'Faça seu primeiro aporte →',
+    acoes: 'Registre uma operação →',
+    metas: 'Crie uma meta →',
+  };
+
+  const isLayerEmpty = (key: string): boolean => {
+    switch (key) {
+      case 'renda':
+        return isIncomeLayerEmpty(income, variableIncomeEntries);
+      case 'despesas':
+        return isExpensesLayerEmpty(expenses, variableEntries);
+      case 'poupanca':
+        return isSavingsLayerEmpty(savingsSummary);
+      case 'acoes':
+        return isStocksLayerEmpty(walletSummary);
+      case 'metas':
+        return isGoalsLayerEmpty(goals);
+      default:
+        return false;
+    }
+  };
+
   const cardValue = (key: string): string => {
     switch (key) {
       case 'renda':
@@ -225,7 +263,11 @@ export function HomePage() {
           >
             <p className="vw-layer-card-name">{card.name}</p>
             <p className="vw-layer-card-desc">{card.desc}</p>
-            <p className="vw-layer-card-value">{cardValue(card.key)}</p>
+            {!loading && !card.chip && isLayerEmpty(card.key) ? (
+              <p className="vw-layer-card-value vw-layer-card-cta">{CTA_BY_KEY[card.key]}</p>
+            ) : (
+              <p className="vw-layer-card-value">{cardValue(card.key)}</p>
+            )}
             {card.chip && <span className="vw-layer-card-chip">{card.chip}</span>}
             <img
               src={`/layers/${card.mascot}`}

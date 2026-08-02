@@ -1,4 +1,12 @@
-import type { PortfolioSummary, Goal, ExpenseEntry, IncomeEntry } from '@vetor-wallet/shared';
+import type {
+  PortfolioSummary,
+  Goal,
+  ExpenseEntry,
+  IncomeEntry,
+  IncomeSource,
+  FixedExpense,
+  SavingsSummary,
+} from '@vetor-wallet/shared';
 
 /**
  * Funções puras de agregação para a Home v4 (T-008). Extraídas de
@@ -128,4 +136,61 @@ export function computeGoalsSummary(goals: Goal[]): GoalsSummary {
     // exibir a contagem de metas no card em vez de um percentual sem sentido.
     aggregatePct: totalTarget > 0 ? (totalCurrent / totalTarget) * 100 : null,
   };
+}
+
+/**
+ * Predicados "layer vazio" para o onboarding da Home (T-080): quando true, o
+ * card mostra um CTA curto no lugar do valor zerado, indicando por onde
+ * começar. Todos se baseiam na EXISTÊNCIA de registros, não na soma dos
+ * valores — um usuário com lançamentos que somam R$ 0,00 tem dados e não deve
+ * ver o CTA.
+ *
+ * Quando uma fonte é `null` (busca do mês ainda não resolveu ou falhou — ver
+ * `Promise.allSettled` em HomePage), o estado é "desconhecido": os predicados
+ * preferem não afirmar "vazio" para não sugerir uma ação que já foi feita
+ * (falso positivo é pior que o CTA sumir um instante depois que os dados
+ * chegam).
+ */
+
+/** Renda (T-080): vazio quando não há fontes fixas E as rendas variáveis do
+ * mês corrente foram carregadas (não `null`) e vieram vazias. */
+export function isIncomeLayerEmpty(
+  income: IncomeSource[],
+  variableIncomeEntries: IncomeEntry[] | null,
+): boolean {
+  return income.length === 0 && variableIncomeEntries !== null && variableIncomeEntries.length === 0;
+}
+
+/** Despesas (T-080): mesmo critério da renda, para despesas fixas + lançamentos variáveis do mês. */
+export function isExpensesLayerEmpty(
+  expenses: FixedExpense[],
+  variableEntries: ExpenseEntry[] | null,
+): boolean {
+  return expenses.length === 0 && variableEntries !== null && variableEntries.length === 0;
+}
+
+/**
+ * Poupança (T-080): a Home só recebe o agregado `SavingsSummary` (sem a lista
+ * de movimentações), então não há como checar "existe registro" diretamente.
+ * Critério adotado: as três somas de movimentação (depósitos, rendimentos,
+ * saques) zeradas — o `balance` sozinho não bastaria (um saque zeraria o
+ * saldo sem esvaziar o histórico). Três somas zeradas só ocorre com zero
+ * lançamentos, já que qualquer DEPOSIT/YIELD/WITHDRAW soma um valor > 0 em
+ * algum dos três. `null` (ainda não carregou ou falhou) não é tratado como
+ * vazio.
+ */
+export function isSavingsLayerEmpty(summary: SavingsSummary | null): boolean {
+  if (!summary) return false;
+  return summary.totalDeposits === 0 && summary.totalYield === 0 && summary.totalWithdrawals === 0;
+}
+
+/** Ações (T-080): vazio quando não há carteira consolidada ou ela não tem nenhuma posição
+ * (nenhuma operação registrada ainda). */
+export function isStocksLayerEmpty(walletSummary: PortfolioSummary | null): boolean {
+  return walletSummary === null || walletSummary.positions.length === 0;
+}
+
+/** Metas (T-080): vazio quando não há nenhuma meta cadastrada. */
+export function isGoalsLayerEmpty(goals: Goal[]): boolean {
+  return goals.length === 0;
 }

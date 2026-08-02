@@ -1,6 +1,24 @@
 import { describe, it, expect } from 'vitest';
-import type { ExpenseEntry, Goal, IncomeEntry, PortfolioSummary } from '@vetor-wallet/shared';
-import { computeGoalsSummary, computeMonthCashFlow, computeStockTotals, sumAmounts } from './homeMetrics';
+import type {
+  ExpenseEntry,
+  FixedExpense,
+  Goal,
+  IncomeEntry,
+  IncomeSource,
+  PortfolioSummary,
+  SavingsSummary,
+} from '@vetor-wallet/shared';
+import {
+  computeGoalsSummary,
+  computeMonthCashFlow,
+  computeStockTotals,
+  sumAmounts,
+  isIncomeLayerEmpty,
+  isExpensesLayerEmpty,
+  isSavingsLayerEmpty,
+  isStocksLayerEmpty,
+  isGoalsLayerEmpty,
+} from './homeMetrics';
 
 function makeEntry(overrides: Partial<ExpenseEntry> = {}): ExpenseEntry {
   return {
@@ -234,5 +252,139 @@ describe('computeMonthCashFlow', () => {
       entriesLoaded: false,
       incomeEntriesLoaded: false,
     });
+  });
+});
+
+// ── T-080: predicados "layer vazio" para o onboarding da Home ──────────────
+
+function makeIncomeSource(overrides: Partial<IncomeSource> = {}): IncomeSource {
+  return {
+    id: 1,
+    user_id: 1,
+    name: 'Salário',
+    type: 'SALARIO',
+    amount: 5000,
+    created_at: '2026-01-01',
+    ...overrides,
+  };
+}
+
+function makeFixedExpense(overrides: Partial<FixedExpense> = {}): FixedExpense {
+  return {
+    id: 1,
+    user_id: 1,
+    name: 'Aluguel',
+    category: 'moradia',
+    amount: 1500,
+    created_at: '2026-01-01',
+    ...overrides,
+  };
+}
+
+function makeSavingsSummary(overrides: Partial<SavingsSummary> = {}): SavingsSummary {
+  return {
+    balance: 0,
+    totalDeposits: 0,
+    totalYield: 0,
+    totalWithdrawals: 0,
+    ...overrides,
+  };
+}
+
+describe('isIncomeLayerEmpty', () => {
+  it('é vazio quando não há fontes fixas e as variáveis do mês vieram vazias', () => {
+    expect(isIncomeLayerEmpty([], [])).toBe(true);
+  });
+
+  it('não é vazio quando há fonte fixa, mesmo sem rendas variáveis', () => {
+    expect(isIncomeLayerEmpty([makeIncomeSource()], [])).toBe(false);
+  });
+
+  it('não é vazio quando há renda variável no mês, mesmo sem fontes fixas', () => {
+    expect(isIncomeLayerEmpty([], [makeIncomeEntry()])).toBe(false);
+  });
+
+  it('soma zero não é o mesmo que vazio: fonte fixa com amount 0 ainda é um registro', () => {
+    expect(isIncomeLayerEmpty([makeIncomeSource({ amount: 0 })], [])).toBe(false);
+  });
+
+  it('não afirma vazio quando as rendas variáveis ainda não carregaram (null) — evita falso positivo', () => {
+    expect(isIncomeLayerEmpty([], null)).toBe(false);
+  });
+});
+
+describe('isExpensesLayerEmpty', () => {
+  it('é vazio quando não há despesas fixas e os lançamentos do mês vieram vazios', () => {
+    expect(isExpensesLayerEmpty([], [])).toBe(true);
+  });
+
+  it('não é vazio quando há despesa fixa', () => {
+    expect(isExpensesLayerEmpty([makeFixedExpense()], [])).toBe(false);
+  });
+
+  it('não é vazio quando há lançamento variável no mês', () => {
+    expect(isExpensesLayerEmpty([], [makeEntry()])).toBe(false);
+  });
+
+  it('não afirma vazio quando os lançamentos variáveis ainda não carregaram (null)', () => {
+    expect(isExpensesLayerEmpty([], null)).toBe(false);
+  });
+});
+
+describe('isSavingsLayerEmpty', () => {
+  it('é vazio quando o summary ainda não carregou (null) só é tratado como "não afirma vazio"', () => {
+    expect(isSavingsLayerEmpty(null)).toBe(false);
+  });
+
+  it('é vazio quando as três somas de movimentação são zero', () => {
+    expect(isSavingsLayerEmpty(makeSavingsSummary())).toBe(true);
+  });
+
+  it('não é vazio quando há depósitos, mesmo com o saldo líquido zerado (ex.: depósito + saque)', () => {
+    const summary = makeSavingsSummary({ balance: 0, totalDeposits: 500, totalWithdrawals: 500 });
+    expect(isSavingsLayerEmpty(summary)).toBe(false);
+  });
+
+  it('não é vazio quando há apenas rendimento registrado', () => {
+    expect(isSavingsLayerEmpty(makeSavingsSummary({ totalYield: 10 }))).toBe(false);
+  });
+});
+
+describe('isStocksLayerEmpty', () => {
+  it('é vazio quando não há carteira consolidada (null)', () => {
+    expect(isStocksLayerEmpty(null)).toBe(true);
+  });
+
+  it('é vazio quando a carteira existe mas não tem nenhuma posição', () => {
+    expect(isStocksLayerEmpty(makeSummary({ positions: [] }))).toBe(true);
+  });
+
+  it('não é vazio quando há ao menos uma posição', () => {
+    const summary = makeSummary({
+      positions: [
+        {
+          ticker: 'PETR4',
+          quantity: 10,
+          avgPrice: 30,
+          invested: 300,
+          currentPrice: null,
+          currentValue: null,
+          profitLoss: null,
+          profitLossPct: null,
+          allocationPct: null,
+        },
+      ],
+    });
+    expect(isStocksLayerEmpty(summary)).toBe(false);
+  });
+});
+
+describe('isGoalsLayerEmpty', () => {
+  it('é vazio quando não há metas', () => {
+    expect(isGoalsLayerEmpty([])).toBe(true);
+  });
+
+  it('não é vazio quando há ao menos uma meta, mesmo com target/current zerados', () => {
+    expect(isGoalsLayerEmpty([makeGoal({ target_amount: 0, current_amount: 0 })])).toBe(false);
   });
 });
