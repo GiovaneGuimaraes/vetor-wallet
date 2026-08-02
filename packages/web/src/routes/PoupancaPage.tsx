@@ -132,10 +132,12 @@ function toDraft(entry: SavingsEntry): FormState {
  * saldo, taxa sugerida do histórico, prazo 12 meses) → lançamentos. "Novo
  * lançamento" e "Transferir para uma meta" ficam atrás de
  * `CollapsibleSection` (padrão da T-074), e os inputs da previsão ficam numa
- * área "Ajustar premissas" também recolhível — aberta por padrão só quando
- * não há taxa derivada do histórico (`shouldOpenProjectionAssumptions`), caso
- * em que o usuário precisa digitar a taxa manualmente. O deep-link
- * `/poupanca?meta=<id>` (T-041) expande a transferência automaticamente.
+ * área "Ajustar premissas" também recolhível — sincronizada (via
+ * `useEffect`, controlada, uma única vez após o primeiro fetch) para abrir
+ * só quando não há taxa derivada do histórico
+ * (`shouldOpenProjectionAssumptions`), caso em que o usuário precisa digitar
+ * a taxa manualmente. O deep-link `/poupanca?meta=<id>` (T-041) expande a
+ * transferência automaticamente.
  */
 export function PoupancaPage() {
   const [entries, setEntries] = useState<SavingsEntry[]>([]);
@@ -163,6 +165,21 @@ export function PoupancaPage() {
   // Enquanto o usuário não mexer no campo, ele acompanha o default derivado
   // (saldo do `summary` / taxa do histórico), que só chega depois do fetch.
   const [simTouched, setSimTouched] = useState({ initial: false, ratePct: false });
+
+  // T-076: "Ajustar premissas" (inputs da previsão) precisa ser CONTROLADA,
+  // não uncontrolled com `defaultOpen` — `entries` nasce `[]` e só é
+  // preenchido pelo `refresh()` assíncrono, então `derivedRatePct` no
+  // primeiríssimo render é sempre `null`; um `defaultOpen` calculado ali
+  // congelaria a seção aberta (via `useState` interno do
+  // `CollapsibleSection`) mesmo depois que os dados chegarem e a taxa
+  // derivada passar a existir. O `useEffect` logo abaixo (perto de
+  // `derivedRatePct`) sincroniza `assumptionsOpen` com o dado real assim que
+  // o primeiro fetch termina (`!loading`), e só UMA vez — `assumptionsSynced`
+  // trava a sincronização depois disso para não fechar/abrir a seção por
+  // cima de um toggle manual do usuário. Mesmo cuidado do `simTouched` para
+  // os inputs da projeção.
+  const [assumptionsOpen, setAssumptionsOpen] = useState(false);
+  const [assumptionsSynced, setAssumptionsSynced] = useState(false);
 
   // Transferência poupança → meta (T-041): estado próprio, para não misturar
   // com o form de novo lançamento (validações e resposta são diferentes).
@@ -241,6 +258,15 @@ export function PoupancaPage() {
   }
 
   const derivedRatePct = useMemo(() => deriveMonthlyRatePct(entries), [entries]);
+
+  // T-076: sincroniza "Ajustar premissas" com o dado real assim que o
+  // primeiro fetch termina (`!loading`), UMA única vez — depois disso o
+  // usuário controla o toggle livremente (não fecha/abre por cima dele).
+  useEffect(() => {
+    if (loading || assumptionsSynced) return;
+    setAssumptionsOpen(shouldOpenProjectionAssumptions(derivedRatePct));
+    setAssumptionsSynced(true);
+  }, [loading, derivedRatePct, assumptionsSynced]);
 
   useEffect(() => {
     if (!summary || simTouched.initial) return;
@@ -489,7 +515,8 @@ export function PoupancaPage() {
             <CollapsibleSection
               label="Ajustar premissas"
               openLabel="Ajustar premissas"
-              defaultOpen={shouldOpenProjectionAssumptions(derivedRatePct)}
+              open={assumptionsOpen}
+              onOpenChange={setAssumptionsOpen}
             >
               <div className="vw-form-grid">
                 <div className="vw-layerpage-field">
