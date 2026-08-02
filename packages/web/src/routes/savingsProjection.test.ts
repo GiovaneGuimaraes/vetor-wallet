@@ -7,6 +7,7 @@ import {
   parseMonthsInput,
   parseNonNegativeInput,
   projectSavings,
+  shouldOpenProjectionAssumptions,
 } from './savingsProjection';
 import { currentMonthKey, shiftMonth } from './expenseMonth';
 
@@ -384,5 +385,16 @@ describe('parseMonthsInput', () => {
     expect(parseMonthsInput('12.5')).toBeNull();
     expect(parseMonthsInput('-6')).toBeNull();
     expect(parseMonthsInput('abc')).toBeNull();
+  });
+});
+
+describe('shouldOpenProjectionAssumptions', () => {
+  it('recolhe quando há taxa derivada do histórico', () => {
+    expect(shouldOpenProjectionAssumptions(0.9)).toBe(false);
+    expect(shouldOpenProjectionAssumptions(0)).toBe(false);
+  });
+
+  it('abre quando não há histórico suficiente para derivar taxa', () => {
+    expect(shouldOpenProjectionAssumptions(null)).toBe(true);
   });
 });
