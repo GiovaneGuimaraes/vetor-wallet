@@ -22,6 +22,14 @@ import { diffEditableFields, hasEdits, parseMoneyInput } from './inlineEdit';
 import { currentMonthKey, formatDayMonth, formatMonthLabel, shiftMonth } from './expenseMonth';
 import { computeIncomeMonthTotals } from './incomeMonth';
 import { MonthFetchGuard } from './monthFetch';
+import {
+  buildIncomeFormPayload,
+  initialIncomeFormState,
+  resetIncomeFormFields,
+  switchIncomeFormKind,
+  validateIncomeForm,
+} from './rendaForm';
+import { CollapsibleSection } from '../components/CollapsibleSection';
 import './layers.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -71,14 +79,22 @@ function toEntryDraft(entry: IncomeEntry): EntryDraft {
  * T-031: renda fixa do mês e renda variável do mês têm modo de edição no item da lista
  * (lápis → campos preenchidos → salvar/cancelar), via `PATCH /api/income/:id` e
  * `PATCH /api/income-entries/:id` com apenas os campos alterados.
+ *
+ * T-075: a página abre em modo consulta — total do mês → listas — sem nenhum
+ * form visível. Criar uma renda (fixa ou avulsa, com o mesmo toggle de tipo do
+ * `rendaForm.ts`) fica atrás de "+ Adicionar renda" (`CollapsibleSection`,
+ * recolhido por padrão), espelhando o padrão de `/despesas` (T-074).
  */
 export function RendaPage() {
   const [monthKey, setMonthKey] = useState(() => currentMonthKey());
 
   const [sources, setSources] = useState<IncomeSource[] | 'loading' | 'error'>('loading');
-  const [name, setName] = useState('');
-  const [type, setType] = useState<IncomeSourceType>('SALARIO');
-  const [amount, setAmount] = useState('');
+  // T-075: form unificado de criação (Fixa/Avulsa), recolhido por padrão
+  // atrás de "+ Adicionar renda" — substitui os dois forms permanentes que a
+  // page tinha antes ("Nova fonte fixa" e "Nova renda do mês").
+  const [formState, setFormState] = useState(() =>
+    initialIncomeFormState(defaultEntryDate(currentMonthKey())),
+  );
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -97,11 +113,6 @@ export function RendaPage() {
   // acima, que decide qual resposta VALE; esta decide se um novo fetch deve
   // ser disparado quando já há um em andamento para o mesmo mês.
   const entriesFetchGuardRef = useRef(new MonthFetchGuard());
-  const [entryDescription, setEntryDescription] = useState('');
-  const [entryAmount, setEntryAmount] = useState('');
-  const [entryDate, setEntryDate] = useState(() => defaultEntryDate(currentMonthKey()));
-  const [entryFormError, setEntryFormError] = useState<string | null>(null);
-  const [entrySubmitting, setEntrySubmitting] = useState(false);
   const [deletingEntryId, setDeletingEntryId] = useState<number | null>(null);
   const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
   const [entryDraft, setEntryDraft] = useState<EntryDraft | null>(null);
@@ -167,7 +178,7 @@ export function RendaPage() {
 
   function applyMonth(next: string) {
     setMonthKey(next);
-    setEntryDate(defaultEntryDate(next));
+    setFormState((prev) => ({ ...prev, date: defaultEntryDate(next) }));
     // A lista de rendas do mês vai ser trocada — um rascunho de edição aberto
     // apontaria para um item que não está mais em tela.
     cancelEntryEdit();
@@ -177,28 +188,46 @@ export function RendaPage() {
     applyMonth(shiftMonth(monthKey, delta));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  /**
+   * Submit do form unificado (T-075): valida e monta o payload em
+   * `rendaForm.ts` conforme o `kind` escolhido (Fixa → `POST /api/income`,
+   * Avulsa → `POST /api/income-entries`).
+   */
+  async function handleAddSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
-    const parsedAmount = Number(amount.replace(',', '.'));
-    if (!name.trim()) {
-      setFormError('Informe um nome para a fonte de renda.');
+    const validationError = validateIncomeForm(formState);
+    if (validationError) {
+      setFormError(validationError);
       return;
     }
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setFormError('Informe um valor válido maior que zero.');
-      return;
-    }
+    const parsed = buildIncomeFormPayload(formState);
 
     setSubmitting(true);
     try {
-      const created = await createIncomeSource({ name: name.trim(), type, amount: parsedAmount });
-      setSources((prev) => (Array.isArray(prev) ? [created, ...prev] : [created]));
-      setName('');
-      setAmount('');
-      setType('SALARIO');
+      if (parsed.kind === 'FIXED') {
+        const created = await createIncomeSource(parsed.payload);
+        setSources((prev) => (Array.isArray(prev) ? [created, ...prev] : [created]));
+      } else {
+        const created = await createIncomeEntry(parsed.payload);
+        // Uma renda salva com data fora do mês exibido não entra nesta lista.
+        if (created.date.slice(0, 7) === monthKey) {
+          setEntries((prev) =>
+            Array.isArray(prev)
+              ? [created, ...prev].sort((a, b) => b.date.localeCompare(a.date))
+              : [created],
+          );
+        }
+      }
+      setFormState((prev) => resetIncomeFormFields(prev, defaultEntryDate(monthKey)));
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Falha ao criar fonte de renda');
+      setFormError(
+        err instanceof Error
+          ? err.message
+          : parsed.kind === 'FIXED'
+            ? 'Falha ao criar fonte de renda'
+            : 'Falha ao criar renda do mês',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -277,47 +306,6 @@ export function RendaPage() {
   }
 
   // ── Rendas variáveis do mês (T-036) ────────────────────────────────────────
-
-  async function handleEntrySubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setEntryFormError(null);
-    const parsedAmount = Number(entryAmount.replace(',', '.'));
-    if (!entryDescription.trim()) {
-      setEntryFormError('Informe uma descrição para a renda.');
-      return;
-    }
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setEntryFormError('Informe um valor válido maior que zero.');
-      return;
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(entryDate)) {
-      setEntryFormError('Informe a data da renda.');
-      return;
-    }
-
-    setEntrySubmitting(true);
-    try {
-      const created = await createIncomeEntry({
-        description: entryDescription.trim(),
-        amount: parsedAmount,
-        date: entryDate,
-      });
-      // Uma renda salva com data fora do mês exibido não entra nesta lista.
-      if (created.date.slice(0, 7) === monthKey) {
-        setEntries((prev) =>
-          Array.isArray(prev)
-            ? [created, ...prev].sort((a, b) => b.date.localeCompare(a.date))
-            : [created],
-        );
-      }
-      setEntryDescription('');
-      setEntryAmount('');
-    } catch (err) {
-      setEntryFormError(err instanceof Error ? err.message : 'Falha ao criar renda do mês');
-    } finally {
-      setEntrySubmitting(false);
-    }
-  }
 
   function startEntryEdit(entry: IncomeEntry) {
     setEditingEntryId(entry.id);
@@ -437,6 +425,98 @@ export function RendaPage() {
           Fixas {fixedDisplay} + variáveis {variableDisplay}
         </p>
       </div>
+
+      {/* T-075: form unificado (Fixa/Avulsa), recolhido por padrão — a
+          consulta (total, listas) fica sempre visível; lançar uma renda é a
+          ação minoritária. */}
+      <CollapsibleSection label="+ Adicionar renda" openLabel="Adicionar renda">
+        <form className="vw-layerpage-form" onSubmit={handleAddSubmit}>
+          <div className="vw-expense-kind-toggle" role="radiogroup" aria-label="Tipo de renda">
+            <button
+              type="button"
+              className={`vw-expense-kind-btn${
+                formState.kind === 'FIXED' ? ' vw-expense-kind-active' : ''
+              }`}
+              aria-pressed={formState.kind === 'FIXED'}
+              onClick={() => setFormState((prev) => switchIncomeFormKind(prev, 'FIXED'))}
+            >
+              Fixa
+            </button>
+            <button
+              type="button"
+              className={`vw-expense-kind-btn${
+                formState.kind === 'VARIABLE' ? ' vw-expense-kind-active' : ''
+              }`}
+              aria-pressed={formState.kind === 'VARIABLE'}
+              onClick={() => setFormState((prev) => switchIncomeFormKind(prev, 'VARIABLE'))}
+            >
+              Avulsa
+            </button>
+          </div>
+          <div className="vw-layerpage-field">
+            <label htmlFor="renda-nome">{formState.kind === 'FIXED' ? 'Nome' : 'Descrição'}</label>
+            <input
+              id="renda-nome"
+              type="text"
+              value={formState.name}
+              onChange={(e) => setFormState((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder={
+                formState.kind === 'FIXED' ? 'Ex.: Salário CLT' : 'Ex.: Freela de landing page'
+              }
+            />
+          </div>
+          {formState.kind === 'FIXED' && (
+            <div className="vw-layerpage-field">
+              <label htmlFor="renda-tipo">Tipo</label>
+              <select
+                id="renda-tipo"
+                value={formState.type}
+                onChange={(e) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    type: e.target.value as IncomeSourceType,
+                  }))
+                }
+              >
+                <option value="SALARIO">Salário</option>
+                <option value="FREELA">Freelance</option>
+                <option value="OUTRO">Outro</option>
+              </select>
+            </div>
+          )}
+          <div className="vw-layerpage-field">
+            <label htmlFor="renda-valor">Valor</label>
+            <input
+              id="renda-valor"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formState.amount}
+              onChange={(e) => setFormState((prev) => ({ ...prev, amount: e.target.value }))}
+              placeholder="0,00"
+            />
+          </div>
+          {formState.kind === 'VARIABLE' && (
+            <div className="vw-layerpage-field">
+              <label htmlFor="renda-data">Data</label>
+              <input
+                id="renda-data"
+                type="date"
+                value={formState.date}
+                onChange={(e) => setFormState((prev) => ({ ...prev, date: e.target.value }))}
+              />
+            </div>
+          )}
+          {formError && <p className="vw-layerpage-error">{formError}</p>}
+          <button
+            type="submit"
+            className="vw-btn-primary vw-layerpage-submit"
+            disabled={submitting}
+          >
+            {submitting ? 'Adicionando…' : 'Adicionar'}
+          </button>
+        </form>
+      </CollapsibleSection>
 
       <div className="vw-layerpage-grid">
         <div className="vw-layerpage-card">
@@ -562,46 +642,6 @@ export function RendaPage() {
         </div>
 
         <div className="vw-layerpage-card">
-          <h2 className="vw-layerpage-card-title">Nova fonte fixa</h2>
-          <form className="vw-layerpage-form" onSubmit={handleSubmit}>
-            <div className="vw-layerpage-field">
-              <label htmlFor="renda-nome">Nome</label>
-              <input
-                id="renda-nome"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex.: Salário CLT"
-              />
-            </div>
-            <div className="vw-layerpage-field">
-              <label htmlFor="renda-tipo">Tipo</label>
-              <select id="renda-tipo" value={type} onChange={(e) => setType(e.target.value as IncomeSourceType)}>
-                <option value="SALARIO">Salário</option>
-                <option value="FREELA">Freelance</option>
-                <option value="OUTRO">Outro</option>
-              </select>
-            </div>
-            <div className="vw-layerpage-field">
-              <label htmlFor="renda-valor">Valor</label>
-              <input
-                id="renda-valor"
-                type="number"
-                min="0"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0,00"
-              />
-            </div>
-            {formError && <p className="vw-layerpage-error">{formError}</p>}
-            <button type="submit" className="vw-btn-primary vw-layerpage-submit" disabled={submitting}>
-              {submitting ? 'Adicionando…' : 'Adicionar'}
-            </button>
-          </form>
-        </div>
-
-        <div className="vw-layerpage-card">
           <h2 className="vw-layerpage-card-title">
             Renda variável do mês
             {!variableFailed && <span className="vw-layerpage-card-aside">{variableDisplay}</span>}
@@ -717,51 +757,6 @@ export function RendaPage() {
               )}
             </ul>
           )}
-        </div>
-
-        <div className="vw-layerpage-card">
-          <h2 className="vw-layerpage-card-title">Nova renda do mês</h2>
-          <form className="vw-layerpage-form" onSubmit={handleEntrySubmit}>
-            <div className="vw-layerpage-field">
-              <label htmlFor="renda-lancamento-descricao">Descrição</label>
-              <input
-                id="renda-lancamento-descricao"
-                type="text"
-                value={entryDescription}
-                onChange={(e) => setEntryDescription(e.target.value)}
-                placeholder="Ex.: Freela de landing page"
-              />
-            </div>
-            <div className="vw-layerpage-field">
-              <label htmlFor="renda-lancamento-valor">Valor</label>
-              <input
-                id="renda-lancamento-valor"
-                type="number"
-                min="0"
-                step="0.01"
-                value={entryAmount}
-                onChange={(e) => setEntryAmount(e.target.value)}
-                placeholder="0,00"
-              />
-            </div>
-            <div className="vw-layerpage-field">
-              <label htmlFor="renda-lancamento-data">Data</label>
-              <input
-                id="renda-lancamento-data"
-                type="date"
-                value={entryDate}
-                onChange={(e) => setEntryDate(e.target.value)}
-              />
-            </div>
-            {entryFormError && <p className="vw-layerpage-error">{entryFormError}</p>}
-            <button
-              type="submit"
-              className="vw-btn-primary vw-layerpage-submit"
-              disabled={entrySubmitting}
-            >
-              {entrySubmitting ? 'Adicionando…' : 'Adicionar'}
-            </button>
-          </form>
         </div>
       </div>
     </div>
