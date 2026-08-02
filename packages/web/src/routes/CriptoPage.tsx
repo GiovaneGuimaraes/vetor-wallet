@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { BackToHomeLink } from '../components/BackToHomeLink';
 
 /**
  * Rota `/cripto` (T-004): tela mock, sem funcionalidade — mascote 130px
@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom';
  * design_handoff README seção "Screens / Views > Cripto (mock)".
  */
 export function CriptoPage() {
-  const navigate = useNavigate();
 
   return (
     <div className="vw-mock-page">
@@ -23,9 +22,7 @@ export function CriptoPage() {
         O acompanhamento de criptomoedas ainda não está disponível. Em breve você vai poder
         acompanhar suas posições em cripto aqui, do mesmo jeito que já faz com suas ações.
       </p>
-      <button type="button" onClick={() => navigate('/home')} className="vw-gbtn" style={{ width: 'auto', height: 'auto', padding: '8px 18px', fontSize: 13, fontWeight: 600, color: 'var(--color-ink)' }}>
-        Voltar ao início
-      </button>
+      <BackToHomeLink />
     </div>
   );
 }

@@ -52,6 +52,7 @@ import {
   validateExpenseForm,
 } from './despesasForm';
 import { CollapsibleSection } from '../components/CollapsibleSection';
+import { BackToHomeLink } from '../components/BackToHomeLink';
 import './layers.css';
 
 const HISTORY_MONTHS = 6;
@@ -583,6 +584,7 @@ export function DespesasPage() {
 
   return (
     <div>
+      <BackToHomeLink />
       <div className="vw-page-header">
         <h1 className="vw-page-title">Despesas</h1>
         <p className="vw-page-subtitle">Gastos fixos e do dia a dia</p>

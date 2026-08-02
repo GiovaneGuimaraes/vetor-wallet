@@ -30,6 +30,7 @@ import {
   validateIncomeForm,
 } from './rendaForm';
 import { CollapsibleSection } from '../components/CollapsibleSection';
+import { BackToHomeLink } from '../components/BackToHomeLink';
 import './layers.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -392,6 +393,7 @@ export function RendaPage() {
 
   return (
     <div>
+      <BackToHomeLink />
       <div className="vw-page-header">
         <h1 className="vw-page-title">Renda</h1>
         <p className="vw-page-subtitle">Renda fixa e renda variável do mês</p>

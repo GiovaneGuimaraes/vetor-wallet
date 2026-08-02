@@ -33,6 +33,7 @@ import {
 } from './savingsTransfer';
 import { wouldOverdrawBalance } from './savingsWithdraw';
 import { CollapsibleSection } from '../components/CollapsibleSection';
+import { BackToHomeLink } from '../components/BackToHomeLink';
 import './layers.css';
 import './layers-savings.css';
 
@@ -484,6 +485,7 @@ export function PoupancaPage() {
 
   return (
     <div>
+      <BackToHomeLink />
       <div className="vw-page-header">
         <h1 className="vw-page-title">Poupança</h1>
         <p className="vw-page-subtitle">Saldo, aportes e rendimento</p>

@@ -11,6 +11,7 @@ import { OperationForm } from '../components/OperationForm';
 import { OperationsList } from '../components/OperationsList';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { CollapsibleSection } from '../components/CollapsibleSection';
+import { BackToHomeLink } from '../components/BackToHomeLink';
 import { ProjectionChart } from '../components/ProjectionChart';
 import { HistoryChart } from '../components/HistoryChart';
 import { PriceChart } from '../components/PriceChart';
@@ -377,6 +378,7 @@ export function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <BackToHomeLink />
       <div className="flex items-center gap-3">
         {/* Rótulo estático (T-050b): identifica a carteira, não é mais um
             botão — não há para onde trocar. As operações abaixo são do
