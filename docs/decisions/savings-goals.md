@@ -43,3 +43,10 @@ O card "Previsão de rendimento" em `/poupanca` simula quanto o dinheiro rende n
 - **O mês corrente é excluído da amostra de `deriveMonthlyRatePct`** (T-047): seu rendimento é parcial (o mês ainda não fechou) e entraria como uma taxa artificialmente baixa, achatando a média dos meses fechados.
 - Sem gráfico (decisão do humano) e sem comparação com CDI/Ibovespa (fora de escopo).
 
+### Aviso não-bloqueante de saque acima do saldo (T-079)
+O server aceita `WITHDRAW` acima do saldo da poupança — permissividade intencional, sem regra de negócio que proíba (fora de escopo mudar). Antes da T-079 a UI ficava muda: um erro de digitação (ex.: saque de R$ 99.999 com saldo de R$ 5.042) passava sem qualquer aviso e deixava o saldo negativo em silêncio.
+
+- `wouldOverdrawBalance(amount, balance)` em `packages/web/src/routes/savingsWithdraw.ts` (com teste ao lado) só responde **se avisa** — comparação em centavos inteiros (padrão T-041/T-052); sacar exatamente o saldo **não** é excedente e não pede confirmação.
+- Passo de confirmação **inline no form** de "Novo lançamento" (`PoupancaPage.tsx`), não `window.confirm`: a página ainda não tinha um padrão de confirmação próprio, e um passo inline é mais fácil de testar e mais consistente com o resto do form. Ao detectar overdraw num WITHDRAW, o primeiro submit não envia o POST — só marca `overdrawConfirmPending`, troca o texto do botão para "Confirmar retirada" e mostra um aviso; o segundo submit (com o mesmo valor) segue para a API. Qualquer edição no form depois do aviso (tipo, valor, data, nota, meta) derruba a confirmação pendente — ela vale só para os dados exatos que o usuário viu.
+- **Não-bloqueante de verdade**: nenhuma validação nova impede o envio, o aviso só atrasa por um clique extra. O server continua sendo a única autoridade sobre se o saque é aceito.
+
