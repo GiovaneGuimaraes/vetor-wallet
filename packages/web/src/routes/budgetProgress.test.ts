@@ -114,6 +114,33 @@ describe('computeBudgetProgress', () => {
     );
     expect(progress.spent).toBe(0);
   });
+
+  it('T-082: um orçamento cadastrado aparece a 0% mesmo sem NENHUM gasto na categoria no mês', () => {
+    // Regressão: a seção só mostrava um orçamento quando a categoria tinha
+    // gasto no mês corrente. computeBudgetProgress mapeia sobre `budgets`
+    // (não sobre `entries`/`fixedExpenses`), então o orçamento deve aparecer
+    // mesmo com as duas fontes de gasto vazias.
+    const [progress] = computeBudgetProgress([budget('alimentacao', 900)], [], []);
+    expect(progress).toMatchObject({
+      category: 'Alimentacao',
+      amount: 900,
+      spent: 0,
+      pct: 0,
+      pctClamped: 0,
+      over: false,
+    });
+  });
+
+  it('T-082: em uma lista com múltiplos orçamentos, os sem gasto no mês continuam a 0% ao lado dos com gasto', () => {
+    const result = computeBudgetProgress(
+      [budget('alimentacao', 900, 1), budget('lazer', 200, 2)],
+      [],
+      [entry('lazer', 50, '2026-08-01')],
+    );
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({ category: 'Alimentacao', spent: 0, pct: 0 });
+    expect(result[1]).toMatchObject({ category: 'Lazer', spent: 50, pct: 25 });
+  });
 });
 
 describe('formatBudgetPct', () => {
