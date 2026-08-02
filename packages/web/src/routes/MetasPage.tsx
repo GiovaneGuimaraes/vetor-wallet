@@ -4,6 +4,7 @@ import { getGoals, createGoal, updateGoal, deleteGoal } from '../api';
 import type { Goal } from '@vetor-wallet/shared';
 import { progressPct, progressPctClamped, isDerivedProgress, progressSourceLabel } from './goalsProgress';
 import { CollapsibleSection } from '../components/CollapsibleSection';
+import { BackToHomeLink } from '../components/BackToHomeLink';
 import './layers-savings.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -195,6 +196,7 @@ export function MetasPage() {
 
   return (
     <div>
+      <BackToHomeLink />
       <div className="vw-page-header">
         <h1 className="vw-page-title">Metas</h1>
         <p className="vw-page-subtitle">Progresso dos seus objetivos</p>
