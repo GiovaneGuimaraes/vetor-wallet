@@ -199,7 +199,7 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
         </div>
       </div>
 
-      <p className="vw-landing-footer">Cotações via brapi.dev · dados criptografados</p>
+      <p className="vw-landing-footer">Cotações via brapi.dev · senhas com bcrypt · seus dados ficam no seu servidor</p>
     </div>
   );
 }
