@@ -10,6 +10,7 @@ import {
 import { OperationForm } from '../components/OperationForm';
 import { OperationsList } from '../components/OperationsList';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
+import { CollapsibleSection } from '../components/CollapsibleSection';
 import { ProjectionChart } from '../components/ProjectionChart';
 import { HistoryChart } from '../components/HistoryChart';
 import { PriceChart } from '../components/PriceChart';
@@ -121,6 +122,19 @@ const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BR
  * preço médio de compra do usuário (`computeAveragePrice`, derivado de
  * `operations` já carregadas — sem endpoint novo, mesmo precedente
  * client-side da T-040/T-056).
+ *
+ * T-077: `/dash` em modo consulta — no mobile (390px), "Nova Operação" era o
+ * PRIMEIRO elemento da página, antes do resumo da carteira. O form agora
+ * entra DEPOIS do `PortfolioDashboard` (cards + tabela de posições), atrás de
+ * um `CollapsibleSection` ("+ Nova operação"), mesmo padrão da T-074
+ * (DespesasPage) — consulta é o uso ~10x mais frequente que lançamento. As
+ * premissas do simulador de "Projeção de ganhos" (valor/taxa/prazo/aporte)
+ * também ganham o mesmo tratamento ("Ajustar premissas"): o valor atual já
+ * vem pré-preenchido (`defaultCurrentValue`), então os 4 inputs ficam atrás
+ * do toggle (recolhido por padrão) enquanto o RESULTADO da projeção
+ * (`projection`/`ProjectionChart`, fora do `CollapsibleSection`) continua
+ * visível direto — a simulação default já roda sem exigir que o usuário
+ * abra a seção primeiro.
  */
 const HISTORY_WINDOW_OPTIONS = [30, 90, 365] as const;
 const DEFAULT_HISTORY_DAYS = 90;
@@ -407,8 +421,6 @@ export function DashboardPage() {
         </div>
       )}
 
-      <OperationForm onSubmit={handleCreate} />
-
       {/* T-054: `walletLoaded` (contexto) cobre o carregamento do portfolio
           consolidado, que a página não busca mais sozinha — combinado com o
           `loadingData` local (só das operações) para não renderizar o
@@ -419,6 +431,16 @@ export function DashboardPage() {
       ) : (
         <>
           <PortfolioDashboard summary={walletSummary} walletColor={wallet?.color} />
+
+          {/* T-077: "Nova operação" passa a vir DEPOIS do resumo (cards +
+              tabela de posições), recolhida por padrão — no mobile (390px) o
+              form era o primeiro elemento da página, antes de qualquer
+              consulta. Mesmo padrão `CollapsibleSection` da T-074
+              (DespesasPage): consulta é o uso ~10x mais frequente que
+              lançamento. */}
+          <CollapsibleSection label="+ Nova operação" openLabel="Nova operação">
+            <OperationForm onSubmit={handleCreate} />
+          </CollapsibleSection>
 
           {/*
             Evolução da carteira (T-058b): oculto sem posições, mesmo guard do
@@ -593,71 +615,79 @@ export function DashboardPage() {
           {walletSummary && walletSummary.positions.length > 0 && (
             <div className="vw-form-card">
               <p className="vw-form-title">Projeção de ganhos</p>
-              <div className="vw-form-grid">
-                <div className="vw-layerpage-field">
-                  <label htmlFor="sim-current-value">Valor atual (R$)</label>
-                  <input
-                    id="sim-current-value"
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0,00"
-                    value={simCurrentValue}
-                    onChange={(e) => {
-                      setSimTouched((prev) => ({ ...prev, currentValue: true }));
-                      setSimCurrentValue(e.target.value);
-                    }}
-                  />
-                  {defaultCurrentValue.usedFallback && !simTouched.currentValue && (
-                    <span className="vw-field-hint vw-field-hint--warn">
-                      Cotações indisponíveis agora — usando o valor investido como estimativa.
-                    </span>
-                  )}
-                </div>
-                <div className="vw-layerpage-field">
-                  <label htmlFor="sim-return-rate">Retorno mensal (%)</label>
-                  <input
-                    id="sim-return-rate"
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="Ex.: 0,8"
-                    value={simRatePct}
-                    onChange={(e) => {
-                      setSimTouched((prev) => ({ ...prev, ratePct: true }));
-                      setSimRatePct(e.target.value);
-                    }}
-                  />
-                </div>
-                <div className="vw-layerpage-field">
-                  <label htmlFor="sim-months">Prazo (meses)</label>
-                  <input
-                    id="sim-months"
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="12"
-                    value={simMonths}
-                    onChange={(e) => setSimMonths(e.target.value)}
-                  />
-                </div>
-                <div className="vw-layerpage-field">
-                  <label htmlFor="sim-contribution">Aporte mensal (R$)</label>
-                  <input
-                    id="sim-contribution"
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="Opcional"
-                    value={simContribution}
-                    onChange={(e) => setSimContribution(e.target.value)}
-                  />
-                </div>
-              </div>
 
-              <span className="vw-field-hint">
-                {derivedRatePct !== null
-                  ? 'Taxa sugerida a partir do retorno realizado da sua carteira — ajuste à vontade. '
-                  : 'Sem histórico suficiente para sugerir uma taxa — informe o retorno mensal esperado. '}
-                Simulação sobre o valor atual da carteira — não é previsão.
-              </span>
+              {/* T-077: premissas (valor atual/taxa/prazo/aporte) atrás de
+                  "ajustar" — o valor atual já vem pré-preenchido pelo
+                  `defaultCurrentValue`, então a consulta (resultado da
+                  projeção) pode aparecer sem exigir que o usuário abra o
+                  formulário primeiro. */}
+              <CollapsibleSection label="Ajustar premissas" openLabel="Ajustar premissas">
+                <div className="vw-form-grid">
+                  <div className="vw-layerpage-field">
+                    <label htmlFor="sim-current-value">Valor atual (R$)</label>
+                    <input
+                      id="sim-current-value"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      value={simCurrentValue}
+                      onChange={(e) => {
+                        setSimTouched((prev) => ({ ...prev, currentValue: true }));
+                        setSimCurrentValue(e.target.value);
+                      }}
+                    />
+                    {defaultCurrentValue.usedFallback && !simTouched.currentValue && (
+                      <span className="vw-field-hint vw-field-hint--warn">
+                        Cotações indisponíveis agora — usando o valor investido como estimativa.
+                      </span>
+                    )}
+                  </div>
+                  <div className="vw-layerpage-field">
+                    <label htmlFor="sim-return-rate">Retorno mensal (%)</label>
+                    <input
+                      id="sim-return-rate"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Ex.: 0,8"
+                      value={simRatePct}
+                      onChange={(e) => {
+                        setSimTouched((prev) => ({ ...prev, ratePct: true }));
+                        setSimRatePct(e.target.value);
+                      }}
+                    />
+                  </div>
+                  <div className="vw-layerpage-field">
+                    <label htmlFor="sim-months">Prazo (meses)</label>
+                    <input
+                      id="sim-months"
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="12"
+                      value={simMonths}
+                      onChange={(e) => setSimMonths(e.target.value)}
+                    />
+                  </div>
+                  <div className="vw-layerpage-field">
+                    <label htmlFor="sim-contribution">Aporte mensal (R$)</label>
+                    <input
+                      id="sim-contribution"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Opcional"
+                      value={simContribution}
+                      onChange={(e) => setSimContribution(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <span className="vw-field-hint">
+                  {derivedRatePct !== null
+                    ? 'Taxa sugerida a partir do retorno realizado da sua carteira — ajuste à vontade. '
+                    : 'Sem histórico suficiente para sugerir uma taxa — informe o retorno mensal esperado. '}
+                  Simulação sobre o valor atual da carteira — não é previsão.
+                </span>
+              </CollapsibleSection>
 
               {projection ? (
                 <div className="vw-savings-projection">
