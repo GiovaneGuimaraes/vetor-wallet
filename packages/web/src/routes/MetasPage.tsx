@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getGoals, createGoal, updateGoal, deleteGoal } from '../api';
 import type { Goal } from '@vetor-wallet/shared';
 import { progressPct, progressPctClamped, isDerivedProgress, progressSourceLabel } from './goalsProgress';
+import { CollapsibleSection } from '../components/CollapsibleSection';
 import './layers-savings.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -205,54 +206,6 @@ export function MetasPage() {
         <div className="vw-state-box vw-state-error">{error}</div>
       ) : (
         <>
-          <div className="vw-form-card">
-            <p className="vw-form-title">Nova meta</p>
-            <form onSubmit={handleSubmit}>
-              <div className="vw-form-grid">
-                <div className="vw-form-field">
-                  <label htmlFor="goal-name">Nome</label>
-                  <input
-                    id="goal-name"
-                    type="text"
-                    placeholder="Ex.: Viagem"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  />
-                </div>
-                <div className="vw-form-field">
-                  <label htmlFor="goal-target">Valor alvo (R$)</label>
-                  <input
-                    id="goal-target"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0,00"
-                    value={form.target}
-                    onChange={(e) => setForm({ ...form, target: e.target.value })}
-                  />
-                </div>
-                <div className="vw-form-field">
-                  <label htmlFor="goal-current">Valor atual (opcional)</label>
-                  <input
-                    id="goal-current"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0,00"
-                    value={form.current}
-                    onChange={(e) => setForm({ ...form, current: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="vw-form-actions">
-                <button type="submit" className="vw-btn-primary" disabled={submitting}>
-                  {submitting ? 'Salvando...' : 'Criar meta'}
-                </button>
-              </div>
-              {formError && <p className="vw-form-error">{formError}</p>}
-            </form>
-          </div>
-
           {goals.length === 0 ? (
             <div className="vw-state-box">Nenhuma meta cadastrada ainda.</div>
           ) : (
@@ -262,6 +215,55 @@ export function MetasPage() {
               ))}
             </div>
           )}
+
+          <CollapsibleSection label="+ Nova meta" openLabel="Nova meta">
+            <div className="vw-form-card">
+              <form onSubmit={handleSubmit}>
+                <div className="vw-form-grid">
+                  <div className="vw-form-field">
+                    <label htmlFor="goal-name">Nome</label>
+                    <input
+                      id="goal-name"
+                      type="text"
+                      placeholder="Ex.: Viagem"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="vw-form-field">
+                    <label htmlFor="goal-target">Valor alvo (R$)</label>
+                    <input
+                      id="goal-target"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0,00"
+                      value={form.target}
+                      onChange={(e) => setForm({ ...form, target: e.target.value })}
+                    />
+                  </div>
+                  <div className="vw-form-field">
+                    <label htmlFor="goal-current">Valor atual (opcional)</label>
+                    <input
+                      id="goal-current"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0,00"
+                      value={form.current}
+                      onChange={(e) => setForm({ ...form, current: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="vw-form-actions">
+                  <button type="submit" className="vw-btn-primary" disabled={submitting}>
+                    {submitting ? 'Salvando...' : 'Criar meta'}
+                  </button>
+                </div>
+                {formError && <p className="vw-form-error">{formError}</p>}
+              </form>
+            </div>
+          </CollapsibleSection>
         </>
       )}
     </div>
