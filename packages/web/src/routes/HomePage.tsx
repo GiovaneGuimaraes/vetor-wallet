@@ -54,6 +54,18 @@ const LAYER_CARDS: LayerCardConfig[] = [
   { key: 'metas', path: '/metas', mascot: 'metas-t.png', name: 'Metas', desc: 'Progresso dos seus objetivos' },
 ];
 
+// T-080: CTA curto exibido no lugar do valor quando o layer ainda não tem
+// nenhum registro (não apenas soma zero — ver predicados em homeMetrics.ts).
+// Cripto fica de fora: segue sempre "em breve" via `chip`. Estático — vive
+// fora do componente para não ser recriado a cada render.
+const CTA_BY_KEY: Record<string, string> = {
+  renda: 'Cadastre sua renda →',
+  despesas: 'Registre um gasto →',
+  poupanca: 'Faça seu primeiro aporte →',
+  acoes: 'Registre uma operação →',
+  metas: 'Crie uma meta →',
+};
+
 /**
  * Rota `/home` (T-008, evoluindo o shell entregue pela T-004): hero de
  * patrimônio (ações via ShellContext + saldo de poupança) com renda/despesas/
@@ -64,7 +76,7 @@ const LAYER_CARDS: LayerCardConfig[] = [
  */
 export function HomePage() {
   const navigate = useNavigate();
-  const { walletSummary } = useShellContext();
+  const { walletSummary, walletLoaded, walletLoadError } = useShellContext();
 
   const [income, setIncome] = useState<IncomeSource[]>([]);
   const [expenses, setExpenses] = useState<FixedExpense[]>([]);
@@ -148,17 +160,6 @@ export function HomePage() {
 
   const dash = '—';
 
-  // T-080: CTA curto exibido no lugar do valor quando o layer ainda não tem
-  // nenhum registro (não apenas soma zero — ver predicados em homeMetrics.ts).
-  // Cripto fica de fora: segue sempre "em breve" via `chip`.
-  const CTA_BY_KEY: Record<string, string> = {
-    renda: 'Cadastre sua renda →',
-    despesas: 'Registre um gasto →',
-    poupanca: 'Faça seu primeiro aporte →',
-    acoes: 'Registre uma operação →',
-    metas: 'Crie uma meta →',
-  };
-
   const isLayerEmpty = (key: string): boolean => {
     switch (key) {
       case 'renda':
@@ -168,7 +169,7 @@ export function HomePage() {
       case 'poupanca':
         return isSavingsLayerEmpty(savingsSummary);
       case 'acoes':
-        return isStocksLayerEmpty(walletSummary);
+        return isStocksLayerEmpty(walletSummary, walletLoaded, walletLoadError);
       case 'metas':
         return isGoalsLayerEmpty(goals);
       default:

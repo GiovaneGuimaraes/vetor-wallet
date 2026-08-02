@@ -184,9 +184,24 @@ export function isSavingsLayerEmpty(summary: SavingsSummary | null): boolean {
   return summary.totalDeposits === 0 && summary.totalYield === 0 && summary.totalWithdrawals === 0;
 }
 
-/** Ações (T-080): vazio quando não há carteira consolidada ou ela não tem nenhuma posição
- * (nenhuma operação registrada ainda). */
-export function isStocksLayerEmpty(walletSummary: PortfolioSummary | null): boolean {
+/**
+ * Ações (T-080): vazio quando a carteira consolidada JÁ carregou com sucesso
+ * (`walletLoaded && !walletLoadError` — mesmo gate usado por DashboardPage.tsx
+ * para `walletSummary`) e ela não tem nenhuma posição.
+ *
+ * `walletSummary` vem do `ShellContext` e fica `null` tanto "ainda não
+ * carregou" quanto "getPortfolio() falhou e o catch não seta nada" (ver
+ * App.tsx). Sem o gate por `walletLoaded`/`walletLoadError`, uma falha
+ * transitória na busca da carteira (ex.: brapi fora do ar) faria o card
+ * mostrar o CTA de onboarding por cima de posições reais do usuário — um
+ * falso positivo pior do que simplesmente não mostrar o CTA.
+ */
+export function isStocksLayerEmpty(
+  walletSummary: PortfolioSummary | null,
+  walletLoaded: boolean,
+  walletLoadError: boolean,
+): boolean {
+  if (!walletLoaded || walletLoadError) return false;
   return walletSummary === null || walletSummary.positions.length === 0;
 }
 

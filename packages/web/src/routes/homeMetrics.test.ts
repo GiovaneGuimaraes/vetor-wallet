@@ -351,12 +351,12 @@ describe('isSavingsLayerEmpty', () => {
 });
 
 describe('isStocksLayerEmpty', () => {
-  it('é vazio quando não há carteira consolidada (null)', () => {
-    expect(isStocksLayerEmpty(null)).toBe(true);
+  it('é vazio quando a carteira carregou sem erro e não há carteira consolidada (null)', () => {
+    expect(isStocksLayerEmpty(null, true, false)).toBe(true);
   });
 
-  it('é vazio quando a carteira existe mas não tem nenhuma posição', () => {
-    expect(isStocksLayerEmpty(makeSummary({ positions: [] }))).toBe(true);
+  it('é vazio quando a carteira carregou sem erro mas não tem nenhuma posição', () => {
+    expect(isStocksLayerEmpty(makeSummary({ positions: [] }), true, false)).toBe(true);
   });
 
   it('não é vazio quando há ao menos uma posição', () => {
@@ -375,7 +375,16 @@ describe('isStocksLayerEmpty', () => {
         },
       ],
     });
-    expect(isStocksLayerEmpty(summary)).toBe(false);
+    expect(isStocksLayerEmpty(summary, true, false)).toBe(false);
+  });
+
+  it('NÃO mostra CTA quando a carteira ainda não terminou de carregar (walletLoaded=false)', () => {
+    expect(isStocksLayerEmpty(null, false, false)).toBe(false);
+  });
+
+  it('NÃO mostra CTA quando a busca da carteira falhou (walletLoadError=true), mesmo com summary null — evita esconder posições reais atrás de uma falha de rede/brapi', () => {
+    expect(isStocksLayerEmpty(null, true, true)).toBe(false);
+    expect(isStocksLayerEmpty(makeSummary({ positions: [] }), true, true)).toBe(false);
   });
 });
 
