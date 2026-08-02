@@ -39,6 +39,14 @@ import {
   shiftMonth,
 } from './expenseMonth';
 import { formatCategoryLabel } from './categories';
+import {
+  buildExpenseFormPayload,
+  initialExpenseFormState,
+  resetExpenseFormFields,
+  switchExpenseFormKind,
+  validateExpenseForm,
+} from './despesasForm';
+import { CollapsibleSection } from '../components/CollapsibleSection';
 import './layers.css';
 
 const HISTORY_MONTHS = 6;
@@ -87,6 +95,11 @@ function toEntryDraft(entry: ExpenseEntry): EntryDraft {
  * O total do hero é fixas + variáveis do mês exibido; a navegação
  * ‹ / › troca o mês e recarrega apenas os lançamentos.
  *
+ * T-074: a página abre em modo consulta — total do mês → últimos meses →
+ * recorrências → listas — sem nenhum form visível. Criar uma despesa (fixa
+ * ou variável, com o mesmo toggle de tipo do `despesasForm.ts`) fica atrás
+ * de "+ Adicionar despesa" (`CollapsibleSection`, recolhido por padrão).
+ *
  * T-031: fixas e lançamentos têm modo de edição no item da lista (lápis →
  * campos preenchidos → salvar/cancelar), via `PATCH /api/expenses/:id` e
  * `PATCH /api/expense-entries/:id` com apenas os campos alterados.
@@ -95,9 +108,12 @@ export function DespesasPage() {
   const [monthKey, setMonthKey] = useState(() => currentMonthKey());
 
   const [expenses, setExpenses] = useState<FixedExpense[] | 'loading' | 'error'>('loading');
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState('');
-  const [amount, setAmount] = useState('');
+  // T-074: form unificado de criação (Fixa/Variável), recolhido por padrão
+  // atrás de "+ Adicionar despesa" — substitui os dois forms permanentes que
+  // a page tinha antes ("Nova despesa fixa" e "Novo lançamento").
+  const [formState, setFormState] = useState(() =>
+    initialExpenseFormState(defaultEntryDate(currentMonthKey())),
+  );
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -117,12 +133,6 @@ export function DespesasPage() {
   // acima, que decide qual resposta VALE; esta decide se um novo fetch deve
   // ser disparado quando já há um em andamento para o mesmo mês.
   const entriesFetchGuardRef = useRef(new MonthFetchGuard());
-  const [entryDescription, setEntryDescription] = useState('');
-  const [entryCategory, setEntryCategory] = useState('');
-  const [entryAmount, setEntryAmount] = useState('');
-  const [entryDate, setEntryDate] = useState(() => defaultEntryDate(currentMonthKey()));
-  const [entryFormError, setEntryFormError] = useState<string | null>(null);
-  const [entrySubmitting, setEntrySubmitting] = useState(false);
   const [deletingEntryId, setDeletingEntryId] = useState<number | null>(null);
   const [editingEntryId, setEditingEntryId] = useState<number | null>(null);
   const [entryDraft, setEntryDraft] = useState<EntryDraft | null>(null);
@@ -133,9 +143,9 @@ export function DespesasPage() {
     ExpenseMonthSummaryItem[] | 'loading' | 'error'
   >('loading');
 
-  // T-035: recorrências mensais. O checkbox do form de lançamento cria uma
-  // (`recurring: true` no POST); esta lista é a gestão mínima para encerrá-las.
-  const [entryRecurring, setEntryRecurring] = useState(false);
+  // T-035: recorrências mensais. O checkbox "Repetir todo mês" do form
+  // unificado cria uma (`recurring: true` no POST); esta lista é a gestão
+  // mínima para encerrá-las.
   const [recurrences, setRecurrences] = useState<RecurringExpense[] | 'loading' | 'error'>(
     'loading',
   );
@@ -245,7 +255,7 @@ export function DespesasPage() {
   // quanto pelo clique num mês do histórico (T-033).
   function applyMonth(next: string) {
     setMonthKey(next);
-    setEntryDate(defaultEntryDate(next));
+    setFormState((prev) => ({ ...prev, date: defaultEntryDate(next) }));
     // A lista de lançamentos vai ser trocada — um rascunho de edição aberto
     // apontaria para um item que não está mais em tela.
     cancelEntryEdit();
@@ -255,32 +265,53 @@ export function DespesasPage() {
     applyMonth(shiftMonth(monthKey, delta));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  /**
+   * Submit do form unificado (T-074): valida e monta o payload em
+   * `despesasForm.ts` conforme o `kind` escolhido (Fixa → `POST
+   * /api/expenses`, Variável → `POST /api/expense-entries`, com
+   * `recurring: true` quando "Repetir todo mês" está marcado).
+   */
+  async function handleAddSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError(null);
-    const parsedAmount = Number(amount.replace(',', '.'));
-    if (!name.trim()) {
-      setFormError('Informe um nome para a despesa.');
+    const validationError = validateExpenseForm(formState);
+    if (validationError) {
+      setFormError(validationError);
       return;
     }
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setFormError('Informe um valor válido maior que zero.');
-      return;
-    }
+    const parsed = buildExpenseFormPayload(formState);
 
     setSubmitting(true);
     try {
-      const created = await createFixedExpense({
-        name: name.trim(),
-        category: category.trim(),
-        amount: parsedAmount,
-      });
-      setExpenses((prev) => (Array.isArray(prev) ? [created, ...prev] : [created]));
-      setName('');
-      setCategory('');
-      setAmount('');
+      if (parsed.kind === 'FIXED') {
+        const created = await createFixedExpense(parsed.payload);
+        setExpenses((prev) => (Array.isArray(prev) ? [created, ...prev] : [created]));
+      } else {
+        const created = await createExpenseEntry(parsed.payload);
+        // Um lançamento salvo com data fora do mês exibido não entra nesta lista.
+        if (created.date.slice(0, 7) === monthKey) {
+          setEntries((prev) =>
+            Array.isArray(prev)
+              ? [created, ...prev].sort((a, b) => b.date.localeCompare(a.date))
+              : [created],
+          );
+        }
+        // Novo lançamento muda o total variável do mês em que caiu — revalida
+        // o histórico para não ficar com um valor desatualizado na tela.
+        refreshHistory();
+        if (parsed.payload.recurring) {
+          refreshRecurrences();
+        }
+      }
+      setFormState((prev) => resetExpenseFormFields(prev, defaultEntryDate(monthKey)));
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Falha ao criar despesa fixa');
+      setFormError(
+        err instanceof Error
+          ? err.message
+          : parsed.kind === 'FIXED'
+            ? 'Falha ao criar despesa fixa'
+            : 'Falha ao criar lançamento',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -430,59 +461,6 @@ export function DespesasPage() {
     }
   }
 
-  async function handleEntrySubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setEntryFormError(null);
-    const parsedAmount = Number(entryAmount.replace(',', '.'));
-    if (!entryDescription.trim()) {
-      setEntryFormError('Informe uma descrição para o lançamento.');
-      return;
-    }
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setEntryFormError('Informe um valor válido maior que zero.');
-      return;
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(entryDate)) {
-      setEntryFormError('Informe a data do lançamento.');
-      return;
-    }
-
-    setEntrySubmitting(true);
-    try {
-      const created = await createExpenseEntry({
-        description: entryDescription.trim(),
-        category: entryCategory.trim(),
-        amount: parsedAmount,
-        date: entryDate,
-        // T-035: cria também o template mensal; o dia da recorrência é o dia
-        // desta data (o server ajusta para meses curtos ao materializar).
-        ...(entryRecurring ? { recurring: true } : {}),
-      });
-      // Um lançamento salvo com data fora do mês exibido não entra nesta lista.
-      if (created.date.slice(0, 7) === monthKey) {
-        setEntries((prev) =>
-          Array.isArray(prev)
-            ? [created, ...prev].sort((a, b) => b.date.localeCompare(a.date))
-            : [created],
-        );
-      }
-      setEntryDescription('');
-      setEntryCategory('');
-      setEntryAmount('');
-      // Novo lançamento muda o total variável do mês em que caiu — revalida o
-      // histórico para não ficar com um valor desatualizado na tela.
-      refreshHistory();
-      if (entryRecurring) {
-        setEntryRecurring(false);
-        refreshRecurrences();
-      }
-    } catch (err) {
-      setEntryFormError(err instanceof Error ? err.message : 'Falha ao criar lançamento');
-    } finally {
-      setEntrySubmitting(false);
-    }
-  }
-
   async function handleEntryDelete(id: number) {
     setDeletingEntryId(id);
     try {
@@ -551,6 +529,114 @@ export function DespesasPage() {
           Fixas {fixedDisplay} + variáveis {variableDisplay}
         </p>
       </div>
+
+      {/* T-074: form unificado (Fixa/Variável), recolhido por padrão — a
+          consulta (total, histórico, recorrências, listas) fica sempre
+          visível; lançar uma despesa é a ação minoritária. */}
+      <CollapsibleSection label="+ Adicionar despesa" openLabel="Adicionar despesa">
+        <form className="vw-layerpage-form" onSubmit={handleAddSubmit}>
+          <div className="vw-expense-kind-toggle" role="radiogroup" aria-label="Tipo de despesa">
+            <button
+              type="button"
+              className={`vw-expense-kind-btn${
+                formState.kind === 'FIXED' ? ' vw-expense-kind-active' : ''
+              }`}
+              aria-pressed={formState.kind === 'FIXED'}
+              onClick={() => setFormState((prev) => switchExpenseFormKind(prev, 'FIXED'))}
+            >
+              Fixa
+            </button>
+            <button
+              type="button"
+              className={`vw-expense-kind-btn${
+                formState.kind === 'VARIABLE' ? ' vw-expense-kind-active' : ''
+              }`}
+              aria-pressed={formState.kind === 'VARIABLE'}
+              onClick={() => setFormState((prev) => switchExpenseFormKind(prev, 'VARIABLE'))}
+            >
+              Variável
+            </button>
+          </div>
+          <div className="vw-layerpage-field">
+            <label htmlFor="despesa-nome">{formState.kind === 'FIXED' ? 'Nome' : 'Descrição'}</label>
+            <input
+              id="despesa-nome"
+              type="text"
+              value={formState.name}
+              onChange={(e) => setFormState((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder={formState.kind === 'FIXED' ? 'Ex.: Aluguel' : 'Ex.: Mercado'}
+            />
+          </div>
+          <div className="vw-layerpage-field">
+            <label htmlFor="despesa-categoria">Categoria</label>
+            <input
+              id="despesa-categoria"
+              type="text"
+              value={formState.category}
+              onChange={(e) => setFormState((prev) => ({ ...prev, category: e.target.value }))}
+              placeholder={formState.kind === 'FIXED' ? 'Ex.: Moradia' : 'Ex.: Alimentação'}
+            />
+          </div>
+          <div className="vw-layerpage-field">
+            <label htmlFor="despesa-valor">Valor</label>
+            <input
+              id="despesa-valor"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formState.amount}
+              onChange={(e) => setFormState((prev) => ({ ...prev, amount: e.target.value }))}
+              placeholder="0,00"
+            />
+          </div>
+          {formState.kind === 'VARIABLE' && (
+            <>
+              <div className="vw-layerpage-field">
+                <label htmlFor="despesa-data">Data</label>
+                <input
+                  id="despesa-data"
+                  type="date"
+                  value={formState.date}
+                  onChange={(e) => setFormState((prev) => ({ ...prev, date: e.target.value }))}
+                />
+              </div>
+              <label className="vw-recurrence-checkbox" htmlFor="despesa-recorrente">
+                <input
+                  id="despesa-recorrente"
+                  type="checkbox"
+                  checked={formState.recurring}
+                  onChange={(e) =>
+                    setFormState((prev) => ({ ...prev, recurring: e.target.checked }))
+                  }
+                />
+                <span>
+                  Repetir todo mês
+                  <span className="vw-recurrence-checkbox-hint">
+                    Gera este lançamento nos próximos meses, no mesmo dia.
+                  </span>
+                </span>
+              </label>
+              {/* A recorrência nunca retroage: com data passada ela começa no
+                  mês corrente, e os meses já fechados ficam como estão. */}
+              {formState.recurring &&
+                startsLaterThanEntry(formState.date.slice(0, 7), currentMonthKey()) && (
+                  <p className="vw-recurrence-checkbox-hint">
+                    A data escolhida está num mês passado — a repetição começa em{' '}
+                    {formatMonthLabel(currentMonthKey())} e não altera meses anteriores.
+                  </p>
+                )}
+            </>
+          )}
+          {formError && <p className="vw-layerpage-error">{formError}</p>}
+          <button
+            type="submit"
+            className="vw-btn-primary vw-layerpage-submit"
+            disabled={submitting}
+          >
+            {submitting ? 'Adicionando…' : 'Adicionar'}
+          </button>
+        </form>
+      </CollapsibleSection>
 
       <div className="vw-layerpage-card vw-history-card">
         <h2 className="vw-layerpage-card-title">Últimos meses</h2>
@@ -783,48 +869,6 @@ export function DespesasPage() {
         </div>
 
         <div className="vw-layerpage-card">
-          <h2 className="vw-layerpage-card-title">Nova despesa fixa</h2>
-          <form className="vw-layerpage-form" onSubmit={handleSubmit}>
-            <div className="vw-layerpage-field">
-              <label htmlFor="despesa-nome">Nome</label>
-              <input
-                id="despesa-nome"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex.: Aluguel"
-              />
-            </div>
-            <div className="vw-layerpage-field">
-              <label htmlFor="despesa-categoria">Categoria</label>
-              <input
-                id="despesa-categoria"
-                type="text"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="Ex.: Moradia"
-              />
-            </div>
-            <div className="vw-layerpage-field">
-              <label htmlFor="despesa-valor">Valor</label>
-              <input
-                id="despesa-valor"
-                type="number"
-                min="0"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0,00"
-              />
-            </div>
-            {formError && <p className="vw-layerpage-error">{formError}</p>}
-            <button type="submit" className="vw-btn-primary vw-layerpage-submit" disabled={submitting}>
-              {submitting ? 'Adicionando…' : 'Adicionar'}
-            </button>
-          </form>
-        </div>
-
-        <div className="vw-layerpage-card">
           <h2 className="vw-layerpage-card-title">
             Lançamentos do mês
             <span className="vw-layerpage-card-aside">{fmtCur.format(totals.variable)}</span>
@@ -965,83 +1009,6 @@ export function DespesasPage() {
               )}
             </ul>
           )}
-        </div>
-
-        <div className="vw-layerpage-card">
-          <h2 className="vw-layerpage-card-title">Novo lançamento</h2>
-          <form className="vw-layerpage-form" onSubmit={handleEntrySubmit}>
-            <div className="vw-layerpage-field">
-              <label htmlFor="lancamento-descricao">Descrição</label>
-              <input
-                id="lancamento-descricao"
-                type="text"
-                value={entryDescription}
-                onChange={(e) => setEntryDescription(e.target.value)}
-                placeholder="Ex.: Mercado"
-              />
-            </div>
-            <div className="vw-layerpage-field">
-              <label htmlFor="lancamento-categoria">Categoria</label>
-              <input
-                id="lancamento-categoria"
-                type="text"
-                value={entryCategory}
-                onChange={(e) => setEntryCategory(e.target.value)}
-                placeholder="Ex.: Alimentação"
-              />
-            </div>
-            <div className="vw-layerpage-field">
-              <label htmlFor="lancamento-valor">Valor</label>
-              <input
-                id="lancamento-valor"
-                type="number"
-                min="0"
-                step="0.01"
-                value={entryAmount}
-                onChange={(e) => setEntryAmount(e.target.value)}
-                placeholder="0,00"
-              />
-            </div>
-            <div className="vw-layerpage-field">
-              <label htmlFor="lancamento-data">Data</label>
-              <input
-                id="lancamento-data"
-                type="date"
-                value={entryDate}
-                onChange={(e) => setEntryDate(e.target.value)}
-              />
-            </div>
-            <label className="vw-recurrence-checkbox" htmlFor="lancamento-recorrente">
-              <input
-                id="lancamento-recorrente"
-                type="checkbox"
-                checked={entryRecurring}
-                onChange={(e) => setEntryRecurring(e.target.checked)}
-              />
-              <span>
-                Repetir todo mês
-                <span className="vw-recurrence-checkbox-hint">
-                  Gera este lançamento nos próximos meses, no mesmo dia.
-                </span>
-              </span>
-            </label>
-            {/* A recorrência nunca retroage: com data passada ela começa no mês
-                corrente, e os meses já fechados ficam como estão. */}
-            {entryRecurring && startsLaterThanEntry(entryDate.slice(0, 7), currentMonthKey()) && (
-              <p className="vw-recurrence-checkbox-hint">
-                A data escolhida está num mês passado — a repetição começa em{' '}
-                {formatMonthLabel(currentMonthKey())} e não altera meses anteriores.
-              </p>
-            )}
-            {entryFormError && <p className="vw-layerpage-error">{entryFormError}</p>}
-            <button
-              type="submit"
-              className="vw-btn-primary vw-layerpage-submit"
-              disabled={entrySubmitting}
-            >
-              {entrySubmitting ? 'Adicionando…' : 'Adicionar'}
-            </button>
-          </form>
         </div>
       </div>
     </div>
