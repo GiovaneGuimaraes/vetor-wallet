@@ -224,3 +224,15 @@ export function parseMonthsInput(raw: string): number | null {
 export function formatDecimalInput(value: number, decimals: number): string {
   return value.toFixed(decimals).replace('.', ',');
 }
+
+/**
+ * Estado inicial da área recolhível "ajustar premissas" da previsão de
+ * rendimento (T-076): com defaults suficientes (valor inicial = saldo, taxa
+ * derivada do histórico, prazo fixo de 12 meses) a projeção já aparece sem
+ * interação, então a área de ajuste nasce **recolhida**. Sem taxa derivada
+ * (`derivedRatePct === null`) o usuário precisa digitar a taxa manualmente
+ * para ver qualquer projeção, então a área nasce **aberta**.
+ */
+export function shouldOpenProjectionAssumptions(derivedRatePct: number | null): boolean {
+  return derivedRatePct === null;
+}

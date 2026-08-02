@@ -23,6 +23,7 @@ import {
   parseMonthsInput,
   parseNonNegativeInput,
   projectSavings,
+  shouldOpenProjectionAssumptions,
 } from './savingsProjection';
 import {
   computeFreeBalance,
@@ -30,6 +31,7 @@ import {
   isTransferLeg,
   validateTransfer,
 } from './savingsTransfer';
+import { CollapsibleSection } from '../components/CollapsibleSection';
 import './layers.css';
 import './layers-savings.css';
 
@@ -124,6 +126,16 @@ function toDraft(entry: SavingsEntry): FormState {
  * salvar/cancelar) via `PATCH /api/savings/:id`. Como o progresso da meta é
  * derivado na leitura, editar valor/tipo/vínculo já reflete na meta — por isso
  * o salvamento refaz o fetch (`refresh`), que também atualiza o `summary`.
+ *
+ * T-076: a página abre em modo consulta — 4 cards de resumo → previsão de
+ * rendimento (renderizada automaticamente com os defaults: valor inicial =
+ * saldo, taxa sugerida do histórico, prazo 12 meses) → lançamentos. "Novo
+ * lançamento" e "Transferir para uma meta" ficam atrás de
+ * `CollapsibleSection` (padrão da T-074), e os inputs da previsão ficam numa
+ * área "Ajustar premissas" também recolhível — aberta por padrão só quando
+ * não há taxa derivada do histórico (`shouldOpenProjectionAssumptions`), caso
+ * em que o usuário precisa digitar a taxa manualmente. O deep-link
+ * `/poupanca?meta=<id>` (T-041) expande a transferência automaticamente.
  */
 export function PoupancaPage() {
   const [entries, setEntries] = useState<SavingsEntry[]>([]);
@@ -157,6 +169,10 @@ export function PoupancaPage() {
   const [transferForm, setTransferForm] = useState<TransferState>(EMPTY_TRANSFER);
   const [transferError, setTransferError] = useState('');
   const [transferring, setTransferring] = useState(false);
+  // T-076: "Transferir para uma meta" nasce recolhida (modo consulta), exceto
+  // quando o deep-link `?meta=<id>` (T-041) já chega com uma meta válida —
+  // aí a seção abre expandida direto, sem passo extra de clicar em "+".
+  const [transferOpen, setTransferOpen] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<FormState | null>(null);
@@ -301,6 +317,7 @@ export function PoupancaPage() {
     if (!presetGoal) return;
     if (!goals.some((goal) => String(goal.id) === presetGoal)) return;
     setTransferForm((prev) => (prev.goalId ? prev : { ...prev, goalId: presetGoal }));
+    setTransferOpen(true);
   }, [presetGoal, goals]);
 
   async function handleTransferSubmit(e: FormEvent) {
@@ -458,12 +475,132 @@ export function PoupancaPage() {
           </div>
 
           {/*
-            Transferir para uma meta (T-041): card dedicado, e não um checkbox no
-            form de novo lançamento — a operação grava DUAS pernas, valida contra
-            o saldo livre e não aceita tipo/rendimento.
+            Previsão de rendimento (T-040): simulação de juros compostos sobre o
+            valor inicial, recalculada a cada tecla. T-062: com aporte mensal
+            recorrente opcional (anuidade ordinária — o aporte entra no fim de
+            cada mês). Segue sem gráfico (decisão do humano).
+            T-076: renderiza automaticamente com os defaults (valor inicial =
+            saldo, taxa sugerida do histórico, prazo 12); os inputs ficam numa
+            área "Ajustar premissas" recolhível.
           */}
           <div className="vw-form-card">
-            <p className="vw-form-title">Transferir para uma meta</p>
+            <p className="vw-form-title">Previsão de rendimento</p>
+
+            <CollapsibleSection
+              label="Ajustar premissas"
+              openLabel="Ajustar premissas"
+              defaultOpen={shouldOpenProjectionAssumptions(derivedRatePct)}
+            >
+              <div className="vw-form-grid">
+                <div className="vw-layerpage-field">
+                  <label htmlFor="sim-initial">Valor inicial (R$)</label>
+                  <input
+                    id="sim-initial"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    value={sim.initial}
+                    onChange={(e) => {
+                      setSimTouched((prev) => ({ ...prev, initial: true }));
+                      setSim({ ...sim, initial: e.target.value });
+                    }}
+                  />
+                </div>
+                <div className="vw-layerpage-field">
+                  <label htmlFor="sim-rate">Taxa mensal (%)</label>
+                  <input
+                    id="sim-rate"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Ex.: 0,9"
+                    value={sim.ratePct}
+                    onChange={(e) => {
+                      setSimTouched((prev) => ({ ...prev, ratePct: true }));
+                      setSim({ ...sim, ratePct: e.target.value });
+                    }}
+                  />
+                </div>
+                <div className="vw-layerpage-field">
+                  <label htmlFor="sim-months">Prazo (meses)</label>
+                  <input
+                    id="sim-months"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="12"
+                    value={sim.months}
+                    onChange={(e) => setSim({ ...sim, months: e.target.value })}
+                  />
+                </div>
+                <div className="vw-layerpage-field">
+                  <label htmlFor="sim-contribution">Aporte mensal (R$)</label>
+                  <input
+                    id="sim-contribution"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Opcional"
+                    value={sim.contribution}
+                    onChange={(e) => setSim({ ...sim, contribution: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <span className="vw-field-hint">
+                {derivedRatePct !== null
+                  ? `Taxa sugerida a partir dos seus rendimentos dos últimos ${RATE_SAMPLE_MONTHS} meses com lançamento — ajuste à vontade.`
+                  : 'Sem histórico de rendimento suficiente para sugerir uma taxa — informe a taxa mensal esperada (ex.: 0,9 para 0,9 %/mês).'}
+              </span>
+            </CollapsibleSection>
+
+            {projection ? (
+              <div className="vw-savings-projection">
+                <div className="vw-savings-summary-card">
+                  <p className="vw-savings-summary-label">Valor futuro</p>
+                  <p className="vw-savings-summary-value">{fmtCur.format(projection.futureValue)}</p>
+                  {projection.totalContributed > 0 && (
+                    <p className="vw-savings-summary-sub">
+                      Inclui {fmtCur.format(projection.totalContributed)} aportados no período.
+                    </p>
+                  )}
+                </div>
+                <div className="vw-savings-summary-card">
+                  <p className="vw-savings-summary-label">
+                    Rendimento em {simMonths} {simMonths === 1 ? 'mês' : 'meses'}
+                  </p>
+                  <p className="vw-savings-summary-value vw-value-up">
+                    {fmtCur.format(projection.totalYield)}
+                  </p>
+                  {/* T-062: sem esta linha, o rendimento (que exclui os
+                      aportes) parece pequeno demais para o valor futuro. */}
+                  {projection.totalContributed > 0 && (
+                    <p className="vw-savings-summary-sub">
+                      Só os juros — os {fmtCur.format(projection.totalContributed)} aportados não
+                      contam como rendimento.
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="vw-field-hint vw-field-hint--warn">
+                Informe valor inicial, taxa mensal e aporte mensal (todos ≥ 0, aporte opcional) e
+                prazo em meses inteiro para ver a projeção.
+              </p>
+            )}
+          </div>
+
+          {/*
+            Transferir para uma meta (T-041): card dedicado, e não um checkbox no
+            form de novo lançamento — a operação grava DUAS pernas, valida contra
+            o saldo livre e não aceita tipo/rendimento. T-076: atrás de um
+            `CollapsibleSection` controlado — abre expandido automaticamente via
+            `?meta=<id>` (efeito acima), recolhido por padrão do contrário.
+          */}
+          <CollapsibleSection
+            label="+ Transferir para uma meta"
+            openLabel="Transferir para uma meta"
+            open={transferOpen}
+            onOpenChange={setTransferOpen}
+          >
             <form onSubmit={handleTransferSubmit}>
               <div className="vw-form-grid">
                 <div className="vw-form-field">
@@ -557,114 +694,13 @@ export function PoupancaPage() {
               </div>
               {transferError && <p className="vw-form-error">{transferError}</p>}
             </form>
-          </div>
+          </CollapsibleSection>
 
           {/*
-            Previsão de rendimento (T-040): simulação de juros compostos sobre o
-            valor inicial, recalculada a cada tecla. T-062: com aporte mensal
-            recorrente opcional (anuidade ordinária — o aporte entra no fim de
-            cada mês). Segue sem gráfico (decisão do humano).
+            Novo lançamento: atrás de `CollapsibleSection` (T-076) — consulta
+            é ~10x mais frequente que lançar, mesmo espírito da T-074.
           */}
-          <div className="vw-form-card">
-            <p className="vw-form-title">Previsão de rendimento</p>
-            <div className="vw-form-grid">
-              <div className="vw-layerpage-field">
-                <label htmlFor="sim-initial">Valor inicial (R$)</label>
-                <input
-                  id="sim-initial"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0,00"
-                  value={sim.initial}
-                  onChange={(e) => {
-                    setSimTouched((prev) => ({ ...prev, initial: true }));
-                    setSim({ ...sim, initial: e.target.value });
-                  }}
-                />
-              </div>
-              <div className="vw-layerpage-field">
-                <label htmlFor="sim-rate">Taxa mensal (%)</label>
-                <input
-                  id="sim-rate"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="Ex.: 0,9"
-                  value={sim.ratePct}
-                  onChange={(e) => {
-                    setSimTouched((prev) => ({ ...prev, ratePct: true }));
-                    setSim({ ...sim, ratePct: e.target.value });
-                  }}
-                />
-              </div>
-              <div className="vw-layerpage-field">
-                <label htmlFor="sim-months">Prazo (meses)</label>
-                <input
-                  id="sim-months"
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="12"
-                  value={sim.months}
-                  onChange={(e) => setSim({ ...sim, months: e.target.value })}
-                />
-              </div>
-              <div className="vw-layerpage-field">
-                <label htmlFor="sim-contribution">Aporte mensal (R$)</label>
-                <input
-                  id="sim-contribution"
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="Opcional"
-                  value={sim.contribution}
-                  onChange={(e) => setSim({ ...sim, contribution: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <span className="vw-field-hint">
-              {derivedRatePct !== null
-                ? `Taxa sugerida a partir dos seus rendimentos dos últimos ${RATE_SAMPLE_MONTHS} meses com lançamento — ajuste à vontade.`
-                : 'Sem histórico de rendimento suficiente para sugerir uma taxa — informe a taxa mensal esperada (ex.: 0,9 para 0,9 %/mês).'}
-            </span>
-
-            {projection ? (
-              <div className="vw-savings-projection">
-                <div className="vw-savings-summary-card">
-                  <p className="vw-savings-summary-label">Valor futuro</p>
-                  <p className="vw-savings-summary-value">{fmtCur.format(projection.futureValue)}</p>
-                  {projection.totalContributed > 0 && (
-                    <p className="vw-savings-summary-sub">
-                      Inclui {fmtCur.format(projection.totalContributed)} aportados no período.
-                    </p>
-                  )}
-                </div>
-                <div className="vw-savings-summary-card">
-                  <p className="vw-savings-summary-label">
-                    Rendimento em {simMonths} {simMonths === 1 ? 'mês' : 'meses'}
-                  </p>
-                  <p className="vw-savings-summary-value vw-value-up">
-                    {fmtCur.format(projection.totalYield)}
-                  </p>
-                  {/* T-062: sem esta linha, o rendimento (que exclui os
-                      aportes) parece pequeno demais para o valor futuro. */}
-                  {projection.totalContributed > 0 && (
-                    <p className="vw-savings-summary-sub">
-                      Só os juros — os {fmtCur.format(projection.totalContributed)} aportados não
-                      contam como rendimento.
-                    </p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <p className="vw-field-hint vw-field-hint--warn">
-                Informe valor inicial, taxa mensal e aporte mensal (todos ≥ 0, aporte opcional) e
-                prazo em meses inteiro para ver a projeção.
-              </p>
-            )}
-          </div>
-
-          <div className="vw-form-card">
-            <p className="vw-form-title">Novo lançamento</p>
+          <CollapsibleSection label="+ Novo lançamento" openLabel="Novo lançamento">
             <form onSubmit={handleSubmit}>
               <div className="vw-form-grid">
                 <div className="vw-form-field">
@@ -757,7 +793,7 @@ export function PoupancaPage() {
               </div>
               {formError && <p className="vw-form-error">{formError}</p>}
             </form>
-          </div>
+          </CollapsibleSection>
 
           {entries.length === 0 ? (
             <div className="vw-state-box">Nenhum lançamento registrado ainda.</div>
