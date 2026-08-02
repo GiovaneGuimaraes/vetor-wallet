@@ -31,6 +31,7 @@ import {
   isTransferLeg,
   validateTransfer,
 } from './savingsTransfer';
+import { wouldOverdrawBalance } from './savingsWithdraw';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import './layers.css';
 import './layers-savings.css';
@@ -153,6 +154,12 @@ export function PoupancaPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // T-079: aviso não-bloqueante quando um WITHDRAW deixaria o saldo negativo
+  // (o server aceita — decisão documentada em savings-goals.md; a UI só avisa
+  // antes do POST). Passo de confirmação inline no form, sem `window.confirm`
+  // (a página ainda não tinha padrão próprio de confirmação): fica mais
+  // simples de testar e mais consistente com o resto do form.
+  const [overdrawConfirmPending, setOverdrawConfirmPending] = useState(false);
 
   // Simulador de previsão de rendimento (T-040) — 100% client-side, nada é
   // persistido e nenhum endpoint novo é chamado.
@@ -238,6 +245,20 @@ export function PoupancaPage() {
       return;
     }
 
+    // T-079: WITHDRAW acima do saldo é aceito pelo server (decisão
+    // documentada), mas pede confirmação inline antes do POST — evita que um
+    // erro de digitação zere/negative o saldo em silêncio. `overdrawConfirmPending`
+    // só é setado depois que o usuário já viu o aviso e confirmou; qualquer
+    // edição no form volta o estado para "sem confirmação" (ver `updateForm`).
+    if (
+      form.type === 'WITHDRAW' &&
+      !overdrawConfirmPending &&
+      wouldOverdrawBalance(amount, summary?.balance ?? 0)
+    ) {
+      setOverdrawConfirmPending(true);
+      return;
+    }
+
     setSubmitting(true);
     try {
       await createSavingsEntry({
@@ -249,12 +270,23 @@ export function PoupancaPage() {
         goalId: form.type !== 'YIELD' && form.goalId ? Number(form.goalId) : undefined,
       });
       setForm({ ...EMPTY_FORM, date: form.date });
+      setOverdrawConfirmPending(false);
       await refresh();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Falha ao criar lançamento');
     } finally {
       setSubmitting(false);
     }
+  }
+
+  /**
+   * Atualiza `form` e derruba a confirmação pendente de saque acima do saldo
+   * (T-079): qualquer edição depois do aviso (tipo, valor, etc.) invalida a
+   * confirmação anterior — ela vale só para os dados exatos que o usuário viu.
+   */
+  function updateForm(patch: Partial<FormState>) {
+    setForm((prev) => ({ ...prev, ...patch }));
+    setOverdrawConfirmPending(false);
   }
 
   const derivedRatePct = useMemo(() => deriveMonthlyRatePct(entries), [entries]);
@@ -737,7 +769,7 @@ export function PoupancaPage() {
                     value={form.type}
                     onChange={(e) => {
                       const type = e.target.value as SavingsEntryType;
-                      setForm({ ...form, type, goalId: type === 'YIELD' ? '' : form.goalId });
+                      updateForm({ type, goalId: type === 'YIELD' ? '' : form.goalId });
                     }}
                   >
                     <option value="DEPOSIT">Aporte</option>
@@ -754,7 +786,7 @@ export function PoupancaPage() {
                     min="0"
                     placeholder="0,00"
                     value={form.amount}
-                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                    onChange={(e) => updateForm({ amount: e.target.value })}
                   />
                 </div>
                 <div className="vw-form-field">
@@ -763,7 +795,7 @@ export function PoupancaPage() {
                     id="savings-date"
                     type="date"
                     value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    onChange={(e) => updateForm({ date: e.target.value })}
                   />
                 </div>
                 <div className="vw-form-field">
@@ -773,7 +805,7 @@ export function PoupancaPage() {
                     type="text"
                     placeholder="Ex.: 13º salário"
                     value={form.note}
-                    onChange={(e) => setForm({ ...form, note: e.target.value })}
+                    onChange={(e) => updateForm({ note: e.target.value })}
                   />
                 </div>
                 <div className="vw-form-field">
@@ -791,7 +823,7 @@ export function PoupancaPage() {
                         id="savings-goal"
                         value={form.goalId}
                         disabled={form.type === 'YIELD' || goals.length === 0}
-                        onChange={(e) => setForm({ ...form, goalId: e.target.value })}
+                        onChange={(e) => updateForm({ goalId: e.target.value })}
                       >
                         <option value="">Sem vínculo</option>
                         {goals.map((goal) => (
@@ -813,10 +845,32 @@ export function PoupancaPage() {
                   )}
                 </div>
               </div>
+              {overdrawConfirmPending && (
+                // T-079: aviso não-bloqueante — o server aceita WITHDRAW acima do
+                // saldo (decisão documentada), então isto não impede o envio, só
+                // confirma que a intenção é essa antes de deixar o saldo negativo.
+                <p className="vw-field-hint vw-field-hint--warn" role="alert">
+                  Esse valor deixa o saldo da poupança negativo. Clique em "Confirmar
+                  retirada" para continuar mesmo assim.
+                </p>
+              )}
               <div className="vw-form-actions">
                 <button type="submit" className="vw-btn-primary" disabled={submitting}>
-                  {submitting ? 'Salvando...' : 'Adicionar lançamento'}
+                  {submitting
+                    ? 'Salvando...'
+                    : overdrawConfirmPending
+                      ? 'Confirmar retirada'
+                      : 'Adicionar lançamento'}
                 </button>
+                {overdrawConfirmPending && (
+                  <button
+                    type="button"
+                    className="vw-btn-ghost"
+                    onClick={() => setOverdrawConfirmPending(false)}
+                  >
+                    Cancelar
+                  </button>
+                )}
               </div>
               {formError && <p className="vw-form-error">{formError}</p>}
             </form>
