@@ -159,7 +159,7 @@
 > Estratégia decidida com o humano (2026-08-02): OFX como fundação sem dependência de terceiros (todos os bancos brasileiros relevantes exportam OFX), Pluggy/Meu Pluggy (Conector 200, gratuito para uso pessoal) como automação por cima do mesmo pipeline. Integração direta com Open Finance/bancos foi descartada (inviável para PF; pesquisa registrada na sessão de 2026-08-02).
 
 ### T-084 — `external_id` + importação idempotente em income/expense entries
-- **Status**: PENDENTE — PRONTA PARA EXECUTAR: spike Plan (Opus) concluído em 2026-08-02, plano completo em `docs/multi-agent/plano-t-084.md` (deve entrar NA ÍNTEGRA no prompt do executor Opus). Um executor foi iniciado e interrompido pelo humano antes de qualquer commit — recomeçar do zero a partir da `main`.
+- **Status**: CONCLUIDA — PR #130 mergeado (2026-08-03). Executor Opus (plano do spike na íntegra), revisor Opus (APROVADA sem bloqueantes). 687 testes server (+37). Desvios aceitos: `insertEntryWithExternalId` devolve `row` uniforme e recebe `values: Record` com guard de chaves. Sugestões não-bloqueantes: guard de runtime p/ `table`; SELECT pós-INSERT fora do try; `recurring` como string `'true'` escapa da regra `recurring×externalId` (semântica pré-existente da rota).
 - **Prioridade**: P1
 - **Complexidade**: alta
 - **Depende de**: —
@@ -171,7 +171,7 @@
 - **Resultado**:
 
 ### T-085 — Parser OFX + importação de extrato no server
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA — PR #131 mergeado (2026-08-03). Executor Opus, revisor Opus (APROVADA sem bloqueantes). 726 testes server (+39). Decisões: corpo cru 1 MB com charset pelo header OFX; parser scanner único SGML/XML; data local mantida; sempre 200 com relatório (`imported/duplicated/rejected` + `entryId`); 400 só corpo vazio/sem `<OFX>`. Sugestões não-bloqueantes do revisor: (1) content-type JSON cai em "Body vazio" enganoso — a UI da T-086 NÃO deve enviar JSON; (2) sem teto de nº de transações por arquivo (~15-20k STMTTRN cabem em 1 MB); (3) linha `rejected` omite `entryType` legível e não trunca description; (4) `decodeEntities` aceita surrogates solitários.
 - **Prioridade**: P1
 - **Complexidade**: alta
 - **Depende de**: T-084
@@ -183,7 +183,7 @@
 - **Resultado**:
 
 ### T-086 — UI mínima de importação OFX
-- **Status**: PENDENTE
+- **Status**: CONCLUIDA — PR #132 mergeado (2026-08-03). Executor Sonnet, revisor Sonnet (APROVADA). 442 testes web (+16). Corpo cru `application/octet-stream` + `arrayBuffer()` (charset decidido no server); refetch pós-import com `force` do MonthFetchGuard (ressalva multi-mês documentada). Sugestão cosmética: `vw-ofx-report` sem regra CSS própria. **ONDA C EXECUTÁVEL COMPLETA** (sanidade na main: 726 server + 442 web + build verdes). Resta só T-087 (bloqueada por credenciais).
 - **Prioridade**: P2
 - **Complexidade**: média
 - **Depende de**: T-085, T-074

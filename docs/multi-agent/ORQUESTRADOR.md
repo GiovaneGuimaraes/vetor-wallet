@@ -26,7 +26,7 @@ Carteira financeira pessoal para um único usuário real (Giovane), organizada e
 
 ## Prioridade vigente
 
-**Ciclo 16 em andamento (pausado pelo humano em 2026-08-02 com Ondas A e B COMPLETAS)**: Onda A (T-074–T-078, modo consulta) e Onda B (T-079–T-083, achados da revisão) concluídas e mergeadas — PRs #120–#129, suíte ao pausar: 650 server + 426 web. **Retomar pela Onda C**: T-084 pronta para executar (executor Opus com o plano `docs/multi-agent/plano-t-084.md` na íntegra no prompt) → depois T-085 → T-086; T-087 BLOQUEADA por credenciais do Meu Pluggy (`TODO-HUMANO.md`). Decisões paradas: T-020/T-021, editar template de recorrência.
+**Ciclo 16 quase completo (2026-08-03)**: Ondas A, B e o tramo executável da Onda C concluídos e mergeados — PRs #120–#132. Onda C entregue: T-084 (`external_id` + dedupe, #130), T-085 (parser OFX + `POST /api/import/ofx`, #131), T-086 (UI de importação em `/despesas`, #132). Suíte na main: **726 server + 442 web**, build verde. **Única pendência do ciclo: T-087 (job `pluggy:sync`), BLOQUEADA por credenciais do Meu Pluggy** (`TODO-HUMANO.md`). Ao destravar ou o humano encerrar o ciclo: arquivar detalhes no `BACKLOG-ARQUIVO.md`. Decisões paradas: T-020/T-021, editar template de recorrência. Higiene pendente: dezenas de diretórios órfãos em `.claude/worktrees/` (node_modules; git já não os referencia) ocupando disco.
 
 > Atualize esta seção a cada ciclo. Mudança de prioridade que envolva produto → `TODO-HUMANO.md`.
 
