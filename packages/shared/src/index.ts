@@ -100,6 +100,40 @@ export interface CsvImportResult {
   unknownTickers?: string[];
 }
 
+/**
+ * Relatório por transação da importação de extrato OFX (T-085).
+ *
+ * Diferente do CSV de operações (que reporta `errors` por LINHA e um contador de
+ * importadas), o OFX reporta **uma linha por transação** com um `status`, porque
+ * a importação tem três desfechos e não dois: além de importada e rejeitada,
+ * existe a **duplicada** — a transação já estava no banco pelo `external_id`
+ * (T-084) e reimportar o mesmo extrato é o caminho normal de uso, não um erro.
+ * Os campos crus vêm opcionais: uma transação rejeitada por DTPOSTED ilegível
+ * ainda mostra FITID e valor, o que dá contexto ao usuário na UI (T-086).
+ */
+export type OfxTransactionStatus = 'imported' | 'duplicated' | 'rejected';
+
+export interface OfxImportTransaction {
+  status: OfxTransactionStatus;
+  fitid?: string;
+  date?: string;
+  /** Valor ABSOLUTO; `entryType` carrega o sinal. */
+  amount?: number;
+  description?: string;
+  entryType?: 'income' | 'expense';
+  /** Presente só em `rejected`. */
+  reason?: string;
+  /** `id` da linha em `income_entries`/`expense_entries` (importada ou já existente). */
+  entryId?: number;
+}
+
+export interface OfxImportResult {
+  imported: number;
+  duplicated: number;
+  rejected: number;
+  transactions: OfxImportTransaction[];
+}
+
 export interface TickerInfo {
   ticker: string;
   name: string;
