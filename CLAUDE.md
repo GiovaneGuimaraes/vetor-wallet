@@ -61,9 +61,9 @@ O SQLite (`packages/server/data/wallet.db`) é criado no primeiro boot.
 | tickers | GET /api/tickers | busca na brapi |
 | admin | POST /api/admin/run-insights-job | requireAdmin |
 | income | CRUD /api/income[/:id] | fontes fixas mensais, sem data |
-| income-entries | CRUD /api/income-entries[/:id]?month= | renda avulsa datada (T-036) |
+| income-entries | CRUD /api/income-entries[/:id]?month= | renda avulsa datada (T-036); POST aceita `externalId` opcional — repetido responde 409 `{ duplicate: true, entry }` (T-084) |
 | expenses | CRUD /api/expenses[/:id] | fixas; categoria normalizada (T-028) |
-| expense-entries | CRUD /api/expense-entries[/:id]?month=, GET /summary?months=&endMonth= | variáveis datadas; `recurring: true` cria recorrência (T-035) |
+| expense-entries | CRUD /api/expense-entries[/:id]?month=, GET /summary?months=&endMonth= | variáveis datadas; `recurring: true` cria recorrência (T-035); POST aceita `externalId` opcional — repetido responde 409 `{ duplicate: true, entry }`; junto de `recurring` → 400 (T-084) |
 | recurring-expenses | GET, PATCH (`{active:false}`), DELETE /api/recurring-expenses[/:id] | só encerrar (soft); criação nasce no POST de expense-entries |
 | savings | CRUD /api/savings[/:id], POST /savings/transfer-to-goal | DEPOSIT/WITHDRAW/YIELD + summary; transferência = par atômico (T-041) |
 | goals | CRUD /api/goals[/:id] | progresso manual OU derivado de aportes vinculados (T-024) |
@@ -98,7 +98,7 @@ Leia o arquivo do domínio antes de mexer nele:
 - **db-schema.md** — schema SQL completo, ALTERs idempotentes, índices.
 - **wallets-portfolio.md** — carteira única (T-050/T-050b), validação de SELL, projeção de ganhos (T-056) + gráfico SVG (T-057b) + alocação (T-057c), falha de cotações sinalizada, AlertsPanel/CsvImport sem UI (T-026).
 - **savings-goals.md** — progresso de metas manual × derivado (T-024), previsão de rendimento client-side (T-040), transferência poupança → meta (T-041).
-- **expenses-budgets.md** — fixas × variáveis, recorrência lazy/idempotente (T-035), histórico mensal (T-033/T-049), orçamento por categoria (T-023/T-037), categoria normalizada (T-028), edição inline (T-031), dedupe de fetch (T-049).
+- **expenses-budgets.md** — fixas × variáveis, recorrência lazy/idempotente (T-035), histórico mensal (T-033/T-049), orçamento por categoria (T-023/T-037), categoria normalizada (T-028), edição inline (T-031), dedupe de fetch (T-049), dedupe de importação por `external_id` (T-084).
 - **income.md** — renda fixa × variável (T-036), sobra do mês real na Home (T-025).
 - **validation-money-dates.md** — data de calendário real (T-043), máx. 2 casas decimais (T-052).
 - **billing.md** — assinatura Pix AbacatePay (T-069/T-070): centavos, datas UTC no formato SQLite, ativação idempotente única, webhook com HMAC antes do `express.json()`, gating de escrita por assinatura sob `BILLING_ENABLED` (T-071).
