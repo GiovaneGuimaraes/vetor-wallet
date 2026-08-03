@@ -21,3 +21,5 @@ O card "Sobra do mês" mostra o valor real com um sublabel comparando à previst
 ### Dedupe de importação por `external_id` (T-084)
 `income_entries.external_id` espelha exatamente a decisão de `expense_entries` — mesma coluna nullable, mesmo índice único parcial `(user_id, external_id) WHERE external_id IS NOT NULL`, mesmo `409` `{ error, duplicate: true, entry }` para `externalId` repetido do mesmo usuário, mesma validação (`validateExternalId`) e mesma função de escrita (`insertEntryWithExternalId`, em `server/src/api/services/externalId.ts`). As justificativas estão na seção "Dedupe de importação por `external_id` (T-084)" de `expenses-budgets.md`; a única diferença é que renda variável não tem recorrência, então a regra "`externalId` + `recurring: true` → 400" não existe aqui.
 
+A importação de extrato OFX (T-085, `POST /api/import/ofx`) grava aqui todo **crédito** do extrato — o sinal do `TRNAMT` é o que decide entre `income_entries` e `expense_entries`, e renda não recebe categoria (não existe coluna). Decisões do parser e formato do relatório: seção "Importação de extrato OFX (T-085)" em `expenses-budgets.md`.
+

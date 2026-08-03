@@ -56,6 +56,7 @@ O SQLite (`packages/server/data/wallet.db`) é criado no primeiro boot.
 | portfolio | GET /api/portfolio, GET /portfolio/history?days= | cotações em tempo real; série valor × custo |
 | snapshots | GET /api/snapshots/:ticker | histórico diário de preços |
 | import | POST /api/import | CSV de corretora; rejeição por linha |
+| import (OFX) | POST /api/import/ofx | extrato bancário OFX 1.x SGML / 2.x XML no corpo cru (`express.raw`, 1 MB); crédito → `income_entries`, débito → `expense_entries`; `external_id = ofx:<FITID>`; sempre 200 com relatório por transação (`imported`/`duplicated`/`rejected`), 400 só para o documento (T-085) |
 | alerts | GET, POST, DELETE /api/alerts[/:id] | backend ativo, sem UI (T-026) |
 | benchmarks | GET /api/benchmarks, GET /api/benchmarks/history?days= | CDI/Ibovespa: acumulado do período (número) e série diária p/ o gráfico (T-068) |
 | tickers | GET /api/tickers | busca na brapi |
@@ -98,7 +99,7 @@ Leia o arquivo do domínio antes de mexer nele:
 - **db-schema.md** — schema SQL completo, ALTERs idempotentes, índices.
 - **wallets-portfolio.md** — carteira única (T-050/T-050b), validação de SELL, projeção de ganhos (T-056) + gráfico SVG (T-057b) + alocação (T-057c), falha de cotações sinalizada, AlertsPanel/CsvImport sem UI (T-026).
 - **savings-goals.md** — progresso de metas manual × derivado (T-024), previsão de rendimento client-side (T-040), transferência poupança → meta (T-041).
-- **expenses-budgets.md** — fixas × variáveis, recorrência lazy/idempotente (T-035), histórico mensal (T-033/T-049), orçamento por categoria (T-023/T-037), categoria normalizada (T-028), edição inline (T-031), dedupe de fetch (T-049), dedupe de importação por `external_id` (T-084).
+- **expenses-budgets.md** — fixas × variáveis, recorrência lazy/idempotente (T-035), histórico mensal (T-033/T-049), orçamento por categoria (T-023/T-037), categoria normalizada (T-028), edição inline (T-031), dedupe de fetch (T-049), dedupe de importação por `external_id` (T-084), importação de extrato OFX (T-085).
 - **income.md** — renda fixa × variável (T-036), sobra do mês real na Home (T-025).
 - **validation-money-dates.md** — data de calendário real (T-043), máx. 2 casas decimais (T-052).
 - **billing.md** — assinatura Pix AbacatePay (T-069/T-070): centavos, datas UTC no formato SQLite, ativação idempotente única, webhook com HMAC antes do `express.json()`, gating de escrita por assinatura sob `BILLING_ENABLED` (T-071).
