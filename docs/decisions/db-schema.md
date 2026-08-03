@@ -92,6 +92,11 @@ CREATE TABLE IF NOT EXISTS income_entries (
   created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_income_entries_user_date ON income_entries(user_id, date);
+-- ALTER idempotente: external_id TEXT
+--   id da transação na ORIGEM (T-084): 'ofx:<FITID>', 'pluggy:<id>'.
+--   NULL = lançamento digitado à mão (maioria das linhas).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_income_entries_user_external
+  ON income_entries(user_id, external_id) WHERE external_id IS NOT NULL;
 
 -- Despesas fixas mensais (itens fixos cadastrados, não lançamentos datados)
 CREATE TABLE IF NOT EXISTS fixed_expenses (
@@ -118,6 +123,17 @@ CREATE TABLE IF NOT EXISTS expense_entries (
 CREATE INDEX IF NOT EXISTS idx_expense_entries_user_date ON expense_entries(user_id, date);
 -- ALTER idempotente: recurring_id INTEGER REFERENCES recurring_expenses(id)
 --   recorrência que gerou a ocorrência (T-035). NULL = lançamento manual.
+-- ALTER idempotente: external_id TEXT
+--   id da transação na ORIGEM (T-084): 'ofx:<FITID>', 'pluggy:<id>'.
+--   NULL = lançamento digitado à mão (maioria das linhas).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_expense_entries_user_external
+  ON expense_entries(user_id, external_id) WHERE external_id IS NOT NULL;
+-- Os dois índices acima são PARCIAIS (T-084): o `WHERE external_id IS NOT NULL`
+-- restringe o índice às linhas importadas e deixa a intenção explícita (em
+-- SQLite NULLs nunca colidem num UNIQUE). O par é (user_id, external_id) —
+-- dois usuários podem importar o MESMO FITID sem conflito. Os ALTERs vêm ANTES
+-- destes CREATE INDEX em initDb(), senão o primeiro boot falha com
+-- `no such column`.
 
 -- Template de recorrência mensal de despesa variável (T-035). Só o template
 -- vive aqui; as ocorrências são expense_entries normais com recurring_id.

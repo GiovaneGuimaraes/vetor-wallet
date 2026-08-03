@@ -11,6 +11,11 @@ import type { NewIncomeEntry, IncomeEntryUpdate } from '@vetor-wallet/shared';
 import { currentMonth } from './expenseEntries';
 import { isValidIsoDate } from '../services/dates';
 import { isValidMoneyAmount, moneyAmountError } from '../services/money';
+import {
+  duplicateEntryResponse,
+  insertEntryWithExternalId,
+  validateExternalId,
+} from '../services/externalId';
 
 const router = Router();
 
@@ -55,7 +60,7 @@ router.post(
   '/',
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const { description, amount, date } = req.body as Partial<NewIncomeEntry>;
+    const { description, amount, date, externalId } = req.body as Partial<NewIncomeEntry>;
 
     if (!description || typeof description !== 'string' || !description.trim()) {
       res.status(400).json({ error: 'description é obrigatória' });
@@ -76,18 +81,27 @@ router.post(
       return;
     }
 
-    const insert = await db.execute({
-      sql: 'INSERT INTO income_entries (user_id, description, amount, date) VALUES (?, ?, ?, ?)',
-      args: [userId, description.trim(), amount, date],
-    });
+    // T-084: `externalId` opcional (id da transação na origem — OFX/Pluggy).
+    // Validado depois de description/amount/date, antes do INSERT.
+    const external = validateExternalId(externalId);
+    if (!external.ok) {
+      res.status(400).json({ error: external.error });
+      return;
+    }
 
-    const newId = insert.lastInsertRowid ?? 0;
-    // Re-SELECT também filtrado por user_id (T-059, simetria com o PATCH — T-051).
-    const row = await db.execute({
-      sql: 'SELECT * FROM income_entries WHERE id = ? AND user_id = ?',
-      args: [Number(newId), userId],
+    // A dedupe é do banco (índice único parcial): o INSERT vai primeiro e a
+    // violação de unicidade é traduzida em 409 — ver services/externalId.ts.
+    const result = await insertEntryWithExternalId({
+      table: 'income_entries',
+      userId,
+      values: { description: description.trim(), amount, date },
+      externalId: external.value,
     });
-    res.status(201).json(row.rows[0]);
+    if (result.status === 'duplicate') {
+      res.status(409).json(duplicateEntryResponse(result.row));
+      return;
+    }
+    res.status(201).json(result.row);
   }),
 );
 

@@ -11,6 +11,11 @@ import {
 } from '../services/recurringExpenses';
 import { isValidIsoDate } from '../services/dates';
 import { isValidMoneyAmount, moneyAmountError } from '../services/money';
+import {
+  duplicateEntryResponse,
+  insertEntryWithExternalId,
+  validateExternalId,
+} from '../services/externalId';
 
 const router = Router();
 
@@ -181,6 +186,7 @@ router.post(
       date,
       recurring,
       dayOfMonth,
+      externalId,
     } = req.body as Partial<NewExpenseEntry>;
 
     if (!description || typeof description !== 'string' || !description.trim()) {
@@ -223,6 +229,21 @@ router.post(
       recurringDay = dayOfMonth;
     }
 
+    // T-084: `externalId` opcional (id da transação na origem — OFX/Pluggy).
+    const external = validateExternalId(externalId);
+    if (!external.ok) {
+      res.status(400).json({ error: external.error });
+      return;
+    }
+    // Os dois mecanismos de idempotência não se misturam: nenhum importador cria
+    // recorrência (um extrato traz transações passadas, não um template), e
+    // aceitar os dois juntos exigiria decidir se as ocorrências futuras herdam o
+    // id externo — que só a transação original tem.
+    if (recurring === true && external.value !== null) {
+      res.status(400).json({ error: 'externalId não é aceito em lançamento recorrente' });
+      return;
+    }
+
     // Categoria é gravada na forma canônica (T-028) — ver services/categories.ts.
     const normalizedCategory = normalizeCategory(typeof category === 'string' ? category : '');
 
@@ -236,36 +257,49 @@ router.post(
     // — uma falha entre elas não pode deixar template órfão nem mês reservado
     // sem lançamento. Ver doc da função em services/recurringExpenses.ts.
     const entryMonth = date.slice(0, 7);
-    let newId: number;
-    if (recurring === true) {
-      // O piso da materialização é o mês de CRIAÇÃO, não o mês do lançamento:
-      // marcar como recorrente um lançamento com data passada (caminho normal
-      // da UI — navegar para um mês passado deixa o campo de data em
-      // `${mês}-01`) não pode gerar ocorrências em meses já fechados, o que
-      // reescreveria total/orçamento/histórico daqueles meses sem o usuário
-      // ver. Data futura continua valendo como piso: a recorrência só começa
-      // quando o lançamento acontece.
-      const startMonth = entryMonth > currentMonth() ? entryMonth : currentMonth();
-
-      const created = await createRecurringExpenseEntry({
+    if (recurring !== true) {
+      // Caminho comum (inclusive importação): a dedupe por `external_id` é do
+      // banco e a violação de unicidade vira 409 — ver services/externalId.ts.
+      const result = await insertEntryWithExternalId({
+        table: 'expense_entries',
         userId,
-        description: description.trim(),
-        category: normalizedCategory,
-        amount,
-        date,
-        dayOfMonth: recurringDay,
-        startMonth,
-        entryMonth,
+        values: {
+          description: description.trim(),
+          category: normalizedCategory,
+          amount,
+          date,
+          recurring_id: null,
+        },
+        externalId: external.value,
       });
-      newId = created.entryId;
-    } else {
-      const insert = await db.execute({
-        sql: `INSERT INTO expense_entries (user_id, description, category, amount, date, recurring_id)
-              VALUES (?, ?, ?, ?, ?, ?)`,
-        args: [userId, description.trim(), normalizedCategory, amount, date, null],
-      });
-      newId = Number(insert.lastInsertRowid ?? 0);
+      if (result.status === 'duplicate') {
+        res.status(409).json(duplicateEntryResponse(result.row));
+        return;
+      }
+      res.status(201).json(result.row);
+      return;
     }
+
+    // O piso da materialização é o mês de CRIAÇÃO, não o mês do lançamento:
+    // marcar como recorrente um lançamento com data passada (caminho normal
+    // da UI — navegar para um mês passado deixa o campo de data em
+    // `${mês}-01`) não pode gerar ocorrências em meses já fechados, o que
+    // reescreveria total/orçamento/histórico daqueles meses sem o usuário
+    // ver. Data futura continua valendo como piso: a recorrência só começa
+    // quando o lançamento acontece.
+    const startMonth = entryMonth > currentMonth() ? entryMonth : currentMonth();
+
+    const created = await createRecurringExpenseEntry({
+      userId,
+      description: description.trim(),
+      category: normalizedCategory,
+      amount,
+      date,
+      dayOfMonth: recurringDay,
+      startMonth,
+      entryMonth,
+    });
+    const newId = created.entryId;
 
     // Re-SELECT também filtrado por user_id (T-059, simetria com o PATCH — T-051).
     const row = await db.execute({

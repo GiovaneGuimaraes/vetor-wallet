@@ -1,4 +1,5 @@
 import { db } from '../../db';
+import { isUniqueViolation } from './sqlErrors';
 
 /**
  * Recorrência mensal de despesa variável (T-035).
@@ -56,15 +57,11 @@ export function occurrenceDate(monthKey: string, dayOfMonth: number): string {
  * de duas materializações do mesmo mês. Qualquer outro erro de banco tem de
  * continuar subindo (o handler global responde 500) em vez de virar um
  * "outro já gerou" silencioso.
+ *
+ * O corpo mora em `services/sqlErrors.ts` desde a T-084 (o dedupe de importação
+ * usa a mesma checagem); re-exportado aqui para não quebrar os importadores.
  */
-export function isUniqueViolation(err: unknown): boolean {
-  // Só unicidade: `SQLITE_CONSTRAINT` genérico inclui FK/NOT NULL, que são bugs
-  // e não corrida — engoli-los esconderia defeito real.
-  const code = (err as { code?: unknown } | null)?.code;
-  if (code === 'SQLITE_CONSTRAINT_UNIQUE' || code === 'SQLITE_CONSTRAINT_PRIMARYKEY') return true;
-  const message = err instanceof Error ? err.message : String(err);
-  return /UNIQUE constraint failed/i.test(message);
-}
+export { isUniqueViolation } from './sqlErrors';
 
 export interface RecurringExpenseRow {
   id: number;

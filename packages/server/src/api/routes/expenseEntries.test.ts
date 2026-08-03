@@ -689,4 +689,180 @@ describe('expense entries routes', () => {
       });
     });
   });
+
+  // T-084: importação idempotente por `externalId`. Usuários próprios do bloco
+  // para não misturar com os lançamentos/recorrências dos testes acima.
+  describe('externalId (T-084)', () => {
+    let agentX: ReturnType<typeof request.agent>;
+    let agentY: ReturnType<typeof request.agent>;
+    let month: string;
+
+    beforeAll(async () => {
+      agentX = request.agent(app);
+      agentY = request.agent(app);
+      await agentX
+        .post('/api/auth/register')
+        .send({ email: 'expense-entries-extid-x@test.com', password: 'password123' });
+      await agentY
+        .post('/api/auth/register')
+        .send({ email: 'expense-entries-extid-y@test.com', password: 'password123' });
+      month = currentMonth();
+    });
+
+    const base = (extra: Record<string, unknown> = {}) => ({
+      description: 'Importado',
+      category: 'Mercado',
+      amount: 100,
+      date: `${month}-05`,
+      ...extra,
+    });
+
+    it('POST sem externalId continua 201 e grava external_id NULL', async () => {
+      const res = await agentX.post('/api/expense-entries').send(base());
+      expect(res.status).toBe(201);
+      expect(res.body.external_id).toBeNull();
+      expect(res.body.recurring_id).toBeNull();
+      // Categoria segue normalizada (T-028) mesmo no caminho do dedupe.
+      expect(res.body.category).toBe('mercado');
+    });
+
+    it('POST com externalId null grava NULL (201)', async () => {
+      const res = await agentX.post('/api/expense-entries').send(base({ externalId: null }));
+      expect(res.status).toBe(201);
+      expect(res.body.external_id).toBeNull();
+    });
+
+    it('POST com externalId novo grava o valor', async () => {
+      const res = await agentX.post('/api/expense-entries').send(base({ externalId: 'ofx:EXP-1' }));
+      expect(res.status).toBe(201);
+      expect(res.body.external_id).toBe('ofx:EXP-1');
+    });
+
+    it('repetir o mesmo externalId responde 409 com a linha existente e não duplica', async () => {
+      const first = await agentX
+        .post('/api/expense-entries')
+        .send(base({ externalId: 'ofx:EXP-DUP' }));
+      expect(first.status).toBe(201);
+
+      const second = await agentX
+        .post('/api/expense-entries')
+        .send(base({ externalId: 'ofx:EXP-DUP' }));
+      expect(second.status).toBe(409);
+      expect(second.body.duplicate).toBe(true);
+      expect(second.body.entry.id).toBe(first.body.id);
+
+      const list = await agentX.get(`/api/expense-entries?month=${month}`);
+      const hits = (list.body.entries as EntryBody[]).filter(
+        (e) => (e as unknown as { external_id: string }).external_id === 'ofx:EXP-DUP',
+      );
+      expect(hits).toHaveLength(1);
+    });
+
+    it('duplicata com conteúdo diferente não atualiza a linha existente', async () => {
+      const first = await agentX
+        .post('/api/expense-entries')
+        .send(base({ description: 'Original', amount: 50, externalId: 'ofx:EXP-CONTENT' }));
+      expect(first.status).toBe(201);
+
+      const second = await agentX
+        .post('/api/expense-entries')
+        .send(base({ description: 'Outro', amount: 999, externalId: 'ofx:EXP-CONTENT' }));
+      expect(second.status).toBe(409);
+      expect(second.body.entry).toMatchObject({ description: 'Original', amount: 50 });
+    });
+
+    it('o mesmo externalId em usuários diferentes é aceito', async () => {
+      const x = await agentX
+        .post('/api/expense-entries')
+        .send(base({ externalId: 'ofx:EXP-SHARED' }));
+      const y = await agentY
+        .post('/api/expense-entries')
+        .send(base({ externalId: 'ofx:EXP-SHARED' }));
+      expect(x.status).toBe(201);
+      expect(y.status).toBe(201);
+      expect(y.body.id).not.toBe(x.body.id);
+    });
+
+    it('faz trim antes de gravar e comparar', async () => {
+      const first = await agentX
+        .post('/api/expense-entries')
+        .send(base({ externalId: ' ofx:EXP-TRIM ' }));
+      expect(first.status).toBe(201);
+      expect(first.body.external_id).toBe('ofx:EXP-TRIM');
+
+      const second = await agentX
+        .post('/api/expense-entries')
+        .send(base({ externalId: 'ofx:EXP-TRIM' }));
+      expect(second.status).toBe(409);
+    });
+
+    it('recusa externalId vazio, só-espaços, não-string e acima de 255 chars', async () => {
+      for (const externalId of ['', '   ', 123, 'x'.repeat(256)]) {
+        const res = await agentX.post('/api/expense-entries').send(base({ externalId }));
+        expect(res.status).toBe(400);
+      }
+    });
+
+    it('aceita externalId com exatamente 255 chars', async () => {
+      const res = await agentX
+        .post('/api/expense-entries')
+        .send(base({ externalId: 'y'.repeat(255) }));
+      expect(res.status).toBe(201);
+    });
+
+    it('recusa externalId junto de recurring: true', async () => {
+      const res = await agentX
+        .post('/api/expense-entries')
+        .send(base({ recurring: true, externalId: 'ofx:EXP-REC' }));
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('externalId não é aceito em lançamento recorrente');
+    });
+
+    it('recurring: true sem externalId continua funcionando', async () => {
+      const agentZ = request.agent(app);
+      await agentZ
+        .post('/api/auth/register')
+        .send({ email: 'expense-entries-extid-z@test.com', password: 'password123' });
+
+      const res = await agentZ
+        .post('/api/expense-entries')
+        .send({ description: 'Assinatura Z', amount: 30, date: `${month}-05`, recurring: true });
+      expect(res.status).toBe(201);
+      expect(res.body.recurring_id).not.toBeNull();
+      expect(res.body.external_id).toBeNull();
+    });
+
+    it('PATCH ignora externalId (e um corpo só com ele responde 400)', async () => {
+      const created = await agentX
+        .post('/api/expense-entries')
+        .send(base({ externalId: 'ofx:EXP-PATCH' }));
+
+      const onlyExternal = await agentX
+        .patch(`/api/expense-entries/${created.body.id}`)
+        .send({ externalId: 'ofx:OUTRO' });
+      expect(onlyExternal.status).toBe(400);
+
+      const withField = await agentX
+        .patch(`/api/expense-entries/${created.body.id}`)
+        .send({ description: 'Editado', externalId: 'ofx:OUTRO' });
+      expect(withField.status).toBe(200);
+      expect(withField.body.description).toBe('Editado');
+      expect(withField.body.external_id).toBe('ofx:EXP-PATCH');
+    });
+
+    it('após DELETE o mesmo externalId pode ser reimportado', async () => {
+      const first = await agentX
+        .post('/api/expense-entries')
+        .send(base({ externalId: 'ofx:EXP-REIMPORT' }));
+      expect(first.status).toBe(201);
+
+      expect((await agentX.delete(`/api/expense-entries/${first.body.id}`)).status).toBe(204);
+
+      const again = await agentX
+        .post('/api/expense-entries')
+        .send(base({ externalId: 'ofx:EXP-REIMPORT' }));
+      expect(again.status).toBe(201);
+      expect(again.body.id).not.toBe(first.body.id);
+    });
+  });
 });
