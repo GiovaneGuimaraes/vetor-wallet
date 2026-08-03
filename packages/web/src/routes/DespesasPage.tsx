@@ -11,6 +11,7 @@ import {
   getExpenseEntriesSummary,
   getFixedExpenses,
   getRecurringExpenses,
+  importOfx,
   updateExpenseEntry,
   updateFixedExpense,
   upsertBudget,
@@ -22,6 +23,7 @@ import type {
   ExpenseMonthSummaryItem,
   FixedExpense,
   FixedExpenseUpdate,
+  OfxImportResult,
   RecurringExpense,
 } from '@vetor-wallet/shared';
 import {
@@ -34,6 +36,16 @@ import {
 import { diffEditableFields, hasEdits, parseMoneyInput } from './inlineEdit';
 import { groupByCategory } from './expensesGrouping';
 import { MonthFetchGuard } from './monthFetch';
+import {
+  formatOfxCounts,
+  formatOfxRejectionReason,
+  formatOfxTransactionAmount,
+  formatOfxTransactionDate,
+  formatOfxTransactionDescription,
+  groupOfxTransactionsByStatus,
+  ofxStatusLabel,
+  type OfxImportUiState,
+} from './ofxImportReport';
 import {
   buildMonthlyHistory,
   computeMonthTotals,
@@ -174,6 +186,13 @@ export function DespesasPage() {
   const [budgetFormError, setBudgetFormError] = useState<string | null>(null);
   const [budgetSubmitting, setBudgetSubmitting] = useState(false);
   const [deletingBudgetId, setDeletingBudgetId] = useState<number | null>(null);
+
+  // T-086: importação de extrato OFX. Estado ocioso → enviando → relatório →
+  // erro; o input de arquivo fica sempre re-selecionável (não desmonta).
+  const [ofxState, setOfxState] = useState<OfxImportUiState>('idle');
+  const [ofxResult, setOfxResult] = useState<OfxImportResult | null>(null);
+  const [ofxError, setOfxError] = useState<string | null>(null);
+  const ofxFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const refreshBudgets = useCallback(async () => {
     setBudgets('loading');
@@ -570,6 +589,39 @@ export function DespesasPage() {
     }
   }
 
+  /**
+   * Upload de extrato OFX (T-086): lê o arquivo como `ArrayBuffer` (não
+   * `file.text()` — pré-decodificar como UTF-8 corromperia extratos em
+   * cp1252; o server decide o charset pelo header OFX) e envia o corpo cru
+   * a `POST /api/import/ofx`. Sucesso com `imported > 0` revalida os
+   * lançamentos do mês exibido e o histórico, já que a importação pode ter
+   * escrito em qualquer mês, não só no exibido.
+   */
+  async function handleOfxUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setOfxState('uploading');
+    setOfxError(null);
+    setOfxResult(null);
+    try {
+      const bytes = await file.arrayBuffer();
+      const result = await importOfx(bytes);
+      setOfxResult(result);
+      setOfxState('report');
+      if (result.imported > 0) {
+        refreshEntries(monthKey, { force: true });
+        refreshHistory();
+      }
+    } catch (err) {
+      setOfxError(err instanceof Error ? err.message : 'Falha ao importar extrato OFX');
+      setOfxState('error');
+    } finally {
+      // Permite reimportar o mesmo arquivo (o browser não disparia `onChange`
+      // de novo para o mesmo caminho sem limpar o valor do input).
+      if (ofxFileInputRef.current) ofxFileInputRef.current.value = '';
+    }
+  }
+
   async function handleBudgetDelete(id: number) {
     setDeletingBudgetId(id);
     try {
@@ -725,6 +777,65 @@ export function DespesasPage() {
             {submitting ? 'Adicionando…' : 'Adicionar'}
           </button>
         </form>
+      </CollapsibleSection>
+
+      {/* T-086: importação de extrato OFX — porta de entrada visível para o
+          fluxo backend da T-085. Recolhida por padrão, junto das demais
+          seções de ação minoritária. */}
+      <CollapsibleSection label="Importar extrato (OFX)" openLabel="Importar extrato (OFX)">
+        <div className="vw-layerpage-form">
+          <p className="vw-history-hint">
+            Envie o arquivo .ofx exportado do internet banking do seu banco. Créditos entram como
+            renda e débitos como despesa; reimportar o mesmo extrato não duplica nada.
+          </p>
+          <div className="vw-layerpage-field">
+            <label htmlFor="ofx-file">Arquivo OFX</label>
+            <input
+              id="ofx-file"
+              ref={ofxFileInputRef}
+              type="file"
+              accept=".ofx,.qfx"
+              disabled={ofxState === 'uploading'}
+              onChange={handleOfxUpload}
+            />
+          </div>
+
+          {ofxState === 'uploading' && <p className="vw-layerpage-state">Importando…</p>}
+          {ofxState === 'error' && ofxError && <p className="vw-layerpage-error">{ofxError}</p>}
+
+          {ofxState === 'report' && ofxResult && (
+            <div className="vw-ofx-report">
+              <p className="vw-layerpage-item-name">{formatOfxCounts(ofxResult)}</p>
+              {ofxResult.transactions.length > 0 && (
+                <ul className="vw-layerpage-list">
+                  {(() => {
+                    const grouped = groupOfxTransactionsByStatus(ofxResult.transactions);
+                    return [...grouped.imported, ...grouped.duplicated, ...grouped.rejected];
+                  })().map((tx, idx) => (
+                    <li key={`${tx.fitid ?? 'sem-fitid'}-${idx}`}>
+                      <div className="vw-layerpage-item">
+                        <div className="vw-layerpage-item-main">
+                          <p className="vw-layerpage-item-name">
+                            {formatOfxTransactionDescription(tx)}
+                          </p>
+                          <p className="vw-layerpage-item-tag">
+                            {formatOfxTransactionDate(tx)} · {ofxStatusLabel(tx.status)}
+                            {tx.status === 'rejected' ? ` · ${formatOfxRejectionReason(tx)}` : ''}
+                          </p>
+                        </div>
+                        <div className="vw-layerpage-item-right">
+                          <span className="vw-layerpage-item-value">
+                            {formatOfxTransactionAmount(tx)}
+                          </span>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
       </CollapsibleSection>
 
       <div className="vw-layerpage-card vw-history-card">

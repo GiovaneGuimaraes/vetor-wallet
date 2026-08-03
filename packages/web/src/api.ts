@@ -1,4 +1,4 @@
-import type { NewOperation, Operation, PortfolioSummary, PortfolioHistoryResponse, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, BenchmarkHistoryResponse, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, IncomeEntry, NewIncomeEntry, IncomeEntryUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, RecurringExpense, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, SavingsTransferRequest, SavingsTransferResult, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget, Plan, MySubscriptionResponse, CreateSubscriptionResponse, PixCharge } from '@vetor-wallet/shared';
+import type { NewOperation, Operation, PortfolioSummary, PortfolioHistoryResponse, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, BenchmarkHistoryResponse, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, IncomeEntry, NewIncomeEntry, IncomeEntryUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, RecurringExpense, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, SavingsTransferRequest, SavingsTransferResult, Goal, NewGoal, GoalUpdate, CategoryBudget, NewCategoryBudget, Plan, MySubscriptionResponse, CreateSubscriptionResponse, PixCharge, OfxImportResult } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -393,6 +393,27 @@ export async function createExpenseEntry(entry: NewExpenseEntry): Promise<Expens
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
     throw new Error(err.error ?? 'Falha ao criar lançamento de despesa');
+  }
+  return res.json();
+}
+
+/**
+ * Importação de extrato OFX (T-085/T-086). O corpo é os bytes CRUS do arquivo
+ * — CRÍTICO não mandar `Content-Type: application/json`, senão o
+ * `express.json()` global consome o stream e a rota vê corpo vazio. O server
+ * decide o charset pelo header OFX; por isso o caller lê o arquivo como
+ * `ArrayBuffer`, não `file.text()` (pré-decodificar como UTF-8 no browser
+ * corromperia extratos em cp1252).
+ */
+export async function importOfx(fileBytes: ArrayBuffer): Promise<OfxImportResult> {
+  const res = await apiFetch('/api/import/ofx', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/octet-stream' },
+    body: fileBytes,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao importar extrato OFX');
   }
   return res.json();
 }
