@@ -6,6 +6,7 @@ import { initDb, db, SqliteSessionStore } from '../db';
 import operationsRouter from './routes/operations';
 import portfolioRouter from './routes/portfolio';
 import importRouter from './routes/import';
+import importOfxRouter from './routes/importOfx';
 import alertsRouter from './routes/alerts';
 import benchmarksRouter from './routes/benchmarks';
 import authRouter from './auth/router';
@@ -65,6 +66,13 @@ app.use('/api/snapshots', snapshotsRouter);
 app.use('/api/wallets', walletsRouter);
 app.use('/api/operations', operationsRouter);
 app.use('/api/portfolio', portfolioRouter);
+// T-085 — ORDEM: o extrato OFX vem ANTES de `/api/import` (CSV de operações).
+// O router do CSV aplica `express.text({ type: '*/*' })` na própria rota `/`, mas
+// o `requireAuth`/`requireActiveSubscription` dele também são por rota, então
+// `/api/import/ofx` só cai neste router se ele estiver montado primeiro — com a
+// ordem invertida a request ainda funcionaria (o router do CSV não tem rota
+// `/ofx` e chama `next()`), mas depender disso é frágil.
+app.use('/api/import/ofx', importOfxRouter);
 app.use('/api/import', importRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/benchmarks', benchmarksRouter);
