@@ -214,6 +214,12 @@ export interface IncomeEntry {
   amount: number;
   /** YYYY-MM-DD */
   date: string;
+  /**
+   * T-084: id da transação no sistema de ORIGEM (`ofx:<FITID>`, `pluggy:<id>`)
+   * ou `null` para lançamento digitado à mão. Único por usuário — é o que faz
+   * reimportar o mesmo período não duplicar.
+   */
+  external_id: string | null;
   created_at: string;
 }
 
@@ -222,6 +228,12 @@ export interface NewIncomeEntry {
   amount: number;
   /** YYYY-MM-DD */
   date: string;
+  /**
+   * T-084: id na origem, para importação idempotente. Repetido para o mesmo
+   * usuário, o POST responde 409 `{ duplicate: true, entry }` em vez de criar
+   * um segundo lançamento. Omitido = lançamento manual (sem dedupe).
+   */
+  externalId?: string;
 }
 
 /**
@@ -280,6 +292,12 @@ export interface ExpenseEntry {
    * pode ser editada/excluída individualmente, e excluí-la não a recria.
    */
   recurring_id: number | null;
+  /**
+   * T-084: id da transação no sistema de ORIGEM (`ofx:<FITID>`, `pluggy:<id>`)
+   * ou `null` para lançamento digitado à mão. Único por usuário — é o que faz
+   * reimportar o mesmo período não duplicar.
+   */
+  external_id: string | null;
   created_at: string;
 }
 
@@ -297,6 +315,13 @@ export interface NewExpenseEntry {
   recurring?: boolean;
   /** Dia do mês das próximas ocorrências (1-31). Default: o dia de `date`. */
   dayOfMonth?: number;
+  /**
+   * T-084: id na origem, para importação idempotente. Repetido para o mesmo
+   * usuário, o POST responde 409 `{ duplicate: true, entry }` em vez de criar um
+   * segundo lançamento. Incompatível com `recurring: true` (400) — nenhum
+   * importador cria recorrência. Omitido = lançamento manual (sem dedupe).
+   */
+  externalId?: string;
 }
 
 /**

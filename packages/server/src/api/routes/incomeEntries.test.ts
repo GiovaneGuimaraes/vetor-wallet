@@ -387,4 +387,139 @@ describe('income entries routes (T-036)', () => {
       expect(res.status).toBe(404);
     });
   });
+
+  // T-084: importação idempotente por `externalId`.
+  describe('externalId (T-084)', () => {
+    const base = (extra: Record<string, unknown> = {}) => ({
+      description: 'Importado',
+      amount: 100,
+      date: `${thisMonth}-05`,
+      ...extra,
+    });
+
+    it('POST sem externalId continua 201 e grava external_id NULL', async () => {
+      const res = await agentA.post('/api/income-entries').send(base());
+      expect(res.status).toBe(201);
+      expect(res.body.external_id).toBeNull();
+    });
+
+    it('POST com externalId null grava NULL (201)', async () => {
+      const res = await agentA.post('/api/income-entries').send(base({ externalId: null }));
+      expect(res.status).toBe(201);
+      expect(res.body.external_id).toBeNull();
+    });
+
+    it('POST com externalId novo grava o valor', async () => {
+      const res = await agentA
+        .post('/api/income-entries')
+        .send(base({ externalId: 'ofx:INC-1' }));
+      expect(res.status).toBe(201);
+      expect(res.body.external_id).toBe('ofx:INC-1');
+    });
+
+    it('repetir o mesmo externalId responde 409 com a linha existente e não duplica', async () => {
+      const first = await agentA
+        .post('/api/income-entries')
+        .send(base({ externalId: 'ofx:INC-DUP' }));
+      expect(first.status).toBe(201);
+
+      const second = await agentA
+        .post('/api/income-entries')
+        .send(base({ externalId: 'ofx:INC-DUP' }));
+      expect(second.status).toBe(409);
+      expect(second.body.duplicate).toBe(true);
+      expect(second.body.entry.id).toBe(first.body.id);
+
+      const list = await agentA.get(`/api/income-entries?month=${thisMonth}`);
+      const hits = (list.body.entries as EntryBody[]).filter(
+        (e) => (e as unknown as { external_id: string }).external_id === 'ofx:INC-DUP',
+      );
+      expect(hits).toHaveLength(1);
+    });
+
+    it('duplicata com conteúdo diferente não atualiza a linha existente (dedupe por id, não upsert)', async () => {
+      const first = await agentA
+        .post('/api/income-entries')
+        .send(base({ description: 'Original', amount: 50, externalId: 'ofx:INC-CONTENT' }));
+      expect(first.status).toBe(201);
+
+      const second = await agentA
+        .post('/api/income-entries')
+        .send(base({ description: 'Outro', amount: 999, externalId: 'ofx:INC-CONTENT' }));
+      expect(second.status).toBe(409);
+      expect(second.body.entry).toMatchObject({ description: 'Original', amount: 50 });
+    });
+
+    it('o mesmo externalId em usuários diferentes é aceito (dedupe é por usuário)', async () => {
+      const a = await agentA
+        .post('/api/income-entries')
+        .send(base({ externalId: 'ofx:INC-SHARED' }));
+      const b = await agentB
+        .post('/api/income-entries')
+        .send(base({ externalId: 'ofx:INC-SHARED' }));
+      expect(a.status).toBe(201);
+      expect(b.status).toBe(201);
+      expect(b.body.id).not.toBe(a.body.id);
+    });
+
+    it('faz trim: " FIT-1 " e "FIT-1" são a mesma chave', async () => {
+      const first = await agentA
+        .post('/api/income-entries')
+        .send(base({ externalId: ' ofx:INC-TRIM ' }));
+      expect(first.status).toBe(201);
+      expect(first.body.external_id).toBe('ofx:INC-TRIM');
+
+      const second = await agentA
+        .post('/api/income-entries')
+        .send(base({ externalId: 'ofx:INC-TRIM' }));
+      expect(second.status).toBe(409);
+    });
+
+    it('recusa externalId vazio, só-espaços, não-string e acima de 255 chars', async () => {
+      for (const externalId of ['', '   ', 123, 'x'.repeat(256)]) {
+        const res = await agentA.post('/api/income-entries').send(base({ externalId }));
+        expect(res.status).toBe(400);
+      }
+    });
+
+    it('aceita externalId com exatamente 255 chars', async () => {
+      const res = await agentA
+        .post('/api/income-entries')
+        .send(base({ externalId: 'y'.repeat(255) }));
+      expect(res.status).toBe(201);
+    });
+
+    it('PATCH ignora externalId (e um corpo só com ele responde 400)', async () => {
+      const created = await agentA
+        .post('/api/income-entries')
+        .send(base({ externalId: 'ofx:INC-PATCH' }));
+
+      const onlyExternal = await agentA
+        .patch(`/api/income-entries/${created.body.id}`)
+        .send({ externalId: 'ofx:OUTRO' });
+      expect(onlyExternal.status).toBe(400);
+
+      const withField = await agentA
+        .patch(`/api/income-entries/${created.body.id}`)
+        .send({ description: 'Editado', externalId: 'ofx:OUTRO' });
+      expect(withField.status).toBe(200);
+      expect(withField.body.description).toBe('Editado');
+      expect(withField.body.external_id).toBe('ofx:INC-PATCH');
+    });
+
+    it('após DELETE o mesmo externalId pode ser reimportado (assimetria intencional com T-035)', async () => {
+      const first = await agentA
+        .post('/api/income-entries')
+        .send(base({ externalId: 'ofx:INC-REIMPORT' }));
+      expect(first.status).toBe(201);
+
+      expect((await agentA.delete(`/api/income-entries/${first.body.id}`)).status).toBe(204);
+
+      const again = await agentA
+        .post('/api/income-entries')
+        .send(base({ externalId: 'ofx:INC-REIMPORT' }));
+      expect(again.status).toBe(201);
+      expect(again.body.id).not.toBe(first.body.id);
+    });
+  });
 });
