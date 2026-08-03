@@ -350,6 +350,13 @@ export async function initDb() {
     // mesmo uuid). É só rótulo para a UI: nada é validado entre as pernas e o
     // PATCH não aceita o campo — cada perna segue editável/excluível sozinha.
     'ALTER TABLE savings_entries ADD COLUMN transfer_group TEXT',
+    // T-084: identificador da transação no sistema de ORIGEM (FITID do OFX,
+    // id da transação Pluggy). NULL = lançamento criado à mão pela UI — é a
+    // esmagadora maioria das linhas, por isso o índice de unicidade abaixo é
+    // PARCIAL. Sem NOT NULL/DEFAULT: a coluna é nullable por design (e
+    // `ALTER TABLE ADD COLUMN` no SQLite exigiria default para NOT NULL).
+    'ALTER TABLE income_entries ADD COLUMN external_id TEXT',
+    'ALTER TABLE expense_entries ADD COLUMN external_id TEXT',
   ]) {
     try {
       await db.execute(sql);
@@ -361,6 +368,24 @@ export async function initDb() {
   await db.execute(
     `CREATE INDEX IF NOT EXISTS idx_savings_entries_goal
      ON savings_entries(user_id, goal_id)`,
+  );
+
+  // T-084 — dedupe de importação. Índice único PARCIAL: o
+  // `WHERE external_id IS NOT NULL` não é só otimização — mantém o índice
+  // restrito às linhas importadas (as manuais, maioria, ficam fora) e deixa a
+  // intenção explícita, já que em SQLite NULLs nunca colidem num UNIQUE.
+  // O par é (user_id, external_id): dois usuários podem importar o MESMO FITID
+  // (mesmo extrato, contas diferentes) sem conflito.
+  //
+  // Ordem importa: estes CREATE INDEX vêm DEPOIS do loop de ALTER acima —
+  // criá-los antes falharia com `no such column` no primeiro boot.
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_income_entries_user_external
+     ON income_entries(user_id, external_id) WHERE external_id IS NOT NULL`,
+  );
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_expense_entries_user_external
+     ON expense_entries(user_id, external_id) WHERE external_id IS NOT NULL`,
   );
 
   // Sessões do express-session (T-034): persistidas no mesmo banco em vez do
