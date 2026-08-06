@@ -36,6 +36,12 @@ export interface ShellContext {
   /** Consolidado do usuário (`GET /api/portfolio`, sem filtro de carteira). */
   walletSummary: PortfolioSummary | null;
   refreshWallet: () => Promise<void>;
+  /**
+   * T-093: `ContaPage` chama `updateMe()` e precisa refletir o resultado no
+   * `user` global de `App.tsx` (fonte da verdade, sem gerenciador de estado
+   * externo — CLAUDE.md) para a saudação do header atualizar sem re-login.
+   */
+  onUserUpdated: (user: User) => void;
 }
 
 export function useShellContext(): ShellContext {

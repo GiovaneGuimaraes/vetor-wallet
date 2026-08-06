@@ -64,6 +64,23 @@ export async function logout(): Promise<void> {
   await apiFetch('/api/auth/logout', { method: 'POST' });
 }
 
+/**
+ * Edição parcial do perfil (T-093, endpoint da T-092): só `name`/`phone`.
+ * Mesmo padrão dos demais PATCH — corpo vazio → 400; `null` limpa o campo.
+ */
+export async function updateMe(update: { name?: string | null; phone?: string | null }): Promise<User> {
+  const res = await apiFetch('/api/auth/me', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(update),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao atualizar dados');
+  }
+  return res.json();
+}
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 export async function runInsightsJob(date?: string): Promise<{

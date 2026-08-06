@@ -3,6 +3,7 @@ import type { User } from '@vetor-wallet/shared';
 import { ThemeToggleButton } from '../components/ThemeToggleButton';
 import { mascotSrcForPathname } from './mascots';
 import type { ShellContext } from './ShellContext';
+import { greetingName } from '../routes/conta';
 
 interface Props {
   user: User;
@@ -21,7 +22,10 @@ interface Props {
 export function AppShell({ user, theme, onToggleTheme, onLogout, outletContext }: Props) {
   const location = useLocation();
   const mascotSrc = mascotSrcForPathname(location.pathname);
-  const firstName = user.email.split('@')[0];
+  // T-093: saúda pelo primeiro nome real (`user.name`) quando cadastrado;
+  // senão mantém o fallback pré-T-093 (prefixo do e-mail) — lógica pura e
+  // testada em `routes/conta.ts` (`greetingName`).
+  const firstName = greetingName(user.name, user.email);
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -46,6 +50,9 @@ export function AppShell({ user, theme, onToggleTheme, onLogout, outletContext }
             <span className="vw-greeting">Olá, {firstName}</span>
             <Link to="/planos" className="vw-planos-link">
               Planos
+            </Link>
+            <Link to="/conta" className="vw-planos-link">
+              Conta
             </Link>
             <ThemeToggleButton theme={theme} onToggle={onToggleTheme} />
             <button type="button" onClick={onLogout} className="vw-logout-btn">
