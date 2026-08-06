@@ -80,14 +80,26 @@ describe('GET /api/benchmarks/history (T-068)', () => {
       if (url.includes('bcb.gov.br')) {
         return new Response(JSON.stringify(bcbRows), { status: 200 });
       }
-      // brapi: o único ponto do histórico é HOJE, garantindo que o recorte da
-      // janela (`clampSeriesToWindow`) não o descarte independente da data em
-      // que o teste roda.
-      const todayTs = Math.floor(Date.now() / 1000);
-      return new Response(
-        JSON.stringify({ results: [{ historicalDataPrice: [{ date: todayTs, close: 130000 }] }] }),
-        { status: 200 },
-      );
+      // Data BRT de hoje (mesma âncora da rota, padrão hourlyInsights.ts) — meio-dia
+      // UTC dessa data garante que buildIbovespaSeries (que data em UTC) produza um
+      // ponto dentro da janela [from, to] em qualquer horário de execução.
+      const brtDate = new Date(Date.now() - 3 * 60 * 60 * 1000);
+      const year = brtDate.getUTCFullYear();
+      const month = String(brtDate.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(brtDate.getUTCDate()).padStart(2, '0');
+      const isoDate = `${year}-${month}-${day}`;
+      const noonDate = new Date(`${isoDate}T12:00:00Z`);
+      const todayTs = Math.floor(noonDate.getTime() / 1000);
+      const response = {
+        results: [
+          {
+            historicalDataPrice: [
+              { date: todayTs, close: 130000 },
+            ],
+          },
+        ],
+      };
+      return new Response(JSON.stringify(response), { status: 200 });
     });
 
     const res = await agent.get('/api/benchmarks/history?days=30');
