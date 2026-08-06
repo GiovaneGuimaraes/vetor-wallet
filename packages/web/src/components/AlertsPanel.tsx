@@ -176,7 +176,7 @@ export function AlertsPanel({ rules, onUpdate }: Props) {
           <button
             type="submit"
             disabled={loading}
-            className={`${btn} bg-accent hover:bg-accent-hover text-white`}
+            className={`${btn} bg-accent hover:bg-accent-hover text-canvas`}
           >
             {loading ? 'Salvando...' : 'Adicionar regra'}
           </button>
