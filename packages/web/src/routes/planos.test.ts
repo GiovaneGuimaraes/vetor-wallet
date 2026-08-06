@@ -4,6 +4,7 @@ import {
   formatPlanPrice,
   planPeriodLabel,
   monthlyEquivalentCents,
+  yearlySavingsPercent,
   qrCodeDataUrl,
   remainingSeconds,
   formatCountdown,
@@ -62,6 +63,36 @@ describe('formatPlanPrice', () => {
   it('formata centavos em BRL', () => {
     expect(norm(formatPlanPrice(990))).toBe('R$ 9,90');
     expect(norm(formatPlanPrice(9900))).toBe('R$ 99,00');
+  });
+});
+
+describe('yearlySavingsPercent', () => {
+  it('calcula a economia do plano anual vs. 12x o mensal', () => {
+    const monthly = makePlan({ interval: 'monthly', price_cents: 1990 });
+    const yearly = makePlan({ interval: 'yearly', price_cents: 1990 * 12 * 0.8 });
+    expect(yearlySavingsPercent(yearly, monthly)).toBe(20);
+  });
+
+  it('retorna null se o plano não for anual', () => {
+    const monthly = makePlan({ interval: 'monthly', price_cents: 1990 });
+    expect(yearlySavingsPercent(monthly, monthly)).toBeNull();
+  });
+
+  it('retorna null sem plano mensal para comparar', () => {
+    const yearly = makePlan({ interval: 'yearly', price_cents: 19000 });
+    expect(yearlySavingsPercent(yearly, undefined)).toBeNull();
+  });
+
+  it('retorna null se o mensal tiver preço zero ou negativo', () => {
+    const monthly = makePlan({ interval: 'monthly', price_cents: 0 });
+    const yearly = makePlan({ interval: 'yearly', price_cents: 19000 });
+    expect(yearlySavingsPercent(yearly, monthly)).toBeNull();
+  });
+
+  it('não economiza (0%) quando o anual custa exatamente 12x o mensal', () => {
+    const monthly = makePlan({ interval: 'monthly', price_cents: 1000 });
+    const yearly = makePlan({ interval: 'yearly', price_cents: 12000 });
+    expect(yearlySavingsPercent(yearly, monthly)).toBe(0);
   });
 });
 
