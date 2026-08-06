@@ -18,7 +18,14 @@ import {
   qrCodeDataUrl,
   remainingSeconds,
   shouldKeepPolling,
+  yearlySavingsPercent,
 } from './planos';
+
+const PRO_FEATURES = [
+  'Layer de Ações da B3',
+  'Layer de Criptomoedas',
+  'Importação automática via Pluggy',
+];
 import './planos.css';
 
 const dateFmt = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' });
@@ -179,7 +186,9 @@ export function PlanosPage() {
       <div>
         <div className="vw-page-header">
           <h1 className="vw-page-title">Planos</h1>
-          <p className="vw-page-subtitle">Assine para liberar todos os recursos</p>
+          <p className="vw-page-subtitle">
+            O Vetor Wallet é gratuito. Assine o Pro para desbloquear recursos avançados.
+          </p>
         </div>
         <div className="vw-state-box">Carregando planos…</div>
       </div>
@@ -193,7 +202,10 @@ export function PlanosPage() {
     <div className="vw-planos">
       <div className="vw-page-header">
         <h1 className="vw-page-title">Planos</h1>
-        <p className="vw-page-subtitle">Assine para liberar todos os recursos</p>
+        <p className="vw-page-subtitle">
+          O Vetor Wallet é gratuito para renda, despesas, poupança e metas. Assine o Pro
+          para desbloquear Ações da B3, Criptomoedas e importação automática via Pluggy.
+        </p>
       </div>
 
       {sub && !sub.billingEnabled && (
@@ -262,29 +274,50 @@ export function PlanosPage() {
       {subscribeError && <div className="vw-state-box vw-state-error">{subscribeError}</div>}
 
       <div className="vw-planos-grid">
-        {plans.map((plan) => (
-          <div key={plan.id} className="vw-planos-card">
-            <h3 className="vw-planos-card-name">{plan.name}</h3>
-            <p className="vw-planos-card-desc">{plan.description}</p>
-            <p className="vw-planos-card-price">
-              {formatPlanPrice(plan.price_cents)}
-              <span className="vw-planos-card-period">{planPeriodLabel(plan.interval)}</span>
-            </p>
-            {plan.interval === 'yearly' && (
-              <p className="vw-planos-card-equivalent">
-                equivale a {formatPlanPrice(monthlyEquivalentCents(plan))}/mês
-              </p>
-            )}
-            <button
-              type="button"
-              className="vw-btn-primary vw-planos-card-btn"
-              disabled={subscribing === plan.id}
-              onClick={() => handleSubscribe(plan)}
+        {plans.map((plan) => {
+          const isYearly = plan.interval === 'yearly';
+          const monthlyPlan = plans.find((p) => p.interval === 'monthly');
+          const savingsPercent = isYearly ? yearlySavingsPercent(plan, monthlyPlan) : null;
+          return (
+            <div
+              key={plan.id}
+              className={`vw-planos-card${isYearly ? ' vw-planos-card--highlight' : ''}`}
             >
-              {subscribing === plan.id ? 'Assinando…' : 'Assinar'}
-            </button>
-          </div>
-        ))}
+              {savingsPercent != null && savingsPercent > 0 && (
+                <span className="vw-planos-card-savings">Economize {savingsPercent}%</span>
+              )}
+              <h3 className="vw-planos-card-name">{plan.name}</h3>
+              <p className="vw-planos-card-price">
+                {formatPlanPrice(plan.price_cents)}
+                <span className="vw-planos-card-period">{planPeriodLabel(plan.interval)}</span>
+              </p>
+              {isYearly && (
+                <p className="vw-planos-card-equivalent">
+                  equivale a {formatPlanPrice(monthlyEquivalentCents(plan))}/mês
+                </p>
+              )}
+              {plan.description && <p className="vw-planos-card-desc">{plan.description}</p>}
+              <ul className="vw-planos-card-features">
+                {PRO_FEATURES.map((feature) => (
+                  <li key={feature} className="vw-planos-card-feature">
+                    <span className="vw-planos-card-check" aria-hidden="true">
+                      ✓
+                    </span>
+                    {feature}
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                className="vw-btn-primary vw-planos-card-btn"
+                disabled={subscribing === plan.id}
+                onClick={() => handleSubscribe(plan)}
+              >
+                {subscribing === plan.id ? 'Assinando…' : 'Assinar'}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

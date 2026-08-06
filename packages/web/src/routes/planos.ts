@@ -24,6 +24,19 @@ export function monthlyEquivalentCents(plan: Plan): number {
   return plan.price_cents;
 }
 
+/**
+ * % de economia do plano anual comparado a pagar o mensal os 12 meses do ano
+ * (arredondado ao inteiro mais próximo). `null` quando não há como comparar
+ * (falta o mensal, preço mensal zerado, ou o próprio plano não é anual).
+ */
+export function yearlySavingsPercent(yearlyPlan: Plan, monthlyPlan: Plan | undefined): number | null {
+  if (yearlyPlan.interval !== 'yearly' || !monthlyPlan || monthlyPlan.price_cents <= 0) return null;
+  const fullYearCents = monthlyPlan.price_cents * 12;
+  if (fullYearCents <= 0) return null;
+  const savings = 1 - yearlyPlan.price_cents / fullYearCents;
+  return Math.round(savings * 100);
+}
+
 const PNG_DATA_URI_PREFIX = 'data:image/png;base64,';
 
 /** Aceita o base64 puro ou já prefixado com o data URI — a AbacatePay não garante qual dos dois manda. */
