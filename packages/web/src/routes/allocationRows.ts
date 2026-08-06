@@ -3,7 +3,7 @@ import type { Position } from '@vetor-wallet/shared';
 /**
  * Linha de exibição das barras de alocação por ticker (T-057c), extraída de
  * `PortfolioDashboard.tsx` no mesmo padrão de função pura testável de
- * `budgetProgress.ts`/`chartGeometry.ts`.
+ * `chartGeometry.ts`.
  */
 export interface AllocationRow {
   ticker: string;

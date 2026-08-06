@@ -124,11 +124,11 @@
 /* ------------------------------------------------------------------ */
 /* Barras de alocação por ticker (T-057c)                               */
 /*                                                                      */
-/* Classes próprias em vez de reusar `.vw-budget-progress-*` de         */
-/* `layers.css`: mesmo padrão visual (barra fina, trilha em              */
-/* --color-edge, preenchimento em --color-accent), mas a dash não       */
-/* deveria acoplar seu CSS ao de layers/orçamento — são domínios sem     */
-/* relação, e um redesign futuro de um não deve arriscar o outro.       */
+/* Classes próprias em vez de reusar barras de progresso de outras      */
+/* telas: mesmo padrão visual (barra fina, trilha em --color-edge,      */
+/* preenchimento em --color-accent), mas a dash não deveria acoplar     */
+/* seu CSS ao de outros domínios sem relação — um redesign futuro de    */
+/* um não deve arriscar o outro.                                        */
 /* ------------------------------------------------------------------ */
 
 .vw-alloc-row {
