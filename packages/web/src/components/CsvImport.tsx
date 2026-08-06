@@ -236,7 +236,7 @@ export function CsvImport({ onSuccess }: Props) {
             <button
               onClick={handleConfirm}
               disabled={importing || validCount === 0}
-              className={`${btn} bg-accent hover:bg-accent-hover text-white`}
+              className={`${btn} bg-accent hover:bg-accent-hover text-canvas`}
             >
               {importing
                 ? 'Importando...'

@@ -185,7 +185,7 @@ export function OperationForm({ onSubmit }: Props) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-accent hover:bg-accent-hover text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full bg-accent hover:bg-accent-hover text-canvas text-sm font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {loading ? 'Salvando...' : 'Adicionar'}
           </button>
