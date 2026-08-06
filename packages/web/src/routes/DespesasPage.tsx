@@ -674,7 +674,7 @@ export function DespesasPage() {
       {/* T-074: form unificado (Fixa/Variável), recolhido por padrão — a
           consulta (total, histórico, recorrências, listas) fica sempre
           visível; lançar uma despesa é a ação minoritária. */}
-      <CollapsibleSection label="+ Adicionar despesa" openLabel="Adicionar despesa">
+      <CollapsibleSection label="Adicionar despesa" openLabel="Adicionar despesa">
         <form className="vw-layerpage-form" onSubmit={handleAddSubmit}>
           <div className="vw-expense-kind-toggle" role="radiogroup" aria-label="Tipo de despesa">
             <button
@@ -937,7 +937,7 @@ export function DespesasPage() {
           </ul>
         )}
 
-        <CollapsibleSection label="+ Novo orçamento" openLabel="Novo orçamento">
+        <CollapsibleSection label="Novo orçamento" openLabel="Novo orçamento">
           <form className="vw-layerpage-form vw-budget-form" onSubmit={handleBudgetSubmit}>
             <div className="vw-layerpage-field">
               <label htmlFor="orcamento-categoria">Categoria</label>

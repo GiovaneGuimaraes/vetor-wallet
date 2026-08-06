@@ -218,7 +218,7 @@ export function MetasPage() {
             </div>
           )}
 
-          <CollapsibleSection label="+ Nova meta" openLabel="Nova meta">
+          <CollapsibleSection label="Nova meta" openLabel="Nova meta">
             <div className="vw-form-card">
               <form onSubmit={handleSubmit}>
                 <div className="vw-form-grid">

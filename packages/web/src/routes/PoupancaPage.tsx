@@ -657,7 +657,7 @@ export function PoupancaPage() {
             `?meta=<id>` (efeito acima), recolhido por padrão do contrário.
           */}
           <CollapsibleSection
-            label="+ Transferir para uma meta"
+            label="Transferir para uma meta"
             openLabel="Transferir para uma meta"
             open={transferOpen}
             onOpenChange={setTransferOpen}
@@ -761,7 +761,7 @@ export function PoupancaPage() {
             Novo lançamento: atrás de `CollapsibleSection` (T-076) — consulta
             é ~10x mais frequente que lançar, mesmo espírito da T-074.
           */}
-          <CollapsibleSection label="+ Novo lançamento" openLabel="Novo lançamento">
+          <CollapsibleSection label="Novo lançamento" openLabel="Novo lançamento">
             <form onSubmit={handleSubmit}>
               <div className="vw-form-grid">
                 <div className="vw-form-field">
