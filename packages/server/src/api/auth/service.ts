@@ -5,6 +5,27 @@ import type { User } from '@vetor-wallet/shared';
 
 const SALT_ROUNDS = 12;
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidEmail(email: string): boolean {
+  return EMAIL_RE.test(email);
+}
+
+// Formato flexível: aceita com/sem +55, com/sem separadores (espaço, parênteses,
+// hífen), DDD + 8 ou 9 dígitos. Normaliza para dígitos puros antes de validar o
+// tamanho, então o valor persistido é sempre só números (com 55 na frente se o
+// usuário digitou o código do país).
+export function normalizePhone(raw: string): string {
+  return raw.replace(/[^\d]/g, '');
+}
+
+export function isValidPhone(raw: string): boolean {
+  const digits = normalizePhone(raw);
+  // 10-11 dígitos = DDD + telefone (fixo 8, celular 9); +55 na frente soma 2
+  // dígitos, então 12-13 também são aceitos.
+  return /^(55)?\d{10,11}$/.test(digits);
+}
+
 export function parseRoles(json: unknown): string[] {
   try {
     const parsed = JSON.parse(typeof json === 'string' ? json : '[]');
@@ -43,12 +64,19 @@ export async function createUser(email: string, password: string): Promise<User>
     console.error('Falha ao criar a carteira padrao do usuario', id, err);
   }
 
-  return { id, email: email.toLowerCase().trim(), created_at: new Date().toISOString(), roles: [] };
+  return {
+    id,
+    email: email.toLowerCase().trim(),
+    name: null,
+    phone: null,
+    created_at: new Date().toISOString(),
+    roles: [],
+  };
 }
 
 export async function findUserByEmail(email: string): Promise<(User & { password_hash: string }) | null> {
   const result = await db.execute({
-    sql: 'SELECT id, email, password_hash, created_at, roles FROM users WHERE email = ?',
+    sql: 'SELECT id, email, name, phone, password_hash, created_at, roles FROM users WHERE email = ?',
     args: [email.toLowerCase().trim()],
   });
   if (result.rows.length === 0) return null;
@@ -56,7 +84,61 @@ export async function findUserByEmail(email: string): Promise<(User & { password
   return {
     id: row.id as number,
     email: row.email as string,
+    name: (row.name as string | null) ?? null,
+    phone: (row.phone as string | null) ?? null,
     password_hash: row.password_hash as string,
+    created_at: row.created_at as string,
+    roles: parseRoles(row.roles),
+  };
+}
+
+// T-092: validação pura do nome — string 1–120 chars após trim, ou `null` para
+// limpar o campo. Não aceita string vazia (use `null` para limpar).
+export function isValidName(name: string): boolean {
+  const trimmed = name.trim();
+  return trimmed.length >= 1 && trimmed.length <= 120;
+}
+
+export interface ProfileUpdate {
+  name?: string | null;
+  phone?: string | null;
+}
+
+// Aplica um PATCH parcial em name/phone. Cada campo presente no update já foi
+// validado pelo router (string válida ou `null` para limpar); aqui só
+// persiste. Retorna o User atualizado.
+export async function updateUserProfile(userId: number, update: ProfileUpdate): Promise<User | null> {
+  const sets: string[] = [];
+  const args: (string | number | null)[] = [];
+
+  if ('name' in update) {
+    sets.push('name = ?');
+    args.push(update.name === null ? null : update.name!.trim());
+  }
+  if ('phone' in update) {
+    sets.push('phone = ?');
+    args.push(update.phone === null ? null : normalizePhone(update.phone!));
+  }
+
+  if (sets.length > 0) {
+    args.push(userId);
+    await db.execute({
+      sql: `UPDATE users SET ${sets.join(', ')} WHERE id = ?`,
+      args,
+    });
+  }
+
+  const result = await db.execute({
+    sql: 'SELECT id, email, name, phone, created_at, roles FROM users WHERE id = ?',
+    args: [userId],
+  });
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: row.id as number,
+    email: row.email as string,
+    name: (row.name as string | null) ?? null,
+    phone: (row.phone as string | null) ?? null,
     created_at: row.created_at as string,
     roles: parseRoles(row.roles),
   };

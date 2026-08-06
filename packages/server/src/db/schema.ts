@@ -357,6 +357,10 @@ export async function initDb() {
     // `ALTER TABLE ADD COLUMN` no SQLite exigiria default para NOT NULL).
     'ALTER TABLE income_entries ADD COLUMN external_id TEXT',
     'ALTER TABLE expense_entries ADD COLUMN external_id TEXT',
+    // T-092: perfil do usuário — nome de exibição e telefone, ambos opcionais
+    // (nullable por design; sem DEFAULT porque ADD COLUMN NOT NULL exigiria um).
+    'ALTER TABLE users ADD COLUMN name TEXT',
+    'ALTER TABLE users ADD COLUMN phone TEXT',
   ]) {
     try {
       await db.execute(sql);

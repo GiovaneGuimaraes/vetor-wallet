@@ -172,6 +172,8 @@ export interface BenchmarkHistoryResponse {
 export interface User {
   id: number;
   email: string;
+  name: string | null;
+  phone: string | null;
   created_at: string;
   roles: string[];
 }

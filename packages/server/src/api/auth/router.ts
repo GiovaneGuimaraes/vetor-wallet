@@ -1,7 +1,17 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { db } from '../../db';
-import { createUser, findUserByEmail, verifyPassword, userExists, parseRoles } from './service';
+import {
+  createUser,
+  findUserByEmail,
+  verifyPassword,
+  userExists,
+  parseRoles,
+  isValidEmail,
+  isValidName,
+  isValidPhone,
+  updateUserProfile,
+} from './service';
 
 const router = Router();
 
@@ -14,7 +24,7 @@ router.post(
       res.status(400).json({ error: 'E-mail obrigatorio' });
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    if (!isValidEmail(email.trim())) {
       res.status(400).json({ error: 'E-mail invalido' });
       return;
     }
@@ -30,7 +40,14 @@ router.post(
 
     const user = await createUser(email, password);
     req.session.userId = user.id;
-    res.status(201).json({ id: user.id, email: user.email, roles: user.roles });
+    res.status(201).json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      phone: user.phone,
+      created_at: user.created_at,
+      roles: user.roles,
+    });
   }),
 );
 
@@ -56,7 +73,14 @@ router.post(
     }
 
     req.session.userId = user.id;
-    res.json({ id: user.id, email: user.email, roles: user.roles });
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      phone: user.phone,
+      created_at: user.created_at,
+      roles: user.roles,
+    });
   }),
 );
 
@@ -75,7 +99,7 @@ router.get(
       return;
     }
     const result = await db.execute({
-      sql: 'SELECT id, email, created_at, roles FROM users WHERE id = ?',
+      sql: 'SELECT id, email, name, phone, created_at, roles FROM users WHERE id = ?',
       args: [req.session.userId],
     });
     if (result.rows.length === 0) {
@@ -84,7 +108,68 @@ router.get(
       return;
     }
     const row = result.rows[0];
-    res.json({ id: row.id, email: row.email, roles: parseRoles(row.roles) });
+    res.json({
+      id: row.id,
+      email: row.email,
+      name: row.name ?? null,
+      phone: row.phone ?? null,
+      created_at: row.created_at,
+      roles: parseRoles(row.roles),
+    });
+  }),
+);
+
+router.patch(
+  '/me',
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!req.session.userId) {
+      res.status(401).json({ error: 'Nao autenticado' });
+      return;
+    }
+
+    const body = req.body as { name?: string | null; phone?: string | null };
+    const hasName = Object.prototype.hasOwnProperty.call(body, 'name');
+    const hasPhone = Object.prototype.hasOwnProperty.call(body, 'phone');
+
+    if (!hasName && !hasPhone) {
+      res.status(400).json({ error: 'Nenhum campo para atualizar' });
+      return;
+    }
+
+    if (hasName && body.name !== null) {
+      const name = body.name;
+      if (typeof name !== 'string' || !isValidName(name)) {
+        res.status(400).json({ error: 'Nome invalido' });
+        return;
+      }
+    }
+
+    if (hasPhone && body.phone !== null) {
+      if (typeof body.phone !== 'string' || !isValidPhone(body.phone)) {
+        res.status(400).json({ error: 'Telefone invalido' });
+        return;
+      }
+    }
+
+    const update: { name?: string | null; phone?: string | null } = {};
+    if (hasName) update.name = body.name === null ? null : (body.name as string).trim();
+    if (hasPhone) update.phone = body.phone === null ? null : body.phone;
+
+    const user = await updateUserProfile(req.session.userId, update);
+    if (!user) {
+      req.session.destroy(() => null);
+      res.status(401).json({ error: 'Sessao invalida' });
+      return;
+    }
+
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      phone: user.phone,
+      created_at: user.created_at,
+      roles: user.roles,
+    });
   }),
 );
 
