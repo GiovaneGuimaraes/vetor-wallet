@@ -204,6 +204,24 @@
 - **Critério de aceite**: cards verticais e menores com lista de features; fluxo de assinatura continua funcionando; lógica nova em módulo puro testado (`planos.test.ts`); `pnpm --filter vetor-wallet-web test` verde.
 - **Resultado**:
 
+> **Ciclo 18 — página de conta do usuário (2026-08-05)**, pedido do humano após validar a simulação de plano: page para o usuário alterar seus dados (nome, celular), trocar senha e ver a assinatura. Sequência executada: T-092 (server) → T-093 (page /conta) → T-094 (troca de senha); T-095 (flaky) em paralelo.
+
+### T-092 — Perfil no server: colunas name/phone + PATCH /api/auth/me
+- **Status**: CONCLUIDA — PR #138 mergeado (2026-08-05). Executor Sonnet, revisor Sonnet (APROVADA sem bloqueantes). 742 testes server. Colunas `name`/`phone TEXT NULL` (ALTER idempotente); phone normalizado para dígitos (`^(55)?\d{10,11}$`); GET/register/login retornam `name`/`phone`/`created_at`; `isValidEmail` extraído do router p/ o service; tipo `User` no shared atualizado. Email no PATCH ignorado por desestruturação (mesmo padrão das demais rotas PATCH). Sugestão não-bloqueante: espelhar em `schema.test.ts` o teste de boot-duplo dos ALTERs (padrão T-084).
+- **Prioridade**: P1 · **Complexidade**: média · **Depende de**: —
+
+### T-093 — Page /conta: editar perfil + informações da assinatura
+- **Status**: CONCLUIDA — PR #139 mergeado (2026-08-05). Executor Sonnet, revisor Sonnet (APROVADA sem bloqueantes). 445 testes web (+13 em `conta.test.ts`). Rota `/conta` (card "Meus dados" com email read-only + nome/celular editáveis via `updateMe()`; card "Assinatura" nos 3 estados; link "Conta" e saudação pelo nome no header). Estado global via `onUserUpdated` novo no ShellContext (PATCH devolve o User completo, sem refetch). Sugestão não-bloqueante: `formatPhoneForDisplay` dropa o prefixo `55` — reenvio sem edição re-normaliza silenciosamente (server aceita ambos).
+- **Prioridade**: P1 · **Complexidade**: média · **Depende de**: T-092
+
+### T-094 — Troca de senha na page /conta
+- **Status**: CONCLUIDA — PR #140 mergeado (2026-08-05). Executor Sonnet, revisor Sonnet (APROVADA sem bloqueantes). `POST /api/auth/change-password` (400 genérico p/ senha atual errada; sessão preservada; usuário deletado → destrói sessão + 401) + seção "Alterar senha" na /conta com confirmação (validação pura em `conta.ts`). 748 testes server / 449 web. Sugestão não-bloqueante: `findUserById` retorna `password_hash` (uso interno apenas — atenção em reutilizações). CLAUDE.md (tabela de rotas) atualizado pelo executor.
+- **Prioridade**: P2 · **Complexidade**: média · **Depende de**: T-092, T-093
+
+### T-095 — Corrigir flakiness noturno de benchmarksHistory.test.ts
+- **Status**: CONCLUIDA — PR #141 mergeado (2026-08-05). Diagnóstico do orquestrador: a rota ancora a janela em data BRT (`benchmarks.ts:83`) mas `buildIbovespaSeries` data pontos em UTC (`benchmarkHistory.ts:95`) — o mock com `Date.now()` caía fora da janela entre ~21h e 0h BRT (era a "falha pré-existente" vista nas T-092/T-094). Fix só no teste: timestamp = meio-dia UTC da data BRT de hoje. Executor Haiku; fix correto, mas o relatório alegou falha residual inexistente (orquestrador validou 4/4 verdes às 22:22 BRT) e duplicou um comentário (removido pelo orquestrador na branch). Suítes na main: 748 server + 449 web. **CICLO 18 COMPLETO.** Candidata registrada abaixo: datar `buildIbovespaSeries` em BRT (candle noturno pode ser recortado em produção).
+- **Prioridade**: P2 · **Complexidade**: baixa · **Depende de**: —
+
 ### Onda C — Importação bancária (OFX primeiro, Pluggy depois)
 
 > Estratégia decidida com o humano (2026-08-02): OFX como fundação sem dependência de terceiros (todos os bancos brasileiros relevantes exportam OFX), Pluggy/Meu Pluggy (Conector 200, gratuito para uso pessoal) como automação por cima do mesmo pipeline. Integração direta com Open Finance/bancos foi descartada (inviável para PF; pesquisa registrada na sessão de 2026-08-02).
@@ -274,6 +292,7 @@
 - Threshold percentual de 2 casas a revisitar com a UI de alertas (demais sobras das revisões 10–11 entraram no Ciclo 14: T-064–T-067).
 - Backfill histórico de snapshots via `hourly_quote_insights` (o agendador in-process foi entregue na T-061; Lambda/EventBridge segue como dívida de produção).
 - Ampliar `/admin`; backend de cripto (aguardando o humano); agendador do job de insights (Lambda/EventBridge); redesign de Alertas/Import (hoje sem UI).
+- **Dos ciclos 17–18 (2026-08-05)**: limpar backend de budgets (rotas + tabela `category_budgets` + tipo no shared) — a UI foi removida na T-089 e nada mais consome; datar `buildIbovespaSeries` em BRT em vez de UTC (consistência com a âncora da rota; hoje um candle intraday após 21h BRT pode ser datado como "amanhã" e recortado — achado da T-095).
 - **Da revisão de 2026-08-02** (não viraram tarefa do ciclo 16): padronizar casing da API (goals usa `target_amount`, operations usa camelCase — só dói para integradores); default silencioso `type: 'OUTRO'` no POST /api/income; "caixa de entrada" de revisão para transações importadas (confirmar/categorizar antes de virar lançamento — extratos reais têm estornos e transferências entre contas próprias); endpoint `investments` da Pluggy para reconciliar posição B3.
 
 ## Ciclos concluídos (detalhes no [`BACKLOG-ARQUIVO.md`](./BACKLOG-ARQUIVO.md))
