@@ -12,6 +12,7 @@ import { MetasPage } from './routes/MetasPage';
 import { CriptoPage } from './routes/CriptoPage';
 import { DashboardPage } from './routes/DashboardPage';
 import { PlanosPage } from './routes/PlanosPage';
+import { ContaPage } from './routes/ContaPage';
 import { AdminRoute } from './routes/AdminRoute';
 import { decideWalletFlow, resolvePrimaryWallet } from './routes/walletFlow';
 import type { User, Wallet, PortfolioSummary } from '@vetor-wallet/shared';
@@ -181,6 +182,7 @@ export default function App() {
       walletLoadError,
       walletSummary,
       refreshWallet,
+      onUserUpdated: setUser,
     };
   }
 
@@ -211,6 +213,7 @@ export default function App() {
         <Route path="/cripto" element={<CriptoPage />} />
         <Route path="/dash" element={<DashboardPage />} />
         <Route path="/planos" element={<PlanosPage />} />
+        <Route path="/conta" element={<ContaPage />} />
         {/* T-050b: bookmarks antigos do fluxo multi-carteira. `/carteiras` e
             `/dash/:id` não existem mais — a carteira é única e o dashboard não
             recebe id. Redirect em vez de 404 para não quebrar link salvo. */}
