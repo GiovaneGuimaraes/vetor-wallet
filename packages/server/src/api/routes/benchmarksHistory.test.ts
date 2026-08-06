@@ -83,9 +83,6 @@ describe('GET /api/benchmarks/history (T-068)', () => {
       // Data BRT de hoje (mesma âncora da rota, padrão hourlyInsights.ts) — meio-dia
       // UTC dessa data garante que buildIbovespaSeries (que data em UTC) produza um
       // ponto dentro da janela [from, to] em qualquer horário de execução.
-      // Data BRT de hoje (mesma âncora da rota, padrão hourlyInsights.ts) — meio-dia
-      // UTC dessa data garante que buildIbovespaSeries (que data em UTC) produza um
-      // ponto dentro da janela [from, to] em qualquer horário de execução.
       const brtDate = new Date(Date.now() - 3 * 60 * 60 * 1000);
       const year = brtDate.getUTCFullYear();
       const month = String(brtDate.getUTCMonth() + 1).padStart(2, '0');
