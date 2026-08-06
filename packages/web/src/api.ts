@@ -81,6 +81,22 @@ export async function updateMe(update: { name?: string | null; phone?: string | 
   return res.json();
 }
 
+/**
+ * Troca de senha (T-094): `POST /api/auth/change-password`, requer sessão.
+ * Mensagem genérica quando a senha atual está errada (mesma cautela do login).
+ */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const res = await apiFetch('/api/auth/change-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao trocar a senha');
+  }
+}
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 export async function runInsightsJob(date?: string): Promise<{

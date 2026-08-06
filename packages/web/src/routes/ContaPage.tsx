@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { MySubscriptionResponse, SubscriptionStatus } from '@vetor-wallet/shared';
-import { getMySubscription, updateMe } from '../api';
+import { getMySubscription, updateMe, changePassword } from '../api';
 import { useShellContext } from '../layout/ShellContext';
 import { BackToHomeLink } from '../components/BackToHomeLink';
-import { formatPhoneForDisplay, normalizePhoneForSubmit } from './conta';
+import { CollapsibleSection } from '../components/CollapsibleSection';
+import { formatPhoneForDisplay, normalizePhoneForSubmit, isValidNewPassword, passwordsMatch } from './conta';
 import { formatPlanPrice, planPeriodLabel } from './planos';
 import './layers-savings.css';
 import './planos.css';
@@ -30,8 +31,9 @@ const STATUS_LABELS: Record<SubscriptionStatus, string> = {
 /**
  * Rota `/conta` (T-093): dois cards — "Meus dados" (editar name/phone via
  * `PATCH /api/auth/me`, T-092) e "Assinatura" (leitura de `getMySubscription`,
- * já usada em `/planos`). Troca de senha é T-094 — só o espaço reservado
- * abaixo do card de dados, sem implementação.
+ * já usada em `/planos`). Troca de senha (T-094) fica atrás de um
+ * `CollapsibleSection` dentro do card de dados, via `POST
+ * /api/auth/change-password`; não afeta a sessão atual.
  */
 export function ContaPage() {
   const { user, onUserUpdated } = useShellContext();
@@ -41,6 +43,13 @@ export function ContaPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   const [sub, setSub] = useState<MySubscriptionResponse | null>(null);
   const [subLoading, setSubLoading] = useState(true);
@@ -80,6 +89,34 @@ export function ContaPage() {
       setSaveError(e instanceof Error ? e.message : 'Falha ao salvar seus dados');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(false);
+
+    if (!isValidNewPassword(newPassword)) {
+      setPasswordError('A nova senha deve ter pelo menos 8 caracteres');
+      return;
+    }
+    if (!passwordsMatch(newPassword, confirmPassword)) {
+      setPasswordError('A confirmação não coincide com a nova senha');
+      return;
+    }
+
+    setPasswordSaving(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      setPasswordSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (e) {
+      setPasswordError(e instanceof Error ? e.message : 'Falha ao trocar a senha');
+    } finally {
+      setPasswordSaving(false);
     }
   }
 
@@ -129,7 +166,49 @@ export function ContaPage() {
           {saveError && <p className="vw-form-error">{saveError}</p>}
           {saveSuccess && !saveError && <p className="vw-conta-success">Dados atualizados.</p>}
         </form>
-        {/* T-094 (fora de escopo desta tarefa): troca de senha entra aqui. */}
+        <CollapsibleSection label="Alterar senha" className="vw-conta-password-section">
+          <form onSubmit={handleChangePassword}>
+            <div className="vw-form-grid">
+              <div className="vw-form-field">
+                <label htmlFor="conta-current-password">Senha atual</label>
+                <input
+                  id="conta-current-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                />
+              </div>
+              <div className="vw-form-field">
+                <label htmlFor="conta-new-password">Nova senha</label>
+                <input
+                  id="conta-new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+              </div>
+              <div className="vw-form-field">
+                <label htmlFor="conta-confirm-password">Confirmar nova senha</label>
+                <input
+                  id="conta-confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="vw-form-actions">
+              <button type="submit" className="vw-btn-primary" disabled={passwordSaving}>
+                {passwordSaving ? 'Salvando...' : 'Alterar senha'}
+              </button>
+            </div>
+            {passwordError && <p className="vw-form-error">{passwordError}</p>}
+            {passwordSuccess && !passwordError && <p className="vw-conta-success">Senha alterada.</p>}
+          </form>
+        </CollapsibleSection>
       </div>
 
       <div className="vw-form-card">

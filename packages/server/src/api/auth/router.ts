@@ -11,6 +11,8 @@ import {
   isValidName,
   isValidPhone,
   updateUserProfile,
+  findUserById,
+  updateUserPassword,
 } from './service';
 
 const router = Router();
@@ -170,6 +172,51 @@ router.patch(
       created_at: user.created_at,
       roles: user.roles,
     });
+  }),
+);
+
+// T-094: troca de senha na page /conta. Mensagem genérica na senha atual
+// errada (não distingue "usuário não existe" de "senha errada" — o usuário
+// já está autenticado, mas mantemos o mesmo cuidado do login). Não toca na
+// sessão atual: o usuário segue logado após trocar a senha.
+router.post(
+  '/change-password',
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!req.session.userId) {
+      res.status(401).json({ error: 'Nao autenticado' });
+      return;
+    }
+
+    const { currentPassword, newPassword } = req.body as {
+      currentPassword?: string;
+      newPassword?: string;
+    };
+
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: 'Senha atual e nova senha sao obrigatorias' });
+      return;
+    }
+
+    if (typeof newPassword !== 'string' || newPassword.length < 8) {
+      res.status(400).json({ error: 'Senha deve ter pelo menos 8 caracteres' });
+      return;
+    }
+
+    const user = await findUserById(req.session.userId);
+    if (!user) {
+      req.session.destroy(() => null);
+      res.status(401).json({ error: 'Sessao invalida' });
+      return;
+    }
+
+    const currentOk = await verifyPassword(currentPassword, user.password_hash);
+    if (!currentOk) {
+      res.status(400).json({ error: 'Senha atual invalida' });
+      return;
+    }
+
+    await updateUserPassword(user.id, newPassword);
+    res.status(204).send();
   }),
 );
 

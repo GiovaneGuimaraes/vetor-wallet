@@ -60,3 +60,16 @@ export function greetingName(name: string | null | undefined, email: string): st
   }
   return email.split('@')[0];
 }
+
+/**
+ * Validação client do form "Alterar senha" (T-094): nova senha com pelo
+ * menos 8 chars (mesma regra do server) e confirmação igual à nova senha.
+ * Não valida a senha atual aqui — isso é decisão do server (400 genérico).
+ */
+export function isValidNewPassword(password: string): boolean {
+  return password.length >= 8;
+}
+
+export function passwordsMatch(newPassword: string, confirmPassword: string): boolean {
+  return newPassword === confirmPassword;
+}
