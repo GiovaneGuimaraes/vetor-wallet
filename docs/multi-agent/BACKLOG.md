@@ -154,6 +154,56 @@
 - **Critério de aceite**: toda page de layer tem o link de volta funcional; testes web verdes.
 - **Resultado**:
 
+> **Ciclo 17 — ajustes de UX pedidos pelo humano (2026-08-05)**, antes de retomar as ondas: (1) "+" duplicado nos botões de seção recolhível; (2) remover o card de orçamento do mês em /despesas; (3) botão "Adicionar" ilegível no dark mode; (4) redesign da página de planos no estilo X Premium (app free; plano libera Ações, Cripto e integração Pluggy). T-090 e T-091 paralelizam; T-088 → T-089 em sequência (mesmo arquivo `DespesasPage.tsx`).
+
+### T-088 — Remover "+" duplicado nos labels de CollapsibleSection
+- **Status**: CONCLUIDA — PR #134 mergeado (2026-08-05). Executor Haiku; diff de 7 labels verificado inline pelo orquestrador (sem revisor — precedente T-081). 442 testes web; nenhum teste asserava os textos.
+- **Prioridade**: P1
+- **Complexidade**: baixa
+- **Depende de**: —
+- **Branch/worktree**: (preenchido ao delegar)
+- **Contexto**: `CollapsibleSection` já renderiza o ícone `+`/`−` (`components/CollapsibleSection.tsx:55-58`), mas 7 call sites prefixam o label com `"+ "`, renderizando "+ + Texto". Padrão correto de referência: "Importar extrato (OFX)" (`DespesasPage.tsx:785`) e "Ajustar premissas".
+- **Escopo**: remover o prefixo `"+ "` dos 7 labels: `DespesasPage.tsx:677` e `:940`, `RendaPage.tsx:434`, `MetasPage.tsx:221`, `PoupancaPage.tsx:660` e `:764`, `DashboardPage.tsx:443`. Ajustar testes que asseram esses textos, se houver.
+- **Fora de escopo**: mudar o componente `CollapsibleSection`; remover o card de orçamento (T-089).
+- **Critério de aceite**: nenhum label de `CollapsibleSection` começa com `"+ "`; `pnpm --filter vetor-wallet-web test` verde.
+- **Resultado**:
+
+### T-089 — Remover o card "Orçamento do mês" de /despesas
+- **Status**: CONCLUIDA — PR #137 mergeado (2026-08-05). Executor Sonnet, revisor Sonnet (APROVADA sem bloqueantes). 427 testes web (−15 do `budgetProgress.test.ts` removido); grep final sem sobras de `budget` no web; backend `/api/budgets` mantido sem consumidor (candidata: limpar rotas/tabela). Sugestão não-bloqueante: parágrafo antigo de `expenses-budgets.md` ainda cita `computeBudgetProgress`. **CICLO 17 COMPLETO** (sanidade na main: fast-forward limpo, suítes verdes nos 4 PRs).
+- **Prioridade**: P1
+- **Complexidade**: média
+- **Depende de**: T-088 (mesmo arquivo)
+- **Branch/worktree**:
+- **Contexto**: decisão do humano (2026-08-05): o card de orçamento complica o app sem agregar valor — remover. Reverte na prática a T-082 (que reintroduziu a seção). O card é o ÚNICO consumidor de budgets no front.
+- **Escopo**: em `DespesasPage.tsx`, remover o bloco JSX (linhas ~889-970), estados/handlers/fetch de budgets (183-188, 197-203, 273/276, 284, 288, 305, 558-589, 625-634) e imports associados. Remover os órfãos: `budgetProgress.ts` + `budgetProgress.test.ts`, CSS `.vw-budget-*` em `layers.css:367-444`, e `getBudgets`/`upsertBudget`/`deleteBudget` em `api.ts:597-620`. Atualizar `docs/decisions/expenses-budgets.md` registrando a remoção da UI (backend `/api/budgets` permanece, sem consumidor).
+- **Fora de escopo**: remover as rotas/tabela de budgets no server (fica como candidata caso o humano queira limpar o backend depois).
+- **Critério de aceite**: `/despesas` não exibe nada de orçamento; nenhum código morto de budgets no web (grep por `budget` no web só encontra o `dashboard.css` se aplicável); `pnpm --filter vetor-wallet-web test` verde; build web verde.
+- **Resultado**:
+
+### T-090 — Corrigir botões `bg-accent text-white` ilegíveis no dark mode
+- **Status**: CONCLUIDA — PR #135 mergeado (2026-08-05). Executor Haiku; diff de 3 trocas de classe verificado inline pelo orquestrador (sem revisor — trivial). `text-white` → `text-canvas` nos 3 componentes; sem teste novo (só classe CSS, justificativa pela política). 442 testes web.
+- **Prioridade**: P1
+- **Complexidade**: baixa
+- **Depende de**: —
+- **Branch/worktree**:
+- **Contexto**: no dark, `--color-accent` vira `#f5f5f4` (`index.css:123-125`), mas o texto é `text-white` hardcoded — botão branco com texto branco. Afeta o "Adicionar" da página de Ações (`OperationForm.tsx:185-191`) e também `AlertsPanel.tsx:179` e `CsvImport.tsx:239`.
+- **Escopo**: nos 3 componentes, trocar `text-white` por `text-canvas` (padrão já usado em `AdminPage.tsx:109`) ou adotar `vw-btn-primary` — decisão do executor, consistente nos 3.
+- **Fora de escopo**: mudar tokens de tema em `index.css`.
+- **Critério de aceite**: os 3 botões legíveis em light e dark (contraste fundo × texto invertendo juntos); testes web verdes (sem teste novo se for só troca de classe — justificar).
+- **Resultado**:
+
+### T-091 — Redesign da página de planos (estilo X Premium: card vertical + features)
+- **Status**: CONCLUIDA — PR #136 mergeado (2026-08-05). Executor Sonnet, revisor Sonnet (APROVADA sem bloqueantes). 447 testes web (+5 em `planos.test.ts` p/ `yearlySavingsPercent`). Sugestões não-bloqueantes: mover `PRO_FEATURES` para depois dos imports; `yearlySavingsPercent` usa float (aceitável — é percentual arredondado, não dinheiro).
+- **Prioridade**: P2
+- **Complexidade**: média
+- **Depende de**: —
+- **Branch/worktree**:
+- **Contexto**: direcionamento do humano (2026-08-05), referência `https://x.com/i/premium_sign_up`: o app é **free** — o plano dá acesso a Ações, Criptomoedas e integração bancária automática (Pluggy). Os cards atuais (`PlanosPage.tsx`, `planos.css`) são grandes e sem lista de benefícios; devem ficar menores e mais verticais (proporção coluna, não bloco largo).
+- **Escopo**: `PlanosPage.tsx` + `planos.css` (+ `planos.ts` se precisar de lógica pura): cards mais estreitos/verticais (ex.: `max-width` ~280-320px, centralizados), cada um com nome → preço em destaque → lista de features com check (✓ Layer de Ações da B3, ✓ Criptomoedas, ✓ Importação automática via Pluggy — e o free implícito no texto da página: renda, despesas, poupança e metas grátis); destacar o anual (badge de economia usando `monthlyEquivalentCents` já existente); manter botão "Assinar" (`vw-btn-primary`) e todo o fluxo de assinatura/Pix intacto. Copy deixando claro que o app é gratuito e o plano desbloqueia os recursos avançados. Tema via CSS custom properties, light e dark.
+- **Fora de escopo**: mudar gating de assinatura (T-071), rotas de billing, seeds de planos no server; implementar cripto/Pluggy (a feature list é promessa de produto já direcionada pelo humano).
+- **Critério de aceite**: cards verticais e menores com lista de features; fluxo de assinatura continua funcionando; lógica nova em módulo puro testado (`planos.test.ts`); `pnpm --filter vetor-wallet-web test` verde.
+- **Resultado**:
+
 ### Onda C — Importação bancária (OFX primeiro, Pluggy depois)
 
 > Estratégia decidida com o humano (2026-08-02): OFX como fundação sem dependência de terceiros (todos os bancos brasileiros relevantes exportam OFX), Pluggy/Meu Pluggy (Conector 200, gratuito para uso pessoal) como automação por cima do mesmo pipeline. Integração direta com Open Finance/bancos foi descartada (inviável para PF; pesquisa registrada na sessão de 2026-08-02).
