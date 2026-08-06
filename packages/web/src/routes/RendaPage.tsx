@@ -431,7 +431,7 @@ export function RendaPage() {
       {/* T-075: form unificado (Fixa/Avulsa), recolhido por padrão — a
           consulta (total, listas) fica sempre visível; lançar uma renda é a
           ação minoritária. */}
-      <CollapsibleSection label="+ Adicionar renda" openLabel="Adicionar renda">
+      <CollapsibleSection label="Adicionar renda" openLabel="Adicionar renda">
         <form className="vw-layerpage-form" onSubmit={handleAddSubmit}>
           <div className="vw-expense-kind-toggle" role="radiogroup" aria-label="Tipo de renda">
             <button

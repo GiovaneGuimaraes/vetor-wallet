@@ -440,7 +440,7 @@ export function DashboardPage() {
               consulta. Mesmo padrão `CollapsibleSection` da T-074
               (DespesasPage): consulta é o uso ~10x mais frequente que
               lançamento. */}
-          <CollapsibleSection label="+ Nova operação" openLabel="Nova operação">
+          <CollapsibleSection label="Nova operação" openLabel="Nova operação">
             <OperationForm onSubmit={handleCreate} />
           </CollapsibleSection>
 
