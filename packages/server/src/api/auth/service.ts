@@ -144,6 +144,35 @@ export async function updateUserProfile(userId: number, update: ProfileUpdate): 
   };
 }
 
+// Atualiza o password_hash direto (sem passar pelo fluxo de criação); quem
+// chama já validou a senha atual (verifyPassword) e a nova senha (mesma
+// regra do register, >= 8 chars) — aqui só hash + persistência (T-094).
+export async function updateUserPassword(userId: number, newPassword: string): Promise<void> {
+  const passwordHash = await hashPassword(newPassword);
+  await db.execute({
+    sql: 'UPDATE users SET password_hash = ? WHERE id = ?',
+    args: [passwordHash, userId],
+  });
+}
+
+export async function findUserById(userId: number): Promise<(User & { password_hash: string }) | null> {
+  const result = await db.execute({
+    sql: 'SELECT id, email, name, phone, password_hash, created_at, roles FROM users WHERE id = ?',
+    args: [userId],
+  });
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    id: row.id as number,
+    email: row.email as string,
+    name: (row.name as string | null) ?? null,
+    phone: (row.phone as string | null) ?? null,
+    password_hash: row.password_hash as string,
+    created_at: row.created_at as string,
+    roles: parseRoles(row.roles),
+  };
+}
+
 export async function userExists(email: string): Promise<boolean> {
   const result = await db.execute({
     sql: 'SELECT id FROM users WHERE email = ?',

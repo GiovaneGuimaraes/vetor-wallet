@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { formatPhoneForDisplay, normalizePhoneForSubmit, onlyDigits, greetingName } from './conta';
+import {
+  formatPhoneForDisplay,
+  normalizePhoneForSubmit,
+  onlyDigits,
+  greetingName,
+  isValidNewPassword,
+  passwordsMatch,
+} from './conta';
 
 describe('onlyDigits', () => {
   it('strips everything that is not a digit', () => {
@@ -63,5 +70,28 @@ describe('greetingName', () => {
 
   it('trims surrounding whitespace from the name before splitting', () => {
     expect(greetingName('  Maria Clara  ', 'maria@test.com')).toBe('Maria');
+  });
+});
+
+describe('isValidNewPassword', () => {
+  it('accepts a password with 8 or more characters', () => {
+    expect(isValidNewPassword('12345678')).toBe(true);
+    expect(isValidNewPassword('123456789')).toBe(true);
+  });
+
+  it('rejects a password with fewer than 8 characters', () => {
+    expect(isValidNewPassword('1234567')).toBe(false);
+    expect(isValidNewPassword('')).toBe(false);
+  });
+});
+
+describe('passwordsMatch', () => {
+  it('returns true when both strings are equal', () => {
+    expect(passwordsMatch('newpassword123', 'newpassword123')).toBe(true);
+  });
+
+  it('returns false when the strings differ', () => {
+    expect(passwordsMatch('newpassword123', 'newpassword124')).toBe(false);
+    expect(passwordsMatch('newpassword123', '')).toBe(false);
   });
 });

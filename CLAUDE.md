@@ -50,7 +50,7 @@ O SQLite (`packages/server/data/wallet.db`) é criado no primeiro boot.
 
 | Recurso | Rotas | Notas |
 |---|---|---|
-| auth | POST /api/auth/register·login·logout, GET /me | bcrypt + express-session |
+| auth | POST /api/auth/register·login·logout, GET /me, PATCH /me, POST /change-password | bcrypt + express-session; troca de senha exige sessão e não a invalida (T-094) |
 | wallets | GET, POST /api/wallets | carteira ÚNICA por usuário (T-050); POST recusa a 2ª |
 | operations | GET, POST, DELETE /api/operations[/:id] | `walletId` do cliente é ignorado; SELL validado contra posição atual |
 | portfolio | GET /api/portfolio, GET /portfolio/history?days= | cotações em tempo real; série valor × custo |
