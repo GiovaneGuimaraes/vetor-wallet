@@ -5,7 +5,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import { buildPositionMap, applyOperation, wouldExceedPosition } from '../services/portfolio';
-import { getUnknownTickers } from '../services/tickers';
+import { getUnknownTickers } from '@vetor-wallet/brapi-core';
 import { isValidIsoDate } from '../services/dates';
 import { getOrCreateDefaultWallet } from '../services/wallets';
 import { isValidMoneyAmount, moneyAmountError } from '../services/money';
