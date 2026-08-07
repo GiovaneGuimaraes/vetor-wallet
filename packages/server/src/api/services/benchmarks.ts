@@ -1,5 +1,5 @@
 import { db } from '@vetor-wallet/db';
-import { fetchQuotes } from './quotes';
+import { fetchQuotes } from '@vetor-wallet/brapi-core';
 import { buildPositionMap, buildPortfolioSummary } from './portfolio';
 import type { Operation } from '@vetor-wallet/shared';
 

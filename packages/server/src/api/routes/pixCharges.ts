@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
-import { AbacatePayError, checkPixCharge } from '../services/abacatepay';
+import { AbacatePayError, checkPixCharge } from '@vetor-wallet/abacatepay-core';
 import {
   markChargePaidAndActivate,
   nowSqliteUtc,

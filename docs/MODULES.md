@@ -45,8 +45,8 @@ Packages:
   posição atual, série valor × custo, snapshots diários e o agendador de coleta.
   Hoje: `services/portfolio.ts`, `portfolioHistory.ts`, `wallets.ts`, `snapshots.ts`,
   `snapshotScheduler.ts`.
-- `packages/brapi-core` *(planejado — Integração)* — client HTTP da [brapi.dev](https://brapi.dev):
-  cotações e busca de tickers. Hoje: `services/quotes.ts`, `tickers.ts`.
+- `packages/brapi-core` *(Integração, T-098)* — client HTTP da [brapi.dev](https://brapi.dev):
+  cotações e busca de tickers.
 - `packages/rest-api` — `/api/wallets`, `/api/operations`, `/api/portfolio`, `/api/snapshots`,
   `/api/tickers`, `/api/alerts`, `/api/import` (CSV de corretora).
 - `packages/web/src/routes` — página da carteira, gráfico SVG de evolução e alocação.
@@ -124,9 +124,9 @@ Packages:
 - `packages/billing-core` *(planejado)* — regras de data e ativação: `markChargePaidAndActivate`
   como **única porta de ativação** (webhook, polling e simulação convergem nela), datas UTC no
   formato SQLite, valores em centavos. Hoje: `services/billing.ts`.
-- `packages/abacatepay-core` *(planejado — Integração)* — client HTTP da AbacatePay: envelope
+- `packages/abacatepay-core` *(Integração, T-098)* — client HTTP da AbacatePay: envelope
   `{ data, error, success }` (pode vir HTTP 200 **com** `error`), timeout de 10s, nunca degrada
-  em silêncio. Hoje: `services/abacatepay.ts`.
+  em silêncio.
 - `packages/rest-api` — `/api/plans`, `/api/subscriptions`, `/api/pix-charges/:id`,
   `/api/webhooks/abacatepay` (HMAC, montado **antes** do `express.json()`),
   `/api/billing/simulate/:chargeId` (404 em produção) e o middleware

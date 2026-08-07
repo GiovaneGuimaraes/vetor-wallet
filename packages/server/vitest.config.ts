@@ -12,6 +12,8 @@ export default defineConfig({
     // verde). tsc/tsx já resolvem certo via `paths` do tsconfig.json.
     alias: {
       '@vetor-wallet/db': path.resolve(__dirname, '../db/src/index.ts'),
+      '@vetor-wallet/brapi-core': path.resolve(__dirname, '../brapi-core/src/index.ts'),
+      '@vetor-wallet/abacatepay-core': path.resolve(__dirname, '../abacatepay-core/src/index.ts'),
     },
   },
   test: {

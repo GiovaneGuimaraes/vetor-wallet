@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
-import { searchTickers } from '../services/tickers';
+import { searchTickers } from '@vetor-wallet/brapi-core';
 
 const router = Router();
 

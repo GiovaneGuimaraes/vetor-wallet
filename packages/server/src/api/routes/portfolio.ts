@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db } from '@vetor-wallet/db';
-import { fetchQuotes } from '../services/quotes';
+import { fetchQuotes } from '@vetor-wallet/brapi-core';
 import { buildPositionMap, buildPortfolioSummary } from '../services/portfolio';
 import { getPreviousCloseSnapshots, getBRTDate } from '../services/snapshots';
 import { asyncHandler } from '../middleware/asyncHandler';
