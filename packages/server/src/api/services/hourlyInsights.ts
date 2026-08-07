@@ -7,7 +7,7 @@
 // logic in saveHourlyInsight and switch fetchDailyClose back to interval=1h.
 
 import PQueue from 'p-queue';
-import { db } from '../../db';
+import { db } from '@vetor-wallet/db';
 import { resolveActiveTickers, getBRTDate, saveSnapshotForDate, withRetry } from './snapshots';
 
 const BRAPI_BASE = 'https://brapi.dev/api/quote';

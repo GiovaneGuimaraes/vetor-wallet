@@ -27,7 +27,7 @@ async function buildApp(): Promise<Express> {
   // real (o que é o comportamento que importa: dados sobrevivem a um novo
   // client sobre o mesmo arquivo), não pela identidade do módulo importado.
   const { createClient } = await import('@libsql/client');
-  const { SqliteSessionStore } = await import('../../db/sessionStore');
+  const { SqliteSessionStore } = await import('@vetor-wallet/db');
   const authRouterMod = await import('./router');
 
   const client = createClient({ url: process.env.DATABASE_URL! });
@@ -50,7 +50,7 @@ async function buildApp(): Promise<Express> {
 
 describe('sessão sobrevive a "restart" do server (integração com o mesmo arquivo SQLite)', () => {
   beforeAll(async () => {
-    const { initDb } = await import('../../db');
+    const { initDb } = await import('@vetor-wallet/db');
     await initDb();
   });
 

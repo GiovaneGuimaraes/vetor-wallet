@@ -19,11 +19,11 @@ process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
 describe('import routes — CSV SELL validation', () => {
   let app: Express;
-  let db: typeof import('../../db').db;
+  let db: typeof import('@vetor-wallet/db').db;
   let agentA: ReturnType<typeof request.agent>;
 
   beforeAll(async () => {
-    const dbModule = await import('../../db');
+    const dbModule = await import('@vetor-wallet/db');
     const { initDb } = dbModule;
     db = dbModule.db;
     const { default: authRouter } = await import('../auth/router');

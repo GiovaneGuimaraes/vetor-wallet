@@ -37,7 +37,7 @@ describe('income entries routes (T-036)', () => {
   let twoAhead: string;
 
   beforeAll(async () => {
-    const { initDb } = await import('../../db');
+    const { initDb } = await import('@vetor-wallet/db');
     const { default: authRouter } = await import('../auth/router');
     const { currentMonth, shiftMonthKey } = await import('./expenseEntries');
     const { default: incomeEntriesRouter } = await import('./incomeEntries');

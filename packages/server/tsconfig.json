@@ -10,10 +10,11 @@
     "esModuleInterop": true,
     "baseUrl": ".",
     "paths": {
-      "@vetor-wallet/shared": ["../shared/src/index.ts"]
+      "@vetor-wallet/shared": ["../shared/src/index.ts"],
+      "@vetor-wallet/db": ["../db/src/index.ts"]
     }
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts", "src/**/__fixtures__/**"],
-  "references": [{ "path": "../shared" }]
+  "references": [{ "path": "../shared" }, { "path": "../db" }]
 }

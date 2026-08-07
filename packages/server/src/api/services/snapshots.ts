@@ -1,5 +1,5 @@
 import type { QuoteSnapshot } from '@vetor-wallet/shared';
-import { db } from '../../db';
+import { db } from '@vetor-wallet/db';
 
 const BRAPI_BASE = 'https://brapi.dev/api/quote';
 

@@ -269,10 +269,71 @@
 - **Depende de**: T-084 (e credenciais no `TODO-HUMANO.md`)
 - **Branch/worktree**:
 - **Contexto**: Meu Pluggy (meu.pluggy.ai) dá acesso gratuito via API às contas do próprio usuário conectadas por Open Finance (Conector 200) — único caminho automático viável para PF. Pesquisa completa registrada na sessão de 2026-08-02.
-- **Escopo**: job `pluggy:sync` em `packages/cli` (padrão do `insights:hourly`): autentica com `PLUGGY_CLIENT_ID`/`PLUGGY_CLIENT_SECRET` (novos no `.env.example` do cli), busca transações das contas conectadas desde o último sync, insere com `external_id` = id da transação Pluggy — crédito → income entry, débito → expense entry, categoria Pluggy mapeada para `normalizeCategory`. Flag `--dry-run` imprime sem gravar. Estado do último sync persistido (tabela pequena ou derivado do max `date` importado — decisão do executor, registrada).
+- **Escopo**: **após o Ciclo 19, o client da Pluggy nasce direto como `packages/pluggy-core`** (categoria Integração, módulo BankImport — ver `docs/MODULES.md`), não em `services/`: autenticação e busca de transações ficam no core, sem tocar o banco; o mapeamento para entries e a gravação ficam no `bank-import-core`. O job `pluggy:sync` em `packages/cli` (padrão do `insights:hourly`) só orquestra. Autentica com `PLUGGY_CLIENT_ID`/`PLUGGY_CLIENT_SECRET` (novos no `.env.example` do cli), busca transações das contas conectadas desde o último sync, insere com `external_id` = id da transação Pluggy — crédito → income entry, débito → expense entry, categoria Pluggy mapeada para `normalizeCategory`. Flag `--dry-run` imprime sem gravar. Estado do último sync persistido (tabela pequena ou derivado do max `date` importado — decisão do executor, registrada).
 - **Fora de escopo**: endpoint `investments` da Pluggy (candidata para reconciliar posição B3); UI; agendamento (roda manual como o insights).
 - **Critério de aceite**: com credenciais de teste/mocks, `pnpm --filter vetor-wallet-cli pluggy:sync -- --dry-run` lista transações sem gravar; execução real é idempotente (2ª rodada não duplica — dedupe T-084); testes das funções de mapeamento; suítes verdes.
 - **Resultado**:
+
+> **Ciclo 19 — refatoração da arquitetura em módulos (2026-08-06)**, pedido do humano ANTES de retomar as ondas do Ciclo 16. Adotar o modelo de módulos da OneClick Ads: `packages/*-core` irmãos de `web`/`rest-api`/`db`, cada um com seu `CLAUDE.md`. Documentos governantes: [`docs/MODULES.md`](../MODULES.md) e [`docs/PACKAGES.md`](../PACKAGES.md).
+>
+> **Sequência obrigatória, uma tarefa por PR, sem paralelizar** — todas mexem em arquivos que qualquer outra tarefa toca; duas em voo viram conflito em série. Nenhuma tarefa deste ciclo pode alterar comportamento: são movimentações mecânicas, e a suíte inteira deve passar **com o mesmo número de testes** antes e depois. Se um teste precisar mudar além do caminho de import, pare e reporte.
+>
+> **Baseline verde medido na `main` em 2026-08-06 (commit `dba8603`), antes da T-097:**
+> **server 748 testes / 48 arquivos**, **web 449 testes / 26 arquivos** — total **1197**. `pnpm build` verde (server → `dist/api/index.js`, web → 104 módulos). Todo PR do Ciclo 19 tem que reproduzir exatamente estes números.
+
+### T-096 — Documentos de arquitetura (MODULES.md + PACKAGES.md)
+- **Status**: CONCLUIDA — feito pelo orquestrador direto na `main` (2026-08-06), sem PR (docs-only, nenhum código tocado).
+- **Prioridade**: P1
+- **Complexidade**: baixa
+- **Depende de**: —
+- **Contexto**: a refatoração precisa de um alvo escrito antes de qualquer arquivo se mover, senão cada executor inventa o seu.
+- **Escopo**: `docs/MODULES.md` (8 módulos, packages de cada um, invariantes), `docs/PACKAGES.md` (tabela, categorias, regras de dependência, árvore "onde colocar este código") e seção "Arquitetura em módulos" no `CLAUDE.md` raiz.
+- **Resultado**: os três arquivos marcam explicitamente cada package como *(planejado)* com a coluna "Hoje em", para não induzir agente a procurar package inexistente.
+
+### T-097 — Extrair `packages/db`
+- **Status**: EM_ANDAMENTO — delegada 2026-08-06, executor Sonnet em worktree.
+- **Prioridade**: P1
+- **Complexidade**: média
+- **Depende de**: T-096
+- **Branch/worktree**:
+- **Contexto**: primeira extração porque é a de dependência mais rasa (não importa nenhum core) e destrava as demais — todo `*-core` de domínio vai depender dela.
+- **Escopo**: mover `packages/server/src/db/` (`client.ts`, `schema.ts`, `migrations.ts`, `sessionStore.ts`, `index.ts` + testes) e `services/sqlErrors.ts` para `packages/db` como `@vetor-wallet/db`. `package.json` com `main: src/index.ts`, tsconfig próprio, `vitest`. Atualizar os **33 arquivos** do server que importam `db` por caminho relativo, o `paths` do tsconfig do server e o alias `@vetor-wallet/server/db` usado por `cli/src/grantAdmin.ts` e `cli/src/hourlyInsights.ts`.
+- **Fora de escopo**: qualquer mudança de SQL, schema ou comportamento; renomear o package `server`.
+- **Critério de aceite**: `pnpm --filter vetor-wallet-server test` e `pnpm --filter vetor-wallet-web test` verdes com a **mesma contagem** de testes; `pnpm build` gera `dist/api/index.js`; `pnpm --filter vetor-wallet-cli insights:hourly` roda. **Atenção**: `client.ts` lê `DATABASE_URL` no top-level — a convenção "setar env antes do `await import()`" continua valendo, agora com `await import('@vetor-wallet/db')`.
+
+### T-098 — Extrair as integrações: `brapi-core` e `abacatepay-core`
+- **Status**: PENDENTE
+- **Prioridade**: P1
+- **Complexidade**: média
+- **Depende de**: T-097
+- **Branch/worktree**:
+- **Contexto**: são os candidatos mais limpos — `quotes.ts`, `tickers.ts` e `abacatepay.ts` já são clients HTTP puros, sem nenhum import de `db`. Extrair primeiro valida o formato de package core com risco quase zero.
+- **Escopo**: `packages/brapi-core` (de `services/quotes.ts` + `tickers.ts`) e `packages/abacatepay-core` (de `services/abacatepay.ts`), cada um com testes ao lado e um `CLAUDE.md` próprio com as invariantes que hoje vivem no cabeçalho dos arquivos (envelope `{data,error,success}` com HTTP 200 + `error`; timeout 10s do Pix × 5s da cotação; cotação degrada em silêncio, cobrança nunca).
+- **Fora de escopo**: mexer em `billing.ts` (fica para a T-099); mudar timeout, retry ou tratamento de erro.
+- **Critério de aceite**: nenhum dos dois packages importa `@vetor-wallet/db` nem `express` (verificável por grep); suítes verdes com a mesma contagem; `BRAPI_TOKEN`/`ABACATEPAY_*` continuam lidos do env do processo.
+
+### T-099 — Extrair os core de domínio
+- **Status**: PENDENTE
+- **Prioridade**: P1
+- **Complexidade**: alta
+- **Depende de**: T-098
+- **Branch/worktree**:
+- **Contexto**: o grosso da migração. Estes core **podem** falar com `db` (são donos do dado) — ver a definição de "Core" em `PACKAGES.md`.
+- **Achado da T-097 a aproveitar**: `db/src/migrations.ts` precisou de uma **terceira** cópia local de `normalizeCategory` (antes importava de `services/categories.ts`; um `db` isolado não pode depender de volta no server). As três cópias são hoje byte a byte idênticas. Como a função é pura e sem I/O, `validation-core` pode absorvê-la e colapsar as cópias de `db` e `server` numa só — a do `web` continua separada (o navegador não consome package de backend). Fazer isso ao criar o `validation-core`, com teste que cubra o caso unicode (`SAÚDE`/`saúde`, que é o motivo do `toLocaleLowerCase('pt-BR')`).
+- **Escopo**: criar, nesta ordem e **um commit por package** dentro do mesmo PR: `validation-core` (`dates.ts`, `money.ts` — transversal, vem primeiro porque os outros usam), `billing-core` (`billing.ts`), `savings-core` (`savings.ts`, `goals.ts`), `expenses-core` (`categories.ts`, `recurringExpenses.ts`), `bank-import-core` (`ofx.ts`, `externalId.ts`), `insights-core` (`benchmarks.ts`, `benchmarkHistory.ts`, `hourlyInsights.ts`), `portfolio-core` (`portfolio.ts`, `portfolioHistory.ts`, `wallets.ts`, `snapshots.ts`, `snapshotScheduler.ts`), `auth-core` (`api/auth/service.ts`). Cada um leva seus testes e ganha um `CLAUDE.md` migrado do arquivo correspondente em `docs/decisions/` (que passa a ser um stub apontando para o package).
+- **Fora de escopo**: `api/auth/middleware.ts` e `api/middleware/*` ficam no server (são Express); as rotas não mudam de lugar; nenhuma regra de negócio muda.
+- **Critério de aceite**: nenhum `*-core` importa `express` (grep); suítes verdes com a mesma contagem; `docs/MODULES.md` e `docs/PACKAGES.md` atualizados removendo o marcador *(planejado)* de cada package criado.
+
+### T-100 — Renomear `server` → `rest-api`
+- **Status**: PENDENTE
+- **Prioridade**: P3
+- **Complexidade**: média
+- **Depende de**: T-099
+- **Branch/worktree**:
+- **Contexto**: fechamento cosmético do alvo. **P3 de propósito**: é churn puro e toca deploy — só fazer com as ondas paradas e o humano ciente de que o entry de produção muda.
+- **Escopo**: renomear o diretório e o package (`vetor-wallet-server` → `vetor-wallet-rest-api`), atualizar scripts da raiz (`dev:server`, `build`, `test`, `lint`, `format`), o alias `@vetor-wallet/server/*` do `cli/tsconfig.json`, o entry `dist/api/index.js` e toda menção em `CLAUDE.md`, `docs/decisions/` e `docs/multi-agent/`.
+- **Fora de escopo**: mover arquivos dentro do package.
+- **Critério de aceite**: `pnpm dev`, `pnpm build`, `pnpm test` funcionam da raiz; nenhuma ocorrência de `vetor-wallet-server` ou `@vetor-wallet/server` sobra no repo (grep); humano avisado sobre o novo caminho do entry no deploy.
 
 ## Em espera (decisão do humano — ver `TODO-HUMANO.md`)
 

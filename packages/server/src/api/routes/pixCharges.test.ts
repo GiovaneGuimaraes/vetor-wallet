@@ -36,14 +36,14 @@ describe('pix-charges + billing simulate routes', () => {
   let app: Express;
   let agentA: ReturnType<typeof request.agent>;
   let agentB: ReturnType<typeof request.agent>;
-  let db: typeof import('../../db').db;
+  let db: typeof import('@vetor-wallet/db').db;
   let userAId: number;
   let userBId: number;
   let planId: number;
   let chargeSeq = 0;
 
   beforeAll(async () => {
-    const dbModule = await import('../../db');
+    const dbModule = await import('@vetor-wallet/db');
     const { default: authRouter } = await import('../auth/router');
     const { default: pixChargesRouter } = await import('./pixCharges');
     const { default: billingSimulateRouter } = await import('./billingSimulate');

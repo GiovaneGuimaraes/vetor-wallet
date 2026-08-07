@@ -137,13 +137,13 @@ describe('createRecurringExpenseEntry (T-045)', () => {
     startMonth: string;
     entryMonth: string;
   }) => Promise<{ entryId: number; recurringId: number }>;
-  let db: typeof import('../../db').db;
+  let db: typeof import('@vetor-wallet/db').db;
   let userId: number;
 
   beforeAll(async () => {
     ({ createRecurringExpenseEntry } = await import('./recurringExpenses'));
-    ({ db } = await import('../../db'));
-    const { initDb } = await import('../../db');
+    ({ db } = await import('@vetor-wallet/db'));
+    const { initDb } = await import('@vetor-wallet/db');
     await initDb();
 
     const created = await db.execute({

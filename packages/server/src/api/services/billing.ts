@@ -14,7 +14,7 @@
  */
 
 import { timingSafeEqual } from 'crypto';
-import { db } from '../../db';
+import { db } from '@vetor-wallet/db';
 import type { Plan, PlanInterval, PixCharge, Subscription } from '@vetor-wallet/shared';
 
 /** true quando o billing está ligado por env — a UI usa isso para esconder a oferta. */

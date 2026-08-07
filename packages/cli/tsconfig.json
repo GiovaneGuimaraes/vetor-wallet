@@ -11,12 +11,14 @@
     "baseUrl": ".",
     "paths": {
       "@vetor-wallet/shared": ["../shared/src/index.ts"],
+      "@vetor-wallet/db": ["../db/src/index.ts"],
       "@vetor-wallet/server/*": ["../server/src/*"]
     }
   },
   "include": ["src"],
   "references": [
     { "path": "../shared" },
+    { "path": "../db" },
     { "path": "../server" }
   ]
 }

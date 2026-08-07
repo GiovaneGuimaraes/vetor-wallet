@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../../db';
+import { db } from '@vetor-wallet/db';
 import { fetchQuotes } from '../services/quotes';
 import { buildPositionMap, buildPortfolioSummary } from '../services/portfolio';
 import { getPreviousCloseSnapshots, getBRTDate } from '../services/snapshots';

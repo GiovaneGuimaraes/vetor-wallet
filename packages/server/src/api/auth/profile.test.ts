@@ -20,7 +20,7 @@ describe('PATCH /api/auth/me (T-092)', () => {
   let agent: ReturnType<typeof request.agent>;
 
   beforeAll(async () => {
-    const { initDb } = await import('../../db');
+    const { initDb } = await import('@vetor-wallet/db');
     const { default: authRouter } = await import('./router');
     const { errorHandler } = await import('../middleware/errorHandler');
 

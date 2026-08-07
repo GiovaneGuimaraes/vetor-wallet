@@ -1,7 +1,17 @@
 import { db } from './client';
-// Acoplamento db → api consciente: `normalizeCategory` é função pura e a forma
-// canônica de categoria (T-028) pertence ao domínio — a migração só a reaplica.
-import { normalizeCategory } from '../api/services/categories';
+
+// Cópia local de `normalizeCategory` (T-097 — extração de `packages/db`):
+// antes desta extração, este arquivo importava a função de
+// `server/src/api/services/categories.ts` (acoplamento consciente, documentado
+// na T-028). Um package `db` isolado não pode depender de volta em `server`
+// (ciclo de dependência), então esta é agora a TERCEIRA cópia da mesma função
+// de 1 linha — mesmo padrão já usado entre server e web (ver
+// `web/src/routes/categories.ts` e `server/src/api/services/categories.ts`,
+// que documentam por que a função não pode viver em `shared/`, que é
+// types-only). As três cópias devem mudar juntas.
+function normalizeCategory(raw: string): string {
+  return raw.normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR');
+}
 
 /**
  * Migração idempotente de dados (T-028): reescreve `category` das três tabelas

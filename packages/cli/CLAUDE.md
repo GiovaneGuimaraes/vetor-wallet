@@ -63,7 +63,7 @@ O `tsconfig.json` do CLI define dois aliases:
 Isso permite importar serviços e o cliente de banco do server sem duplicar código:
 
 ```typescript
-import { initDb } from '@vetor-wallet/server/db';
+import { initDb } from '@vetor-wallet/db';
 import { runHourlyInsightsJob } from '@vetor-wallet/server/api/services/hourlyInsights';
 ```
 
@@ -85,7 +85,7 @@ Quando o deploy em AWS Lambda + EventBridge for feito, cada `cli/src/*.ts` vira 
 
 ```typescript
 // lambda/hourlyInsights.ts (exemplo)
-import { initDb } from '@vetor-wallet/server/db';
+import { initDb } from '@vetor-wallet/db';
 import { runHourlyInsightsJob } from '@vetor-wallet/server/api/services/hourlyInsights';
 
 export const handler = async () => {

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
-import { initDb, db, SqliteSessionStore } from '../db';
+import { initDb, db, SqliteSessionStore } from '@vetor-wallet/db';
 import operationsRouter from './routes/operations';
 import portfolioRouter from './routes/portfolio';
 import importRouter from './routes/import';

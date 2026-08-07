@@ -21,7 +21,7 @@ describe('POST /api/import/ofx (T-085)', () => {
   let app: Express;
   let agentA: ReturnType<typeof request.agent>;
   let agentB: ReturnType<typeof request.agent>;
-  let db: Awaited<typeof import('../../db')>['db'];
+  let db: Awaited<typeof import('@vetor-wallet/db')>['db'];
   let sgml: string;
   let xml: string;
   let sgmlLatin1: Buffer;
@@ -41,7 +41,7 @@ describe('POST /api/import/ofx (T-085)', () => {
   }
 
   beforeAll(async () => {
-    const dbModule = await import('../../db');
+    const dbModule = await import('@vetor-wallet/db');
     const { default: authRouter } = await import('../auth/router');
     const { default: importOfxRouter } = await import('./importOfx');
     const { errorHandler } = await import('../middleware/errorHandler');

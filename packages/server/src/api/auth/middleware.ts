@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
-import { db } from '../../db';
+import { db } from '@vetor-wallet/db';
 import { parseRoles } from './service';
 
 declare module 'express-session' {

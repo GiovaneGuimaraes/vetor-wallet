@@ -33,7 +33,7 @@ describe('expense entries routes', () => {
   let shiftMonthKey: (monthKey: string, delta: number) => string;
 
   beforeAll(async () => {
-    const { initDb } = await import('../../db');
+    const { initDb } = await import('@vetor-wallet/db');
     const { default: authRouter } = await import('../auth/router');
     const entriesModule = await import('./expenseEntries');
     const { errorHandler } = await import('../middleware/errorHandler');

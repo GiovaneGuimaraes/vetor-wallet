@@ -1,5 +1,4 @@
-import { db } from '../../db';
-import { isUniqueViolation } from './sqlErrors';
+import { db, isUniqueViolation } from '@vetor-wallet/db';
 
 /**
  * Recorrência mensal de despesa variável (T-035).
@@ -58,10 +57,11 @@ export function occurrenceDate(monthKey: string, dayOfMonth: number): string {
  * continuar subindo (o handler global responde 500) em vez de virar um
  * "outro já gerou" silencioso.
  *
- * O corpo mora em `services/sqlErrors.ts` desde a T-084 (o dedupe de importação
- * usa a mesma checagem); re-exportado aqui para não quebrar os importadores.
+ * O corpo mora em `@vetor-wallet/db` (`sqlErrors.ts`, movido na T-097; antes
+ * em `services/sqlErrors.ts` desde a T-084) — o dedupe de importação usa a
+ * mesma checagem; re-exportado aqui para não quebrar os importadores.
  */
-export { isUniqueViolation } from './sqlErrors';
+export { isUniqueViolation } from '@vetor-wallet/db';
 
 export interface RecurringExpenseRow {
   id: number;

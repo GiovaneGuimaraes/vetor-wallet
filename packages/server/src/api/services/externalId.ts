@@ -1,6 +1,5 @@
 import type { Row } from '@libsql/client';
-import { db } from '../../db';
-import { isUniqueViolation } from './sqlErrors';
+import { db, isUniqueViolation } from '@vetor-wallet/db';
 
 /**
  * Dedupe de importação de lançamentos (T-084).

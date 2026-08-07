@@ -4,6 +4,32 @@ Carteira financeira pessoal: layers de Renda, Despesas, Poupança/Reserva, Metas
 
 **Detalhes por domínio vivem em `docs/decisions/` — leia só o(s) arquivo(s) do domínio que a tarefa toca (índice no fim deste arquivo).**
 
+## Arquitetura em módulos
+
+O app é organizado em **módulos de negócio** (Auth, Portfolio, Expenses, Savings, Billing,
+Insights, BankImport…), cada um atravessando o frontend, a API REST e um ou mais packages de
+lógica `packages/*-core`. Dois documentos governam isso:
+
+- **[`docs/MODULES.md`](docs/MODULES.md)** — o que cada módulo faz e quais packages o compõem.
+- **[`docs/PACKAGES.md`](docs/PACKAGES.md)** — categorias, regras de dependência e a árvore de
+  decisão "onde colocar este código".
+
+Regras que valem já hoje, antes mesmo da migração terminar:
+
+- **Core** = dono das regras/dados de um domínio. Pode falar com o banco; **não** pode importar
+  Express nem nada de `rest-api`/`web`.
+- **Integration** = client de terceiro (brapi, AbacatePay, Pluggy). **Nunca toca o banco** —
+  traduz o mundo externo em tipos nossos e devolve; quem persiste é o core do domínio.
+- **Rota** = orquestra core + integration e traduz erro tipado em status HTTP. É o único lugar
+  onde dois módulos se cruzam.
+- Cada `*-core` carrega seu próprio `CLAUDE.md` com as invariantes do domínio — leia o do
+  package antes de mexer nele.
+
+> **Migração em curso.** O alvo é `packages/` = `web`, `rest-api`, `db`, `cli`, `shared` +
+> os `*-core`. Hoje quase toda a lógica ainda está em `packages/server/src/api/services/`, e
+> `rest-api` ainda se chama `server`. Os documentos acima marcam explicitamente o que é
+> *planejado* — não procure um package assim marcado. Código **novo** já nasce no formato alvo.
+
 ## Stack e estrutura
 
 Monorepo pnpm (`packageManager: pnpm@10.32.1`), lockfile único na raiz. TypeScript strict em tudo; sem ORM (SQL puro via `@libsql/client`); tipos compartilhados em `packages/shared` (types-only, `import type`).
@@ -11,10 +37,11 @@ Monorepo pnpm (`packageManager: pnpm@10.32.1`), lockfile único na raiz. TypeScr
 ```
 packages/
 ├── shared/   # tipos TS compartilhados (Operation, Position, PortfolioSummary…)
+├── db/       # @vetor-wallet/db — camada de banco (client.ts com DATABASE_URL,
+│             # schema.ts/initDb, migrations.ts, sessionStore.ts, sqlErrors.ts);
+│             # extraída de server/src/db em packages/*-core (T-097, Ciclo 19)
 ├── server/   # Node + Express (CJS) — API REST
 │   └── src/
-│       ├── db/    # client.ts (libsql + DATABASE_URL), schema.ts (initDb),
-│       │          # migrations.ts, sessionStore.ts, index.ts (barrel)
 │       └── api/   # index.ts (entry), auth/, routes/, services/, middleware/
 ├── web/      # Vite + React 18 (ESM) — páginas em src/routes/ com funções puras
 │             # testáveis ao lado (*.test.ts); estado global em App.tsx via props
@@ -30,6 +57,7 @@ pnpm dev                                  # server :3001 + web :5173 (usa `&`;
 pnpm dev:server / pnpm dev:web
 pnpm build                                # server → dist/ (entry dist/api/index.js), web → dist/
 pnpm --filter vetor-wallet-server test    # Vitest (server)
+pnpm --filter @vetor-wallet/db test       # Vitest (db)
 pnpm --filter vetor-wallet-web test       # Vitest (web, funções puras)
 pnpm --filter vetor-wallet-cli insights:hourly [YYYY-MM-DD]
 ```
@@ -77,7 +105,7 @@ O SQLite (`packages/server/data/wallet.db`) é criado no primeiro boot.
 
 PATCHes são parciais: campo a campo com a mesma validação da criação; corpo vazio → 400; registro de outro usuário → 404. Toda rota de dados filtra por `user_id`.
 
-Schema completo do banco: `docs/decisions/db-schema.md` (fonte da verdade: `packages/server/src/db/schema.ts`).
+Schema completo do banco: `docs/decisions/db-schema.md` (fonte da verdade: `packages/db/src/schema.ts`).
 
 ## Convenções
 
@@ -90,7 +118,7 @@ Schema completo do banco: `docs/decisions/db-schema.md` (fonte da verdade: `pack
 
 ## Política de testes
 
-Toda mudança de comportamento em server ou web exige teste automatizado (ou justificativa explícita). Estilo/refactor sem mudança de comportamento/docs não exigem. Padrão: `src/**/*.test.ts` em ambos. Testes de rota/db do server usam banco temporário + `DATABASE_URL` setado ANTES de `await import('../../db')` (o client lê o env no top-level do módulo).
+Toda mudança de comportamento em server, db ou web exige teste automatizado (ou justificativa explícita). Estilo/refactor sem mudança de comportamento/docs não exigem. Padrão: `src/**/*.test.ts` em todos. Testes de rota do server e de db usam banco temporário + `DATABASE_URL` setado ANTES de `await import('@vetor-wallet/db')` (ou de um submódulo relativo dentro do próprio `packages/db`) — o client lê o env no top-level do módulo.
 
 ## Índice de decisões (docs/decisions/)
 

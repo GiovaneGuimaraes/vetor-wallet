@@ -1,4 +1,4 @@
-import { db } from '../../db';
+import { db } from '@vetor-wallet/db';
 import { fetchQuotes } from './quotes';
 import { buildPositionMap, buildPortfolioSummary } from './portfolio';
 import type { Operation } from '@vetor-wallet/shared';

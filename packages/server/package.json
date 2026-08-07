@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
+    "@vetor-wallet/db": "workspace:*",
     "@vetor-wallet/shared": "workspace:*",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",

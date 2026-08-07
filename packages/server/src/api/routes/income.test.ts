@@ -23,7 +23,7 @@ describe('income routes', () => {
   let agentB: ReturnType<typeof request.agent>;
 
   beforeAll(async () => {
-    const { initDb } = await import('../../db');
+    const { initDb } = await import('@vetor-wallet/db');
     const { default: authRouter } = await import('../auth/router');
     const { default: incomeRouter } = await import('./income');
     const { errorHandler } = await import('../middleware/errorHandler');
@@ -231,7 +231,7 @@ describe('income routes', () => {
     // mesmo com um id válido de outro usuário, o próprio UPDATE não afeta a
     // linha (rowsAffected 0) — independente do guard anterior existir.
     it('UPDATE final não afeta registro de outro usuário mesmo com id válido', async () => {
-      const { db } = await import('../../db');
+      const { db } = await import('@vetor-wallet/db');
       const created = await agentB.post('/api/income').send({ name: 'Defesa em profundidade', amount: 42 });
       const id = created.body.id;
 
@@ -256,7 +256,7 @@ describe('income routes', () => {
     // rota emite para o UPDATE e para o re-SELECT que monta a resposta —
     // cobrindo tanto a cláusula quanto a ORDEM dos parâmetros.
     it('emite UPDATE e re-SELECT finais com "AND user_id = ?" (spy em db.execute)', async () => {
-      const { db } = await import('../../db');
+      const { db } = await import('@vetor-wallet/db');
       const me = await agentA.get('/api/auth/me');
       const userId = me.body.id as number;
 

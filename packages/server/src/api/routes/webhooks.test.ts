@@ -20,13 +20,13 @@ function sign(raw: string, secret = SECRET): string {
 
 describe('abacatepay webhook route', () => {
   let app: Express;
-  let db: typeof import('../../db').db;
+  let db: typeof import('@vetor-wallet/db').db;
   let userId: number;
   let planId: number;
   let yearlyPlanId: number;
 
   beforeAll(async () => {
-    const dbModule = await import('../../db');
+    const dbModule = await import('@vetor-wallet/db');
     const { default: webhooksRouter } = await import('./webhooks');
     const { errorHandler } = await import('../middleware/errorHandler');
 

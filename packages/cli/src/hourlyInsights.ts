@@ -4,7 +4,7 @@
 //       the Turso migration is done — DATABASE_URL will then hold the Turso URL.
 
 import 'dotenv/config';
-import { initDb } from '@vetor-wallet/server/db';
+import { initDb } from '@vetor-wallet/db';
 import { runHourlyInsightsJob } from '@vetor-wallet/server/api/services/hourlyInsights';
 import { isValidIsoDate } from '@vetor-wallet/server/api/services/dates';
 
