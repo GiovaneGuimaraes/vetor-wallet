@@ -291,7 +291,9 @@
 - **Resultado**: os três arquivos marcam explicitamente cada package como *(planejado)* com a coluna "Hoje em", para não induzir agente a procurar package inexistente.
 
 ### T-097 — Extrair `packages/db`
-- **Status**: EM_ANDAMENTO — delegada 2026-08-06, executor Sonnet em worktree.
+- **Status**: CONCLUIDA — PR #142 mergeado (2026-08-06). Executor Sonnet, revisor Sonnet (APROVADA sem bloqueantes). Baseline preservado: server 719/44 + db 29/4 = **748/48**, web 449/26.
+- **Achado importante (vale para todos os `*-core` seguintes)**: a primeira versão usava `main: src/index.ts` e **quebrava produção** — o `dist` do server emite `require("@vetor-wallet/db")` e o `node dist/api/index.js` morria no boot com `SyntaxError: Unexpected token 'export'`. O `pnpm build` verde escondia isso porque build e runtime resolvem por caminhos diferentes. Convenção corrigida e documentada em `docs/PACKAGES.md`: `main: dist/index.js` + `types: dist/index.d.ts`, e **cada `vitest.config.ts` que consome um core precisa de `resolve.alias` explícito para o `src`** — sem ele o Vitest cai no `main` e valida build velho (falso verde). Os dois lados têm que ser provados por execução: `node -e "require('<pkg>')"` após build, e a suíte verde com o `dist/` do core apagado.
+- **Nota de processo**: o worktree do executor nasceu de `022a969`, antes dos commits do Ciclo 19 na `main` — o orquestrador rebaseou a branch antes da revisão. Nas próximas tarefas, conferir o merge-base antes de revisar.
 - **Prioridade**: P1
 - **Complexidade**: média
 - **Depende de**: T-096
