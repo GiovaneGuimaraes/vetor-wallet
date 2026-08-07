@@ -138,7 +138,7 @@ describe('wallets routes — carteira única (T-050)', () => {
       args: ['PETR4', 'BUY', 10, 30, '2024-01-01', legacyUserId],
     });
 
-    const { getOrCreateDefaultWallet } = await import('../services/wallets');
+    const { getOrCreateDefaultWallet } = await import('@vetor-wallet/portfolio-core');
     const walletId = await getOrCreateDefaultWallet(legacyUserId);
 
     const ops = await db.execute({

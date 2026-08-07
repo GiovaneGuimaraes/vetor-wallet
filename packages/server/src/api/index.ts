@@ -28,8 +28,7 @@ import pixChargesRouter from './routes/pixCharges';
 import billingSimulateRouter from './routes/billingSimulate';
 import webhooksRouter from './routes/webhooks';
 import { errorHandler } from './middleware/errorHandler';
-import { catchUpIfNeeded } from './services/snapshots';
-import { startSnapshotScheduler } from './services/snapshotScheduler';
+import { catchUpIfNeeded, startSnapshotScheduler } from '@vetor-wallet/portfolio-core';
 
 const app = express();
 

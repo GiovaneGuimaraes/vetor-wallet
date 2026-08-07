@@ -1,16 +1,18 @@
 import { Router, Request, Response } from 'express';
 import { db } from '@vetor-wallet/db';
 import { fetchQuotes } from '@vetor-wallet/brapi-core';
-import { buildPositionMap, buildPortfolioSummary } from '../services/portfolio';
-import { getPreviousCloseSnapshots, getBRTDate } from '../services/snapshots';
-import { asyncHandler } from '../middleware/asyncHandler';
-import { requireAuth } from '../auth/middleware';
-import type { Operation } from '@vetor-wallet/shared';
 import {
   buildDateWindow,
   buildPortfolioHistory,
+  buildPortfolioSummary,
+  buildPositionMap,
+  getBRTDate,
+  getPreviousCloseSnapshots,
   type SnapshotPoint,
-} from '../services/portfolioHistory';
+} from '@vetor-wallet/portfolio-core';
+import { asyncHandler } from '../middleware/asyncHandler';
+import { requireAuth } from '../auth/middleware';
+import type { Operation } from '@vetor-wallet/shared';
 import { parseDaysParam } from '@vetor-wallet/validation-core';
 
 const router = Router();

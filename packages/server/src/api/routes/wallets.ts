@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
-import { countWallets, getOrCreateDefaultWallet, withUserLock } from '../services/wallets';
+import { countWallets, getOrCreateDefaultWallet, withUserLock } from '@vetor-wallet/portfolio-core';
 import type { NewWallet } from '@vetor-wallet/shared';
 
 const router = Router();

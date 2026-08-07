@@ -227,7 +227,7 @@ describe('operations routes — SELL validation', () => {
     expect(res.status).toBe(201);
     expect(Number(res.body.wallet_id)).not.toBe(otherWalletId);
 
-    const { findDefaultWallet } = await import('../services/wallets');
+    const { findDefaultWallet } = await import('@vetor-wallet/portfolio-core');
     const own = await findDefaultWallet(userId);
     expect(Number(res.body.wallet_id)).toBe(Number(own?.id));
   });

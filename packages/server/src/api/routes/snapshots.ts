@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../auth/middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { getSnapshotHistory } from '../services/snapshots';
+import { getSnapshotHistory } from '@vetor-wallet/portfolio-core';
 
 const router = Router();
 

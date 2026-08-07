@@ -3,9 +3,12 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
-import { buildPositionMap, wouldExceedPosition } from '../services/portfolio';
+import {
+  buildPositionMap,
+  getOrCreateDefaultWallet,
+  wouldExceedPosition,
+} from '@vetor-wallet/portfolio-core';
 import { isValidIsoDate, isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
-import { getOrCreateDefaultWallet } from '../services/wallets';
 import type { NewOperation, Operation } from '@vetor-wallet/shared';
 
 const router = Router();

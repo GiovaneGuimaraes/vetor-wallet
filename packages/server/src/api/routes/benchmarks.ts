@@ -5,8 +5,7 @@ import {
   getPortfolioReturnAndEarliestDate,
 } from '../services/benchmarks';
 import { fetchCdiSeries, fetchIbovespaSeries } from '../services/benchmarkHistory';
-import { buildDateWindow } from '../services/portfolioHistory';
-import { getBRTDate } from '../services/snapshots';
+import { buildDateWindow, getBRTDate } from '@vetor-wallet/portfolio-core';
 import { parseDaysParam } from '@vetor-wallet/validation-core';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';

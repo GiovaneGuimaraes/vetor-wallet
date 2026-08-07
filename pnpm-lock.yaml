@@ -182,6 +182,34 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@20.19.43)(lightningcss@1.32.0)
 
+  packages/portfolio-core:
+    dependencies:
+      '@libsql/client':
+        specifier: ^0.14.0
+        version: 0.14.0
+      '@vetor-wallet/db':
+        specifier: workspace:*
+        version: link:../db
+      '@vetor-wallet/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      '@vitest/coverage-v8':
+        specifier: ^2.1.9
+        version: 2.1.9(vitest@2.1.9(@types/node@20.19.43)(lightningcss@1.32.0))
+      tsx:
+        specifier: ^4.15.6
+        version: 4.23.0
+      typescript:
+        specifier: ^5.4.5
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(lightningcss@1.32.0)
+
   packages/savings-core:
     dependencies:
       '@vetor-wallet/db':
@@ -230,6 +258,9 @@ importers:
       '@vetor-wallet/expenses-core':
         specifier: workspace:*
         version: link:../expenses-core
+      '@vetor-wallet/portfolio-core':
+        specifier: workspace:*
+        version: link:../portfolio-core
       '@vetor-wallet/savings-core':
         specifier: workspace:*
         version: link:../savings-core

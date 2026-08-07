@@ -43,8 +43,8 @@ describe('GET /api/portfolio/history (T-058a)', () => {
     const { default: operationsRouter } = await import('./operations');
     const { default: portfolioRouter } = await import('./portfolio');
     const { errorHandler } = await import('../middleware/errorHandler');
-    const { getBRTDate } = await import('../services/snapshots');
-    const { shiftDate } = await import('../services/portfolioHistory');
+    const { getBRTDate } = await import('@vetor-wallet/portfolio-core');
+    const { shiftDate } = await import('@vetor-wallet/portfolio-core');
 
     await initDb();
 

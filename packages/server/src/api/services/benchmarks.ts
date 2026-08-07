@@ -1,6 +1,6 @@
 import { db } from '@vetor-wallet/db';
 import { fetchQuotes } from '@vetor-wallet/brapi-core';
-import { buildPositionMap, buildPortfolioSummary } from './portfolio';
+import { buildPositionMap, buildPortfolioSummary } from '@vetor-wallet/portfolio-core';
 import type { Operation } from '@vetor-wallet/shared';
 
 function toDateBR(isoDate: string): string {

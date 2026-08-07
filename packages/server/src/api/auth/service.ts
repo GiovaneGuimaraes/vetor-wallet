@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { db } from '@vetor-wallet/db';
-import { getOrCreateDefaultWallet } from '../services/wallets';
+import { getOrCreateDefaultWallet } from '@vetor-wallet/portfolio-core';
 import type { User } from '@vetor-wallet/shared';
 
 const SALT_ROUNDS = 12;
