@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { db } from '@vetor-wallet/db';
-import { parseRoles } from './service';
+import { parseRoles } from '@vetor-wallet/auth-core';
 
 declare module 'express-session' {
   interface SessionData {

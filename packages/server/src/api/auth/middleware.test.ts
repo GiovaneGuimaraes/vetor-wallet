@@ -6,8 +6,8 @@ vi.mock('@vetor-wallet/db', () => ({
   db: { execute: vi.fn() },
 }));
 
-vi.mock('./service', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./service')>();
+vi.mock('@vetor-wallet/auth-core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@vetor-wallet/auth-core')>();
   return { ...actual };
 });
 

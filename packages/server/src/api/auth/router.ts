@@ -13,7 +13,7 @@ import {
   updateUserProfile,
   findUserById,
   updateUserPassword,
-} from './service';
+} from '@vetor-wallet/auth-core';
 
 const router = Router();
 

@@ -1,7 +1,12 @@
 # Decisões: sessões e autenticação
 
+> **Nota (T-099c).** As regras de credenciais, perfil e papéis foram para
+> [`packages/auth-core/CLAUDE.md`](../../packages/auth-core/CLAUDE.md). O
+> `SqliteSessionStore` vive em `packages/db` desde a T-097 (ver
+> `packages/db/CLAUDE.md`). Este documento cobre só a persistência de sessão.
+
 ### Sessões persistem no restart (T-034)
-`express-session` usa `SqliteSessionStore` (`packages/server/src/db/sessionStore.ts`), uma implementação da interface `Store` sobre o mesmo `@libsql/client`/arquivo SQLite do app — não mais o `MemoryStore` padrão. Sessões sobrevivem a restart do server porque ficam gravadas na tabela `sessions` (`sid` PK, `data` TEXT JSON, `expires_at`; criada em `initDb()`, idempotente como as demais).
+`express-session` usa `SqliteSessionStore` (`packages/db/src/sessionStore.ts`), uma implementação da interface `Store` sobre o mesmo `@libsql/client`/arquivo SQLite do app — não mais o `MemoryStore` padrão. Sessões sobrevivem a restart do server porque ficam gravadas na tabela `sessions` (`sid` PK, `data` TEXT JSON, `expires_at`; criada em `initDb()`, idempotente como as demais).
 
 Pontos de projeto:
 

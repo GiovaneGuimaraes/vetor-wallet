@@ -26,6 +26,40 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@20.19.43)(lightningcss@1.32.0)
 
+  packages/auth-core:
+    dependencies:
+      '@vetor-wallet/db':
+        specifier: workspace:*
+        version: link:../db
+      '@vetor-wallet/portfolio-core':
+        specifier: workspace:*
+        version: link:../portfolio-core
+      '@vetor-wallet/shared':
+        specifier: workspace:*
+        version: link:../shared
+      bcryptjs:
+        specifier: ^3.0.3
+        version: 3.0.3
+    devDependencies:
+      '@types/bcryptjs':
+        specifier: ^3.0.0
+        version: 3.0.0
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      '@vitest/coverage-v8':
+        specifier: ^2.1.9
+        version: 2.1.9(vitest@2.1.9(@types/node@20.19.43)(lightningcss@1.32.0))
+      tsx:
+        specifier: ^4.15.6
+        version: 4.23.0
+      typescript:
+        specifier: ^5.4.5
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@20.19.43)(lightningcss@1.32.0)
+
   packages/bank-import-core:
     dependencies:
       '@libsql/client':
@@ -106,6 +140,9 @@ importers:
       '@libsql/client':
         specifier: ^0.14.0
         version: 0.14.0
+      '@vetor-wallet/auth-core':
+        specifier: workspace:*
+        version: link:../auth-core
       '@vetor-wallet/db':
         specifier: workspace:*
         version: link:../db
@@ -280,6 +317,9 @@ importers:
       '@vetor-wallet/abacatepay-core':
         specifier: workspace:*
         version: link:../abacatepay-core
+      '@vetor-wallet/auth-core':
+        specifier: workspace:*
+        version: link:../auth-core
       '@vetor-wallet/bank-import-core':
         specifier: workspace:*
         version: link:../bank-import-core

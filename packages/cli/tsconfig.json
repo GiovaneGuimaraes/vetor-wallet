@@ -13,8 +13,14 @@
       "@vetor-wallet/shared": ["../shared/src/index.ts"],
       "@vetor-wallet/db": ["../db/src/index.ts"],
       "@vetor-wallet/validation-core": ["../validation-core/src/index.ts"],
+      "@vetor-wallet/auth-core": ["../auth-core/src/index.ts"],
       "@vetor-wallet/insights-core": ["../insights-core/src/index.ts"],
-      "@vetor-wallet/server/*": ["../server/src/*"]
+      // Transitivos (auth-core e insights-core importam estes). O `tsx` dos
+      // jobs resolve por ESTES paths; sem eles cairia na resolução do Node e
+      // exigiria o `dist` de portfolio-core/brapi-core já construído — um job
+      // de CLI não pode depender de `pnpm build` ter rodado antes.
+      "@vetor-wallet/portfolio-core": ["../portfolio-core/src/index.ts"],
+      "@vetor-wallet/brapi-core": ["../brapi-core/src/index.ts"]
     }
   },
   "include": ["src"],
@@ -22,7 +28,9 @@
     { "path": "../shared" },
     { "path": "../db" },
     { "path": "../validation-core" },
+    { "path": "../auth-core" },
     { "path": "../insights-core" },
-    { "path": "../server" }
+    { "path": "../portfolio-core" },
+    { "path": "../brapi-core" }
   ]
 }
