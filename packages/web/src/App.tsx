@@ -15,6 +15,7 @@ import { PlanosPage } from './routes/PlanosPage';
 import { ContaPage } from './routes/ContaPage';
 import { AdminRoute } from './routes/AdminRoute';
 import { decideWalletFlow, resolvePrimaryWallet } from './routes/walletFlow';
+import { shouldNavigateToPlans } from './routes/billingNavigation';
 import type { User, Wallet, PortfolioSummary } from '@vetor-wallet/shared';
 import { getStoredTheme, setTheme as applyAndPersistTheme, type Theme } from './theme';
 
@@ -66,11 +67,13 @@ export default function App() {
   // não empilha navegações — `location.pathname` é lido dentro do handler via
   // ref para não precisar recriar o listener a cada troca de rota.
   const pathnameRef = useRef(location.pathname);
-  pathnameRef.current = location.pathname;
+  useEffect(() => {
+    pathnameRef.current = location.pathname;
+  }, [location.pathname]);
 
   useEffect(() => {
     const handler = () => {
-      if (pathnameRef.current !== '/planos') {
+      if (shouldNavigateToPlans(pathnameRef.current)) {
         navigate('/planos');
       }
     };
