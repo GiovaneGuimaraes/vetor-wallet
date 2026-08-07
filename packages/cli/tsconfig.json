@@ -13,6 +13,7 @@
       "@vetor-wallet/shared": ["../shared/src/index.ts"],
       "@vetor-wallet/db": ["../db/src/index.ts"],
       "@vetor-wallet/validation-core": ["../validation-core/src/index.ts"],
+      "@vetor-wallet/insights-core": ["../insights-core/src/index.ts"],
       "@vetor-wallet/server/*": ["../server/src/*"]
     }
   },
@@ -21,6 +22,7 @@
     { "path": "../shared" },
     { "path": "../db" },
     { "path": "../validation-core" },
+    { "path": "../insights-core" },
     { "path": "../server" }
   ]
 }

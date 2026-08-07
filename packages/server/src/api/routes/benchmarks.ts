@@ -1,10 +1,11 @@
 import { Router, Request, Response } from 'express';
 import {
   fetchCDIAccumulated,
+  fetchCdiSeries,
   fetchIbovespaReturn,
+  fetchIbovespaSeries,
   getPortfolioReturnAndEarliestDate,
-} from '../services/benchmarks';
-import { fetchCdiSeries, fetchIbovespaSeries } from '../services/benchmarkHistory';
+} from '@vetor-wallet/insights-core';
 import { buildDateWindow, getBRTDate } from '@vetor-wallet/portfolio-core';
 import { parseDaysParam } from '@vetor-wallet/validation-core';
 import { asyncHandler } from '../middleware/asyncHandler';

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../auth/middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { runHourlyInsightsJob, type InsightJobResult } from '../services/hourlyInsights';
+import { runHourlyInsightsJob, type InsightJobResult } from '@vetor-wallet/insights-core';
 import { isValidIsoDate } from '@vetor-wallet/validation-core';
 
 export function summariseResults(results: InsightJobResult[]) {

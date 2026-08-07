@@ -20,6 +20,7 @@ export default defineConfig({
       ),
       '@vetor-wallet/bank-import-core': path.resolve(__dirname, '../bank-import-core/src/index.ts'),
       '@vetor-wallet/portfolio-core': path.resolve(__dirname, '../portfolio-core/src/index.ts'),
+      '@vetor-wallet/insights-core': path.resolve(__dirname, '../insights-core/src/index.ts'),
       '@vetor-wallet/db': path.resolve(__dirname, '../db/src/index.ts'),
       '@vetor-wallet/brapi-core': path.resolve(__dirname, '../brapi-core/src/index.ts'),
       '@vetor-wallet/abacatepay-core': path.resolve(__dirname, '../abacatepay-core/src/index.ts'),
