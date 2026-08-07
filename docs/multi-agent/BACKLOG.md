@@ -327,7 +327,7 @@
 - **Critério de aceite (vale para as três)**: nenhum `*-core` importa `express` (grep); soma das suítes com a mesma contagem do baseline; `main: dist/index.js` + alias no `vitest.config.ts` do server para cada package novo (convenção da T-097); `docs/MODULES.md` e `docs/PACKAGES.md` sem o marcador *(planejado)* dos packages criados.
 
 ### T-099a — `validation-core` (+ colapsar `normalizeCategory`)
-- **Status**: EM_ANDAMENTO — delegada 2026-08-06, executor Sonnet em worktree.
+- **Status**: CONCLUIDA — PR #144 mergeado (2026-08-06). Executor Sonnet, revisor Sonnet (APROVADA, nenhum achado). db 29/4 + validation-core 33/3 + brapi 16/2 + abacatepay 10/1 + server 660/38 = **748/48**; web 449/26. Duplicação de `normalizeCategory` no backend eliminada: `db` e `server` importam a mesma função, restando só o par backend↔web (intencional). Executor optou por **import direto** nos ~18 consumidores em vez de reexport no server, seguindo o padrão da T-098.
 - **Prioridade**: P1
 - **Complexidade**: média — executor Sonnet
 - **Depende de**: T-098
@@ -335,7 +335,7 @@
 - **Atenção**: `db/src/migrations.ts` usa `normalizeCategory` numa migração de DADOS. Se a função divergir do que o runtime usa, categorias gravadas ficam inconsistentes com as comparadas. O teste tem que cobrir o caso unicode (`SAÚDE`/`saúde`), que é o motivo do `toLocaleLowerCase('pt-BR')` em vez de `lower()` do SQLite.
 
 ### T-099b — `billing-core`, `savings-core`, `expenses-core`
-- **Status**: PENDENTE
+- **Status**: EM_ANDAMENTO — delegada 2026-08-06, executor Opus em worktree.
 - **Prioridade**: P1
 - **Complexidade**: alta — executor Opus (dois destes mexem com dinheiro)
 - **Depende de**: T-099a
