@@ -15,10 +15,10 @@ Este arquivo substitui `docs/decisions/expenses-budgets.md` (hoje um stub
 apontando para cá) e cobre o módulo Expenses inteiro, incluindo o que vive nas
 rotas do `server` e nas telas do `web`.
 
-> **Ainda por mover.** As seções "Dedupe de importação por `external_id`"
-> (T-084) e "Importação de extrato OFX" (T-085) descrevem `services/ofx.ts` e
-> `services/externalId.ts`, que vão para `bank-import-core` na **T-099c**.
-> Ficam documentadas aqui até lá porque escrevem em `expense_entries`.
+A importação bancária (dedupe por `external_id`, T-084, e OFX, T-085/T-086)
+**saiu daqui na T-099c** para `packages/bank-import-core/CLAUDE.md`, junto de
+`services/externalId.ts` e `services/ofx.ts` — ela escreve em `expense_entries`,
+mas a política de importação é do módulo BankImport.
 
 ## Estrutura
 
@@ -126,48 +126,13 @@ Fora de escopo (segue pendente): editar operações de ações, histórico/audit
 
 `DespesasPage`/`RendaPage` já tinham a guarda de "resposta obsoleta" da T-030 (`latestRequestedMonthRef`), que decide qual resposta **vale** quando duas chegam fora de ordem — mas não impedia que um fetch fosse **disparado** de novo para o mesmo mês já em andamento (ex.: o efeito de busca reexecutando duas vezes em StrictMode, ou dois disparos muito próximos apontando para o mesmo mês). `packages/web/src/routes/monthFetch.ts` (`MonthFetchGuard`, testada em `monthFetch.test.ts`) resolve isso: `refreshEntries` consulta `isInFlight(month)` antes de buscar e sai cedo se já há uma chamada em voo para aquele mês; `start`/`finish` marcam o começo/fim. O guard rastreia só **o mês mais recente em voo** (um `string | null`, não um conjunto) — suficiente porque `refreshEntries` só se importa com o mês exibido no momento. As duas guardas são complementares e continuam sendo necessárias — uma decide "disparar ou não", a outra decide "aplicar ou não a resposta".
 
-## Dedupe de importação por `external_id` (T-084)
+## Importação bancária: dedupe por `external_id` (T-084) e OFX (T-085/T-086)
 
-> Vai para `bank-import-core` na T-099c (`services/externalId.ts`).
-
-`expense_entries.external_id` guarda o id da transação no sistema de **origem** (`ofx:<FITID>`, `pluggy:<id>` — a prefixação é convenção dos importadores, **não** validada pela rota); `NULL` = lançamento digitado à mão, a maioria das linhas. A unicidade é um índice **parcial** `(user_id, external_id) WHERE external_id IS NOT NULL` (ver `db-schema.md`): dois usuários podem importar o mesmo FITID, e as linhas manuais ficam fora do índice.
-
-- **A idempotência é do banco, não do código** (mesma decisão da T-035): `POST /api/expense-entries` faz o INSERT primeiro e traduz a violação de unicidade em resposta de duplicata (`insertEntryWithExternalId` em `packages/server/src/api/services/externalId.ts`). Um SELECT-antes-do-INSERT seria TOCTOU — duas requests paralelas passariam as duas pela checagem e a segunda viraria 500.
-- **Duplicata unitária responde `409`** `{ error, duplicate: true, entry }`, com a linha já existente no corpo (dá o `id` sem busca extra). `200` + flag seria ignorável por clientes que fazem append otimista, e `201` mentiria. Convenção para a importação em lote (endpoint de arquivo, T-085): duplicata **não** é 409 — vira uma linha do relatório com `200`.
-- **`externalId` é validado** por `validateExternalId` (pura, testada): `undefined`/`null` = ausente; `trim()` antes de gravar/comparar (senão `' FIT-1 '` e `'FIT-1'` seriam chaves diferentes); vazio após trim → `400` (string vazia de importador é bug, e engoli-la desligaria o dedupe); máx. 255 chars (limite de FITID na spec OFX; ids Pluggy são UUIDs); sem restrição de charset nem normalização de caixa.
-- **`externalId` + `recurring: true` → `400`**: nenhum importador cria recorrência, e os dois mecanismos de idempotência não se misturam (as ocorrências futuras não teriam id de origem para herdar).
-- **O PATCH ignora `externalId`** — é etiqueta de procedência, como `transfer_group` (T-041). Um corpo só com `externalId` responde o `400` de corpo vazio.
-- **DELETE libera a chave e a reimportação recria a linha** — assimetria **intencional** com a T-035 (lá o controle vive em tabela própria justamente para não recriar). Aqui reimportar o extrato é o jeito de desfazer uma exclusão acidental.
-- O contrato real dos importadores é a **função** `insertEntryWithExternalId`, não a rota: o job de sincronização roda no `cli` e chama direto, sem Express nem gate de assinatura.
-
-## Importação de extrato OFX (T-085)
-
-> Vai para `bank-import-core` na T-099c (`services/ofx.ts`).
-
-`POST /api/import/ofx` é o caminho de integração bancária que **não depende de terceiro**: todo banco brasileiro relevante exporta OFX no internet banking. Crédito vira `income_entries`, débito vira `expense_entries`, e o dedupe é o da T-084 (`external_id = ofx:<FITID>`, via `insertEntryWithExternalId` — a rota não reimplementa nada de idempotência). Parser próprio em `packages/server/src/api/services/ofx.ts`, testado com fixtures dos dois dialetos em `services/__fixtures__/ofx.ts` (módulo comum, não `.test.ts`, porque é compartilhado pelo teste do parser e pelo da rota; excluído do build junto dos testes no `tsconfig.json` do pacote).
-
-Decisões travadas:
-
-- **Um scanner de tag→valor lê os dois dialetos.** OFX 1.x é SGML (header `OFXHEADER:100`, folhas **sem** fechamento) e 2.x é XML, mas em ambos os **agregados** (`STMTTRN`) são fechados; cortar o valor no primeiro `<` ou fim de linha basta para os 5 campos que interessam (`FITID`, `DTPOSTED`, `TRNAMT`, `MEMO`/`NAME`, `TRNTYPE`) e dispensa lib nova e árvore. Dentro de um `STMTTRN`, a **primeira** ocorrência de cada tag vence (agregados aninhados repetem nomes). Consequência aceita: o documento não é validado — arquivo sujo com blocos legíveis é importado.
-- **Payload é o corpo cru (`express.raw`, `type` curinga, limite 1 MB)**, não `multipart`: o CSV de operações já é corpo de texto, a UI da T-086 manda `fetch(file)` sem `FormData`, e o `Buffer` é o que permite decidir o **charset**. Bancos ainda exportam OFX 1.x em cp1252; decodificar tudo como UTF-8 viraria mojibake **na categoria normalizada**, criando duas categorias para o mesmo estabelecimento. `decodeOfx` lê o header ASCII (`CHARSET:1252`/`ENCODING:USASCII`) e decodifica como `latin1` nesse caso, UTF-8 no resto. cp1252 difere de latin-1 só em 0x80–0x9F (aspas tipográficas) — sem decoder cp1252 no Node, essas posições viram controles invisíveis em vez de acento errado. **É o header que decide**, não o conteúdo (dois testes de rota fixam os dois lados).
-- **`DTPOSTED` mantém a data LOCAL do extrato**: usa os 8 primeiros dígitos e **ignora** o offset (`[-3:BRT]`). Converter para UTC moveria uma compra de 31/07 23:00 para 01/08, jogando o gasto no mês seguinte e divergindo do app do banco. A data ainda passa por `isValidIsoDate` (`20260230` é rejeitada).
-- **`TRNAMT` aceita ponto ou vírgula decimal, e nunca separador de milhar**: `1.234,56` é ambíguo contra `1.234` e adivinhar em campo de dinheiro é pior que rejeitar a linha com motivo. O valor gravado é o **absoluto** (`isValidMoneyAmount`: máx. 2 casas, teto 1e13) e o **sinal** é o que decide income × expense. `TRNTYPE` é ignorado de propósito — bancos divergem no vocabulário (`DEBIT`, `POS`, `XFER`, `FEE`) e o sinal é mais confiável.
-- **Sem FITID a transação é rejeitada, não importada com id inventado**: sem chave não há dedupe, e a transação voltaria duplicada no próximo extrato. Mesmo motivo para rejeitar FITID que estoure 255 chars **com** o prefixo `ofx:`.
-- **Categoria = MEMO normalizado (`normalizeCategory`, T-028), fallback `outros`** quando não há MEMO nem NAME. Classificação inteligente está fora de escopo; usar o memo normalizado já faz o mesmo estabelecimento cair numa categoria só. Descrição usa `MEMO ?? NAME ?? 'Lançamento importado (OFX)'`, truncada em 200 chars (as tabelas não têm limite, mas MEMO de banco é verborrágico).
-- **A resposta é sempre `200` com relatório por transação** — `OfxImportResult` em `shared/` (`{ imported, duplicated, rejected, transactions[] }`, cada linha com `status: 'imported' | 'duplicated' | 'rejected'`, `fitid`/`date`/`amount`/`description`/`entryType` quando legíveis, `reason` nas rejeitadas e `entryId` da linha gravada ou já existente). Três desfechos, não dois: a **duplicada** existe porque reimportar o mesmo extrato é o caminho normal de uso — é a convenção já registrada na T-084 ("duplicata em lote não é 409"). `400` fica só para o documento inteiro: corpo vazio ou sem tag `<OFX>`. OFX válido **sem** transações responde `200` com relatório vazio (extrato sem movimento é legítimo).
-- **Os INSERTs são sequenciais, não em `db.batch`**: cada um precisa VER o anterior para que um FITID repetido **dentro do mesmo arquivo** (banco que repete linha) caia como duplicata em vez de estourar o índice único e derrubar o lote inteiro.
-- **`requireActiveSubscription` é obrigatório aqui** — a rota escreve nas mesmas tabelas já gateadas nos routers de income/expense entries; sem o gate, a importação seria o caminho de escrita sem assinatura.
-- **Fora de escopo (segue pendente)**: classificação inteligente de categoria, e **transferências entre contas próprias**, que hoje importam como estão — uma transferência da conta para a poupança aparece como despesa numa ponta e renda na outra, inflando os dois lados do mês.
-
-## UI de importação OFX (T-086)
-
-Seção recolhível "Importar extrato (OFX)" em `DespesasPage.tsx`, mesmo padrão `CollapsibleSection` da T-074, posicionada logo depois de "+ Adicionar despesa" e recolhida por padrão — é ação minoritária como o form de criação. O `<input type="file">` fica **sempre montado** (não desmonta entre estados) para ficar re-selecionável; ao final de cada envio o `value` do input é limpo (`ref` dedicado), senão o browser não dispara `onChange` de novo para o mesmo caminho de arquivo, e reimportar o mesmo extrato — o caminho normal de uso do endpoint — exigiria escolher outro arquivo primeiro.
-
-- **Leitura como `ArrayBuffer`, não `file.text()`**: o server decide o charset pelo header OFX (T-085); decodificar no browser antes de mandar corromperia extratos em cp1252. `POST /api/import/ofx` recebe esses bytes crus com `Content-Type: application/octet-stream` — **nunca** `application/json`, senão o `express.json()` global consome o stream e a rota vê corpo vazio (mesma pegadinha documentada na rota).
-- **Estados da seção**: ocioso → enviando (input desabilitado) → relatório (contagens + lista por transação) → erro (mensagem do server via `Error.message` ou fallback genérico). Um novo upload a partir de qualquer estado (inclusive erro ou relatório anterior) recomeça o ciclo.
-- **Lógica de apresentação em módulo puro testado** (`packages/web/src/routes/ofxImportReport.ts`): `formatOfxCounts` monta o resumo pt-BR omitindo categorias com contagem zero (um reimport 100% duplicado não deveria anunciar "0 importadas"); `groupOfxTransactionsByStatus` agrupa preservando a ordem original de cada grupo e a lista renderiza importadas → duplicadas → rejeitadas (o que precisa de atenção fica visível, mas relatório de reimport — majoritariamente duplicado — não abre com isso no topo); `formatOfxTransactionAmount` deriva o sinal do `entryType` (o payload só traz o valor absoluto); `formatOfxRejectionReason` é passthrough do `reason` do server (já em pt-BR) com fallback para quando ele não vier.
-- **Refetch pós-import segue o padrão de dedupe da T-049**: sucesso com `imported > 0` chama `refreshEntries(monthKey, { force: true })` (o `force` ignora o `MonthFetchGuard` — sem ele, um fetch do mês já em voo por outro motivo engoliria a reconciliação) e `refreshHistory()`, porque a importação pode ter escrito em qualquer mês do extrato, não só no exibido.
-- **Fora de escopo (segue pendente)**: UI para o CSV de operações de corretora (segue T-026) e uma caixa de entrada de revisão antes de gravar (candidata a tarefa futura — hoje a importação já grava direto, sem etapa de confirmação por transação).
+Migrado para `packages/bank-import-core/CLAUDE.md` na T-099c — junto de
+`services/ofx.ts` e `services/externalId.ts`. As duas mecânicas escrevem em
+`expense_entries`, mas a política de importação é do módulo **BankImport**.
+Interação relevante daqui: `externalId` + `recurring: true` é `400` — os dois
+mecanismos de idempotência (o desta recorrência e o do dedupe) não se misturam.
 
 ## Convenções
 

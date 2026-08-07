@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { summariseResults } from './admin';
-import type { InsightJobResult } from '../services/hourlyInsights';
+import type { InsightJobResult } from '@vetor-wallet/insights-core';
 
 function makeResult(overrides: Partial<InsightJobResult> = {}): InsightJobResult {
   return { ticker: 'PETR4', processed: 1, saved: 1, duplicates: 0, ...overrides };

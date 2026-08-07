@@ -8,10 +8,10 @@ Para categorias de package, regras de dependência e onde colocar código novo, 
 [`PACKAGES.md`](./PACKAGES.md). Para as decisões de produto/implementação de cada domínio,
 veja o `CLAUDE.md` do package core correspondente (as antigas notas de `docs/decisions/`).
 
-> **Estado da migração.** A arquitetura descrita aqui é o **alvo**. Hoje quase toda a lógica
-> ainda mora em `packages/server/src/api/services/`. Cada módulo abaixo marca o que já existe
-> como package e o que ainda está por extrair. Não procure um package marcado como *planejado* —
-> ele não existe.
+> **Estado da migração.** Desde a T-099c (Ciclo 19) `packages/server/src/api/services/` **não
+> existe mais** — toda a lógica de domínio virou package e o `server` ficou só com Express
+> (entry, routers, middleware). O que falta é renomear `server` → `rest-api` (T-100). Não
+> procure um package marcado como *planejado* — ele não existe.
 
 ---
 
@@ -22,8 +22,9 @@ veja o `CLAUDE.md` do package core correspondente (as antigas notas de `docs/dec
 
 Packages:
 
-- `packages/auth-core` *(planejado)* — registro, login, hash bcrypt, troca de senha, papéis
-  (`grantRole`). Hoje em `server/src/api/auth/service.ts`.
+- `packages/auth-core` *(Core, T-099c)* — registro, login, hash bcrypt, troca de senha, papéis
+  (`grantRole`). Importa `portfolio-core` (`createUser` cria a carteira padrão) — exceção
+  conhecida à regra 6, ver `PACKAGES.md`.
 - `packages/db` *(Infraestrutura, T-097)* — `sessionStore` (sessões em SQLite, T-034/T-046).
 - `packages/rest-api` — `POST /api/auth/register·login·logout`, `GET/PATCH /me`,
   `POST /change-password`, e o middleware `requireAuth`/`requireAdmin` (fica aqui porque é Express).
@@ -41,10 +42,8 @@ cotações em tempo real, histórico de preços e projeções.
 
 Packages:
 
-- `packages/portfolio-core` *(planejado)* — posição, preço médio, validação de SELL contra a
-  posição atual, série valor × custo, snapshots diários e o agendador de coleta.
-  Hoje: `services/portfolio.ts`, `portfolioHistory.ts`, `wallets.ts`, `snapshots.ts`,
-  `snapshotScheduler.ts`.
+- `packages/portfolio-core` *(Core, T-099c)* — posição, preço médio, validação de SELL contra a
+  posição atual, série valor × custo, carteiras, snapshots diários e o agendador de coleta.
 - `packages/brapi-core` *(Integração, T-098)* — client HTTP da [brapi.dev](https://brapi.dev):
   cotações e busca de tickers.
 - `packages/rest-api` — `/api/wallets`, `/api/operations`, `/api/portfolio`, `/api/snapshots`,
@@ -146,9 +145,9 @@ Nota: `/api/plans` é a **única** rota de dados sem filtro por `user_id` (catá
 
 Packages:
 
-- `packages/insights-core` *(planejado)* — acumulado do período e série diária de benchmarks
-  (T-068), e o job de insights horários. Hoje: `services/benchmarks.ts`, `benchmarkHistory.ts`,
-  `hourlyInsights.ts`.
+- `packages/insights-core` *(Core, T-099c)* — acumulado do período e série diária de benchmarks
+  (T-068), e o job de insights horários. Importa `portfolio-core` — exceção conhecida à
+  regra 6, ver `PACKAGES.md`.
 - `packages/rest-api` — `/api/benchmarks`, `/api/benchmarks/history?days=`,
   `POST /api/admin/run-insights-job`.
 - `packages/cli` — `insights:hourly [YYYY-MM-DD]`.
@@ -164,10 +163,10 @@ hoje, Open Finance via Pluggy depois.
 
 Packages:
 
-- `packages/bank-import-core` *(planejado)* — parser de OFX 1.x SGML / 2.x XML e a política de
-  dedupe por `external_id` (T-084/T-085). Hoje: `services/ofx.ts`, `externalId.ts`.
+- `packages/bank-import-core` *(Core, T-099c)* — parser de OFX 1.x SGML / 2.x XML e a política
+  de dedupe por `external_id` (T-084/T-085).
 - `packages/pluggy-core` *(planejado — Integração, Onda C)* — conexão Open Finance, sincronia
-  de transações. **Nasce direto como package**, não passa por `services/`.
+  de transações. **Nasce direto como package**.
 - `packages/rest-api` — `POST /api/import/ofx` (`express.raw`, 1 MB).
 
 Invariantes: crédito vira `income_entries`, débito vira `expense_entries`; `external_id` é

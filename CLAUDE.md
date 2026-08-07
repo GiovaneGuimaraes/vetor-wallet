@@ -26,9 +26,11 @@ Regras que valem já hoje, antes mesmo da migração terminar:
   package antes de mexer nele.
 
 > **Migração em curso.** O alvo é `packages/` = `web`, `rest-api`, `db`, `cli`, `shared` +
-> os `*-core`. Hoje quase toda a lógica ainda está em `packages/server/src/api/services/`, e
-> `rest-api` ainda se chama `server`. Os documentos acima marcam explicitamente o que é
-> *planejado* — não procure um package assim marcado. Código **novo** já nasce no formato alvo.
+> os `*-core`. Desde a T-099c (Ciclo 19) `packages/server/src/api/services/` **não existe
+> mais** — toda a lógica de domínio virou package e o `server` ficou só com Express (entry,
+> routers, middleware, `auth/router.ts`, `auth/middleware.ts`). Falta renomear `server` →
+> `rest-api` (T-100). Os documentos acima marcam o que é *planejado* — não procure um package
+> assim marcado. Código **novo** já nasce no formato alvo.
 
 ## Stack e estrutura
 
@@ -53,12 +55,23 @@ packages/
 │                     # poupança → meta, progresso de meta (T-099b, Ciclo 19)
 ├── expenses-core/    # @vetor-wallet/expenses-core — recorrência lazy e
 │                     # idempotente (T-099b, Ciclo 19)
-├── server/   # Node + Express (CJS) — API REST
+├── auth-core/        # @vetor-wallet/auth-core — credenciais, bcrypt, perfil,
+│                     # papéis (T-099c, Ciclo 19)
+├── portfolio-core/   # @vetor-wallet/portfolio-core — preço médio ponderado,
+│                     # validação de SELL, série valor × custo, carteiras,
+│                     # snapshots + agendador (T-099c, Ciclo 19)
+├── insights-core/    # @vetor-wallet/insights-core — benchmarks CDI/Ibovespa e
+│                     # job de insights horários (T-099c, Ciclo 19)
+├── bank-import-core/ # @vetor-wallet/bank-import-core — parser OFX e dedupe
+│                     # por external_id (T-099c, Ciclo 19)
+├── server/   # Node + Express (CJS) — API REST; SÓ Express desde a T-099c
 │   └── src/
-│       └── api/   # index.ts (entry), auth/, routes/, services/, middleware/
+│       └── api/   # index.ts (entry), auth/{router,middleware}.ts, routes/,
+│                  # middleware/  — não há mais services/
 ├── web/      # Vite + React 18 (ESM) — páginas em src/routes/ com funções puras
 │             # testáveis ao lado (*.test.ts); estado global em App.tsx via props
-└── cli/      # jobs de coleta (tsx; alias @vetor-wallet/server/* → ../server/src/*)
+└── cli/      # jobs de coleta (tsx; consome @vetor-wallet/{db,insights-core,
+            #  auth-core,validation-core} — o alias @vetor-wallet/server/* saiu na T-099c)
 ```
 
 ## Comandos (sempre da raiz)
@@ -77,6 +90,10 @@ pnpm --filter @vetor-wallet/validation-core test   # Vitest (validation-core)
 pnpm --filter @vetor-wallet/billing-core test      # Vitest (billing-core)
 pnpm --filter @vetor-wallet/savings-core test      # Vitest (savings-core)
 pnpm --filter @vetor-wallet/expenses-core test     # Vitest (expenses-core)
+pnpm --filter @vetor-wallet/bank-import-core test  # Vitest (bank-import-core)
+pnpm --filter @vetor-wallet/portfolio-core test    # Vitest (portfolio-core)
+pnpm --filter @vetor-wallet/insights-core test     # Vitest (insights-core)
+pnpm --filter @vetor-wallet/auth-core test         # Vitest (auth-core)
 pnpm --filter vetor-wallet-web test       # Vitest (web, funções puras)
 pnpm --filter vetor-wallet-cli insights:hourly [YYYY-MM-DD]
 ```
@@ -144,11 +161,14 @@ Toda mudança de comportamento em server, db ou web exige teste automatizado (ou
 Leia o arquivo do domínio antes de mexer nele:
 
 - **db-schema.md** — schema SQL completo, ALTERs idempotentes, índices.
-- **wallets-portfolio.md** — carteira única (T-050/T-050b), validação de SELL, projeção de ganhos (T-056) + gráfico SVG (T-057b) + alocação (T-057c), falha de cotações sinalizada, AlertsPanel/CsvImport sem UI (T-026).
+- **wallets-portfolio.md** — stub: migrado para `packages/portfolio-core/CLAUDE.md` (T-099c).
 - **savings-goals.md** — stub: migrado para `packages/savings-core/CLAUDE.md` (T-099b).
 - **expenses-budgets.md** — stub: migrado para `packages/expenses-core/CLAUDE.md` (T-099b).
 - **income.md** — renda fixa × variável (T-036), sobra do mês real na Home (T-025).
 - **validation-money-dates.md** — data de calendário real (T-043), máx. 2 casas decimais (T-052).
 - **billing.md** — stub: migrado para `packages/billing-core/CLAUDE.md` (T-099b).
-- **sessions-auth.md** — sessões persistentes no SQLite (T-034/T-046).
-- **snapshots-history.md** — coleta diária no boot + agendador (T-058a/T-061/T-063), gráfico de evolução (T-058b), preço por ação (T-060), insights horários, DATABASE_URL/Turso.
+- **sessions-auth.md** — só a persistência de sessão no SQLite (T-034/T-046); credenciais/perfil/papéis migraram para `packages/auth-core/CLAUDE.md` (T-099c).
+- **snapshots-history.md** — stub: dividido entre `packages/portfolio-core/CLAUDE.md` (snapshots, T-058a/T-060/T-061/T-063) e `packages/insights-core/CLAUDE.md` (benchmarks T-068, insights horários) na T-099c.
+
+Domínios sem `docs/decisions/` próprio, documentados só no package:
+`packages/bank-import-core/CLAUDE.md` (OFX + dedupe por `external_id`, T-084/T-085/T-086).

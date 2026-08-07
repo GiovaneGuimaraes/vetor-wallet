@@ -5,7 +5,7 @@ vi.mock('@vetor-wallet/db', () => ({
   db: { execute: vi.fn() },
 }));
 
-vi.mock('./snapshots', () => ({
+vi.mock('@vetor-wallet/portfolio-core', () => ({
   resolveActiveTickers: vi.fn(),
   getBRTDate: vi.fn(),
   saveSnapshotForDate: vi.fn(),
@@ -13,7 +13,7 @@ vi.mock('./snapshots', () => ({
 }));
 
 import { db } from '@vetor-wallet/db';
-import { resolveActiveTickers, getBRTDate, saveSnapshotForDate } from './snapshots';
+import { resolveActiveTickers, getBRTDate, saveSnapshotForDate } from '@vetor-wallet/portfolio-core';
 
 const mockExecute = vi.mocked(db.execute);
 const mockResolveActiveTickers = vi.mocked(resolveActiveTickers);

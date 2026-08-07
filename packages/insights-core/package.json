@@ -1,0 +1,26 @@
+{
+  "name": "@vetor-wallet/insights-core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vetor-wallet/brapi-core": "workspace:*",
+    "@vetor-wallet/db": "workspace:*",
+    "@vetor-wallet/portfolio-core": "workspace:*",
+    "@vetor-wallet/shared": "workspace:*",
+    "p-queue": "^6.6.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@vitest/coverage-v8": "^2.1.9",
+    "tsx": "^4.15.6",
+    "typescript": "^5.4.5",
+    "vitest": "^2.1.9"
+  }
+}

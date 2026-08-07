@@ -3,8 +3,11 @@
 Categorias, regras de dependência e onde colocar código novo. Para o mapa de domínios de
 negócio, veja [`MODULES.md`](./MODULES.md).
 
-> **Estado da migração.** Packages marcados *(planejado)* **não existem ainda** — a lógica está
-> em `packages/server/src/api/services/`. A coluna "Hoje em" diz de onde o código sai.
+> **Estado da migração.** Desde a T-099c (Ciclo 19) `packages/server/src/api/services/`
+> **não existe mais**: toda a lógica de domínio virou package. O que resta no `server` é
+> Express puro (entry, routers, middleware, `auth/router.ts`, `auth/middleware.ts`).
+> Packages marcados *(planejado)* **não existem ainda**; falta renomear `server` → `rest-api`
+> (T-100).
 
 ## Estrutura
 
@@ -16,15 +19,15 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **shared** | Core | – | Tipos TS compartilhados, **types-only** | ✅ existe |
 | **db** | Infrastructure | – | libsql client, `schema`, `migrations`, `sessionStore`, `sqlErrors` | ✅ existe (T-097) |
 | **validation-core** | Core | – | `isValidIsoDate`, `isValidMoneyAmount`, `normalizeCategory` | ✅ existe (T-099a) |
-| **auth-core** *(planejado)* | Core | Auth | Credenciais, bcrypt, papéis | `api/auth/service.ts` |
-| **portfolio-core** *(planejado)* | Core | Portfolio | Posição, preço médio, histórico, snapshots | `services/portfolio*.ts`, `wallets.ts`, `snapshots*.ts` |
+| **auth-core** | Core | Auth | Credenciais, bcrypt, papéis | ✅ existe (T-099c) |
+| **portfolio-core** | Core | Portfolio | Posição, preço médio, histórico, snapshots, agendador | ✅ existe (T-099c) |
 | **brapi-core** | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | ✅ existe (T-098) |
 | **expenses-core** | Core | Expenses | Recorrência lazy (categoria normalizada saiu para `validation-core`, T-099a) | ✅ existe (T-099b) |
 | **savings-core** | Core | Savings | Saldo livre, progresso de meta, transferência | ✅ existe (T-099b) |
 | **billing-core** | Core | Billing | Datas, ativação idempotente, gating | ✅ existe (T-099b) |
 | **abacatepay-core** | Integration | Billing | Client HTTP da AbacatePay (Pix) | ✅ existe (T-098) |
-| **insights-core** *(planejado)* | Core | Insights | Benchmarks CDI/Ibovespa, insights horários | `services/benchmark*.ts`, `hourlyInsights.ts` |
-| **bank-import-core** *(planejado)* | Core | BankImport | Parser OFX, dedupe por `external_id` | `services/ofx.ts`, `externalId.ts` |
+| **insights-core** | Core | Insights | Benchmarks CDI/Ibovespa, insights horários | ✅ existe (T-099c) |
+| **bank-import-core** | Core | BankImport | Parser OFX, dedupe por `external_id` | ✅ existe (T-099c) |
 | **pluggy-core** *(planejado)* | Integration | BankImport | Open Finance via Pluggy (Onda C) | – (código novo) |
 
 ## Categorias
@@ -53,6 +56,14 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 5. **`shared` é types-only** e não depende de nada. **`db` é standalone** — não importa nenhum core.
 6. **Core não depende de outro core de módulo diferente.** Transversais (`validation-core`,
    `db`, `shared`) são exceção.
+
+   > **Duas violações conhecidas, herdadas da extração (T-099c).**
+   > `auth-core → portfolio-core` (`createUser` chama `getOrCreateDefaultWallet`) e
+   > `insights-core → portfolio-core` (benchmarks usam `buildPositionMap`; o job horário usa
+   > os helpers de snapshot). Os dois acoplamentos já existiam **dentro** do `server` e a
+   > T-099c, sendo movimentação mecânica, só os tornou explícitos — não os introduziu nem os
+   > desfez. Desacoplar (a rota orquestrando os dois módulos) é tarefa futura; **não** use
+   > isso como precedente para um novo core → core.
 
 ### Nota sobre helpers duplicados server ↔ web
 

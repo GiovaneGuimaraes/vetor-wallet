@@ -8,7 +8,7 @@
 
 import PQueue from 'p-queue';
 import { db } from '@vetor-wallet/db';
-import { resolveActiveTickers, getBRTDate, saveSnapshotForDate, withRetry } from './snapshots';
+import { resolveActiveTickers, getBRTDate, saveSnapshotForDate, withRetry } from '@vetor-wallet/portfolio-core';
 
 const BRAPI_BASE = 'https://brapi.dev/api/quote';
 

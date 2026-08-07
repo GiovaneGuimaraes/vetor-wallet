@@ -17,7 +17,11 @@
       "@vetor-wallet/validation-core": ["../validation-core/src/index.ts"],
       "@vetor-wallet/billing-core": ["../billing-core/src/index.ts"],
       "@vetor-wallet/savings-core": ["../savings-core/src/index.ts"],
-      "@vetor-wallet/expenses-core": ["../expenses-core/src/index.ts"]
+      "@vetor-wallet/expenses-core": ["../expenses-core/src/index.ts"],
+      "@vetor-wallet/bank-import-core": ["../bank-import-core/src/index.ts"],
+      "@vetor-wallet/portfolio-core": ["../portfolio-core/src/index.ts"],
+      "@vetor-wallet/insights-core": ["../insights-core/src/index.ts"],
+      "@vetor-wallet/auth-core": ["../auth-core/src/index.ts"]
     }
   },
   "include": ["src"],
@@ -30,6 +34,10 @@
     { "path": "../validation-core" },
     { "path": "../billing-core" },
     { "path": "../savings-core" },
-    { "path": "../expenses-core" }
+    { "path": "../expenses-core" },
+    { "path": "../bank-import-core" },
+    { "path": "../portfolio-core" },
+    { "path": "../insights-core" },
+    { "path": "../auth-core" }
   ]
 }

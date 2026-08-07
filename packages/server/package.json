@@ -14,8 +14,12 @@
   "dependencies": {
     "@libsql/client": "^0.14.0",
     "@vetor-wallet/abacatepay-core": "workspace:*",
+    "@vetor-wallet/auth-core": "workspace:*",
+    "@vetor-wallet/bank-import-core": "workspace:*",
     "@vetor-wallet/billing-core": "workspace:*",
     "@vetor-wallet/brapi-core": "workspace:*",
+    "@vetor-wallet/insights-core": "workspace:*",
+    "@vetor-wallet/portfolio-core": "workspace:*",
     "@vetor-wallet/expenses-core": "workspace:*",
     "@vetor-wallet/savings-core": "workspace:*",
     "@vetor-wallet/db": "workspace:*",

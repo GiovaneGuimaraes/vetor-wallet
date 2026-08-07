@@ -45,7 +45,7 @@ describe('POST /api/import/ofx (T-085)', () => {
     const { default: authRouter } = await import('../auth/router');
     const { default: importOfxRouter } = await import('./importOfx');
     const { errorHandler } = await import('../middleware/errorHandler');
-    const fixtures = await import('../services/__fixtures__/ofx');
+    const fixtures = await import('@vetor-wallet/bank-import-core/fixtures');
 
     db = dbModule.db;
     sgml = fixtures.OFX_SGML_ITAU;
