@@ -3,8 +3,9 @@
 Camada de banco do Vetor Wallet, extraída de `packages/server/src/db/` na T-097
 (Ciclo 19 — arquitetura em módulos). Consumida hoje só pelo `server`
 (via `@vetor-wallet/db`) e indiretamente pelo `cli` (via `@vetor-wallet/server`).
-Não importa nenhum `*-core` nem nada de `server` — é a dependência mais rasa do
-monorepo, de propósito.
+Não importa nada de `server`/`web`/Express. Desde a T-099a depende de
+`@vetor-wallet/validation-core` (transversal, sem I/O, sem ciclo) para
+`normalizeCategory` — nenhum outro `*-core` de domínio é importado.
 
 ## Estrutura
 
@@ -39,12 +40,12 @@ src/
   restart do server. TTL deriva de `cookie.maxAge`; expiração é fail-closed
   (dado corrompido em `expires_at` é tratado como sessão expirada, nunca como
   válida para sempre).
-- **`normalizeCategory` em `migrations.ts` é uma cópia local**, não um import
-  de `server/src/api/services/categories.ts`. Antes da extração (T-097) a
-  migração importava a função de lá (acoplamento consciente documentado na
-  T-028); um package `db` isolado não pode depender de volta em `server`
-  (ciclo), então esta é a terceira cópia da mesma função de 1 linha — mesmo
-  padrão já usado entre `server` e `web`. **As três cópias mudam juntas.**
+- **`normalizeCategory` em `migrations.ts` importa `@vetor-wallet/validation-core`**
+  (T-099a). Antes disso era uma cópia local (T-097, porque um `db` isolado não
+  podia depender de volta em `server`); agora `db` e `server` compartilham a
+  mesma implementação via esse core transversal, que **não** depende de `db`
+  (evita ciclo). Só resta a cópia de `web/src/routes/categories.ts` — o
+  navegador não consome package de backend. Ver `packages/validation-core/CLAUDE.md`.
 
 ## Convenções
 

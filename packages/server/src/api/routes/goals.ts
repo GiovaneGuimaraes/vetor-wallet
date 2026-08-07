@@ -5,7 +5,7 @@ import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import type { NewGoal, GoalUpdate } from '@vetor-wallet/shared';
 import { listGoalsWithProgress, getGoalWithProgress, getGoalLinkAggregate } from '../services/goals';
-import { isValidMoneyAmount, moneyAmountError } from '../services/money';
+import { isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
 
 const router = Router();
 

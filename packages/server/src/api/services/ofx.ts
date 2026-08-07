@@ -1,6 +1,4 @@
-import { isValidIsoDate } from './dates';
-import { isValidMoneyAmount } from './money';
-import { normalizeCategory } from './categories';
+import { isValidIsoDate, isValidMoneyAmount, normalizeCategory } from '@vetor-wallet/validation-core';
 import { MAX_EXTERNAL_ID_LENGTH } from './externalId';
 
 /**

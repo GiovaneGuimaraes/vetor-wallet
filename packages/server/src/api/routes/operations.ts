@@ -4,9 +4,8 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import { buildPositionMap, wouldExceedPosition } from '../services/portfolio';
-import { isValidIsoDate } from '../services/dates';
+import { isValidIsoDate, isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
 import { getOrCreateDefaultWallet } from '../services/wallets';
-import { isValidMoneyAmount, moneyAmountError } from '../services/money';
 import type { NewOperation, Operation } from '@vetor-wallet/shared';
 
 const router = Router();

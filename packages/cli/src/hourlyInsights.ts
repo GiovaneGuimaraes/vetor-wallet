@@ -6,7 +6,7 @@
 import 'dotenv/config';
 import { initDb } from '@vetor-wallet/db';
 import { runHourlyInsightsJob } from '@vetor-wallet/server/api/services/hourlyInsights';
-import { isValidIsoDate } from '@vetor-wallet/server/api/services/dates';
+import { isValidIsoDate } from '@vetor-wallet/validation-core';
 
 async function main(): Promise<void> {
   const targetDate = process.argv[2];

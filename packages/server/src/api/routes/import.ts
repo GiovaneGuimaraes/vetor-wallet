@@ -6,9 +6,8 @@ import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import { buildPositionMap, applyOperation, wouldExceedPosition } from '../services/portfolio';
 import { getUnknownTickers } from '@vetor-wallet/brapi-core';
-import { isValidIsoDate } from '../services/dates';
+import { isValidIsoDate, isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
 import { getOrCreateDefaultWallet } from '../services/wallets';
-import { isValidMoneyAmount, moneyAmountError } from '../services/money';
 import type { NewOperation, CsvRowError, CsvImportResult, Operation } from '@vetor-wallet/shared';
 
 const router = Router();

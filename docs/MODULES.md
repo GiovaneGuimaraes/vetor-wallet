@@ -83,15 +83,17 @@ teto de gasto por categoria.
 
 Packages:
 
-- `packages/expenses-core` *(planejado)* — normalização de categoria (T-028) e materialização
-  lazy/idempotente de recorrências (T-035). Hoje: `services/categories.ts`, `recurringExpenses.ts`.
+- `packages/validation-core` *(Core transversal, T-099a)* — normalização de categoria
+  (`normalizeCategory`, T-028), consumida por `db` (migração de dados) e `rest-api`.
+- `packages/expenses-core` *(planejado)* — materialização lazy/idempotente de recorrências
+  (T-035). Hoje: `services/recurringExpenses.ts`.
 - `packages/rest-api` — `/api/expenses`, `/api/expense-entries` (+ `/summary`),
   `/api/recurring-expenses`, `/api/budgets`.
 - `packages/web/src/routes` — página de despesas, histórico mensal, edição inline (T-031).
 
-Invariante: `normalizeCategory` existe em **duas cópias** (server e web) porque `shared` é
-types-only. As duas mudam juntas — a extração para `expenses-core` não resolve isso sozinha
-(o web não consome packages de backend); veja a nota em `PACKAGES.md`.
+Invariante: `normalizeCategory` existe em **duas cópias** (`validation-core` e web) porque
+`shared` é types-only e o web não consome packages de backend. As duas mudam juntas; veja a
+nota em `PACKAGES.md`.
 
 ---
 

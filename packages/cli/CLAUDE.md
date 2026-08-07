@@ -58,6 +58,7 @@ O `tsconfig.json` do CLI define dois aliases:
 | Alias | Resolve para |
 |---|---|
 | `@vetor-wallet/shared` | `../shared/src/index.ts` |
+| `@vetor-wallet/validation-core` | `../validation-core/src/index.ts` |
 | `@vetor-wallet/server/*` | `../server/src/*` |
 
 Isso permite importar serviços e o cliente de banco do server sem duplicar código:

@@ -13,7 +13,8 @@
       "@vetor-wallet/shared": ["../shared/src/index.ts"],
       "@vetor-wallet/db": ["../db/src/index.ts"],
       "@vetor-wallet/brapi-core": ["../brapi-core/src/index.ts"],
-      "@vetor-wallet/abacatepay-core": ["../abacatepay-core/src/index.ts"]
+      "@vetor-wallet/abacatepay-core": ["../abacatepay-core/src/index.ts"],
+      "@vetor-wallet/validation-core": ["../validation-core/src/index.ts"]
     }
   },
   "include": ["src"],
@@ -22,6 +23,7 @@
     { "path": "../shared" },
     { "path": "../db" },
     { "path": "../brapi-core" },
-    { "path": "../abacatepay-core" }
+    { "path": "../abacatepay-core" },
+    { "path": "../validation-core" }
   ]
 }

@@ -1,14 +1,15 @@
 /**
  * Normalização canônica de categoria no client (T-028).
  *
- * Espelho de `server/src/services/categories.ts` — a decisão de projeto e o
- * porquê da forma canônica estão documentados lá. Resumo: a forma normalizada
- * (minúsculas, trim, espaços internos colapsados, NFC) é a forma **armazenada**
- * no banco, então o server já devolve tudo normalizado.
+ * Espelho de `packages/validation-core/src/categories.ts` (T-099a) — a decisão
+ * de projeto e o porquê da forma canônica estão documentados lá. Resumo: a
+ * forma normalizada (minúsculas, trim, espaços internos colapsados, NFC) é a
+ * forma **armazenada** no banco, então o server já devolve tudo normalizado.
  *
  * A duplicação existe porque `shared/` é types-only (`emitDeclarationOnly`),
- * logo não pode exportar função de runtime sem mudar o contrato de build dos
- * três pacotes. As duas cópias devem mudar juntas.
+ * logo não pode exportar função de runtime sem mudar o contrato de build, e o
+ * navegador não consome package de backend (nem um core transversal e sem I/O
+ * como `validation-core`). Esta cópia deve mudar junto com a de lá.
  *
  * O client ainda normaliza por dois motivos:
  * 1. defesa contra dados legados exibidos antes de a migração do `initDb()`

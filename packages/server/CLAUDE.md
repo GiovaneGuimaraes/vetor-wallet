@@ -12,8 +12,7 @@ src/
     ├── auth/         # service (bcrypt), middleware (requireAuth → res.locals.userId),
     │                 # router (/api/auth/*)
     ├── routes/       # 1 arquivo por recurso REST (ver tabela no CLAUDE.md raiz)
-    ├── services/     # lógica de negócio; parte pura (portfolio, dates, money,
-    │                 # categories…), parte com SQL (wallets, goals, snapshots…)
+    ├── services/     # lógica de negócio com SQL (wallets, goals, snapshots…)
     └── middleware/   # asyncHandler, errorHandler
 ```
 
@@ -23,6 +22,11 @@ daqui via `import { db, initDb, ... } from '@vetor-wallet/db'`. Ver
 `packages/db/CLAUDE.md` para as invariantes daquela camada (leitura de
 `DATABASE_URL` no top-level, ordem obrigatória nos testes com dynamic import,
 idempotência das migrações).
+
+As validações puras transversais (`isValidIsoDate`, `isValidMoneyAmount`,
+`normalizeCategory`) foram extraídas para `packages/validation-core` na T-099a
+(Ciclo 19) — consumidas via `import { ... } from '@vetor-wallet/validation-core'`.
+Ver `packages/validation-core/CLAUDE.md`.
 
 Entry compilado: `dist/api/index.js` (`pnpm --filter vetor-wallet-server start`). Rodar `node dist/api/index.js` de fora de `packages/server/` sem `DATABASE_URL` cria um banco novo no cwd errado.
 

@@ -4,13 +4,16 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import type { NewExpenseEntry, ExpenseEntryUpdate } from '@vetor-wallet/shared';
-import { normalizeCategory } from '../services/categories';
+import {
+  normalizeCategory,
+  isValidIsoDate,
+  isValidMoneyAmount,
+  moneyAmountError,
+} from '@vetor-wallet/validation-core';
 import {
   createRecurringExpenseEntry,
   materializeRecurringExpenses,
 } from '../services/recurringExpenses';
-import { isValidIsoDate } from '../services/dates';
-import { isValidMoneyAmount, moneyAmountError } from '../services/money';
 import {
   duplicateEntryResponse,
   insertEntryWithExternalId,
@@ -46,7 +49,7 @@ export const MATERIALIZATION_HORIZON_MONTHS = 12;
 /**
  * Desloca um mês `YYYY-MM` em `delta` meses, virando o ano quando necessário.
  * Duplicada de propósito de `web/src/routes/expenseMonth.ts > shiftMonth` —
- * mesmo padrão de duplicação de `services/categories.ts` (T-028): `shared/`
+ * mesmo padrão de duplicação de `@vetor-wallet/validation-core/src/categories.ts` (T-028): `shared/`
  * é types-only, então cada pacote tem sua própria cópia da função de runtime.
  */
 export function shiftMonthKey(monthKey: string, delta: number): string {
@@ -244,7 +247,7 @@ router.post(
       return;
     }
 
-    // Categoria é gravada na forma canônica (T-028) — ver services/categories.ts.
+    // Categoria é gravada na forma canônica (T-028) — ver @vetor-wallet/validation-core/src/categories.ts.
     const normalizedCategory = normalizeCategory(typeof category === 'string' ? category : '');
 
     // T-035: quando o lançamento é marcado como recorrente, o template nasce
@@ -369,7 +372,7 @@ router.patch(
       args.push(description.trim());
     }
     if (category !== undefined) {
-      // Mesma forma canônica da criação (T-028) — ver services/categories.ts.
+      // Mesma forma canônica da criação (T-028) — ver @vetor-wallet/validation-core/src/categories.ts.
       fields.push('category = ?');
       args.push(normalizeCategory(category));
     }

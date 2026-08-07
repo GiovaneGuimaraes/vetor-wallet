@@ -15,11 +15,11 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **cli** | Tool | – | Jobs de coleta e scripts (tsx) | ✅ existe |
 | **shared** | Core | – | Tipos TS compartilhados, **types-only** | ✅ existe |
 | **db** | Infrastructure | – | libsql client, `schema`, `migrations`, `sessionStore`, `sqlErrors` | ✅ existe (T-097) |
-| **validation-core** *(planejado)* | Core | – | `isValidIsoDate`, `isValidMoneyAmount` e afins | `services/dates.ts`, `money.ts` |
+| **validation-core** | Core | – | `isValidIsoDate`, `isValidMoneyAmount`, `normalizeCategory` | ✅ existe (T-099a) |
 | **auth-core** *(planejado)* | Core | Auth | Credenciais, bcrypt, papéis | `api/auth/service.ts` |
 | **portfolio-core** *(planejado)* | Core | Portfolio | Posição, preço médio, histórico, snapshots | `services/portfolio*.ts`, `wallets.ts`, `snapshots*.ts` |
 | **brapi-core** | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | ✅ existe (T-098) |
-| **expenses-core** *(planejado)* | Core | Expenses | Categoria normalizada, recorrência lazy | `services/categories.ts`, `recurringExpenses.ts` |
+| **expenses-core** *(planejado)* | Core | Expenses | Recorrência lazy (categoria normalizada já saiu para `validation-core`, T-099a) | `services/recurringExpenses.ts` |
 | **savings-core** *(planejado)* | Core | Savings | Saldo livre, progresso de meta, transferência | `services/savings.ts`, `goals.ts` |
 | **billing-core** *(planejado)* | Core | Billing | Datas, ativação idempotente, gating | `services/billing.ts` |
 | **abacatepay-core** | Integration | Billing | Client HTTP da AbacatePay (Pix) | ✅ existe (T-098) |
@@ -58,9 +58,11 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 
 `normalizeCategory` e o cálculo de saldo livre existem em duas cópias porque `shared` é
 types-only e o `web` não consome packages de backend. **Extrair para um core não muda isso** —
-`expenses-core` importa `db` e roda em Node, o navegador não vai consumi-lo. A regra continua
-valendo: **as duas cópias mudam juntas**. Se um dia isso incomodar, a saída é um package
-`*-rules` isento de I/O e consumível pelos dois lados — não é o caso hoje.
+mesmo um core transversal e sem I/O como `validation-core` (T-099a) roda em Node via `require()`,
+o navegador não vai consumi-lo. A regra continua valendo: **as duas cópias mudam juntas** — a
+extração só colapsou as cópias do lado backend (`db` e `server` agora compartilham
+`validation-core`), não a do `web`. Se um dia isso incomodar, a saída seria expor a função em
+runtime também para o bundle do web — não é o caso hoje.
 
 ## Onde colocar este código?
 

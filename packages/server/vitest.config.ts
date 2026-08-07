@@ -14,6 +14,7 @@ export default defineConfig({
       '@vetor-wallet/db': path.resolve(__dirname, '../db/src/index.ts'),
       '@vetor-wallet/brapi-core': path.resolve(__dirname, '../brapi-core/src/index.ts'),
       '@vetor-wallet/abacatepay-core': path.resolve(__dirname, '../abacatepay-core/src/index.ts'),
+      '@vetor-wallet/validation-core': path.resolve(__dirname, '../validation-core/src/index.ts'),
     },
   },
   test: {

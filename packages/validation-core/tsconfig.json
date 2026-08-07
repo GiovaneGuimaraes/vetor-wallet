@@ -10,12 +10,8 @@
     "rootDir": "src",
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "baseUrl": ".",
-    "paths": {
-      "@vetor-wallet/validation-core": ["../validation-core/src/index.ts"]
-    }
+    "baseUrl": "."
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/**/__fixtures__/**"],
-  "references": [{ "path": "../validation-core" }]
+  "exclude": ["src/**/*.test.ts", "src/**/__fixtures__/**"]
 }

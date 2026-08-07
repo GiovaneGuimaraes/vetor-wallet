@@ -12,6 +12,7 @@
     "@libsql/client": "^0.14.0",
     "@vetor-wallet/db": "workspace:*",
     "@vetor-wallet/shared": "workspace:*",
+    "@vetor-wallet/validation-core": "workspace:*",
     "dotenv": "^16.4.5"
   },
   "devDependencies": {
