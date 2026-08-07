@@ -343,16 +343,28 @@
 - **Invariantes que não podem mudar**: `markChargePaidAndActivate` como única porta de ativação e datas UTC no formato SQLite (`billing.ts`); transferência poupança → meta como par atômico (T-041); recorrência lazy e idempotente (T-035).
 
 ### T-099c — `bank-import-core`, `insights-core`, `portfolio-core`, `auth-core`
-- **Status**: EM_ANDAMENTO — delegada 2026-08-06, executor Opus em worktree.
-- **Herdado da T-099b**: `expenses-core/CLAUDE.md` carrega seções de `external_id`/OFX (marcadas "Ainda por mover") que pertencem ao `bank-import-core` — recortar nesta tarefa.
+- **Status**: CONCLUIDA — PR #146 mergeado (2026-08-07). Executor Opus, revisor Sonnet (APROVADA, nenhum achado). **`packages/server/src/api/services/` deixou de existir.** Soma backend **748/48** mantida (server 452/25 + portfolio 73/4 + bank-import 34/2 + insights 23/2 + auth 10/1 + os sete anteriores); web 449/26. Os cinco arquivos do `portfolio-core` conferidos por `diff` byte a byte contra a `main`: idênticos.
+- **Risco sem teste, coberto por execução**: `snapshotScheduler` roda no boot e nenhum teste pega se parar de ser chamado (a coleta diária morreria em silêncio). Executor e revisor verificaram **independentemente** subindo o server compilado com `global.setInterval` instrumentado — exatamente um intervalo de 1.800.000 ms no boot. Repetir essa checagem em qualquer tarefa futura que mexa no `api/index.ts`.
+- **Decisões**: só `service.test.ts` foi para `auth-core` (puro); os testes que sobem app Express ficaram no server, senão o package dependeria de Express (regra 1). Fixtures OFX compartilhadas via subpath `@vetor-wallet/bank-import-core/fixtures`, cujo alias precisa vir **antes** do alias do package base no `vitest.config.ts` (o alias de string do Vite casa por prefixo).
 - **Prioridade**: P1
 - **Complexidade**: alta — executor Opus (`portfolio-core` tem preço médio ponderado e P&L)
 - **Depende de**: T-099b
 - **Escopo**: `bank-import-core` (`ofx.ts`, `externalId.ts`), `insights-core` (`benchmarks.ts`, `benchmarkHistory.ts`, `hourlyInsights.ts`), `portfolio-core` (`portfolio.ts`, `portfolioHistory.ts`, `wallets.ts`, `snapshots.ts`, `snapshotScheduler.ts`), `auth-core` (`api/auth/service.ts`). Um commit por package.
 - **Atenção**: `snapshotScheduler.ts` roda no boot do server — confirmar que o agendador continua sendo iniciado pelo `api/index.ts` depois da extração. O `cli` também consome `hourlyInsights`; o alias dele tem que acompanhar.
 
-### T-100 — Renomear `server` → `rest-api`
+### T-101 — Consertar o CI vermelho (lint do `App.tsx` bloqueia o step de teste)
 - **Status**: PENDENTE
+- **Prioridade**: **P1** — mais urgente que a T-100
+- **Complexidade**: média (mexe em comportamento de render do `App.tsx`, exige teste)
+- **Depende de**: —
+- **Contexto**: o CI está vermelho **desde antes do Ciclo 19** (já falhava nos runs do Ciclo 18, 2026-08-06) e ninguém percebeu. `pnpm lint` falha em `packages/web/src/App.tsx:69` com a regra `react-hooks/refs` do `eslint-plugin-react-hooks@7`: `pathnameRef.current = location.pathname` atribui a um ref **durante o render**. O `.github/workflows/ci.yml` roda Build → Lint → Test **em série**, então o Lint vermelho faz o **step de Test nunca executar**. Na prática, todo o Ciclo 19 foi validado só por execução local do orquestrador — a rede de segurança do CI estava desligada o tempo todo.
+- **Escopo**: corrigir a violação de verdade (mover a atualização do ref para um `useEffect`, ou eliminar o ref se o listener puder ler o valor de outra forma), **não** silenciar a regra com `eslint-disable`. Verificar que a navegação que depende do `pathnameRef` continua funcionando e cobrir com teste.
+- **Fora de escopo**: outras regras de lint; a T-100.
+- **Critério de aceite**: `pnpm lint` verde localmente; run do CI **completo e verde** na branch (os três steps, com o Test finalmente executando); comportamento do listener de rota preservado, com teste que o cubra.
+
+### T-100 — Renomear `server` → `rest-api`
+- **Status**: PENDENTE — **aguardando o humano** (ver abaixo)
+- **BLOQUEIO (2026-08-07)**: não existe configuração de deploy no repo (sem Dockerfile, `fly.toml`, `Procfile` ou similar; o `.github/workflows/ci.yml` só usa scripts da raiz e não quebra). Isso significa que o deploy é configurado **fora** do repositório, num painel de hospedagem que o orquestrador não enxerga. Renomear o diretório muda o caminho do entry de produção de `packages/server/dist/api/index.js` para `packages/rest-api/dist/api/index.js`, e só o humano pode atualizar o host. Fazer o rename antes disso derruba o deploy no próximo push.
 - **Prioridade**: P3
 - **Complexidade**: média
 - **Depende de**: T-099
@@ -380,6 +392,7 @@
 - Threshold percentual de 2 casas a revisitar com a UI de alertas (demais sobras das revisões 10–11 entraram no Ciclo 14: T-064–T-067).
 - Backfill histórico de snapshots via `hourly_quote_insights` (o agendador in-process foi entregue na T-061; Lambda/EventBridge segue como dívida de produção).
 - Ampliar `/admin`; backend de cripto (aguardando o humano); agendador do job de insights (Lambda/EventBridge); redesign de Alertas/Import (hoje sem UI).
+- **Do Ciclo 19 (2026-08-07)** — dois acoplamentos **pré-existentes** que a extração em packages tornou visíveis (o revisor confirmou por diff que já existiam dentro do server; desfazê-los é refactor, não movimentação): (a) `auth-core → portfolio-core` (`createUser` chama `getOrCreateDefaultWallet`) e `insights-core → portfolio-core` (benchmarks usam `buildPositionMap`/`buildPortfolioSummary`) violam a **regra 6** do `PACKAGES.md` — a saída natural é a rota orquestrar os dois módulos em vez de um core chamar o outro; (b) `portfolio-core/src/snapshots.ts` tem `fetchQuotesStrict`, um **segundo client da brapi** que lança em erro, enquanto `brapi-core.fetchQuotes` degrada em silêncio — unificar movendo `fetchQuotesStrict` para o `brapi-core` e fazendo o tolerante virar wrapper dele. Item (c): mover para `billing-core` a orquestração do client AbacatePay que hoje vive nas rotas `subscriptions.ts`/`pixCharges.ts`/`billingSimulate.ts` (regra 3 do `PACKAGES.md`).
 - **Dos ciclos 17–18 (2026-08-05)**: limpar backend de budgets (rotas + tabela `category_budgets` + tipo no shared) — a UI foi removida na T-089 e nada mais consome; datar `buildIbovespaSeries` em BRT em vez de UTC (consistência com a âncora da rota; hoje um candle intraday após 21h BRT pode ser datado como "amanhã" e recortado — achado da T-095).
 - **Da revisão de 2026-08-02** (não viraram tarefa do ciclo 16): padronizar casing da API (goals usa `target_amount`, operations usa camelCase — só dói para integradores); default silencioso `type: 'OUTRO'` no POST /api/income; "caixa de entrada" de revisão para transações importadas (confirmar/categorizar antes de virar lançamento — extratos reais têm estornos e transferências entre contas próprias); endpoint `investments` da Pluggy para reconciliar posição B3.
 

@@ -18,6 +18,12 @@
 
 ## Abertos
 
+### [2026-08-07] Caminho do entry de produção muda com o rename `server` → `rest-api` (T-100)
+- **Origem**: orquestrador (Ciclo 19 — migração para arquitetura em módulos)
+- **Bloqueia**: T-100 (última tarefa do Ciclo 19; o resto do ciclo já está na `main`)
+- **Pergunta/pendência**: não há configuração de deploy versionada no repo (nenhum Dockerfile, `fly.toml`, `Procfile`; o `ci.yml` só usa scripts da raiz e não quebra), então o deploy é configurado num painel de hospedagem que os agentes não enxergam. A T-100 renomeia `packages/server` → `packages/rest-api`, mudando o entry de `packages/server/dist/api/index.js` para `packages/rest-api/dist/api/index.js`. **Onde está configurado o start do server em produção?** Duas saídas: (a) você atualiza o caminho no painel e avisa, e aí a T-100 roda; (b) versionamos a config de deploy no repo (Dockerfile ou equivalente) numa tarefa antes da T-100, e aí o rename passa a ser auto-contido — é a opção que o orquestrador recomenda, porque hoje uma parte do deploy não está sob revisão nem sob CI.
+- **Resposta do humano**: _(preencher)_
+
 ### [2026-08-02] Credenciais do Meu Pluggy para o job `pluggy:sync` (T-087)
 - **Origem**: sessão de revisão com o Claude (planejamento do ciclo 16)
 - **Bloqueia**: T-087 (o resto da Onda C — T-084/T-085/T-086 — não depende disso)
