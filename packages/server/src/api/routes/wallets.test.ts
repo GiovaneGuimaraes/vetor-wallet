@@ -19,13 +19,13 @@ process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
 describe('wallets routes — carteira única (T-050)', () => {
   let app: Express;
-  let db: typeof import('../../db').db;
+  let db: typeof import('@vetor-wallet/db').db;
   let agentA: ReturnType<typeof request.agent>;
   let agentB: ReturnType<typeof request.agent>;
   let userAId: number;
 
   beforeAll(async () => {
-    const dbModule = await import('../../db');
+    const dbModule = await import('@vetor-wallet/db');
     const { default: authRouter } = await import('../auth/router');
     const { default: walletsRouter } = await import('./wallets');
     const { default: operationsRouter } = await import('./operations');

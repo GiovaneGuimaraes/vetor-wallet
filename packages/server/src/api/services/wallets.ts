@@ -1,4 +1,4 @@
-import { db } from '../../db';
+import { db } from '@vetor-wallet/db';
 import type { Row } from '@libsql/client';
 
 /**

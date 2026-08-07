@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../../db';
+import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { AbacatePayError, simulatePixPayment } from '../services/abacatepay';

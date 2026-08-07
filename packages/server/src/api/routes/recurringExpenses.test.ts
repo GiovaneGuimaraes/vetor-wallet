@@ -89,7 +89,7 @@ describe('recurring expenses (T-035)', () => {
   }
 
   beforeAll(async () => {
-    const { initDb } = await import('../../db');
+    const { initDb } = await import('@vetor-wallet/db');
     const { default: authRouter } = await import('../auth/router');
     const entriesModule = await import('./expenseEntries');
     const { default: recurringRouter } = await import('./recurringExpenses');

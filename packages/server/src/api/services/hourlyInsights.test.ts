@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { saveHourlyInsight, runHourlyInsightsJob, yesterday } from './hourlyInsights';
 
-vi.mock('../../db', () => ({
+vi.mock('@vetor-wallet/db', () => ({
   db: { execute: vi.fn() },
 }));
 
@@ -12,7 +12,7 @@ vi.mock('./snapshots', () => ({
   withRetry: vi.fn((fn: () => Promise<unknown>) => fn()),
 }));
 
-import { db } from '../../db';
+import { db } from '@vetor-wallet/db';
 import { resolveActiveTickers, getBRTDate, saveSnapshotForDate } from './snapshots';
 
 const mockExecute = vi.mocked(db.execute);

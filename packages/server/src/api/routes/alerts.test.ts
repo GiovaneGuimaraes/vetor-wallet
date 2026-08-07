@@ -23,7 +23,7 @@ describe('alerts routes', () => {
   let agentB: ReturnType<typeof request.agent>;
 
   beforeAll(async () => {
-    const { initDb } = await import('../../db');
+    const { initDb } = await import('@vetor-wallet/db');
     const { default: authRouter } = await import('../auth/router');
     const { default: alertsRouter } = await import('./alerts');
     const { errorHandler } = await import('../middleware/errorHandler');

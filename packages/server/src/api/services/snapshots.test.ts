@@ -8,13 +8,13 @@ import {
   catchUpIfNeeded,
 } from './snapshots';
 
-vi.mock('../../db', () => ({
+vi.mock('@vetor-wallet/db', () => ({
   db: {
     execute: vi.fn(),
   },
 }));
 
-import { db } from '../../db';
+import { db } from '@vetor-wallet/db';
 const mockExecute = vi.mocked(db.execute);
 
 // ── isBusinessDay ─────────────────────────────────────────────────────────────

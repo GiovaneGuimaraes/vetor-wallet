@@ -23,7 +23,7 @@ describe('goals routes', () => {
   let agentB: ReturnType<typeof request.agent>;
 
   beforeAll(async () => {
-    const { initDb } = await import('../../db');
+    const { initDb } = await import('@vetor-wallet/db');
     const { default: authRouter } = await import('../auth/router');
     const { default: goalsRouter } = await import('./goals');
     const { default: savingsRouter } = await import('./savings');
@@ -398,7 +398,7 @@ describe('goals routes', () => {
     afterEach(async () => {
       if (originalFlag === undefined) delete process.env.BILLING_ENABLED;
       else process.env.BILLING_ENABLED = originalFlag;
-      const { db } = await import('../../db');
+      const { db } = await import('@vetor-wallet/db');
       await db.execute('DELETE FROM subscriptions');
     });
 
@@ -411,7 +411,7 @@ describe('goals routes', () => {
 
     it('allows POST once an active subscription exists', async () => {
       process.env.BILLING_ENABLED = 'true';
-      const { db } = await import('../../db');
+      const { db } = await import('@vetor-wallet/db');
       const { toSqliteUtc } = await import('../services/billing');
 
       const me = await agentA.get('/api/auth/me');

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { requireAuth, requireAdmin } from './middleware';
 import type { Request, Response, NextFunction } from 'express';
 
-vi.mock('../../db', () => ({
+vi.mock('@vetor-wallet/db', () => ({
   db: { execute: vi.fn() },
 }));
 
@@ -11,7 +11,7 @@ vi.mock('./service', async (importOriginal) => {
   return { ...actual };
 });
 
-import { db } from '../../db';
+import { db } from '@vetor-wallet/db';
 const mockExecute = vi.mocked(db.execute);
 
 function makeReq(userId?: number): Request {

@@ -22,7 +22,7 @@ interface HistoryPoint {
 
 describe('GET /api/portfolio/history (T-058a)', () => {
   let app: Express;
-  let db: typeof import('../../db').db;
+  let db: typeof import('@vetor-wallet/db').db;
   let agentA: ReturnType<typeof request.agent>;
   let agentB: ReturnType<typeof request.agent>;
   let today: string;
@@ -36,7 +36,7 @@ describe('GET /api/portfolio/history (T-058a)', () => {
   }
 
   beforeAll(async () => {
-    const dbModule = await import('../../db');
+    const dbModule = await import('@vetor-wallet/db');
     const { initDb } = dbModule;
     db = dbModule.db;
     const { default: authRouter } = await import('../auth/router');

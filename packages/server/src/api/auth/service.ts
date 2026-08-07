@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { db } from '../../db';
+import { db } from '@vetor-wallet/db';
 import { getOrCreateDefaultWallet } from '../services/wallets';
 import type { User } from '@vetor-wallet/shared';
 

@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { db } from '../../db';
+import { db } from '@vetor-wallet/db';
 import {
   createUser,
   findUserByEmail,
