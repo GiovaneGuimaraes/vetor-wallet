@@ -335,7 +335,7 @@
 - **Atenção**: `db/src/migrations.ts` usa `normalizeCategory` numa migração de DADOS. Se a função divergir do que o runtime usa, categorias gravadas ficam inconsistentes com as comparadas. O teste tem que cobrir o caso unicode (`SAÚDE`/`saúde`), que é o motivo do `toLocaleLowerCase('pt-BR')` em vez de `lower()` do SQLite.
 
 ### T-099b — `billing-core`, `savings-core`, `expenses-core`
-- **Status**: EM_ANDAMENTO — delegada 2026-08-06, executor Opus em worktree.
+- **Status**: CONCLUIDA — PR #145 mergeado (2026-08-06). Executor Opus, revisor Sonnet (APROVADA, nenhum achado). Soma backend **748/48** mantida (server 592/34 + billing 20/1 + savings 30/2 + expenses 18/1 + os quatro anteriores); web 449/26. Revisor provou por `diff` byte a byte que `billing.ts` e `recurringExpenses.ts` ficaram idênticos e que o par atômico da transferência (T-041) está intocado. Executor **não** moveu a orquestração do client AbacatePay para o `billing-core` (verificado: `billing.ts` nunca chamou o client — quem orquestra são as rotas); fica como candidata futura, registrada no `CLAUDE.md` do package.
 - **Prioridade**: P1
 - **Complexidade**: alta — executor Opus (dois destes mexem com dinheiro)
 - **Depende de**: T-099a
@@ -343,7 +343,8 @@
 - **Invariantes que não podem mudar**: `markChargePaidAndActivate` como única porta de ativação e datas UTC no formato SQLite (`billing.ts`); transferência poupança → meta como par atômico (T-041); recorrência lazy e idempotente (T-035).
 
 ### T-099c — `bank-import-core`, `insights-core`, `portfolio-core`, `auth-core`
-- **Status**: PENDENTE
+- **Status**: EM_ANDAMENTO — delegada 2026-08-06, executor Opus em worktree.
+- **Herdado da T-099b**: `expenses-core/CLAUDE.md` carrega seções de `external_id`/OFX (marcadas "Ainda por mover") que pertencem ao `bank-import-core` — recortar nesta tarefa.
 - **Prioridade**: P1
 - **Complexidade**: alta — executor Opus (`portfolio-core` tem preço médio ponderado e P&L)
 - **Depende de**: T-099b
