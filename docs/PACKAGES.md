@@ -1,0 +1,85 @@
+# Packages
+
+Categorias, regras de dependência e onde colocar código novo. Para o mapa de domínios de
+negócio, veja [`MODULES.md`](./MODULES.md).
+
+> **Estado da migração.** Packages marcados *(planejado)* **não existem ainda** — a lógica está
+> em `packages/server/src/api/services/`. A coluna "Hoje em" diz de onde o código sai.
+
+## Estrutura
+
+| Package | Categoria | Módulo | Descrição | Hoje em |
+|---|---|---|---|---|
+| **web** | Frontend | – | React 18 + Vite (ESM); páginas em `src/routes/` | ✅ existe |
+| **rest-api** *(planejado)* | Backend | – | Express (CJS): rotas, middleware, entry HTTP | `packages/server` |
+| **cli** | Tool | – | Jobs de coleta e scripts (tsx) | ✅ existe |
+| **shared** | Core | – | Tipos TS compartilhados, **types-only** | ✅ existe |
+| **db** *(planejado)* | Infrastructure | – | libsql client, `schema`, `migrations`, `sessionStore`, `sqlErrors` | `server/src/db` |
+| **validation-core** *(planejado)* | Core | – | `isValidIsoDate`, `isValidMoneyAmount` e afins | `services/dates.ts`, `money.ts` |
+| **auth-core** *(planejado)* | Core | Auth | Credenciais, bcrypt, papéis | `api/auth/service.ts` |
+| **portfolio-core** *(planejado)* | Core | Portfolio | Posição, preço médio, histórico, snapshots | `services/portfolio*.ts`, `wallets.ts`, `snapshots*.ts` |
+| **brapi-core** *(planejado)* | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | `services/quotes.ts`, `tickers.ts` |
+| **expenses-core** *(planejado)* | Core | Expenses | Categoria normalizada, recorrência lazy | `services/categories.ts`, `recurringExpenses.ts` |
+| **savings-core** *(planejado)* | Core | Savings | Saldo livre, progresso de meta, transferência | `services/savings.ts`, `goals.ts` |
+| **billing-core** *(planejado)* | Core | Billing | Datas, ativação idempotente, gating | `services/billing.ts` |
+| **abacatepay-core** *(planejado)* | Integration | Billing | Client HTTP da AbacatePay (Pix) | `services/abacatepay.ts` |
+| **insights-core** *(planejado)* | Core | Insights | Benchmarks CDI/Ibovespa, insights horários | `services/benchmark*.ts`, `hourlyInsights.ts` |
+| **bank-import-core** *(planejado)* | Core | BankImport | Parser OFX, dedupe por `external_id` | `services/ofx.ts`, `externalId.ts` |
+| **pluggy-core** *(planejado)* | Integration | BankImport | Open Finance via Pluggy (Onda C) | – (código novo) |
+
+## Categorias
+
+- **Frontend** — aplicação web voltada ao usuário.
+- **Backend** — a API HTTP. Só aqui existe Express, sessão, `req`/`res`.
+- **Core** — lógica de negócio dona de um domínio. A maioria é pura, mas um core **pode** ter
+  persistência quando ele é o dono daquele dado (`billing-core`, `savings-core` e
+  `portfolio-core` falam com `db`). "Core" significa *dono das regras/dados do domínio*, não
+  *nunca faz I/O*.
+- **Integration** — cliente de serviço de terceiro (brapi, AbacatePay, Pluggy). Traduz o mundo
+  externo em tipos nossos e devolve.
+- **Infrastructure** — banco e afins, sem regra de negócio.
+- **Tool** — utilitários de desenvolvimento e operação.
+
+## Regras de dependência
+
+1. **Core não depende de Frontend/Backend.** Nenhum `*-core` importa `express`, `req`, `res`
+   ou qualquer coisa de `rest-api`/`web`. Um core que precisa reportar erro lança um erro
+   tipado; quem traduz para status HTTP é a rota.
+2. **Integration não toca `db`.** Um client de terceiro busca, valida o envelope e devolve.
+   Quem persiste é o core de domínio. (Hoje `abacatepay.ts` e `quotes.ts` já respeitam isso.)
+3. **Integration pode depender de Core**, nunca o contrário na mesma direção de dado:
+   `billing-core` orquestra `abacatepay-core`, não o inverso.
+4. **Backend depende de Core e Integration**, e é o único lugar onde dois módulos se cruzam.
+5. **`shared` é types-only** e não depende de nada. **`db` é standalone** — não importa nenhum core.
+6. **Core não depende de outro core de módulo diferente.** Transversais (`validation-core`,
+   `db`, `shared`) são exceção.
+
+### Nota sobre helpers duplicados server ↔ web
+
+`normalizeCategory` e o cálculo de saldo livre existem em duas cópias porque `shared` é
+types-only e o `web` não consome packages de backend. **Extrair para um core não muda isso** —
+`expenses-core` importa `db` e roda em Node, o navegador não vai consumi-lo. A regra continua
+valendo: **as duas cópias mudam juntas**. Se um dia isso incomodar, a saída é um package
+`*-rules` isento de I/O e consumível pelos dois lados — não é o caso hoje.
+
+## Onde colocar este código?
+
+1. **É regra de negócio de um domínio (com ou sem banco)?** → `*-core` do módulo dono.
+2. **Chama uma API externa (brapi, AbacatePay, Pluggy)?** → package de Integração.
+3. **É rota HTTP, middleware ou validação de request?** → `rest-api`.
+4. **É SQL de schema, migração ou o client?** → `db`.
+5. **É tipo compartilhado entre server e web?** → `shared` (só tipos).
+6. **É componente, página ou hook React?** → `web`.
+7. **É script ou job disparado por fora?** → `cli`.
+
+**Qual módulo?** Consulte [`MODULES.md`](./MODULES.md) e escolha o dono da entidade primária.
+
+## Convenções de package
+
+- Cada package tem seu próprio `CLAUDE.md` com as invariantes do domínio — é o que os agentes
+  leem antes de mexer ali. Ele substitui o arquivo equivalente em `docs/decisions/`.
+- Cores são consumidos **por código-fonte** (`main: src/index.ts` + `paths` no tsconfig), como o
+  `cli` já faz com o `server`. Não há passo de build por package: quem compila é o `rest-api`.
+- Teste ao lado do código (`src/**/*.test.ts`), Vitest, em todo package.
+- Teste que toca banco define `DATABASE_URL` **antes** do `await import('@vetor-wallet/db')` —
+  o client lê o env no top-level do módulo.
