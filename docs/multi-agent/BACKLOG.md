@@ -291,7 +291,7 @@
 - **Resultado**: os três arquivos marcam explicitamente cada package como *(planejado)* com a coluna "Hoje em", para não induzir agente a procurar package inexistente.
 
 ### T-097 — Extrair `packages/db`
-- **Status**: PENDENTE
+- **Status**: EM_ANDAMENTO — delegada 2026-08-06, executor Sonnet em worktree.
 - **Prioridade**: P1
 - **Complexidade**: média
 - **Depende de**: T-096
