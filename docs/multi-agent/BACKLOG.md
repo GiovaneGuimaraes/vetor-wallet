@@ -304,7 +304,7 @@
 - **Critério de aceite**: `pnpm --filter vetor-wallet-server test` e `pnpm --filter vetor-wallet-web test` verdes com a **mesma contagem** de testes; `pnpm build` gera `dist/api/index.js`; `pnpm --filter vetor-wallet-cli insights:hourly` roda. **Atenção**: `client.ts` lê `DATABASE_URL` no top-level — a convenção "setar env antes do `await import()`" continua valendo, agora com `await import('@vetor-wallet/db')`.
 
 ### T-098 — Extrair as integrações: `brapi-core` e `abacatepay-core`
-- **Status**: PENDENTE
+- **Status**: EM_ANDAMENTO — delegada 2026-08-06, executor Sonnet em worktree.
 - **Prioridade**: P1
 - **Complexidade**: média
 - **Depende de**: T-097
