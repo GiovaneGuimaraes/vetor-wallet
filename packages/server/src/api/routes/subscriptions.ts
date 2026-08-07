@@ -3,7 +3,7 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import type { MySubscriptionResponse } from '@vetor-wallet/shared';
-import { AbacatePayError, createPixCharge, isAbacatePayConfigured } from '../services/abacatepay';
+import { AbacatePayError, createPixCharge, isAbacatePayConfigured } from '@vetor-wallet/abacatepay-core';
 import {
   getActivePlan,
   getPendingCharge,
