@@ -353,7 +353,7 @@
 - **Atenção**: `snapshotScheduler.ts` roda no boot do server — confirmar que o agendador continua sendo iniciado pelo `api/index.ts` depois da extração. O `cli` também consome `hourlyInsights`; o alias dele tem que acompanhar.
 
 ### T-101 — Consertar o CI vermelho (lint do `App.tsx` bloqueia o step de teste)
-- **Status**: PENDENTE
+- **Status**: EM_ANDAMENTO — delegada 2026-08-07, executor Sonnet em worktree.
 - **Prioridade**: **P1** — mais urgente que a T-100
 - **Complexidade**: média (mexe em comportamento de render do `App.tsx`, exige teste)
 - **Depende de**: —
