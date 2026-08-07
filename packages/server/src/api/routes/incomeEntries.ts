@@ -14,7 +14,7 @@ import {
   duplicateEntryResponse,
   insertEntryWithExternalId,
   validateExternalId,
-} from '../services/externalId';
+} from '@vetor-wallet/bank-import-core';
 
 const router = Router();
 
@@ -89,7 +89,7 @@ router.post(
     }
 
     // A dedupe é do banco (índice único parcial): o INSERT vai primeiro e a
-    // violação de unicidade é traduzida em 409 — ver services/externalId.ts.
+    // violação de unicidade é traduzida em 409 — ver @vetor-wallet/bank-import-core.
     const result = await insertEntryWithExternalId({
       table: 'income_entries',
       userId,

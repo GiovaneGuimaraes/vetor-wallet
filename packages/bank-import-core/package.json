@@ -1,0 +1,24 @@
+{
+  "name": "@vetor-wallet/bank-import-core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "@vetor-wallet/db": "workspace:*",
+    "@vetor-wallet/validation-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@vitest/coverage-v8": "^2.1.9",
+    "tsx": "^4.15.6",
+    "typescript": "^5.4.5",
+    "vitest": "^2.1.9"
+  }
+}

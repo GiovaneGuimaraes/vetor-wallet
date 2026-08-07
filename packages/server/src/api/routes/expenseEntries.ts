@@ -18,7 +18,7 @@ import {
   duplicateEntryResponse,
   insertEntryWithExternalId,
   validateExternalId,
-} from '../services/externalId';
+} from '@vetor-wallet/bank-import-core';
 
 const router = Router();
 
@@ -262,7 +262,7 @@ router.post(
     const entryMonth = date.slice(0, 7);
     if (recurring !== true) {
       // Caminho comum (inclusive importação): a dedupe por `external_id` é do
-      // banco e a violação de unicidade vira 409 — ver services/externalId.ts.
+      // banco e a violação de unicidade vira 409 — ver @vetor-wallet/bank-import-core.
       const result = await insertEntryWithExternalId({
         table: 'expense_entries',
         userId,

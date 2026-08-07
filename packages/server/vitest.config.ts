@@ -11,6 +11,14 @@ export default defineConfig({
     // package.json e a suíte passaria a validar um build antigo (falso
     // verde). tsc/tsx já resolvem certo via `paths` do tsconfig.json.
     alias: {
+      // A entrada '/fixtures' vem ANTES da entrada base: o alias de string do
+      // Vite casa por PREFIXO, então '@vetor-wallet/bank-import-core' sozinho
+      // capturaria também o subpath e resolveria para '.../src/index.ts/fixtures'.
+      '@vetor-wallet/bank-import-core/fixtures': path.resolve(
+        __dirname,
+        '../bank-import-core/src/__fixtures__/ofx.ts',
+      ),
+      '@vetor-wallet/bank-import-core': path.resolve(__dirname, '../bank-import-core/src/index.ts'),
       '@vetor-wallet/db': path.resolve(__dirname, '../db/src/index.ts'),
       '@vetor-wallet/brapi-core': path.resolve(__dirname, '../brapi-core/src/index.ts'),
       '@vetor-wallet/abacatepay-core': path.resolve(__dirname, '../abacatepay-core/src/index.ts'),

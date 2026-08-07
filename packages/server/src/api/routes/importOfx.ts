@@ -3,8 +3,14 @@ import express from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
-import { insertEntryWithExternalId } from '../services/externalId';
-import { decodeOfx, mapOfxTransaction, parseOfx, parseOfxAmount, parseOfxDate } from '../services/ofx';
+import {
+  decodeOfx,
+  insertEntryWithExternalId,
+  mapOfxTransaction,
+  parseOfx,
+  parseOfxAmount,
+  parseOfxDate,
+} from '@vetor-wallet/bank-import-core';
 import type { OfxImportResult, OfxImportTransaction } from '@vetor-wallet/shared';
 
 /**
@@ -16,7 +22,7 @@ import type { OfxImportResult, OfxImportTransaction } from '@vetor-wallet/shared
  * não em `multipart/form-data`: o CSV de operações já usa corpo de texto puro
  * (`POST /api/import`), a UI da T-086 manda um `fetch(file)` de uma linha sem
  * `FormData` nem dependência de parser de upload, e o `Buffer` é justamente o
- * que o parser precisa para decidir o charset (ver `services/ofx.ts`). 1 MB
+ * que o parser precisa para decidir o charset (ver `@vetor-wallet/bank-import-core`). 1 MB
  * cobre com folga um extrato anual (OFX é ~200 B por transação).
  *
  * `express.raw` também é o precedente do webhook AbacatePay — mas aqui o motivo
