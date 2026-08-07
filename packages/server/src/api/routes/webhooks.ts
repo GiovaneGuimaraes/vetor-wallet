@@ -3,7 +3,7 @@ import express from 'express';
 import { createHmac } from 'crypto';
 import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { markChargePaidAndActivate, safeEqual } from '../services/billing';
+import { markChargePaidAndActivate, safeEqual } from '@vetor-wallet/billing-core';
 
 const router = Router();
 

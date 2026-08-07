@@ -85,7 +85,7 @@ Packages:
 
 - `packages/validation-core` *(Core transversal, T-099a)* — normalização de categoria
   (`normalizeCategory`, T-028), consumida por `db` (migração de dados) e `rest-api`.
-- `packages/expenses-core` *(planejado)* — materialização lazy/idempotente de recorrências
+- `packages/expenses-core` *(Core, T-099b)* — materialização lazy/idempotente de recorrências
   (T-035). Hoje: `services/recurringExpenses.ts`.
 - `packages/rest-api` — `/api/expenses`, `/api/expense-entries` (+ `/summary`),
   `/api/recurring-expenses`, `/api/budgets`.
@@ -105,7 +105,7 @@ manual ou derivado de aportes vinculados.
 
 Packages:
 
-- `packages/savings-core` *(planejado)* — saldo livre, resumo, progresso de meta manual ×
+- `packages/savings-core` *(Core, T-099b)* — saldo livre, resumo, progresso de meta manual ×
   derivado (T-024) e a transferência poupança → meta como par atômico (T-041).
   Hoje: `services/savings.ts`, `goals.ts`.
 - `packages/rest-api` — `/api/savings` (+ `/transfer-to-goal`), `/api/goals`.
@@ -123,7 +123,7 @@ de "as duas cópias mudam juntas".
 
 Packages:
 
-- `packages/billing-core` *(planejado)* — regras de data e ativação: `markChargePaidAndActivate`
+- `packages/billing-core` *(Core, T-099b)* — regras de data e ativação: `markChargePaidAndActivate`
   como **única porta de ativação** (webhook, polling e simulação convergem nela), datas UTC no
   formato SQLite, valores em centavos. Hoje: `services/billing.ts`.
 - `packages/abacatepay-core` *(Integração, T-098)* — client HTTP da AbacatePay: envelope

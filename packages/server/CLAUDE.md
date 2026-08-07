@@ -28,6 +28,20 @@ As validações puras transversais (`isValidIsoDate`, `isValidMoneyAmount`,
 (Ciclo 19) — consumidas via `import { ... } from '@vetor-wallet/validation-core'`.
 Ver `packages/validation-core/CLAUDE.md`.
 
+Na T-099b (Ciclo 19) saíram mais três cores de domínio, consumidos por rotas e
+middleware daqui:
+
+- `@vetor-wallet/billing-core` (de `services/billing.ts`) — datas UTC no formato
+  SQLite e `markChargePaidAndActivate` como única porta de ativação.
+  `api/middleware/requireActiveSubscription.ts` **fica aqui** (é Express) e
+  importa do package.
+- `@vetor-wallet/savings-core` (de `services/savings.ts` e `goals.ts`) — saldo
+  livre, transferência poupança → meta, progresso de meta.
+- `@vetor-wallet/expenses-core` (de `services/recurringExpenses.ts`) —
+  materialização lazy e idempotente de recorrências.
+
+Cada um tem seu `CLAUDE.md` com as invariantes do domínio — leia antes de mexer.
+
 Entry compilado: `dist/api/index.js` (`pnpm --filter vetor-wallet-server start`). Rodar `node dist/api/index.js` de fora de `packages/server/` sem `DATABASE_URL` cria um banco novo no cwd errado.
 
 ## Regras do pacote

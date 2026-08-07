@@ -19,9 +19,9 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **auth-core** *(planejado)* | Core | Auth | Credenciais, bcrypt, papéis | `api/auth/service.ts` |
 | **portfolio-core** *(planejado)* | Core | Portfolio | Posição, preço médio, histórico, snapshots | `services/portfolio*.ts`, `wallets.ts`, `snapshots*.ts` |
 | **brapi-core** | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | ✅ existe (T-098) |
-| **expenses-core** *(planejado)* | Core | Expenses | Recorrência lazy (categoria normalizada já saiu para `validation-core`, T-099a) | `services/recurringExpenses.ts` |
-| **savings-core** *(planejado)* | Core | Savings | Saldo livre, progresso de meta, transferência | `services/savings.ts`, `goals.ts` |
-| **billing-core** *(planejado)* | Core | Billing | Datas, ativação idempotente, gating | `services/billing.ts` |
+| **expenses-core** | Core | Expenses | Recorrência lazy (categoria normalizada saiu para `validation-core`, T-099a) | ✅ existe (T-099b) |
+| **savings-core** | Core | Savings | Saldo livre, progresso de meta, transferência | ✅ existe (T-099b) |
+| **billing-core** | Core | Billing | Datas, ativação idempotente, gating | ✅ existe (T-099b) |
 | **abacatepay-core** | Integration | Billing | Client HTTP da AbacatePay (Pix) | ✅ existe (T-098) |
 | **insights-core** *(planejado)* | Core | Insights | Benchmarks CDI/Ibovespa, insights horários | `services/benchmark*.ts`, `hourlyInsights.ts` |
 | **bank-import-core** *(planejado)* | Core | BankImport | Parser OFX, dedupe por `external_id` | `services/ofx.ts`, `externalId.ts` |

@@ -47,6 +47,12 @@ packages/
 ├── validation-core/  # @vetor-wallet/validation-core — isValidIsoDate,
 │                     # isValidMoneyAmount, normalizeCategory; transversal, sem
 │                     # módulo, sem I/O; extraído do server (T-099a, Ciclo 19)
+├── billing-core/     # @vetor-wallet/billing-core — datas UTC no formato SQLite,
+│                     # ativação idempotente (T-099b, Ciclo 19)
+├── savings-core/     # @vetor-wallet/savings-core — saldo livre, transferência
+│                     # poupança → meta, progresso de meta (T-099b, Ciclo 19)
+├── expenses-core/    # @vetor-wallet/expenses-core — recorrência lazy e
+│                     # idempotente (T-099b, Ciclo 19)
 ├── server/   # Node + Express (CJS) — API REST
 │   └── src/
 │       └── api/   # index.ts (entry), auth/, routes/, services/, middleware/
@@ -68,6 +74,9 @@ pnpm --filter @vetor-wallet/db test       # Vitest (db)
 pnpm --filter @vetor-wallet/brapi-core test        # Vitest (brapi-core)
 pnpm --filter @vetor-wallet/abacatepay-core test   # Vitest (abacatepay-core)
 pnpm --filter @vetor-wallet/validation-core test   # Vitest (validation-core)
+pnpm --filter @vetor-wallet/billing-core test      # Vitest (billing-core)
+pnpm --filter @vetor-wallet/savings-core test      # Vitest (savings-core)
+pnpm --filter @vetor-wallet/expenses-core test     # Vitest (expenses-core)
 pnpm --filter vetor-wallet-web test       # Vitest (web, funções puras)
 pnpm --filter vetor-wallet-cli insights:hourly [YYYY-MM-DD]
 ```
@@ -136,10 +145,10 @@ Leia o arquivo do domínio antes de mexer nele:
 
 - **db-schema.md** — schema SQL completo, ALTERs idempotentes, índices.
 - **wallets-portfolio.md** — carteira única (T-050/T-050b), validação de SELL, projeção de ganhos (T-056) + gráfico SVG (T-057b) + alocação (T-057c), falha de cotações sinalizada, AlertsPanel/CsvImport sem UI (T-026).
-- **savings-goals.md** — progresso de metas manual × derivado (T-024), previsão de rendimento client-side (T-040), transferência poupança → meta (T-041).
-- **expenses-budgets.md** — fixas × variáveis, recorrência lazy/idempotente (T-035), histórico mensal (T-033/T-049), orçamento por categoria (T-023/T-037), categoria normalizada (T-028), edição inline (T-031), dedupe de fetch (T-049), dedupe de importação por `external_id` (T-084), importação de extrato OFX (T-085).
+- **savings-goals.md** — stub: migrado para `packages/savings-core/CLAUDE.md` (T-099b).
+- **expenses-budgets.md** — stub: migrado para `packages/expenses-core/CLAUDE.md` (T-099b).
 - **income.md** — renda fixa × variável (T-036), sobra do mês real na Home (T-025).
 - **validation-money-dates.md** — data de calendário real (T-043), máx. 2 casas decimais (T-052).
-- **billing.md** — assinatura Pix AbacatePay (T-069/T-070): centavos, datas UTC no formato SQLite, ativação idempotente única, webhook com HMAC antes do `express.json()`, gating de escrita por assinatura sob `BILLING_ENABLED` (T-071).
+- **billing.md** — stub: migrado para `packages/billing-core/CLAUDE.md` (T-099b).
 - **sessions-auth.md** — sessões persistentes no SQLite (T-034/T-046).
 - **snapshots-history.md** — coleta diária no boot + agendador (T-058a/T-061/T-063), gráfico de evolução (T-058b), preço por ação (T-060), insights horários, DATABASE_URL/Turso.

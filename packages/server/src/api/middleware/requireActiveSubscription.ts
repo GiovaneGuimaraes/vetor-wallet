@@ -1,5 +1,5 @@
 import type { RequestHandler } from 'express';
-import { getSubscriptionRow, isBillingEnabled, isSubscriptionActive, nowSqliteUtc } from '../services/billing';
+import { getSubscriptionRow, isBillingEnabled, isSubscriptionActive, nowSqliteUtc } from '@vetor-wallet/billing-core';
 
 /**
  * Gating de assinatura nas rotas de dados (T-071).
