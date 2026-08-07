@@ -276,7 +276,10 @@
 
 > **Ciclo 19 — refatoração da arquitetura em módulos (2026-08-06)**, pedido do humano ANTES de retomar as ondas do Ciclo 16. Adotar o modelo de módulos da OneClick Ads: `packages/*-core` irmãos de `web`/`rest-api`/`db`, cada um com seu `CLAUDE.md`. Documentos governantes: [`docs/MODULES.md`](../MODULES.md) e [`docs/PACKAGES.md`](../PACKAGES.md).
 >
-> **Sequência obrigatória, uma tarefa por PR, sem paralelizar** — todas mexem em arquivos que qualquer outra tarefa toca; duas em voo viram conflito em série. Nenhuma tarefa deste ciclo pode alterar comportamento: são movimentações mecânicas, e a suíte inteira (server + web) deve passar **com o mesmo número de testes** antes e depois. Se um teste precisar mudar além do caminho de import, pare e reporte.
+> **Sequência obrigatória, uma tarefa por PR, sem paralelizar** — todas mexem em arquivos que qualquer outra tarefa toca; duas em voo viram conflito em série. Nenhuma tarefa deste ciclo pode alterar comportamento: são movimentações mecânicas, e a suíte inteira deve passar **com o mesmo número de testes** antes e depois. Se um teste precisar mudar além do caminho de import, pare e reporte.
+>
+> **Baseline verde medido na `main` em 2026-08-06 (commit `dba8603`), antes da T-097:**
+> **server 748 testes / 48 arquivos**, **web 449 testes / 26 arquivos** — total **1197**. `pnpm build` verde (server → `dist/api/index.js`, web → 104 módulos). Todo PR do Ciclo 19 tem que reproduzir exatamente estes números.
 
 ### T-096 — Documentos de arquitetura (MODULES.md + PACKAGES.md)
 - **Status**: CONCLUIDA — feito pelo orquestrador direto na `main` (2026-08-06), sem PR (docs-only, nenhum código tocado).

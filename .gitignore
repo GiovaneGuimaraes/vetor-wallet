@@ -2,8 +2,10 @@ node_modules/
 dist/
 packages/server/data/
 *.log
+# qualquer .env fica de fora; só o .example é versionado
 .env
-.env.local
+.env.*
+!.env.example
 *.tsbuildinfo
 
 # worktrees temporarios dos subagentes (Claude Code)
