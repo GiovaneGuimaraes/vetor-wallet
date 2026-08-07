@@ -304,7 +304,7 @@
 - **Critério de aceite**: `pnpm --filter vetor-wallet-server test` e `pnpm --filter vetor-wallet-web test` verdes com a **mesma contagem** de testes; `pnpm build` gera `dist/api/index.js`; `pnpm --filter vetor-wallet-cli insights:hourly` roda. **Atenção**: `client.ts` lê `DATABASE_URL` no top-level — a convenção "setar env antes do `await import()`" continua valendo, agora com `await import('@vetor-wallet/db')`.
 
 ### T-098 — Extrair as integrações: `brapi-core` e `abacatepay-core`
-- **Status**: EM_ANDAMENTO — delegada 2026-08-06, executor Sonnet em worktree.
+- **Status**: CONCLUIDA — PR #143 mergeado (2026-08-06). Executor Sonnet, revisor Sonnet (APROVADA, **nenhum achado**). Baseline preservado: db 29/4 + brapi-core 16/2 + abacatepay-core 10/1 + server 693/41 = **748/48**; web 449/26. Revisor provou por `diff` byte a byte contra a `main` que os três clients e seus testes ficaram idênticos, e por grep que nenhum dos dois packages importa `db`, `express` ou `packages/server` (regra 2 do `PACKAGES.md` agora é fronteira de package, não convenção). As políticas de erro opostas foram preservadas: quotes 5s degradando em silêncio × abacatepay 10s nunca degradando.
 - **Prioridade**: P1
 - **Complexidade**: média
 - **Depende de**: T-097
@@ -322,9 +322,33 @@
 - **Branch/worktree**:
 - **Contexto**: o grosso da migração. Estes core **podem** falar com `db` (são donos do dado) — ver a definição de "Core" em `PACKAGES.md`.
 - **Achado da T-097 a aproveitar**: `db/src/migrations.ts` precisou de uma **terceira** cópia local de `normalizeCategory` (antes importava de `services/categories.ts`; um `db` isolado não pode depender de volta no server). As três cópias são hoje byte a byte idênticas. Como a função é pura e sem I/O, `validation-core` pode absorvê-la e colapsar as cópias de `db` e `server` numa só — a do `web` continua separada (o navegador não consome package de backend). Fazer isso ao criar o `validation-core`, com teste que cubra o caso unicode (`SAÚDE`/`saúde`, que é o motivo do `toLocaleLowerCase('pt-BR')`).
-- **Escopo**: criar, nesta ordem e **um commit por package** dentro do mesmo PR: `validation-core` (`dates.ts`, `money.ts` — transversal, vem primeiro porque os outros usam), `billing-core` (`billing.ts`), `savings-core` (`savings.ts`, `goals.ts`), `expenses-core` (`categories.ts`, `recurringExpenses.ts`), `bank-import-core` (`ofx.ts`, `externalId.ts`), `insights-core` (`benchmarks.ts`, `benchmarkHistory.ts`, `hourlyInsights.ts`), `portfolio-core` (`portfolio.ts`, `portfolioHistory.ts`, `wallets.ts`, `snapshots.ts`, `snapshotScheduler.ts`), `auth-core` (`api/auth/service.ts`). Cada um leva seus testes e ganha um `CLAUDE.md` migrado do arquivo correspondente em `docs/decisions/` (que passa a ser um stub apontando para o package).
-- **Fora de escopo**: `api/auth/middleware.ts` e `api/middleware/*` ficam no server (são Express); as rotas não mudam de lugar; nenhuma regra de negócio muda.
-- **Critério de aceite**: nenhum `*-core` importa `express` (grep); suítes verdes com a mesma contagem; `docs/MODULES.md` e `docs/PACKAGES.md` atualizados removendo o marcador *(planejado)* de cada package criado.
+- **DIVIDIDA em T-099a/b/c pelo orquestrador (2026-08-06)**: oito packages num PR só dá um diff grande demais para revisar com atenção, e três destes core tocam dinheiro (billing, savings, portfolio). As três rodam **em série** — todas alteram `packages/server/{package.json,tsconfig.json,vitest.config.ts}` e os docs, então worktrees paralelos conflitariam nesses quatro arquivos.
+- **Fora de escopo (vale para as três)**: `api/auth/middleware.ts` e `api/middleware/*` ficam no server (são Express); as rotas não mudam de lugar; nenhuma regra de negócio muda.
+- **Critério de aceite (vale para as três)**: nenhum `*-core` importa `express` (grep); soma das suítes com a mesma contagem do baseline; `main: dist/index.js` + alias no `vitest.config.ts` do server para cada package novo (convenção da T-097); `docs/MODULES.md` e `docs/PACKAGES.md` sem o marcador *(planejado)* dos packages criados.
+
+### T-099a — `validation-core` (+ colapsar `normalizeCategory`)
+- **Status**: EM_ANDAMENTO — delegada 2026-08-06, executor Sonnet em worktree.
+- **Prioridade**: P1
+- **Complexidade**: média — executor Sonnet
+- **Depende de**: T-098
+- **Escopo**: criar `packages/validation-core` de `services/dates.ts` e `money.ts` (transversal, vem primeiro porque os outros core usam). Absorver `normalizeCategory` e **colapsar as cópias de `db` e `server`** numa só, conforme o achado da T-097 acima. A cópia do `web` continua separada e a regra "mudam juntas" segue valendo para ela.
+- **Atenção**: `db/src/migrations.ts` usa `normalizeCategory` numa migração de DADOS. Se a função divergir do que o runtime usa, categorias gravadas ficam inconsistentes com as comparadas. O teste tem que cobrir o caso unicode (`SAÚDE`/`saúde`), que é o motivo do `toLocaleLowerCase('pt-BR')` em vez de `lower()` do SQLite.
+
+### T-099b — `billing-core`, `savings-core`, `expenses-core`
+- **Status**: PENDENTE
+- **Prioridade**: P1
+- **Complexidade**: alta — executor Opus (dois destes mexem com dinheiro)
+- **Depende de**: T-099a
+- **Escopo**: `billing-core` (`billing.ts`), `savings-core` (`savings.ts`, `goals.ts`), `expenses-core` (`categories.ts`, `recurringExpenses.ts`). Um commit por package. Cada um ganha `CLAUDE.md` migrado do `docs/decisions/` correspondente, que vira stub apontando para o package.
+- **Invariantes que não podem mudar**: `markChargePaidAndActivate` como única porta de ativação e datas UTC no formato SQLite (`billing.ts`); transferência poupança → meta como par atômico (T-041); recorrência lazy e idempotente (T-035).
+
+### T-099c — `bank-import-core`, `insights-core`, `portfolio-core`, `auth-core`
+- **Status**: PENDENTE
+- **Prioridade**: P1
+- **Complexidade**: alta — executor Opus (`portfolio-core` tem preço médio ponderado e P&L)
+- **Depende de**: T-099b
+- **Escopo**: `bank-import-core` (`ofx.ts`, `externalId.ts`), `insights-core` (`benchmarks.ts`, `benchmarkHistory.ts`, `hourlyInsights.ts`), `portfolio-core` (`portfolio.ts`, `portfolioHistory.ts`, `wallets.ts`, `snapshots.ts`, `snapshotScheduler.ts`), `auth-core` (`api/auth/service.ts`). Um commit por package.
+- **Atenção**: `snapshotScheduler.ts` roda no boot do server — confirmar que o agendador continua sendo iniciado pelo `api/index.ts` depois da extração. O `cli` também consome `hourlyInsights`; o alias dele tem que acompanhar.
 
 ### T-100 — Renomear `server` → `rest-api`
 - **Status**: PENDENTE

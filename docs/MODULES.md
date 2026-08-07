@@ -24,7 +24,7 @@ Packages:
 
 - `packages/auth-core` *(planejado)* — registro, login, hash bcrypt, troca de senha, papéis
   (`grantRole`). Hoje em `server/src/api/auth/service.ts`.
-- `packages/db` *(planejado)* — `sessionStore` (sessões em SQLite, T-034/T-046).
+- `packages/db` *(Infraestrutura, T-097)* — `sessionStore` (sessões em SQLite, T-034/T-046).
 - `packages/rest-api` — `POST /api/auth/register·login·logout`, `GET/PATCH /me`,
   `POST /change-password`, e o middleware `requireAuth`/`requireAdmin` (fica aqui porque é Express).
 - `packages/web/src/routes` — telas de login e cadastro.
