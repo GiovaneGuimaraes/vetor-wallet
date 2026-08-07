@@ -353,7 +353,18 @@
 - **Atenção**: `snapshotScheduler.ts` roda no boot do server — confirmar que o agendador continua sendo iniciado pelo `api/index.ts` depois da extração. O `cli` também consome `hourlyInsights`; o alias dele tem que acompanhar.
 
 ### T-101 — Consertar o CI vermelho (lint do `App.tsx` bloqueia o step de teste)
-- **Status**: EM_ANDAMENTO — delegada 2026-08-07, executor Sonnet em worktree.
+- **Status**: CONCLUIDA — PR #147 mergeado (2026-08-07). Executor Sonnet, revisor Sonnet (APROVADA). **CI da `main` verde nos três steps** (run `31146356069`) — o step de Test executou pela primeira vez em semanas. web 449/26 → **451/27**. Correção real (ref atualizado em `useEffect`, decisão extraída para `routes/billingNavigation.ts`), sem `eslint-disable`; as duas garantias originais preservadas (listener não recriado por rota; rajada de 402 não empilha navegação).
+- **Sugestão não-bloqueante do revisor**: não existe **nenhum** teste de render de componente em `packages/web/src` hoje — a função pura prova a decisão, mas não que o `App.tsx` a chama nem que o listener está montado. Um teste leve de componente fecharia essa lacuna (mesma sugestão que o revisor da T-076 já tinha feito).
+
+### T-102 — `lint` e `format` da raiz não cobrem os 12 packages novos
+- **Status**: PENDENTE
+- **Prioridade**: P2
+- **Complexidade**: baixa
+- **Depende de**: —
+- **Contexto**: achado do executor da T-101, confirmado pelo orquestrador. O script `test` da raiz foi atualizado ao longo do Ciclo 19 e cobre os 12 packages, mas `lint` e `format` continuam sendo `pnpm --filter vetor-wallet-server ... && pnpm --filter vetor-wallet-web ...`. Ou seja, **nenhum dos onze `*-core` nem o `db` passa por ESLint ou Prettier no CI** — e como o Lint roda antes do Test no `ci.yml`, é uma lacuna numa etapa que já provou ser capaz de mascarar a suíte inteira (T-101).
+- **Escopo**: dar a cada package extraído no Ciclo 19 os scripts `lint`/`format` e a config de ESLint (avaliar config compartilhada na raiz em vez de copiar em 12 lugares — decisão do executor, registrada), e trocar os scripts da raiz por uma forma que cubra tudo (ex.: `pnpm -r lint`). Corrigir o que o lint apontar nos packages.
+- **Fora de escopo**: mudar regras de ESLint; a T-100.
+- **Critério de aceite**: `pnpm lint` da raiz roda em todos os packages e passa verde; CI verde nos três steps; adicionar um package novo não exige lembrar de editar o script da raiz.
 - **Prioridade**: **P1** — mais urgente que a T-100
 - **Complexidade**: média (mexe em comportamento de render do `App.tsx`, exige teste)
 - **Depende de**: —
