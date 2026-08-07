@@ -14,7 +14,7 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **rest-api** *(planejado)* | Backend | – | Express (CJS): rotas, middleware, entry HTTP | `packages/server` |
 | **cli** | Tool | – | Jobs de coleta e scripts (tsx) | ✅ existe |
 | **shared** | Core | – | Tipos TS compartilhados, **types-only** | ✅ existe |
-| **db** *(planejado)* | Infrastructure | – | libsql client, `schema`, `migrations`, `sessionStore`, `sqlErrors` | `server/src/db` |
+| **db** | Infrastructure | – | libsql client, `schema`, `migrations`, `sessionStore`, `sqlErrors` | ✅ existe (T-097) |
 | **validation-core** *(planejado)* | Core | – | `isValidIsoDate`, `isValidMoneyAmount` e afins | `services/dates.ts`, `money.ts` |
 | **auth-core** *(planejado)* | Core | Auth | Credenciais, bcrypt, papéis | `api/auth/service.ts` |
 | **portfolio-core** *(planejado)* | Core | Portfolio | Posição, preço médio, histórico, snapshots | `services/portfolio*.ts`, `wallets.ts`, `snapshots*.ts` |
@@ -78,8 +78,14 @@ valendo: **as duas cópias mudam juntas**. Se um dia isso incomodar, a saída é
 
 - Cada package tem seu próprio `CLAUDE.md` com as invariantes do domínio — é o que os agentes
   leem antes de mexer ali. Ele substitui o arquivo equivalente em `docs/decisions/`.
-- Cores são consumidos **por código-fonte** (`main: src/index.ts` + `paths` no tsconfig), como o
-  `cli` já faz com o `server`. Não há passo de build por package: quem compila é o `rest-api`.
+- Cada core publica `main: dist/index.js` + `types: dist/index.d.ts` — é o que o `rest-api`
+  **compilado** precisa em produção, já que o `require()` emitido no `dist` do `rest-api` não
+  entende `.ts`. Em dev e teste, porém, a resolução tem que ir para o CÓDIGO-FONTE, nunca para o
+  `dist` (que pode não existir ou estar desatualizado): os `paths` do `tsconfig.json` cobrem
+  `tsc`/`tsx watch`, e cada `vitest.config.ts` que consome um core precisa do alias explícito
+  correspondente em `resolve.alias` (ex.: `'@vetor-wallet/db': path.resolve(__dirname,
+  '../db/src/index.ts')`) — sem ele o Vitest cai no `main` do package.json e a suíte passa a
+  validar um build antigo (falso verde).
 - Teste ao lado do código (`src/**/*.test.ts`), Vitest, em todo package.
 - Teste que toca banco define `DATABASE_URL` **antes** do `await import('@vetor-wallet/db')` —
   o client lê o env no top-level do módulo.
