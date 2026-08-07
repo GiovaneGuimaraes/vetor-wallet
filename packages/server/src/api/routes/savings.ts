@@ -4,7 +4,7 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
-import { computeFreeBalance, pickTransferLegs, toCents } from '../services/savings';
+import { computeFreeBalance, pickTransferLegs, toCents } from '@vetor-wallet/savings-core';
 import { isValidIsoDate, isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
 import type {
   NewSavingsEntry,
@@ -24,7 +24,7 @@ router.use(requireAuth);
 router.use(requireActiveSubscription);
 
 // Somado em centavos inteiros, alinhado a `computeFreeBalance`/`computeBalance`
-// (services/savings.ts): somar em float direto pode divergir em um centavo de
+// (@vetor-wallet/savings-core): somar em float direto pode divergir em um centavo de
 // `balance = totalDeposits + totalYield - totalWithdrawals` em razões grandes.
 function buildSummary(entries: SavingsEntry[]): SavingsSummary {
   let depositsCents = 0;

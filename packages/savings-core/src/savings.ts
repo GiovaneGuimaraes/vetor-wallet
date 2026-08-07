@@ -11,7 +11,7 @@
  *   saldo livre = saldo − Σ max(0, net vinculado de cada meta)
  *
  * Não há coluna nem materialização: nem de reservado, nem de saldo. O piso 0 por
- * meta espelha `resolveGoalProgress` (services/goals.ts) — uma meta cujas
+ * meta espelha `resolveGoalProgress` (`goals.ts` deste package) — uma meta cujas
  * retiradas vinculadas superam os aportes não devolve "reserva negativa" para
  * inflar o saldo livre das outras.
  *
