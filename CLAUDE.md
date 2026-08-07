@@ -40,6 +40,10 @@ packages/
 ├── db/       # @vetor-wallet/db — camada de banco (client.ts com DATABASE_URL,
 │             # schema.ts/initDb, migrations.ts, sessionStore.ts, sqlErrors.ts);
 │             # extraída de server/src/db em packages/*-core (T-097, Ciclo 19)
+├── brapi-core/       # @vetor-wallet/brapi-core — client HTTP da brapi.dev
+│                     # (cotações, tickers); extraído do server (T-098, Ciclo 19)
+├── abacatepay-core/  # @vetor-wallet/abacatepay-core — client HTTP da AbacatePay
+│                     # (Pix); extraído do server (T-098, Ciclo 19)
 ├── server/   # Node + Express (CJS) — API REST
 │   └── src/
 │       └── api/   # index.ts (entry), auth/, routes/, services/, middleware/
@@ -58,6 +62,8 @@ pnpm dev:server / pnpm dev:web
 pnpm build                                # server → dist/ (entry dist/api/index.js), web → dist/
 pnpm --filter vetor-wallet-server test    # Vitest (server)
 pnpm --filter @vetor-wallet/db test       # Vitest (db)
+pnpm --filter @vetor-wallet/brapi-core test        # Vitest (brapi-core)
+pnpm --filter @vetor-wallet/abacatepay-core test   # Vitest (abacatepay-core)
 pnpm --filter vetor-wallet-web test       # Vitest (web, funções puras)
 pnpm --filter vetor-wallet-cli insights:hourly [YYYY-MM-DD]
 ```

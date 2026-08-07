@@ -18,11 +18,11 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **validation-core** *(planejado)* | Core | – | `isValidIsoDate`, `isValidMoneyAmount` e afins | `services/dates.ts`, `money.ts` |
 | **auth-core** *(planejado)* | Core | Auth | Credenciais, bcrypt, papéis | `api/auth/service.ts` |
 | **portfolio-core** *(planejado)* | Core | Portfolio | Posição, preço médio, histórico, snapshots | `services/portfolio*.ts`, `wallets.ts`, `snapshots*.ts` |
-| **brapi-core** *(planejado)* | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | `services/quotes.ts`, `tickers.ts` |
+| **brapi-core** | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | ✅ existe (T-098) |
 | **expenses-core** *(planejado)* | Core | Expenses | Categoria normalizada, recorrência lazy | `services/categories.ts`, `recurringExpenses.ts` |
 | **savings-core** *(planejado)* | Core | Savings | Saldo livre, progresso de meta, transferência | `services/savings.ts`, `goals.ts` |
 | **billing-core** *(planejado)* | Core | Billing | Datas, ativação idempotente, gating | `services/billing.ts` |
-| **abacatepay-core** *(planejado)* | Integration | Billing | Client HTTP da AbacatePay (Pix) | `services/abacatepay.ts` |
+| **abacatepay-core** | Integration | Billing | Client HTTP da AbacatePay (Pix) | ✅ existe (T-098) |
 | **insights-core** *(planejado)* | Core | Insights | Benchmarks CDI/Ibovespa, insights horários | `services/benchmark*.ts`, `hourlyInsights.ts` |
 | **bank-import-core** *(planejado)* | Core | BankImport | Parser OFX, dedupe por `external_id` | `services/ofx.ts`, `externalId.ts` |
 | **pluggy-core** *(planejado)* | Integration | BankImport | Open Finance via Pluggy (Onda C) | – (código novo) |

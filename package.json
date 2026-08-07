@@ -12,7 +12,7 @@
     "dev": "pnpm --filter vetor-wallet-server dev & pnpm --filter vetor-wallet-web dev",
     "build": "pnpm --filter vetor-wallet-server build && pnpm --filter vetor-wallet-web build",
     "lint": "pnpm --filter vetor-wallet-server lint && pnpm --filter vetor-wallet-web lint",
-    "test": "pnpm --filter @vetor-wallet/db test && pnpm --filter vetor-wallet-server test && pnpm --filter vetor-wallet-web test",
+    "test": "pnpm --filter @vetor-wallet/db test && pnpm --filter @vetor-wallet/brapi-core test && pnpm --filter @vetor-wallet/abacatepay-core test && pnpm --filter vetor-wallet-server test && pnpm --filter vetor-wallet-web test",
     "format": "pnpm --filter vetor-wallet-server format && pnpm --filter vetor-wallet-web format"
   }
 }
