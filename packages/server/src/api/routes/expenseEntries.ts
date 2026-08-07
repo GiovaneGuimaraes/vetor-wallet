@@ -13,7 +13,7 @@ import {
 import {
   createRecurringExpenseEntry,
   materializeRecurringExpenses,
-} from '../services/recurringExpenses';
+} from '@vetor-wallet/expenses-core';
 import {
   duplicateEntryResponse,
   insertEntryWithExternalId,
@@ -258,7 +258,7 @@ router.post(
     // T-045: as três escritas (template + reserva do mês + primeira
     // ocorrência) rodam numa única transação (`createRecurringExpenseEntry`)
     // — uma falha entre elas não pode deixar template órfão nem mês reservado
-    // sem lançamento. Ver doc da função em services/recurringExpenses.ts.
+    // sem lançamento. Ver doc da função em @vetor-wallet/expenses-core.
     const entryMonth = date.slice(0, 7);
     if (recurring !== true) {
       // Caminho comum (inclusive importação): a dedupe por `external_id` é do

@@ -14,7 +14,10 @@
       "@vetor-wallet/db": ["../db/src/index.ts"],
       "@vetor-wallet/brapi-core": ["../brapi-core/src/index.ts"],
       "@vetor-wallet/abacatepay-core": ["../abacatepay-core/src/index.ts"],
-      "@vetor-wallet/validation-core": ["../validation-core/src/index.ts"]
+      "@vetor-wallet/validation-core": ["../validation-core/src/index.ts"],
+      "@vetor-wallet/billing-core": ["../billing-core/src/index.ts"],
+      "@vetor-wallet/savings-core": ["../savings-core/src/index.ts"],
+      "@vetor-wallet/expenses-core": ["../expenses-core/src/index.ts"]
     }
   },
   "include": ["src"],
@@ -24,6 +27,9 @@
     { "path": "../db" },
     { "path": "../brapi-core" },
     { "path": "../abacatepay-core" },
-    { "path": "../validation-core" }
+    { "path": "../validation-core" },
+    { "path": "../billing-core" },
+    { "path": "../savings-core" },
+    { "path": "../expenses-core" }
   ]
 }

@@ -3,7 +3,7 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { AbacatePayError, simulatePixPayment } from '@vetor-wallet/abacatepay-core';
-import { markChargePaidAndActivate, toPixCharge, type PixChargeRow } from '../services/billing';
+import { markChargePaidAndActivate, toPixCharge, type PixChargeRow } from '@vetor-wallet/billing-core';
 
 const router = Router();
 

@@ -8,7 +8,7 @@ import {
   nowSqliteUtc,
   toPixCharge,
   type PixChargeRow,
-} from '../services/billing';
+} from '@vetor-wallet/billing-core';
 
 const router = Router();
 

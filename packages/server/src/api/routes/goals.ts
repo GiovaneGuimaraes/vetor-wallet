@@ -4,7 +4,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import type { NewGoal, GoalUpdate } from '@vetor-wallet/shared';
-import { listGoalsWithProgress, getGoalWithProgress, getGoalLinkAggregate } from '../services/goals';
+import { listGoalsWithProgress, getGoalWithProgress, getGoalLinkAggregate } from '@vetor-wallet/savings-core';
 import { isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
 
 const router = Router();

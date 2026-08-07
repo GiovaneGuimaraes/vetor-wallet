@@ -412,7 +412,7 @@ describe('goals routes', () => {
     it('allows POST once an active subscription exists', async () => {
       process.env.BILLING_ENABLED = 'true';
       const { db } = await import('@vetor-wallet/db');
-      const { toSqliteUtc } = await import('../services/billing');
+      const { toSqliteUtc } = await import('@vetor-wallet/billing-core');
 
       const me = await agentA.get('/api/auth/me');
       const plan = await db.execute({
