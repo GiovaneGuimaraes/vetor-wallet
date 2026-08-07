@@ -44,6 +44,9 @@ packages/
 │                     # (cotações, tickers); extraído do server (T-098, Ciclo 19)
 ├── abacatepay-core/  # @vetor-wallet/abacatepay-core — client HTTP da AbacatePay
 │                     # (Pix); extraído do server (T-098, Ciclo 19)
+├── validation-core/  # @vetor-wallet/validation-core — isValidIsoDate,
+│                     # isValidMoneyAmount, normalizeCategory; transversal, sem
+│                     # módulo, sem I/O; extraído do server (T-099a, Ciclo 19)
 ├── server/   # Node + Express (CJS) — API REST
 │   └── src/
 │       └── api/   # index.ts (entry), auth/, routes/, services/, middleware/
@@ -64,6 +67,7 @@ pnpm --filter vetor-wallet-server test    # Vitest (server)
 pnpm --filter @vetor-wallet/db test       # Vitest (db)
 pnpm --filter @vetor-wallet/brapi-core test        # Vitest (brapi-core)
 pnpm --filter @vetor-wallet/abacatepay-core test   # Vitest (abacatepay-core)
+pnpm --filter @vetor-wallet/validation-core test   # Vitest (validation-core)
 pnpm --filter vetor-wallet-web test       # Vitest (web, funções puras)
 pnpm --filter vetor-wallet-cli insights:hourly [YYYY-MM-DD]
 ```
@@ -118,9 +122,9 @@ Schema completo do banco: `docs/decisions/db-schema.md` (fonte da verdade: `pack
 - Locale pt-BR/BRL no frontend (`Intl.NumberFormat`); tema via CSS custom properties (`web/src/index.css`).
 - Sem gerenciador de estado externo no web — estado em `App.tsx`, via props.
 - Funções com lógica de negócio no web vivem em módulos puros em `src/routes/*.ts` com teste ao lado (componentes só renderizam).
-- Helpers duplicados de propósito entre server e web (ex.: `normalizeCategory`, saldo livre da poupança): `shared/` é types-only. **As duas cópias mudam juntas.**
+- Helpers duplicados de propósito entre server/db e web (ex.: `normalizeCategory`, saldo livre da poupança): `shared/` é types-only. **As duas cópias mudam juntas.**
 - Gráficos: SVG à mão, sem lib; cores sempre via CSS custom properties.
-- Datas aceitam futuro; validação de calendário real via `isValidIsoDate` (server); dinheiro com no máx. 2 casas decimais (`isValidMoneyAmount`).
+- Datas aceitam futuro; validação de calendário real via `isValidIsoDate` (`@vetor-wallet/validation-core`); dinheiro com no máx. 2 casas decimais (`isValidMoneyAmount`, mesmo package).
 
 ## Política de testes
 

@@ -1,17 +1,15 @@
 import { db } from './client';
+import { normalizeCategory } from '@vetor-wallet/validation-core';
 
-// Cópia local de `normalizeCategory` (T-097 — extração de `packages/db`):
-// antes desta extração, este arquivo importava a função de
-// `server/src/api/services/categories.ts` (acoplamento consciente, documentado
-// na T-028). Um package `db` isolado não pode depender de volta em `server`
-// (ciclo de dependência), então esta é agora a TERCEIRA cópia da mesma função
-// de 1 linha — mesmo padrão já usado entre server e web (ver
-// `web/src/routes/categories.ts` e `server/src/api/services/categories.ts`,
-// que documentam por que a função não pode viver em `shared/`, que é
-// types-only). As três cópias devem mudar juntas.
-function normalizeCategory(raw: string): string {
-  return raw.normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('pt-BR');
-}
+// T-099a: `normalizeCategory` deixou de ser uma cópia local aqui — antes da
+// extração de `@vetor-wallet/validation-core`, este arquivo tinha a TERCEIRA
+// cópia da mesma função de 1 linha (server e web tinham as outras duas),
+// porque um `db` isolado não podia importar de volta de `server` (ciclo).
+// Agora `db` e `server` compartilham a mesma implementação via
+// `validation-core` (que não depende de `db`, então não há ciclo). Só resta
+// a cópia do `web` (`web/src/routes/categories.ts`) — o navegador não
+// consome package de backend; essa cópia muda junto com a de
+// `validation-core` (ver `packages/validation-core/CLAUDE.md`).
 
 /**
  * Migração idempotente de dados (T-028): reescreve `category` das três tabelas

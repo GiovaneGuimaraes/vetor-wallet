@@ -4,8 +4,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import type { NewCategoryBudget } from '@vetor-wallet/shared';
-import { normalizeCategory } from '../services/categories';
-import { isValidMoneyAmount, moneyAmountError } from '../services/money';
+import { normalizeCategory, isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
 
 const router = Router();
 

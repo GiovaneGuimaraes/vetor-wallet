@@ -9,8 +9,7 @@ import type { NewIncomeEntry, IncomeEntryUpdate } from '@vetor-wallet/shared';
 // helper para um service exigiria editar `expenseEntries.ts`, e mexer em
 // despesas está fora do escopo da T-036.
 import { currentMonth } from './expenseEntries';
-import { isValidIsoDate } from '../services/dates';
-import { isValidMoneyAmount, moneyAmountError } from '../services/money';
+import { isValidIsoDate, isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
 import {
   duplicateEntryResponse,
   insertEntryWithExternalId,

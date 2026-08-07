@@ -11,7 +11,7 @@ import {
   buildPortfolioHistory,
   type SnapshotPoint,
 } from '../services/portfolioHistory';
-import { parseDaysParam } from '../services/dates';
+import { parseDaysParam } from '@vetor-wallet/validation-core';
 
 const router = Router();
 

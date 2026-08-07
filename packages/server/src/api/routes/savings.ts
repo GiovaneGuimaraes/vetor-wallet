@@ -5,8 +5,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import { computeFreeBalance, pickTransferLegs, toCents } from '../services/savings';
-import { isValidIsoDate } from '../services/dates';
-import { isValidMoneyAmount, moneyAmountError } from '../services/money';
+import { isValidIsoDate, isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
 import type {
   NewSavingsEntry,
   SavingsEntryType,

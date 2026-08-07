@@ -1,5 +1,5 @@
 {
-  "name": "@vetor-wallet/db",
+  "name": "@vetor-wallet/validation-core",
   "version": "1.0.0",
   "private": true,
   "type": "commonjs",
@@ -9,13 +9,7 @@
     "build": "tsc --build tsconfig.json",
     "test": "vitest run"
   },
-  "dependencies": {
-    "@libsql/client": "^0.14.0",
-    "@vetor-wallet/validation-core": "workspace:*",
-    "express-session": "^1.19.0"
-  },
   "devDependencies": {
-    "@types/express-session": "^1.19.0",
     "@types/node": "^20.14.0",
     "@vitest/coverage-v8": "^2.1.9",
     "tsx": "^4.15.6",

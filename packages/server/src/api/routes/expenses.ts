@@ -4,8 +4,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import type { NewFixedExpense, FixedExpenseUpdate } from '@vetor-wallet/shared';
-import { normalizeCategory } from '../services/categories';
-import { isValidMoneyAmount, moneyAmountError } from '../services/money';
+import { normalizeCategory, isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
 
 const router = Router();
 
@@ -43,7 +42,7 @@ router.post(
       return;
     }
 
-    // Categoria é gravada na forma canônica (T-028) — ver services/categories.ts.
+    // Categoria é gravada na forma canônica (T-028) — ver @vetor-wallet/validation-core/src/categories.ts.
     const normalizedCategory = normalizeCategory(typeof category === 'string' ? category : '');
 
     const insert = await db.execute({
@@ -109,7 +108,7 @@ router.patch(
       args.push(name.trim());
     }
     if (category !== undefined) {
-      // Mesma forma canônica da criação (T-028) — ver services/categories.ts.
+      // Mesma forma canônica da criação (T-028) — ver @vetor-wallet/validation-core/src/categories.ts.
       fields.push('category = ?');
       args.push(normalizeCategory(category));
     }

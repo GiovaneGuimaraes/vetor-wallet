@@ -12,6 +12,7 @@
     "paths": {
       "@vetor-wallet/shared": ["../shared/src/index.ts"],
       "@vetor-wallet/db": ["../db/src/index.ts"],
+      "@vetor-wallet/validation-core": ["../validation-core/src/index.ts"],
       "@vetor-wallet/server/*": ["../server/src/*"]
     }
   },
@@ -19,6 +20,7 @@
   "references": [
     { "path": "../shared" },
     { "path": "../db" },
+    { "path": "../validation-core" },
     { "path": "../server" }
   ]
 }

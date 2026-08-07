@@ -7,7 +7,7 @@ import {
 import { fetchCdiSeries, fetchIbovespaSeries } from '../services/benchmarkHistory';
 import { buildDateWindow } from '../services/portfolioHistory';
 import { getBRTDate } from '../services/snapshots';
-import { parseDaysParam } from '../services/dates';
+import { parseDaysParam } from '@vetor-wallet/validation-core';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import type { BenchmarkData, BenchmarkHistoryResponse } from '@vetor-wallet/shared';
