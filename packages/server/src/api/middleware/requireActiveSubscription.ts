@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express';
-import { getSubscriptionRow, isBillingEnabled, isSubscriptionActive, nowSqliteUtc } from '@vetor-wallet/billing-core';
+import { db } from '@vetor-wallet/db';
+import { getSubscriptionRow, isBillingEnabled, isSubscriptionActive, nowSqliteUtc } from '@vetor-wallet/subscription-core';
 
 /**
  * Gating de assinatura nas rotas de dados (T-071).
@@ -39,7 +40,7 @@ export const requireActiveSubscription: RequestHandler = (req, res, next) => {
 
   const userId = res.locals.userId as number;
 
-  getSubscriptionRow(userId)
+  getSubscriptionRow({ db, userId })
     .then((sub) => {
       if (isSubscriptionActive(sub, nowSqliteUtc())) {
         next();

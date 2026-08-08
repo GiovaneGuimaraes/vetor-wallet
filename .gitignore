@@ -8,5 +8,10 @@ packages/server/data/
 !.env.example
 *.tsbuildinfo
 
+# artefatos de teste: cobertura (Jest/Vitest) e relatorios do Stryker
+coverage/
+reports/
+.stryker-tmp/
+
 # worktrees temporarios dos subagentes (Claude Code)
 .claude/worktrees/

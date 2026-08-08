@@ -44,13 +44,15 @@ packages/
 │             # extraída de server/src/db em packages/*-core (T-097, Ciclo 19)
 ├── brapi-core/       # @vetor-wallet/brapi-core — client HTTP da brapi.dev
 │                     # (cotações, tickers); extraído do server (T-098, Ciclo 19)
-├── abacatepay-core/  # @vetor-wallet/abacatepay-core — client HTTP da AbacatePay
-│                     # (Pix); extraído do server (T-098, Ciclo 19)
 ├── validation-core/  # @vetor-wallet/validation-core — isValidIsoDate,
 │                     # isValidMoneyAmount, normalizeCategory; transversal, sem
 │                     # módulo, sem I/O; extraído do server (T-099a, Ciclo 19)
-├── billing-core/     # @vetor-wallet/billing-core — datas UTC no formato SQLite,
-│                     # ativação idempotente (T-099b, Ciclo 19)
+├── subscription-core/ # @vetor-wallet/subscription-core — datas UTC no formato
+│                     # SQLite, ativação idempotente e o provider AbacatePay em
+│                     # src/providers/abacatepay/ (fusão de billing-core +
+│                     # abacatepay-core, T-103, Ciclo 20). PILOTO do formato
+│                     # novo: 1 função por arquivo, `db` injetado, Jest com
+│                     # testes em tests/unit/tests/ e cobertura 100%
 ├── savings-core/     # @vetor-wallet/savings-core — saldo livre, transferência
 │                     # poupança → meta, progresso de meta (T-099b, Ciclo 19)
 ├── expenses-core/    # @vetor-wallet/expenses-core — recorrência lazy e
@@ -85,9 +87,9 @@ pnpm build                                # server → dist/ (entry dist/api/ind
 pnpm --filter vetor-wallet-server test    # Vitest (server)
 pnpm --filter @vetor-wallet/db test       # Vitest (db)
 pnpm --filter @vetor-wallet/brapi-core test        # Vitest (brapi-core)
-pnpm --filter @vetor-wallet/abacatepay-core test   # Vitest (abacatepay-core)
+pnpm --filter @vetor-wallet/subscription-core test # Jest (subscription-core)
+pnpm --filter @vetor-wallet/subscription-core mutation  # Stryker, sob demanda
 pnpm --filter @vetor-wallet/validation-core test   # Vitest (validation-core)
-pnpm --filter @vetor-wallet/billing-core test      # Vitest (billing-core)
 pnpm --filter @vetor-wallet/savings-core test      # Vitest (savings-core)
 pnpm --filter @vetor-wallet/expenses-core test     # Vitest (expenses-core)
 pnpm --filter @vetor-wallet/bank-import-core test  # Vitest (bank-import-core)
@@ -166,7 +168,8 @@ Leia o arquivo do domínio antes de mexer nele:
 - **expenses-budgets.md** — stub: migrado para `packages/expenses-core/CLAUDE.md` (T-099b).
 - **income.md** — renda fixa × variável (T-036), sobra do mês real na Home (T-025).
 - **validation-money-dates.md** — data de calendário real (T-043), máx. 2 casas decimais (T-052).
-- **billing.md** — stub: migrado para `packages/billing-core/CLAUDE.md` (T-099b).
+- **billing.md** — stub: migrado para `packages/subscription-core/CLAUDE.md`
+  (T-099b; renomeado na T-103).
 - **sessions-auth.md** — só a persistência de sessão no SQLite (T-034/T-046); credenciais/perfil/papéis migraram para `packages/auth-core/CLAUDE.md` (T-099c).
 - **snapshots-history.md** — stub: dividido entre `packages/portfolio-core/CLAUDE.md` (snapshots, T-058a/T-060/T-061/T-063) e `packages/insights-core/CLAUDE.md` (benchmarks T-068, insights horários) na T-099c.
 

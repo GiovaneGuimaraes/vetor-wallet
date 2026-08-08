@@ -115,19 +115,19 @@ de "as duas cópias mudam juntas".
 
 ---
 
-## 6. Billing (Assinatura Pix)
+## 6. Subscriptions (Assinatura Pix)
 
-**id**: `Billing`
+**id**: `Subscriptions` *(chamado `Billing` até a T-103)*
 **Responsabilidade**: planos, cobrança Pix, ativação de assinatura e gating de escrita.
 
 Packages:
 
-- `packages/billing-core` *(Core, T-099b)* — regras de data e ativação: `markChargePaidAndActivate`
-  como **única porta de ativação** (webhook, polling e simulação convergem nela), datas UTC no
-  formato SQLite, valores em centavos. Hoje: `services/billing.ts`.
-- `packages/abacatepay-core` *(Integração, T-098)* — client HTTP da AbacatePay: envelope
-  `{ data, error, success }` (pode vir HTTP 200 **com** `error`), timeout de 10s, nunca degrada
-  em silêncio.
+- `packages/subscription-core` *(Core, T-103)* — regras de data e ativação:
+  `markChargePaidAndActivate` como **única porta de ativação** (webhook, polling e simulação
+  convergem nela), datas UTC no formato SQLite, valores em centavos. Inclui o provider
+  AbacatePay em `src/providers/abacatepay/`: envelope `{ data, error, success }` (pode vir HTTP
+  200 **com** `error`), timeout de 10s, nunca degrada em silêncio. Fusão de `billing-core` +
+  `abacatepay-core` — Pix é forma de cobrar uma assinatura, não domínio próprio.
 - `packages/rest-api` — `/api/plans`, `/api/subscriptions`, `/api/pix-charges/:id`,
   `/api/webhooks/abacatepay` (HMAC, montado **antes** do `express.json()`),
   `/api/billing/simulate/:chargeId` (404 em produção) e o middleware
@@ -180,7 +180,7 @@ Um `externalId` repetido no POST normal responde 409 `{ duplicate: true, entry }
 
 - Um package core pertence a **um** módulo. Se a lógica atravessa dois, ela mora no módulo dono
   da entidade primária.
-- Módulos não se importam por conveniência: `billing-core` não importa `portfolio-core`. Quando
+- Módulos não se importam por conveniência: `subscription-core` não importa `portfolio-core`. Quando
   precisam se cruzar, quem orquestra é a rota em `rest-api`.
 - A exceção são os core transversais sem módulo (`validation-core`, `db`, `shared`), que qualquer
   um pode usar.

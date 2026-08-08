@@ -35,10 +35,13 @@ Ver `packages/validation-core/CLAUDE.md`.
 Na T-099b (Ciclo 19) saíram mais três cores de domínio, consumidos por rotas e
 middleware daqui:
 
-- `@vetor-wallet/billing-core` (de `services/billing.ts`) — datas UTC no formato
-  SQLite e `markChargePaidAndActivate` como única porta de ativação.
+- `@vetor-wallet/subscription-core` (de `services/billing.ts`; absorveu o
+  `abacatepay-core` na T-103) — datas UTC no formato SQLite e
+  `markChargePaidAndActivate` como única porta de ativação.
   `api/middleware/requireActiveSubscription.ts` **fica aqui** (é Express) e
-  importa do package.
+  importa do package. Atenção: as funções com banco deste package recebem `db`
+  **injetado** (`getSubscriptionRow({ db, userId })`) — quem passa o client é a
+  rota/middleware.
 - `@vetor-wallet/savings-core` (de `services/savings.ts` e `goals.ts`) — saldo
   livre, transferência poupança → meta, progresso de meta.
 - `@vetor-wallet/expenses-core` (de `services/recurringExpenses.ts`) —

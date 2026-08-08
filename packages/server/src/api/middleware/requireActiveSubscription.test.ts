@@ -21,7 +21,7 @@ describe('requireActiveSubscription', () => {
   let userId: number;
   let planId: number;
   let db: typeof import('@vetor-wallet/db').db;
-  let toSqliteUtc: typeof import('@vetor-wallet/billing-core').toSqliteUtc;
+  let toSqliteUtc: typeof import('@vetor-wallet/subscription-core').toSqliteUtc;
 
   const originalFlag = process.env.BILLING_ENABLED;
 
@@ -46,7 +46,7 @@ describe('requireActiveSubscription', () => {
 
   beforeAll(async () => {
     const dbModule = await import('@vetor-wallet/db');
-    const billing = await import('@vetor-wallet/billing-core');
+    const billing = await import('@vetor-wallet/subscription-core');
     const { requireActiveSubscription } = await import('./requireActiveSubscription');
     const { requireAuth } = await import('../auth/middleware');
     const { default: authRouter } = await import('../auth/router');

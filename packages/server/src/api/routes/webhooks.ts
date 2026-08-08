@@ -3,7 +3,7 @@ import express from 'express';
 import { createHmac } from 'crypto';
 import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { markChargePaidAndActivate, safeEqual } from '@vetor-wallet/billing-core';
+import { markChargePaidAndActivate, safeEqual } from '@vetor-wallet/subscription-core';
 
 const router = Router();
 
@@ -120,7 +120,7 @@ async function handler(req: Request, res: Response): Promise<void> {
   // errorHandler (500) e a reentrega do provedor é justamente o que queremos —
   // a linha de idempotência e a ativação estão em statements distintos, mas a
   // ativação é idempotente por si.
-  const { activated, userId } = await markChargePaidAndActivate(chargeId);
+  const { activated, userId } = await markChargePaidAndActivate({ db, abacateChargeId: chargeId });
   if (userId == null) {
     res.json({ ok: true, unknownCharge: true });
     return;

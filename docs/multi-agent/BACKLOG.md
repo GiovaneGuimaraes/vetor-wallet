@@ -373,6 +373,38 @@
 - **Fora de escopo**: outras regras de lint; a T-100.
 - **Critério de aceite**: `pnpm lint` verde localmente; run do CI **completo e verde** na branch (os três steps, com o Test finalmente executando); comportamento do listener de rota preservado, com teste que o cubra.
 
+> **Ciclo 20 — direcionamento do humano (2026-08-08)**: o formato dos packages extraídos no
+> Ciclo 19 não agradou. O alvo passa a ser o do
+> [`optimizations-core`](https://github.com/oneclickads/monorepo/tree/main/packages/optimizations-core):
+> **uma função por arquivo**, **`db` injetado** (nada de importar o singleton), **teste fora do
+> `src/`** em `tests/unit/tests/` com um arquivo por função, **cobertura 100%** e **Stryker**
+> sob demanda. A T-103 é o piloto; a T-104 replica nos demais cores.
+
+### T-103 — `subscription-core`: fundir `billing-core` + `abacatepay-core` no formato novo
+- **Status**: CONCLUIDA (2026-08-08). Piloto do formato-alvo. **131 testes** no package (era 20 + 10), **cobertura 100%** em statements/branches/functions/lines. `pnpm build` e `pnpm test` da raiz verdes (server 452, web 451). Os dois packages antigos foram removidos.
+- **Prioridade**: P1
+- **Complexidade**: alta
+- **Depende de**: —
+- **Contexto**: dois problemas de uma vez. (1) `billing.ts` era um arquivo-balaio de 322 linhas com 15 responsabilidades que importava o singleton `db` no topo — o teste era obrigado a setar `DATABASE_URL` e fazer `await import()` dinâmico dentro do `beforeAll` **mesmo para funções puras**, porque o `client.ts` lê o env no top-level. (2) `abacatepay-core` era package irmão, então "quem orquestra o provedor" não tinha dono e a orquestração se espalhou por quatro rotas — era o item (c) da dívida do Ciclo 19, agora resolvido por construção.
+- **Resultado**:
+  - `packages/subscription-core/` com 17 arquivos em `src/` (1 função cada) + `src/providers/abacatepay/` (7 arquivos). `index.ts` é só barrel.
+  - **`db` injetado**: `getActivePlan({ db, planId })`, `getSubscriptionRow({ db, userId })`, `getPendingCharge({ db, userId, nowIso, planId? })`, `markChargePaidAndActivate({ db, abacateChargeId })`. Novo tipo `Db` exportado por `@vetor-wallet/db` (`Pick` estreito: só `execute` e `batch` — o que não está lá é gestão de conexão, que não é assunto de core).
+  - **Jest + ts-jest + Stryker** neste package (o resto do monorepo segue Vitest). Testes em `tests/unit/tests/*.test.ts`, um por arquivo de `src/`, importando por alias `src/*`. Helpers `createMockDb.ts` e `mockFetch.ts`. Snapshot no SQL das queries.
+  - Rotas e `requireActiveSubscription` passam `db` explicitamente; imports das 4 rotas + middleware colapsaram de dois packages para um.
+  - Docs: `packages/subscription-core/CLAUDE.md` (funde os dois antigos), `PACKAGES.md` (nova regra 3 — integração de um módulo só nasce como provider dentro do core; seção "Formato de package (alvo)" + tabela de estado da migração), `MODULES.md` (módulo `Billing` → `Subscriptions`), `docs/decisions/billing.md`, `CLAUDE.md` da raiz e do `server`.
+- **Nota**: `brapi-core` **continua** package separado e isso não é incoerência — a brapi serve Portfolio *e* Insights; a AbacatePay só existe por causa da assinatura.
+
+### T-104 — Migrar os demais `*-core` para o formato-alvo
+- **Status**: PENDENTE
+- **Prioridade**: P2
+- **Complexidade**: alta — uma tarefa por package, não um PR só
+- **Depende de**: T-103
+- **Contexto**: a T-103 provou o formato num package. Os outros dez cores + `db` seguem no formato antigo (arquivo-balaio, `db` importado do singleton, teste em `src/**/*.test.ts` com banco temporário). A tabela em `PACKAGES.md` § "Estado da migração de formato" é a fonte da verdade de quem já migrou.
+- **Escopo**: um package por vez, na ordem `validation-core` (trivial, sem I/O — bom para calibrar) → `savings-core` → `expenses-core` → `bank-import-core` → `auth-core` → `insights-core` → `portfolio-core` (o mais pesado). Cada um: quebrar em 1 função por arquivo, injetar `db`, mover testes para `tests/unit/tests/`, atingir 100% de cobertura, atualizar os call sites no `server`/`cli` e o `CLAUDE.md` do package.
+- **Atenção**: injetar `db` muda assinatura pública, então **cada package arrasta uma leva de call sites** — é o que impede fazer os dez de uma vez. `portfolio-core` e `insights-core` ainda têm o acoplamento core→core do Ciclo 19; migrar não é a hora de desfazê-lo.
+- **Fora de escopo**: mudar regra de negócio; desfazer os acoplamentos pré-existentes; a T-100.
+- **Critério de aceite**: por package — `pnpm --filter <pkg> test` verde com cobertura 100%, `pnpm build` e `pnpm test` da raiz verdes, contagem de testes do server preservada ou maior.
+
 ### T-100 — Renomear `server` → `rest-api`
 - **Status**: PENDENTE — **aguardando o humano** (ver abaixo)
 - **BLOQUEIO (2026-08-07)**: não existe configuração de deploy no repo (sem Dockerfile, `fly.toml`, `Procfile` ou similar; o `.github/workflows/ci.yml` só usa scripts da raiz e não quebra). Isso significa que o deploy é configurado **fora** do repositório, num painel de hospedagem que o orquestrador não enxerga. Renomear o diretório muda o caminho do entry de produção de `packages/server/dist/api/index.js` para `packages/rest-api/dist/api/index.js`, e só o humano pode atualizar o host. Fazer o rename antes disso derruba o deploy no próximo push.
@@ -403,7 +435,7 @@
 - Threshold percentual de 2 casas a revisitar com a UI de alertas (demais sobras das revisões 10–11 entraram no Ciclo 14: T-064–T-067).
 - Backfill histórico de snapshots via `hourly_quote_insights` (o agendador in-process foi entregue na T-061; Lambda/EventBridge segue como dívida de produção).
 - Ampliar `/admin`; backend de cripto (aguardando o humano); agendador do job de insights (Lambda/EventBridge); redesign de Alertas/Import (hoje sem UI).
-- **Do Ciclo 19 (2026-08-07)** — dois acoplamentos **pré-existentes** que a extração em packages tornou visíveis (o revisor confirmou por diff que já existiam dentro do server; desfazê-los é refactor, não movimentação): (a) `auth-core → portfolio-core` (`createUser` chama `getOrCreateDefaultWallet`) e `insights-core → portfolio-core` (benchmarks usam `buildPositionMap`/`buildPortfolioSummary`) violam a **regra 6** do `PACKAGES.md` — a saída natural é a rota orquestrar os dois módulos em vez de um core chamar o outro; (b) `portfolio-core/src/snapshots.ts` tem `fetchQuotesStrict`, um **segundo client da brapi** que lança em erro, enquanto `brapi-core.fetchQuotes` degrada em silêncio — unificar movendo `fetchQuotesStrict` para o `brapi-core` e fazendo o tolerante virar wrapper dele. Item (c): mover para `billing-core` a orquestração do client AbacatePay que hoje vive nas rotas `subscriptions.ts`/`pixCharges.ts`/`billingSimulate.ts` (regra 3 do `PACKAGES.md`).
+- **Do Ciclo 19 (2026-08-07)** — dois acoplamentos **pré-existentes** que a extração em packages tornou visíveis (o revisor confirmou por diff que já existiam dentro do server; desfazê-los é refactor, não movimentação): (a) `auth-core → portfolio-core` (`createUser` chama `getOrCreateDefaultWallet`) e `insights-core → portfolio-core` (benchmarks usam `buildPositionMap`/`buildPortfolioSummary`) violam a **regra 6** do `PACKAGES.md` — a saída natural é a rota orquestrar os dois módulos em vez de um core chamar o outro; (b) `portfolio-core/src/snapshots.ts` tem `fetchQuotesStrict`, um **segundo client da brapi** que lança em erro, enquanto `brapi-core.fetchQuotes` degrada em silêncio — unificar movendo `fetchQuotesStrict` para o `brapi-core` e fazendo o tolerante virar wrapper dele. ~~Item (c): mover para `billing-core` a orquestração do client AbacatePay que hoje vive nas rotas~~ — **resolvido na T-103**: o client virou provider dentro do `subscription-core`, então a orquestração passa a ter dono por construção.
 - **Dos ciclos 17–18 (2026-08-05)**: limpar backend de budgets (rotas + tabela `category_budgets` + tipo no shared) — a UI foi removida na T-089 e nada mais consome; datar `buildIbovespaSeries` em BRT em vez de UTC (consistência com a âncora da rota; hoje um candle intraday após 21h BRT pode ser datado como "amanhã" e recortado — achado da T-095).
 - **Da revisão de 2026-08-02** (não viraram tarefa do ciclo 16): padronizar casing da API (goals usa `target_amount`, operations usa camelCase — só dói para integradores); default silencioso `type: 'OUTRO'` no POST /api/income; "caixa de entrada" de revisão para transações importadas (confirmar/categorizar antes de virar lançamento — extratos reais têm estornos e transferências entre contas próprias); endpoint `investments` da Pluggy para reconciliar posição B3.
 

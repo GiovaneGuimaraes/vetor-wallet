@@ -1,0 +1,3 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`getActivePlan busca o plano por id e devolve a linha crua 1`] = `"SELECT * FROM plans WHERE id = ?"`;

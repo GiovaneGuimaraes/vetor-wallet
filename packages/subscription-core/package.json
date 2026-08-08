@@ -1,0 +1,27 @@
+{
+  "name": "@vetor-wallet/subscription-core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build tsconfig.json",
+    "test": "jest --projects tests/unit",
+    "mutation": "stryker run"
+  },
+  "dependencies": {
+    "@vetor-wallet/db": "workspace:*",
+    "@vetor-wallet/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@stryker-mutator/core": "^8.7.1",
+    "@stryker-mutator/jest-runner": "^8.7.1",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.14.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

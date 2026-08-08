@@ -1,0 +1,15 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`markChargePaidAndActivate ativa a assinatura e soma o período a partir de agora 1`] = `
+[
+  "UPDATE pix_charges SET status = 'PAID', paid_at = datetime('now')
+              WHERE abacate_charge_id = ? AND status <> 'PAID'",
+  "INSERT INTO subscriptions (user_id, plan_id, status, current_period_end)
+              VALUES (?, ?, 'active', ?)
+              ON CONFLICT(user_id) DO UPDATE SET
+                plan_id = excluded.plan_id,
+                status = 'active',
+                current_period_end = excluded.current_period_end,
+                updated_at = datetime('now')",
+]
+`;
