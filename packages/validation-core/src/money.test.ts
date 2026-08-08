@@ -66,7 +66,7 @@ describe('moneyDecimalsError', () => {
 
   it('aceita um nome de campo customizado', () => {
     expect(moneyDecimalsError('target_amount')).toBe(
-      'target_amount deve ter no máximo 2 casas decimais',
+      'target_amount deve ter no máximo 2 casas decimais'
     );
   });
 });

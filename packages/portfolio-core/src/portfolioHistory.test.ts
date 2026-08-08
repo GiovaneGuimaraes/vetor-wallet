@@ -17,7 +17,7 @@ function op(
   type: 'BUY' | 'SELL',
   quantity: number,
   price: number,
-  date: string,
+  date: string
 ): Operation {
   return { id: nextId++, ticker, type, quantity, price, date, created_at: `${date}T10:00:00` };
 }
@@ -49,9 +49,9 @@ describe('buildDateWindow', () => {
 
 describe('buildPortfolioHistory', () => {
   it('returns [] for a portfolio with no operations', () => {
-    expect(buildPortfolioHistory([], [snap('PETR4', d(-2), 10)], buildDateWindow(TODAY, 5))).toEqual(
-      [],
-    );
+    expect(
+      buildPortfolioHistory([], [snap('PETR4', d(-2), 10)], buildDateWindow(TODAY, 5))
+    ).toEqual([]);
   });
 
   it('forward-fills the last known price across a hole in the middle of the series', () => {

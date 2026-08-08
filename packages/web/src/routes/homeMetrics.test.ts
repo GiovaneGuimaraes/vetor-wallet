@@ -76,7 +76,9 @@ describe('computeStockTotals', () => {
   });
 
   it('usa o valor investido como fallback quando a cotação é nula e sinaliza hasMissingQuote', () => {
-    const result = computeStockTotals([makeSummary({ totalInvested: 1000, totalCurrentValue: null })]);
+    const result = computeStockTotals([
+      makeSummary({ totalInvested: 1000, totalCurrentValue: null }),
+    ]);
     expect(result).toEqual({ invested: 1000, current: 1000, hasMissingQuote: true });
   });
 
@@ -159,7 +161,7 @@ describe('computeMonthCashFlow', () => {
       5000,
       3000,
       [makeEntry({ amount: 400 }), makeEntry({ amount: 100 })],
-      [],
+      []
     );
     expect(result).toEqual({
       incomeTotal: 5000,
@@ -211,7 +213,7 @@ describe('computeMonthCashFlow', () => {
       5000,
       3000,
       [makeEntry({ amount: 500 })],
-      [makeIncomeEntry({ amount: 800 }), makeIncomeEntry({ id: 2, amount: 200 })],
+      [makeIncomeEntry({ amount: 800 }), makeIncomeEntry({ id: 2, amount: 200 })]
     );
     expect(result).toEqual({
       incomeTotal: 6000,

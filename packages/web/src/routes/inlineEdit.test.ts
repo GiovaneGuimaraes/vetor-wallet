@@ -38,7 +38,7 @@ describe('diffEditableFields', () => {
   it('returns only the changed fields', () => {
     const diff = diffEditableFields(
       { name: 'Salário', type: 'SALARIO', amount: '5000' },
-      { name: 'Salário CLT', type: 'SALARIO', amount: '5000' },
+      { name: 'Salário CLT', type: 'SALARIO', amount: '5000' }
     );
     expect(diff).toEqual({ name: 'Salário CLT' });
   });
@@ -46,7 +46,7 @@ describe('diffEditableFields', () => {
   it('returns an empty object when nothing changed', () => {
     const diff = diffEditableFields(
       { name: 'Aluguel', category: 'moradia', amount: '1500' },
-      { name: 'Aluguel', category: 'moradia', amount: '1500' },
+      { name: 'Aluguel', category: 'moradia', amount: '1500' }
     );
     expect(diff).toEqual({});
     expect(hasEdits(diff)).toBe(false);
@@ -55,7 +55,7 @@ describe('diffEditableFields', () => {
   it('reports every changed field at once', () => {
     const diff = diffEditableFields(
       { description: 'Mercado', category: 'casa', amount: '50', date: '2026-07-01' },
-      { description: 'Feira', category: 'alimentação', amount: '75', date: '2026-07-02' },
+      { description: 'Feira', category: 'alimentação', amount: '75', date: '2026-07-02' }
     );
     expect(diff).toEqual({
       description: 'Feira',
@@ -69,7 +69,7 @@ describe('diffEditableFields', () => {
   it('treats clearing a text field as a change (empty string, not omission)', () => {
     const diff = diffEditableFields(
       { name: 'Plano', category: 'saúde' },
-      { name: 'Plano', category: '' },
+      { name: 'Plano', category: '' }
     );
     expect(diff).toEqual({ category: '' });
   });

@@ -16,12 +16,7 @@ let nextId = 1;
  * depende de "hoje" para calcular `elapsedMonths`, e datas cravadas
  * envelheceriam a suíte (mesmo padrão de `savingsProjection.test.ts`).
  */
-function makeOp(
-  type: Operation['type'],
-  quantity: number,
-  price: number,
-  date: string,
-): Operation {
+function makeOp(type: Operation['type'], quantity: number, price: number, date: string): Operation {
   return {
     id: nextId++,
     ticker: 'PETR4',
@@ -47,7 +42,7 @@ function dayIn(delta: number, day = Math.min(new Date().getDate(), 28)): string 
 /** Recorta um `Pick<PortfolioSummary, ...>` mínimo para os testes. */
 function makeSummary(
   totalProfitLossPct: number | null,
-  totalInvested: number,
+  totalInvested: number
 ): Pick<PortfolioSummary, 'totalProfitLossPct' | 'totalInvested'> {
   return { totalProfitLossPct, totalInvested };
 }
@@ -218,7 +213,7 @@ describe('projectPortfolio', () => {
     expect(totalGain).toBe(Math.round(totalGain * 100) / 100);
     expect(totalContributed).toBe(Math.round(321.99 * 7 * 100) / 100);
     expect(Math.round((1234.56 + totalContributed + totalGain) * 100)).toBe(
-      Math.round(futureValue * 100),
+      Math.round(futureValue * 100)
     );
   });
 
@@ -352,15 +347,17 @@ describe('parseSignedInput', () => {
 
 describe('resolveDefaultCurrentValue', () => {
   it('usa totalCurrentValue quando disponível', () => {
-    expect(
-      resolveDefaultCurrentValue({ totalCurrentValue: 1500, totalInvested: 1200 }),
-    ).toEqual({ value: 1500, usedFallback: false });
+    expect(resolveDefaultCurrentValue({ totalCurrentValue: 1500, totalInvested: 1200 })).toEqual({
+      value: 1500,
+      usedFallback: false,
+    });
   });
 
   it('cai para totalInvested quando totalCurrentValue é null (cotações indisponíveis)', () => {
-    expect(
-      resolveDefaultCurrentValue({ totalCurrentValue: null, totalInvested: 1200 }),
-    ).toEqual({ value: 1200, usedFallback: true });
+    expect(resolveDefaultCurrentValue({ totalCurrentValue: null, totalInvested: 1200 })).toEqual({
+      value: 1200,
+      usedFallback: true,
+    });
   });
 
   it('devolve 0 sem fallback quando não há summary', () => {

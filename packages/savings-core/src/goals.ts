@@ -21,7 +21,9 @@ function roundCents(value: number): number {
  * Uma query agregada por usuário (GROUP BY goal_id) — sem N+1 por meta.
  * Metas sem lançamentos vinculados simplesmente não aparecem no Map.
  */
-export async function fetchGoalLinkAggregates(userId: number): Promise<Map<number, GoalLinkAggregate>> {
+export async function fetchGoalLinkAggregates(
+  userId: number
+): Promise<Map<number, GoalLinkAggregate>> {
   const result = await db.execute({
     sql: `SELECT goal_id,
                  COUNT(*) AS linked_count,
@@ -37,7 +39,11 @@ export async function fetchGoalLinkAggregates(userId: number): Promise<Map<numbe
   });
 
   const map = new Map<number, GoalLinkAggregate>();
-  for (const row of result.rows as unknown as { goal_id: number; linked_count: number; linked_net: number | null }[]) {
+  for (const row of result.rows as unknown as {
+    goal_id: number;
+    linked_count: number;
+    linked_net: number | null;
+  }[]) {
     map.set(Number(row.goal_id), {
       count: Number(row.linked_count),
       net: Number(row.linked_net ?? 0),
@@ -57,7 +63,12 @@ export async function fetchGoalLinkAggregates(userId: number): Promise<Map<numbe
  */
 export function resolveGoalProgress(goal: Goal, aggregate: GoalLinkAggregate | undefined): Goal {
   if (!aggregate || aggregate.count === 0) {
-    return { ...goal, current_amount: Number(goal.current_amount), progress_source: 'MANUAL', linked_entries_count: 0 };
+    return {
+      ...goal,
+      current_amount: Number(goal.current_amount),
+      progress_source: 'MANUAL',
+      linked_entries_count: 0,
+    };
   }
   return {
     ...goal,
@@ -78,7 +89,7 @@ export async function listGoalsWithProgress(userId: number): Promise<Goal[]> {
   ]);
 
   return (goalsResult.rows as unknown as Goal[]).map((goal) =>
-    resolveGoalProgress(goal, aggregates.get(Number(goal.id))),
+    resolveGoalProgress(goal, aggregates.get(Number(goal.id)))
   );
 }
 
@@ -97,7 +108,7 @@ export async function getGoalWithProgress(userId: number, goalId: number): Promi
 /** Agregado de uma única meta — usado para bloquear o PATCH de `current_amount`. */
 export async function getGoalLinkAggregate(
   userId: number,
-  goalId: number,
+  goalId: number
 ): Promise<GoalLinkAggregate | undefined> {
   const result = await db.execute({
     sql: `SELECT COUNT(*) AS linked_count,

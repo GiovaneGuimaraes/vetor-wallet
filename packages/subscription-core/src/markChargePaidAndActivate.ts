@@ -39,8 +39,7 @@ export const markChargePaidAndActivate = async (args: {
     args: [args.abacateChargeId],
   });
   const charge = chargeRes.rows[0] as unknown as
-    | { user_id: number; plan_id: number; status: string }
-    | undefined;
+    { user_id: number; plan_id: number; status: string } | undefined;
 
   if (!charge) return { activated: false, userId: null };
 
@@ -53,7 +52,7 @@ export const markChargePaidAndActivate = async (args: {
   const sub = await getSubscriptionRow({ db: args.db, userId });
   const periodEnd = addInterval(
     renewalBase(nowSqliteUtc(), sub?.current_period_end ?? null),
-    plan.interval,
+    plan.interval
   );
 
   // Batch 'write' = uma transação: ou a cobrança vira PAID e a assinatura fica
@@ -78,7 +77,7 @@ export const markChargePaidAndActivate = async (args: {
         args: [userId, plan.id, periodEnd],
       },
     ],
-    'write',
+    'write'
   );
 
   return { activated: true, userId };

@@ -34,7 +34,7 @@ export function initialExpenseFormState(defaultDate: string): ExpenseFormState {
  */
 export function resetExpenseFormFields(
   state: ExpenseFormState,
-  defaultDate: string,
+  defaultDate: string
 ): ExpenseFormState {
   return { ...state, name: '', category: '', amount: '', date: defaultDate, recurring: false };
 }
@@ -42,7 +42,7 @@ export function resetExpenseFormFields(
 /** Troca o tipo (Fixa/Variável), preservando nome/categoria/valor já digitados. */
 export function switchExpenseFormKind(
   state: ExpenseFormState,
-  kind: ExpenseFormKind,
+  kind: ExpenseFormKind
 ): ExpenseFormState {
   return { ...state, kind };
 }

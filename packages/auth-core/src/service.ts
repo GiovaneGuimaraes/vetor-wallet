@@ -74,7 +74,9 @@ export async function createUser(email: string, password: string): Promise<User>
   };
 }
 
-export async function findUserByEmail(email: string): Promise<(User & { password_hash: string }) | null> {
+export async function findUserByEmail(
+  email: string
+): Promise<(User & { password_hash: string }) | null> {
   const result = await db.execute({
     sql: 'SELECT id, email, name, phone, password_hash, created_at, roles FROM users WHERE email = ?',
     args: [email.toLowerCase().trim()],
@@ -107,7 +109,10 @@ export interface ProfileUpdate {
 // Aplica um PATCH parcial em name/phone. Cada campo presente no update já foi
 // validado pelo router (string válida ou `null` para limpar); aqui só
 // persiste. Retorna o User atualizado.
-export async function updateUserProfile(userId: number, update: ProfileUpdate): Promise<User | null> {
+export async function updateUserProfile(
+  userId: number,
+  update: ProfileUpdate
+): Promise<User | null> {
   const sets: string[] = [];
   const args: (string | number | null)[] = [];
 
@@ -155,7 +160,9 @@ export async function updateUserPassword(userId: number, newPassword: string): P
   });
 }
 
-export async function findUserById(userId: number): Promise<(User & { password_hash: string }) | null> {
+export async function findUserById(
+  userId: number
+): Promise<(User & { password_hash: string }) | null> {
   const result = await db.execute({
     sql: 'SELECT id, email, name, phone, password_hash, created_at, roles FROM users WHERE id = ?',
     args: [userId],

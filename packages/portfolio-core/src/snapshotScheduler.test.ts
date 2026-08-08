@@ -30,7 +30,10 @@ describe('startSnapshotScheduler', () => {
 
   it('does not crash and keeps ticking when the runner rejects', async () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const runner = vi.fn().mockRejectedValueOnce(new Error('brapi down')).mockResolvedValue(undefined);
+    const runner = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('brapi down'))
+      .mockResolvedValue(undefined);
 
     const handle = startSnapshotScheduler(1000, runner);
 

@@ -25,7 +25,11 @@ export function isBusinessDay(brtDate: Date): boolean {
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3, delayMs = 1000): Promise<T> {
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts = 3,
+  delayMs = 1000
+): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -34,7 +38,9 @@ export async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3, delayM
       lastErr = err;
       if (attempt < maxAttempts) {
         const backoff = delayMs * attempt;
-        console.warn(`[snapshots] Attempt ${attempt}/${maxAttempts} failed, retrying in ${backoff}ms`);
+        console.warn(
+          `[snapshots] Attempt ${attempt}/${maxAttempts} failed, retrying in ${backoff}ms`
+        );
         await sleep(backoff);
       }
     }
@@ -72,7 +78,7 @@ export async function resolveActiveTickers(): Promise<string[]> {
     `SELECT ticker
      FROM operations
      GROUP BY ticker
-     HAVING SUM(CASE WHEN type = 'BUY' THEN quantity ELSE -quantity END) > 0`,
+     HAVING SUM(CASE WHEN type = 'BUY' THEN quantity ELSE -quantity END) > 0`
   );
   return result.rows.map((r) => r.ticker as string);
 }
@@ -91,7 +97,11 @@ export async function saveSnapshot(ticker: string, price: number): Promise<boole
 }
 
 /** Saves a closing price for a specific past date (historical backfill). */
-export async function saveSnapshotForDate(ticker: string, price: number, isoDate: string): Promise<boolean> {
+export async function saveSnapshotForDate(
+  ticker: string,
+  price: number,
+  isoDate: string
+): Promise<boolean> {
   const result = await db.execute({
     sql: `INSERT OR IGNORE INTO quote_snapshots (ticker, price, captured_at) VALUES (?, ?, ?)`,
     args: [ticker, price, `${isoDate}T18:00:00`],
@@ -107,7 +117,7 @@ export async function saveSnapshotForDate(ticker: string, price: number, isoDate
  */
 export async function getPreviousCloseSnapshots(
   tickers: string[],
-  beforeDateISO: string,
+  beforeDateISO: string
 ): Promise<Map<string, number>> {
   const map = new Map<string, number>();
   if (tickers.length === 0) return map;
@@ -135,12 +145,18 @@ export async function getPreviousCloseSnapshots(
 export async function getSnapshotHistory(
   ticker: string,
   from?: string,
-  to?: string,
+  to?: string
 ): Promise<QuoteSnapshot[]> {
   let sql = 'SELECT id, ticker, price, captured_at FROM quote_snapshots WHERE ticker = ?';
   const args: (string | number)[] = [ticker];
-  if (from) { sql += ' AND date(captured_at) >= ?'; args.push(from); }
-  if (to) { sql += ' AND date(captured_at) <= ?'; args.push(to); }
+  if (from) {
+    sql += ' AND date(captured_at) >= ?';
+    args.push(from);
+  }
+  if (to) {
+    sql += ' AND date(captured_at) <= ?';
+    args.push(to);
+  }
   sql += ' ORDER BY captured_at ASC';
 
   const result = await db.execute({ sql, args });
@@ -179,7 +195,7 @@ export async function runSnapshotJob(): Promise<void> {
   const duplicate = fetched - saved;
   console.log(
     `[snapshots] Job complete — ${saved} saved, ${duplicate} duplicate(s) skipped, ` +
-    `${tickers.length - fetched} ticker(s) without quote`,
+      `${tickers.length - fetched} ticker(s) without quote`
   );
 }
 

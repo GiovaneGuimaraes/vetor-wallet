@@ -71,10 +71,11 @@ export function AdminPage({ user, onLogout }: Props) {
         {!isAdmin ? (
           <div className="bg-raised border border-edge rounded-xl p-8 text-center">
             <p className="text-ink font-medium mb-1">Acesso restrito</p>
-            <p className="text-sm text-dim">
-              Você não tem permissão para acessar esta página.
-            </p>
-            <Link to="/" className="mt-4 inline-block text-sm text-accent hover:opacity-80 transition-opacity">
+            <p className="text-sm text-dim">Você não tem permissão para acessar esta página.</p>
+            <Link
+              to="/"
+              className="mt-4 inline-block text-sm text-accent hover:opacity-80 transition-opacity"
+            >
               ← Voltar ao app
             </Link>
           </div>
@@ -82,7 +83,9 @@ export function AdminPage({ user, onLogout }: Props) {
           <div className="flex flex-col gap-5 max-w-lg">
             <div>
               <h2 className="text-lg font-semibold text-ink">Painel administrativo</h2>
-              <p className="text-sm text-dim mt-1">Operações manuais disponíveis apenas para admins.</p>
+              <p className="text-sm text-dim mt-1">
+                Operações manuais disponíveis apenas para admins.
+              </p>
             </div>
 
             <div className="bg-raised border border-edge rounded-xl p-6 flex flex-col gap-4">
@@ -97,7 +100,10 @@ export function AdminPage({ user, onLogout }: Props) {
                 <input
                   type="date"
                   value={date}
-                  onChange={(e) => { setDate(e.target.value); setSummary(null); }}
+                  onChange={(e) => {
+                    setDate(e.target.value);
+                    setSummary(null);
+                  }}
                   disabled={loading}
                   className="w-full sm:w-auto px-3 py-2 rounded-lg border border-edge bg-canvas text-ink text-sm
                              focus:outline-none focus:border-accent/60 disabled:opacity-50
@@ -113,7 +119,9 @@ export function AdminPage({ user, onLogout }: Props) {
                 </button>
               </div>
               {!date && (
-                <p className="text-xs text-dim -mt-2">Sem data selecionada, usa ontem por padrão.</p>
+                <p className="text-xs text-dim -mt-2">
+                  Sem data selecionada, usa ontem por padrão.
+                </p>
               )}
 
               {error && (

@@ -8,7 +8,11 @@ import {
   getOrCreateDefaultWallet,
   wouldExceedPosition,
 } from '@vetor-wallet/portfolio-core';
-import { isValidIsoDate, isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
+import {
+  isValidIsoDate,
+  isValidMoneyAmount,
+  moneyAmountError,
+} from '@vetor-wallet/validation-core';
 import type { NewOperation, Operation } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -28,7 +32,7 @@ router.get(
       args: [userId],
     });
     res.json(result.rows);
-  }),
+  })
 );
 
 router.post(
@@ -94,7 +98,7 @@ router.post(
       args: [Number(newId), userId],
     });
     res.status(201).json(row.rows[0]);
-  }),
+  })
 );
 
 router.delete(
@@ -111,7 +115,7 @@ router.delete(
       return;
     }
     res.status(204).send();
-  }),
+  })
 );
 
 export default router;

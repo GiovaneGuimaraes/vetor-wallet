@@ -12,7 +12,7 @@ import {
 function entry(
   type: SavingsBalanceEntry['type'],
   amount: number,
-  goal_id: number | null = null,
+  goal_id: number | null = null
 ): SavingsBalanceEntry {
   return { type, amount, goal_id };
 }
@@ -30,22 +30,16 @@ describe('pickTransferLegs (T-052)', () => {
 
   it('throws when the withdraw leg is missing', () => {
     const rows = [{ id: 2, type: 'DEPOSIT' }];
-    expect(() => pickTransferLegs(rows, 1, 2)).toThrow(
-      'transferência gravada sem as duas pernas',
-    );
+    expect(() => pickTransferLegs(rows, 1, 2)).toThrow('transferência gravada sem as duas pernas');
   });
 
   it('throws when the deposit leg is missing', () => {
     const rows = [{ id: 1, type: 'WITHDRAW' }];
-    expect(() => pickTransferLegs(rows, 1, 2)).toThrow(
-      'transferência gravada sem as duas pernas',
-    );
+    expect(() => pickTransferLegs(rows, 1, 2)).toThrow('transferência gravada sem as duas pernas');
   });
 
   it('throws when both legs are missing', () => {
-    expect(() => pickTransferLegs([], 1, 2)).toThrow(
-      'transferência gravada sem as duas pernas',
-    );
+    expect(() => pickTransferLegs([], 1, 2)).toThrow('transferência gravada sem as duas pernas');
   });
 });
 
@@ -64,7 +58,7 @@ describe('toCents', () => {
 describe('computeBalance', () => {
   it('is DEPOSIT + YIELD - WITHDRAW', () => {
     expect(
-      computeBalance([entry('DEPOSIT', 1000), entry('YIELD', 50), entry('WITHDRAW', 200)]),
+      computeBalance([entry('DEPOSIT', 1000), entry('YIELD', 50), entry('WITHDRAW', 200)])
     ).toBe(850);
   });
 
@@ -130,7 +124,7 @@ describe('computeReservedTotal', () => {
         entry('DEPOSIT', 300, 1),
         entry('WITHDRAW', 500, 1), // meta 1 no piso 0, não -200
         entry('DEPOSIT', 120, 2),
-      ]),
+      ])
     ).toBe(120);
   });
 });
@@ -142,15 +136,11 @@ describe('computeFreeBalance', () => {
 
   it('subtracts the reserve of every goal', () => {
     // 1000 no saldo, 900 reservados na meta A → 100 livres.
-    expect(
-      computeFreeBalance([entry('DEPOSIT', 100), entry('DEPOSIT', 900, 1)]),
-    ).toBe(100);
+    expect(computeFreeBalance([entry('DEPOSIT', 100), entry('DEPOSIT', 900, 1)])).toBe(100);
   });
 
   it('counts YIELD as free money', () => {
-    expect(
-      computeFreeBalance([entry('DEPOSIT', 500, 1), entry('YIELD', 25)]),
-    ).toBe(25);
+    expect(computeFreeBalance([entry('DEPOSIT', 500, 1), entry('YIELD', 25)])).toBe(25);
   });
 
   it('handles a transfer pair as net zero on the balance and -X on the free balance', () => {
@@ -162,9 +152,7 @@ describe('computeFreeBalance', () => {
 
   it('can be negative on legacy ledgers (caller applies max(0, …))', () => {
     // Aporte vinculado antes da T-041 + retirada avulsa: reserva > saldo.
-    expect(
-      computeFreeBalance([entry('DEPOSIT', 100, 1), entry('WITHDRAW', 60)]),
-    ).toBe(-60);
+    expect(computeFreeBalance([entry('DEPOSIT', 100, 1), entry('WITHDRAW', 60)])).toBe(-60);
   });
 
   it('is exact in cents so transferring the whole free balance is allowed', () => {
@@ -181,7 +169,7 @@ describe('computeFreeBalance', () => {
         entry('DEPOSIT', 200, 1),
         entry('DEPOSIT', 300, 2),
         entry('WITHDRAW', 500),
-      ]),
+      ])
     ).toBe(500);
   });
 });

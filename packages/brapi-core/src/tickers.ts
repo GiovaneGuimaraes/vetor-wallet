@@ -33,7 +33,9 @@ async function getCache(): Promise<TickerInfo[] | null> {
   }
 }
 
-export async function searchTickers(query: string): Promise<{ results: TickerInfo[]; listAvailable: boolean }> {
+export async function searchTickers(
+  query: string
+): Promise<{ results: TickerInfo[]; listAvailable: boolean }> {
   const list = await getCache();
   if (!list) return { results: [], listAvailable: false };
   if (!query.trim()) return { results: list.slice(0, 20), listAvailable: true };

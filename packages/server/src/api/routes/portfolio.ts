@@ -50,7 +50,7 @@ router.get(
     const summary = buildPortfolioSummary(positionMap, quotes, failed, previousCloses);
 
     res.json(summary);
-  }),
+  })
 );
 
 // T-058a: série histórica valor × custo, um ponto por dia da janela. Precisa
@@ -128,7 +128,7 @@ router.get(
     }
 
     res.json({ points: buildPortfolioHistory(ops, snapshots, dates) });
-  }),
+  })
 );
 
 export default router;

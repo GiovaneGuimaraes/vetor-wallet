@@ -27,7 +27,7 @@ export type WalletFlowState = 'loading' | 'error' | 'create' | 'ready';
 export function decideWalletFlow(
   wallet: Pick<Wallet, 'id'> | null,
   loaded: boolean,
-  hadLoadError: boolean,
+  hadLoadError: boolean
 ): WalletFlowState {
   if (!loaded) return 'loading';
   if (wallet) return 'ready';

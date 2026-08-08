@@ -13,7 +13,7 @@ import path from 'path';
 // inside beforeAll, after the env var is set.
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-expense-entries-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-expense-entries-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -52,7 +52,7 @@ describe('expense entries routes', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/expense-entries', entriesModule.default);
@@ -209,7 +209,7 @@ describe('expense entries routes', () => {
     expect(res.status).toBe(200);
     expect(res.body.month).toBe(month);
     expect((res.body.entries as EntryBody[]).map((e) => e.description)).toContain(
-      'Gasto do mês corrente',
+      'Gasto do mês corrente'
     );
   });
 
@@ -232,12 +232,12 @@ describe('expense entries routes', () => {
 
     const resA = await agentA.get('/api/expense-entries?month=2026-07');
     expect((resA.body.entries as EntryBody[]).some((e) => e.description === 'Gasto da B')).toBe(
-      false,
+      false
     );
 
     const resB = await agentB.get('/api/expense-entries?month=2026-07');
     expect((resB.body.entries as EntryBody[]).some((e) => e.description === 'Gasto da B')).toBe(
-      true,
+      true
     );
   });
 
@@ -423,18 +423,12 @@ describe('expense entries routes', () => {
 
       const res = await agentC.get('/api/expense-entries/summary?months=3');
       expect(res.status).toBe(200);
-      const byMonth = new Map(
-        (res.body.months as SummaryItem[]).map((m) => [m.month, m.total]),
-      );
+      const byMonth = new Map((res.body.months as SummaryItem[]).map((m) => [m.month, m.total]));
       expect(byMonth.get(month)).toBe(150);
       expect(byMonth.get(prev1)).toBe(30);
       expect(byMonth.get(prev2)).toBe(20);
       // Ordenado ascendente por mês.
-      expect((res.body.months as SummaryItem[]).map((m) => m.month)).toEqual([
-        prev2,
-        prev1,
-        month,
-      ]);
+      expect((res.body.months as SummaryItem[]).map((m) => m.month)).toEqual([prev2, prev1, month]);
     });
 
     it('omits months with no entries and excludes months outside the range', async () => {
@@ -474,12 +468,8 @@ describe('expense entries routes', () => {
       expect(resF.status).toBe(200);
       expect(resG.status).toBe(200);
 
-      const byMonthF = new Map(
-        (resF.body.months as SummaryItem[]).map((m) => [m.month, m.total]),
-      );
-      const byMonthG = new Map(
-        (resG.body.months as SummaryItem[]).map((m) => [m.month, m.total]),
-      );
+      const byMonthF = new Map((resF.body.months as SummaryItem[]).map((m) => [m.month, m.total]));
+      const byMonthG = new Map((resG.body.months as SummaryItem[]).map((m) => [m.month, m.total]));
       expect(byMonthF.get(month)).toBe(321);
       expect(byMonthG.has(month)).toBe(false);
     });
@@ -555,7 +545,7 @@ describe('expense entries routes', () => {
 
         const withDefault = await agentH.get('/api/expense-entries/summary?months=1');
         const withExplicit = await agentH.get(
-          `/api/expense-entries/summary?months=1&endMonth=${month}`,
+          `/api/expense-entries/summary?months=1&endMonth=${month}`
         );
         expect(withDefault.status).toBe(200);
         expect(withExplicit.status).toBe(200);
@@ -580,13 +570,9 @@ describe('expense entries routes', () => {
         // Pedindo a janela de 1 mês terminando no mês ANTERIOR, o mês corrente
         // não deve aparecer — a janela é ancorada em `endMonth`, não no mês
         // corrente do server.
-        const res = await agentI.get(
-          `/api/expense-entries/summary?months=1&endMonth=${prevMonth}`,
-        );
+        const res = await agentI.get(`/api/expense-entries/summary?months=1&endMonth=${prevMonth}`);
         expect(res.status).toBe(200);
-        const months = (res.body.months as { month: string; total: number }[]).map(
-          (m) => m.month,
-        );
+        const months = (res.body.months as { month: string; total: number }[]).map((m) => m.month);
         expect(months).toEqual([prevMonth]);
         expect(months).not.toContain(month);
       });
@@ -613,9 +599,7 @@ describe('expense entries routes', () => {
         // exatamente em `farFuture`, então, se a ocorrência tivesse sido
         // materializada ali, ela apareceria na resposta.
         const farFuture = shiftMonthKey(month, 200);
-        const res = await agentJ.get(
-          `/api/expense-entries/summary?months=1&endMonth=${farFuture}`,
-        );
+        const res = await agentJ.get(`/api/expense-entries/summary?months=1&endMonth=${farFuture}`);
         expect(res.status).toBe(200);
         expect(res.body.months).toEqual([]);
       });
@@ -644,7 +628,7 @@ describe('expense entries routes', () => {
         const res = await agentK.get(`/api/expense-entries/summary?months=3&endMonth=${plus3}`);
         expect(res.status).toBe(200);
         const byMonth = new Map(
-          (res.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total]),
+          (res.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total])
         );
         // Os 3 meses futuros da janela foram materializados com a ocorrência
         // da recorrência (nenhum mês passado/corrente é inventado, pois a
@@ -681,7 +665,7 @@ describe('expense entries routes', () => {
         const res = await agentL.get(`/api/expense-entries/summary?months=3&endMonth=${plus14}`);
         expect(res.status).toBe(200);
         const byMonth = new Map(
-          (res.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total]),
+          (res.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total])
         );
         expect(byMonth.get(plus12)).toBe(25);
         expect(byMonth.has(plus13)).toBe(false);
@@ -753,7 +737,7 @@ describe('expense entries routes', () => {
 
       const list = await agentX.get(`/api/expense-entries?month=${month}`);
       const hits = (list.body.entries as EntryBody[]).filter(
-        (e) => (e as unknown as { external_id: string }).external_id === 'ofx:EXP-DUP',
+        (e) => (e as unknown as { external_id: string }).external_id === 'ofx:EXP-DUP'
       );
       expect(hits).toHaveLength(1);
     });

@@ -91,7 +91,7 @@ export function computeMonthCashFlow(
   fixedIncomeTotal: number,
   fixedExpensesTotal: number,
   variableEntries: ExpenseEntry[] | null,
-  variableIncomeEntries: IncomeEntry[] | null,
+  variableIncomeEntries: IncomeEntry[] | null
 ): MonthCashFlow {
   // A sobra PREVISTA continua sendo só o que se repete todo mês: renda fixa −
   // despesas fixas. Renda avulsa entra apenas na sobra REAL.
@@ -156,15 +156,17 @@ export function computeGoalsSummary(goals: Goal[]): GoalsSummary {
  * mês corrente foram carregadas (não `null`) e vieram vazias. */
 export function isIncomeLayerEmpty(
   income: IncomeSource[],
-  variableIncomeEntries: IncomeEntry[] | null,
+  variableIncomeEntries: IncomeEntry[] | null
 ): boolean {
-  return income.length === 0 && variableIncomeEntries !== null && variableIncomeEntries.length === 0;
+  return (
+    income.length === 0 && variableIncomeEntries !== null && variableIncomeEntries.length === 0
+  );
 }
 
 /** Despesas (T-080): mesmo critério da renda, para despesas fixas + lançamentos variáveis do mês. */
 export function isExpensesLayerEmpty(
   expenses: FixedExpense[],
-  variableEntries: ExpenseEntry[] | null,
+  variableEntries: ExpenseEntry[] | null
 ): boolean {
   return expenses.length === 0 && variableEntries !== null && variableEntries.length === 0;
 }
@@ -199,7 +201,7 @@ export function isSavingsLayerEmpty(summary: SavingsSummary | null): boolean {
 export function isStocksLayerEmpty(
   walletSummary: PortfolioSummary | null,
   walletLoaded: boolean,
-  walletLoadError: boolean,
+  walletLoadError: boolean
 ): boolean {
   if (!walletLoaded || walletLoadError) return false;
   return walletSummary === null || walletSummary.positions.length === 0;

@@ -7,7 +7,7 @@ import path from 'path';
 // assim aponta para um arquivo temp para não tocar o banco de desenvolvimento.
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-recurring-service-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-recurring-service-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -95,9 +95,13 @@ describe('isUniqueViolation (T-045)', () => {
   });
 
   it('recognizes a UNIQUE constraint failure by message when code is absent', () => {
-    expect(isUniqueViolation(new Error('UNIQUE constraint failed: recurring_expense_months.recurring_id, recurring_expense_months.month'))).toBe(
-      true,
-    );
+    expect(
+      isUniqueViolation(
+        new Error(
+          'UNIQUE constraint failed: recurring_expense_months.recurring_id, recurring_expense_months.month'
+        )
+      )
+    ).toBe(true);
   });
 
   it('does not treat a foreign key violation as a unique violation', () => {
@@ -107,7 +111,7 @@ describe('isUniqueViolation (T-045)', () => {
   it('does not treat a generic/NOT NULL constraint error as a unique violation', () => {
     expect(isUniqueViolation({ code: 'SQLITE_CONSTRAINT_NOTNULL' })).toBe(false);
     expect(isUniqueViolation(new Error('NOT NULL constraint failed: expense_entries.date'))).toBe(
-      false,
+      false
     );
   });
 
@@ -206,7 +210,7 @@ describe('createRecurringExpenseEntry (T-045)', () => {
         dayOfMonth: 5,
         startMonth: '2026-09',
         entryMonth: '2026-09',
-      }),
+      })
     ).rejects.toThrow();
 
     const recurrence = await db.execute({

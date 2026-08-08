@@ -94,14 +94,14 @@ export async function withUserLock<T>(userId: number, fn: () => Promise<T>): Pro
   // encadear a ordem; o valor/erro de fato é devolvido pelo `await run` abaixo.
   userLocks.set(
     userId,
-    run.catch(() => undefined),
+    run.catch(() => undefined)
   );
   return run;
 }
 
 export async function getOrCreateDefaultWallet(
   userId: number,
-  overrides?: { name?: string; description?: string; color?: string },
+  overrides?: { name?: string; description?: string; color?: string }
 ): Promise<number> {
   const existing = await findDefaultWallet(userId);
   if (existing) return Number(existing.id);

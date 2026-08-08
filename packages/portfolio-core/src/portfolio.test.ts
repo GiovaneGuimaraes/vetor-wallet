@@ -12,7 +12,7 @@ function op(
   type: 'BUY' | 'SELL',
   quantity: number,
   price: number,
-  id = 1,
+  id = 1
 ): Operation {
   return { id, ticker, type, quantity, price, date: '2024-01-01', created_at: '2024-01-01' };
 }

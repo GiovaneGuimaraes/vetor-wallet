@@ -46,29 +46,27 @@ describe('validateExpenseForm', () => {
   };
 
   it('requires a name for FIXED', () => {
-    expect(validateExpenseForm({ ...base, amount: '100' })).toBe(
-      'Informe um nome para a despesa.',
-    );
+    expect(validateExpenseForm({ ...base, amount: '100' })).toBe('Informe um nome para a despesa.');
   });
 
   it('requires a description for VARIABLE', () => {
     expect(validateExpenseForm({ ...base, kind: 'VARIABLE', amount: '100' })).toBe(
-      'Informe uma descrição para o lançamento.',
+      'Informe uma descrição para o lançamento.'
     );
   });
 
   it('rejects a missing/invalid amount', () => {
     expect(validateExpenseForm({ ...base, name: 'Aluguel', amount: '' })).toBe(
-      'Informe um valor válido maior que zero.',
+      'Informe um valor válido maior que zero.'
     );
     expect(validateExpenseForm({ ...base, name: 'Aluguel', amount: '0' })).toBe(
-      'Informe um valor válido maior que zero.',
+      'Informe um valor válido maior que zero.'
     );
     expect(validateExpenseForm({ ...base, name: 'Aluguel', amount: '-5' })).toBe(
-      'Informe um valor válido maior que zero.',
+      'Informe um valor válido maior que zero.'
     );
     expect(validateExpenseForm({ ...base, name: 'Aluguel', amount: 'abc' })).toBe(
-      'Informe um valor válido maior que zero.',
+      'Informe um valor válido maior que zero.'
     );
   });
 
@@ -84,7 +82,7 @@ describe('validateExpenseForm', () => {
         name: 'Mercado',
         amount: '100',
         date: '',
-      }),
+      })
     ).toBe('Informe a data do lançamento.');
     expect(
       validateExpenseForm({
@@ -93,7 +91,7 @@ describe('validateExpenseForm', () => {
         name: 'Aluguel',
         amount: '100',
         date: '',
-      }),
+      })
     ).toBeNull();
   });
 
@@ -106,7 +104,7 @@ describe('validateExpenseForm', () => {
         amount: '250.50',
         date: '2026-08-10',
         recurring: true,
-      }),
+      })
     ).toBeNull();
   });
 });

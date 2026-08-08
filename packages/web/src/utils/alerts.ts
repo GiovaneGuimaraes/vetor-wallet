@@ -8,10 +8,7 @@ export interface TriggeredAlert {
 
 const fmtBrl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
-export function evaluateAlerts(
-  rules: AlertRule[],
-  portfolio: PortfolioSummary,
-): TriggeredAlert[] {
+export function evaluateAlerts(rules: AlertRule[], portfolio: PortfolioSummary): TriggeredAlert[] {
   const triggered: TriggeredAlert[] = [];
 
   for (const rule of rules) {

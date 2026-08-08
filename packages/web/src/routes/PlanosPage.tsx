@@ -66,12 +66,16 @@ export function PlanosPage() {
       setSub(subRes.value);
       setCharge(subRes.value.pendingCharge);
     } else {
-      setLoadError(subRes.reason instanceof Error ? subRes.reason.message : 'Falha ao carregar assinatura');
+      setLoadError(
+        subRes.reason instanceof Error ? subRes.reason.message : 'Falha ao carregar assinatura'
+      );
     }
     if (plansRes.status === 'fulfilled') {
       setPlans(plansRes.value);
     } else if (subRes.status === 'fulfilled') {
-      setLoadError(plansRes.reason instanceof Error ? plansRes.reason.message : 'Falha ao carregar planos');
+      setLoadError(
+        plansRes.reason instanceof Error ? plansRes.reason.message : 'Falha ao carregar planos'
+      );
     }
     setLoading(false);
   }, []);
@@ -147,7 +151,9 @@ export function PlanosPage() {
       } else if (err.code === 'BILLING_NOT_CONFIGURED') {
         setSubscribeError('Pagamento ainda não está configurado neste ambiente.');
       } else if (err.code === 'PAYMENT_PROVIDER_ERROR') {
-        setSubscribeError('O provedor de pagamento está indisponível no momento. Tente novamente em instantes.');
+        setSubscribeError(
+          'O provedor de pagamento está indisponível no momento. Tente novamente em instantes.'
+        );
       } else {
         setSubscribeError(err.message ?? 'Falha ao assinar o plano');
       }
@@ -203,8 +209,8 @@ export function PlanosPage() {
       <div className="vw-page-header">
         <h1 className="vw-page-title">Planos</h1>
         <p className="vw-page-subtitle">
-          O Vetor Wallet é gratuito para renda, despesas, poupança e metas. Assine o Pro
-          para desbloquear Ações da B3, Criptomoedas e importação automática via Pluggy.
+          O Vetor Wallet é gratuito para renda, despesas, poupança e metas. Assine o Pro para
+          desbloquear Ações da B3, Criptomoedas e importação automática via Pluggy.
         </p>
       </div>
 
@@ -250,7 +256,12 @@ export function PlanosPage() {
             Pix copia e cola
           </label>
           <div className="vw-planos-pix-copyrow">
-            <textarea id="vw-pix-brcode" readOnly value={charge.br_code} className="vw-planos-pix-code" />
+            <textarea
+              id="vw-pix-brcode"
+              readOnly
+              value={charge.br_code}
+              className="vw-planos-pix-code"
+            />
             <button type="button" className="vw-btn-ghost" onClick={handleCopy}>
               Copiar
             </button>

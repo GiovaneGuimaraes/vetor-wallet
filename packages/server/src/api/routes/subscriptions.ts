@@ -52,9 +52,7 @@ router.post(
     const now = nowSqliteUtc();
     const existingSub = await getSubscriptionRow({ db, userId });
     if (isSubscriptionActive(existingSub, now)) {
-      res
-        .status(409)
-        .json({ code: 'ALREADY_SUBSCRIBED', error: 'Já existe uma assinatura ativa' });
+      res.status(409).json({ code: 'ALREADY_SUBSCRIBED', error: 'Já existe uma assinatura ativa' });
       return;
     }
 
@@ -144,7 +142,7 @@ router.post(
       subscription: subRow ? toSubscription(subRow) : null,
       charge: toPixCharge(chargeRow.rows[0] as unknown as PixChargeRow),
     });
-  }),
+  })
 );
 
 /**
@@ -179,7 +177,7 @@ router.get(
       pendingCharge: pending ? toPixCharge(pending) : null,
     };
     res.json(body);
-  }),
+  })
 );
 
 export default router;

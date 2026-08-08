@@ -9,7 +9,11 @@ import type { NewIncomeEntry, IncomeEntryUpdate } from '@vetor-wallet/shared';
 // helper para um service exigiria editar `expenseEntries.ts`, e mexer em
 // despesas está fora do escopo da T-036.
 import { currentMonth } from './expenseEntries';
-import { isValidIsoDate, isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
+import {
+  isValidIsoDate,
+  isValidMoneyAmount,
+  moneyAmountError,
+} from '@vetor-wallet/validation-core';
 import {
   duplicateEntryResponse,
   insertEntryWithExternalId,
@@ -52,7 +56,7 @@ router.get(
       args: [userId, month],
     });
     res.json({ month, entries: result.rows });
-  }),
+  })
 );
 
 router.post(
@@ -101,7 +105,7 @@ router.post(
       return;
     }
     res.status(201).json(result.row);
-  }),
+  })
 );
 
 // Edição parcial no padrão T-031: o registro é localizado por `id AND user_id`,
@@ -175,7 +179,7 @@ router.patch(
       args: [id, userId],
     });
     res.json(row.rows[0]);
-  }),
+  })
 );
 
 router.delete(
@@ -192,7 +196,7 @@ router.delete(
       return;
     }
     res.status(204).send();
-  }),
+  })
 );
 
 export default router;

@@ -21,9 +21,7 @@ export interface CreatePixChargeInput {
 }
 
 /** Cria uma cobrança Pix (QR Code + copia-e-cola). */
-export const createPixCharge = async (
-  input: CreatePixChargeInput,
-): Promise<AbacatePixCharge> => {
+export const createPixCharge = async (input: CreatePixChargeInput): Promise<AbacatePixCharge> => {
   // Campos opcionais ausentes são OMITIDOS do JSON (undefined não serializa),
   // em vez de enviados como null — a API rejeita null onde espera objeto.
   const raw = await abacatePayRequest<RawAbacateCharge>('/transparents/create', {

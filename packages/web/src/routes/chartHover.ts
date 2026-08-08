@@ -67,7 +67,7 @@ export function positionTooltip(
   pointY: number,
   viewWidth: number,
   tooltipWidth: number,
-  offsetY = 12,
+  offsetY = 12
 ): TooltipPosition {
   const wouldOverflowRight = pointX + tooltipWidth > viewWidth;
   return {

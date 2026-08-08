@@ -70,7 +70,13 @@ interface FormState {
   goalId: string;
 }
 
-const EMPTY_FORM: FormState = { type: 'DEPOSIT', amount: '', date: todayIso(), note: '', goalId: '' };
+const EMPTY_FORM: FormState = {
+  type: 'DEPOSIT',
+  amount: '',
+  date: todayIso(),
+  note: '',
+  goalId: '',
+};
 
 /** Prazo inicial do simulador de rendimento (T-040), em meses. */
 const DEFAULT_SIM_MONTHS = '12';
@@ -323,8 +329,7 @@ export function PoupancaPage() {
   // outro `null` continua invalidando a projeção (mesmo tratamento dos outros
   // campos).
   const simContributionRaw = sim.contribution.trim();
-  const simContribution =
-    simContributionRaw === '' ? 0 : parseNonNegativeInput(simContributionRaw);
+  const simContribution = simContributionRaw === '' ? 0 : parseNonNegativeInput(simContributionRaw);
   const projection =
     simInitial !== null && simRate !== null && simMonths !== null && simContribution !== null
       ? projectSavings(simInitial, simRate, simMonths, simContribution)
@@ -353,7 +358,7 @@ export function PoupancaPage() {
   const reservedTotal = useMemo(() => computeReservedTotal(entries), [entries]);
   const freeBalance = useMemo(
     () => computeFreeBalance(summary?.balance ?? 0, entries),
-    [summary?.balance, entries],
+    [summary?.balance, entries]
   );
   // Bases legadas podem ter livre negativo (aporte vinculado anterior à T-041 +
   // retirada avulsa): exibir `max(0, …)` em vez de "-R$ …".
@@ -528,10 +533,10 @@ export function PoupancaPage() {
           </div>
 
           <div className="vw-cdi-tip">
-            💡 <strong>Dica:</strong> reservas de emergência costumam render próximo de 100% do
-            CDI em fundos/contas digitais com liquidez diária. Vale comparar a rentabilidade da
-            sua poupança/reserva com o CDI do período em <code>/dash</code> antes de decidir
-            entre manter o dinheiro parado ou investir.
+            💡 <strong>Dica:</strong> reservas de emergência costumam render próximo de 100% do CDI
+            em fundos/contas digitais com liquidez diária. Vale comparar a rentabilidade da sua
+            poupança/reserva com o CDI do período em <code>/dash</code> antes de decidir entre
+            manter o dinheiro parado ou investir.
           </div>
 
           {/*
@@ -617,7 +622,9 @@ export function PoupancaPage() {
               <div className="vw-savings-projection">
                 <div className="vw-savings-summary-card">
                   <p className="vw-savings-summary-label">Valor futuro</p>
-                  <p className="vw-savings-summary-value">{fmtCur.format(projection.futureValue)}</p>
+                  <p className="vw-savings-summary-value">
+                    {fmtCur.format(projection.futureValue)}
+                  </p>
                   {projection.totalContributed > 0 && (
                     <p className="vw-savings-summary-sub">
                       Inclui {fmtCur.format(projection.totalContributed)} aportados no período.
@@ -736,9 +743,8 @@ export function PoupancaPage() {
 
               {transferOverridesManual && (
                 <span className="vw-field-hint vw-field-hint--warn">
-                  Esta meta tem progresso preenchido à mão ({fmtCur.format(
-                    transferGoal?.current_amount ?? 0,
-                  )}
+                  Esta meta tem progresso preenchido à mão (
+                  {fmtCur.format(transferGoal?.current_amount ?? 0)}
                   ). A partir da primeira transferência o progresso passa a ser calculado pelos
                   aportes vinculados, e o valor manual é ignorado.
                 </span>
@@ -835,9 +841,13 @@ export function PoupancaPage() {
                         ))}
                       </select>
                       {form.type === 'YIELD' ? (
-                        <span className="vw-field-hint">Rendimento não pode ser vinculado a meta.</span>
+                        <span className="vw-field-hint">
+                          Rendimento não pode ser vinculado a meta.
+                        </span>
                       ) : goals.length === 0 ? (
-                        <span className="vw-field-hint">Cadastre uma meta em /metas para vincular aportes.</span>
+                        <span className="vw-field-hint">
+                          Cadastre uma meta em /metas para vincular aportes.
+                        </span>
                       ) : (
                         <span className="vw-field-hint">
                           A meta vinculada passa a calcular o progresso por estes lançamentos.
@@ -852,8 +862,8 @@ export function PoupancaPage() {
                 // saldo (decisão documentada), então isto não impede o envio, só
                 // confirma que a intenção é essa antes de deixar o saldo negativo.
                 <p className="vw-field-hint vw-field-hint--warn" role="alert">
-                  Esse valor deixa o saldo da poupança negativo. Clique em "Confirmar
-                  retirada" para continuar mesmo assim.
+                  Esse valor deixa o saldo da poupança negativo. Clique em "Confirmar retirada" para
+                  continuar mesmo assim.
                 </p>
               )}
               <div className="vw-form-actions">
@@ -1000,7 +1010,9 @@ export function PoupancaPage() {
                       <p className="vw-savings-entry-date">
                         {formatDate(entry.date)}
                         {entry.goal_id != null && goalNameById.get(entry.goal_id) && (
-                          <span className="vw-savings-entry-goal">🔗 {goalNameById.get(entry.goal_id)}</span>
+                          <span className="vw-savings-entry-goal">
+                            🔗 {goalNameById.get(entry.goal_id)}
+                          </span>
                         )}
                         {/*
                           T-041: selo nas DUAS pernas do par, no espírito do
@@ -1011,7 +1023,8 @@ export function PoupancaPage() {
                           <span
                             className="vw-savings-entry-transfer"
                             title={
-                              entry.transfer_group && goalNameByTransferGroup.get(entry.transfer_group)
+                              entry.transfer_group &&
+                              goalNameByTransferGroup.get(entry.transfer_group)
                                 ? `Transferência da poupança para a meta ${goalNameByTransferGroup.get(entry.transfer_group)}`
                                 : 'Perna de uma transferência da poupança para uma meta'
                             }
@@ -1046,7 +1059,7 @@ export function PoupancaPage() {
                       ×
                     </button>
                   </div>
-                ),
+                )
               )}
             </div>
           )}

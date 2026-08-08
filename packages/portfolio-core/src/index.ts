@@ -7,11 +7,7 @@ export {
   buildPortfolioSummary,
 } from './portfolio';
 export type { PositionEntry } from './portfolio';
-export {
-  shiftDate,
-  buildDateWindow,
-  buildPortfolioHistory,
-} from './portfolioHistory';
+export { shiftDate, buildDateWindow, buildPortfolioHistory } from './portfolioHistory';
 export type { SnapshotPoint } from './portfolioHistory';
 export {
   getBRTDate,

@@ -131,7 +131,7 @@ export function DespesasPage() {
   // atrás de "+ Adicionar despesa" — substitui os dois forms permanentes que
   // a page tinha antes ("Nova despesa fixa" e "Novo lançamento").
   const [formState, setFormState] = useState(() =>
-    initialExpenseFormState(defaultEntryDate(currentMonthKey())),
+    initialExpenseFormState(defaultEntryDate(currentMonthKey()))
   );
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -166,7 +166,7 @@ export function DespesasPage() {
   // unificado cria uma (`recurring: true` no POST); esta lista é a gestão
   // mínima para encerrá-las.
   const [recurrences, setRecurrences] = useState<RecurringExpense[] | 'loading' | 'error'>(
-    'loading',
+    'loading'
   );
   const [endingRecurrenceId, setEndingRecurrenceId] = useState<number | null>(null);
 
@@ -324,7 +324,7 @@ export function DespesasPage() {
           setEntries((prev) =>
             Array.isArray(prev)
               ? [created, ...prev].sort((a, b) => b.date.localeCompare(a.date))
-              : [created],
+              : [created]
           );
         }
         // Novo lançamento muda o total variável do mês em que caiu — revalida
@@ -341,7 +341,7 @@ export function DespesasPage() {
           ? err.message
           : parsed.kind === 'FIXED'
             ? 'Falha ao criar despesa fixa'
-            : 'Falha ao criar lançamento',
+            : 'Falha ao criar lançamento'
       );
     } finally {
       setSubmitting(false);
@@ -408,7 +408,7 @@ export function DespesasPage() {
       // reagrupa a lista pelo `groupByCategory` sem refetch.
       const saved = await updateFixedExpense(expense.id, update);
       setExpenses((prev) =>
-        Array.isArray(prev) ? prev.map((item) => (item.id === saved.id ? saved : item)) : prev,
+        Array.isArray(prev) ? prev.map((item) => (item.id === saved.id ? saved : item)) : prev
       );
       cancelFixedEdit();
     } catch (err) {
@@ -623,7 +623,9 @@ export function DespesasPage() {
             </button>
           </div>
           <div className="vw-layerpage-field">
-            <label htmlFor="despesa-nome">{formState.kind === 'FIXED' ? 'Nome' : 'Descrição'}</label>
+            <label htmlFor="despesa-nome">
+              {formState.kind === 'FIXED' ? 'Nome' : 'Descrição'}
+            </label>
             <input
               id="despesa-nome"
               type="text"
@@ -904,7 +906,9 @@ export function DespesasPage() {
                               type="text"
                               value={fixedDraft.name}
                               disabled={savingFixedEdit}
-                              onChange={(e) => setFixedDraft({ ...fixedDraft, name: e.target.value })}
+                              onChange={(e) =>
+                                setFixedDraft({ ...fixedDraft, name: e.target.value })
+                              }
                             />
                           </div>
                           <div className="vw-layerpage-field">
@@ -961,7 +965,9 @@ export function DespesasPage() {
                           <p className="vw-layerpage-item-name">{expense.name}</p>
                         </div>
                         <div className="vw-layerpage-item-right">
-                          <span className="vw-layerpage-item-value">{fmtCur.format(expense.amount)}</span>
+                          <span className="vw-layerpage-item-value">
+                            {fmtCur.format(expense.amount)}
+                          </span>
                           <button
                             type="button"
                             className="vw-layerpage-edit-btn"
@@ -985,7 +991,7 @@ export function DespesasPage() {
                         </div>
                       </div>
                     </li>
-                  ),
+                  )
                 )}
               </ul>
             </div>
@@ -1048,7 +1054,9 @@ export function DespesasPage() {
                             step="0.01"
                             value={entryDraft.amount}
                             disabled={savingEntryEdit}
-                            onChange={(e) => setEntryDraft({ ...entryDraft, amount: e.target.value })}
+                            onChange={(e) =>
+                              setEntryDraft({ ...entryDraft, amount: e.target.value })
+                            }
                           />
                         </div>
                         <div className="vw-layerpage-field">
@@ -1105,7 +1113,9 @@ export function DespesasPage() {
                         </p>
                       </div>
                       <div className="vw-layerpage-item-right">
-                        <span className="vw-layerpage-item-value">{fmtCur.format(entry.amount)}</span>
+                        <span className="vw-layerpage-item-value">
+                          {fmtCur.format(entry.amount)}
+                        </span>
                         <button
                           type="button"
                           className="vw-layerpage-edit-btn"
@@ -1129,7 +1139,7 @@ export function DespesasPage() {
                       </div>
                     </div>
                   </li>
-                ),
+                )
               )}
             </ul>
           )}

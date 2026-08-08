@@ -8,7 +8,7 @@ import path from 'path';
 
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-pixcharges-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-pixcharges-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -61,7 +61,7 @@ describe('pix-charges + billing simulate routes', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/pix-charges', pixChargesRouter);
@@ -80,13 +80,15 @@ describe('pix-charges + billing simulate routes', () => {
     const users = await db.execute('SELECT id, email FROM users');
     userAId = Number(users.rows.find((r) => String(r.email) === 'pix-a@test.com')!.id);
     userBId = Number(users.rows.find((r) => String(r.email) === 'pix-b@test.com')!.id);
-    planId = Number((await db.execute("SELECT id FROM plans WHERE code = 'pro_monthly'")).rows[0].id);
+    planId = Number(
+      (await db.execute("SELECT id FROM plans WHERE code = 'pro_monthly'")).rows[0].id
+    );
   });
 
   /** Cria uma cobrança direto no banco e devolve o id local + o id do provedor. */
   async function seedCharge(
     userId: number,
-    over: { status?: string; expires_at?: string | null } = {},
+    over: { status?: string; expires_at?: string | null } = {}
   ) {
     chargeSeq += 1;
     const abacateId = `prov_${chargeSeq}`;

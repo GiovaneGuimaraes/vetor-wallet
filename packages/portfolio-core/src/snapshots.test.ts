@@ -86,7 +86,11 @@ describe('resolveActiveTickers', () => {
   });
 
   it('queries with a HAVING clause to filter zero/negative positions', async () => {
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 0, lastInsertRowid: undefined } as never);
+    mockExecute.mockResolvedValue({
+      rows: [],
+      rowsAffected: 0,
+      lastInsertRowid: undefined,
+    } as never);
 
     await resolveActiveTickers();
 
@@ -101,7 +105,11 @@ describe('saveSnapshot', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('uses INSERT OR IGNORE to prevent duplicate snapshots', async () => {
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 0, lastInsertRowid: undefined } as never);
+    mockExecute.mockResolvedValue({
+      rows: [],
+      rowsAffected: 0,
+      lastInsertRowid: undefined,
+    } as never);
 
     await saveSnapshot('PETR4', 38.5);
 
@@ -110,21 +118,33 @@ describe('saveSnapshot', () => {
   });
 
   it('returns false when the snapshot is a duplicate (rowsAffected === 0)', async () => {
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 0, lastInsertRowid: undefined } as never);
+    mockExecute.mockResolvedValue({
+      rows: [],
+      rowsAffected: 0,
+      lastInsertRowid: undefined,
+    } as never);
 
     const inserted = await saveSnapshot('PETR4', 38.5);
     expect(inserted).toBe(false);
   });
 
   it('returns true when the snapshot is new (rowsAffected === 1)', async () => {
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 1, lastInsertRowid: BigInt(1) } as never);
+    mockExecute.mockResolvedValue({
+      rows: [],
+      rowsAffected: 1,
+      lastInsertRowid: BigInt(1),
+    } as never);
 
     const inserted = await saveSnapshot('VALE3', 90.2);
     expect(inserted).toBe(true);
   });
 
   it('passes the ticker and price as query args', async () => {
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 1, lastInsertRowid: BigInt(2) } as never);
+    mockExecute.mockResolvedValue({
+      rows: [],
+      rowsAffected: 1,
+      lastInsertRowid: BigInt(2),
+    } as never);
 
     await saveSnapshot('ITUB4', 25.0);
 
@@ -183,10 +203,7 @@ describe('catchUpIfNeeded', () => {
     mockExecute
       .mockResolvedValueOnce({ ...okResult, rows: [{ cnt: 0 }] } as never)
       .mockResolvedValueOnce({ ...okResult, rows: [{ ticker: 'PETR4' }] } as never);
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockRejectedValue(new Error('getaddrinfo ENOTFOUND brapi.dev')),
-    );
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('getaddrinfo ENOTFOUND brapi.dev')));
 
     await expect(catchUpIfNeeded()).resolves.toBeUndefined();
 
@@ -236,7 +253,11 @@ describe('getPreviousCloseSnapshots', () => {
   });
 
   it('filters strictly before the given date and passes tickers + date as args', async () => {
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 0, lastInsertRowid: undefined } as never);
+    mockExecute.mockResolvedValue({
+      rows: [],
+      rowsAffected: 0,
+      lastInsertRowid: undefined,
+    } as never);
 
     await getPreviousCloseSnapshots(['PETR4', 'VALE3'], '2024-01-10');
 

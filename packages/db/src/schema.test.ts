@@ -7,11 +7,11 @@ import path from 'path';
 // dinamicamente dentro do beforeAll (mesmo padrão dos testes de rota).
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-db-schema-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-db-schema-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
-type Db = typeof import('./index')['db'];
+type Db = (typeof import('./index'))['db'];
 
 /**
  * T-064: índice em quote_snapshots(ticker, captured_at) para evitar full scan

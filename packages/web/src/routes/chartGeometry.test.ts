@@ -240,7 +240,7 @@ describe('buildAreaPath', () => {
         { x: 0, y: 10 },
         { x: 100, y: 0 },
       ],
-      50,
+      50
     );
     expect(path).toBe('M 0 10 L 100 0 L 100 50 L 0 50 Z');
   });

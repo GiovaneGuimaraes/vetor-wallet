@@ -13,7 +13,7 @@ import path from 'path';
 // inside beforeAll, after the env var is set.
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-savings-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-savings-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -40,7 +40,7 @@ describe('savings routes', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/savings', savingsRouter);
@@ -50,8 +50,12 @@ describe('savings routes', () => {
     agentA = request.agent(app);
     agentB = request.agent(app);
 
-    await agentA.post('/api/auth/register').send({ email: 'savings-a@test.com', password: 'password123' });
-    await agentB.post('/api/auth/register').send({ email: 'savings-b@test.com', password: 'password123' });
+    await agentA
+      .post('/api/auth/register')
+      .send({ email: 'savings-a@test.com', password: 'password123' });
+    await agentB
+      .post('/api/auth/register')
+      .send({ email: 'savings-b@test.com', password: 'password123' });
   });
 
   it('returns 401 without session', async () => {
@@ -60,17 +64,23 @@ describe('savings routes', () => {
   });
 
   it('rejects creation with invalid type (400)', async () => {
-    const res = await agentA.post('/api/savings').send({ type: 'INVALID', amount: 100, date: '2025-01-01' });
+    const res = await agentA
+      .post('/api/savings')
+      .send({ type: 'INVALID', amount: 100, date: '2025-01-01' });
     expect(res.status).toBe(400);
   });
 
   it('rejects creation with non-numeric amount (400)', async () => {
-    const res = await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 'abc', date: '2025-01-01' });
+    const res = await agentA
+      .post('/api/savings')
+      .send({ type: 'DEPOSIT', amount: 'abc', date: '2025-01-01' });
     expect(res.status).toBe(400);
   });
 
   it('rejects creation with amount <= 0 (400)', async () => {
-    const res = await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 0, date: '2025-01-01' });
+    const res = await agentA
+      .post('/api/savings')
+      .send({ type: 'DEPOSIT', amount: 0, date: '2025-01-01' });
     expect(res.status).toBe(400);
   });
 
@@ -99,7 +109,9 @@ describe('savings routes', () => {
   });
 
   it('rejects creation with invalid date format (400)', async () => {
-    const res = await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 100, date: '01/01/2025' });
+    const res = await agentA
+      .post('/api/savings')
+      .send({ type: 'DEPOSIT', amount: 100, date: '01/01/2025' });
     expect(res.status).toBe(400);
   });
 
@@ -116,17 +128,26 @@ describe('savings routes', () => {
       .post('/api/savings')
       .send({ type: 'DEPOSIT', amount: 1000, date: '2025-01-01', note: 'Aporte inicial' });
     expect(res.status).toBe(201);
-    expect(res.body).toMatchObject({ type: 'DEPOSIT', amount: 1000, date: '2025-01-01', note: 'Aporte inicial' });
+    expect(res.body).toMatchObject({
+      type: 'DEPOSIT',
+      amount: 1000,
+      date: '2025-01-01',
+      note: 'Aporte inicial',
+    });
   });
 
   it('leaves goal_id null when goalId is omitted (T-024)', async () => {
-    const res = await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 42, date: '2025-01-10' });
+    const res = await agentA
+      .post('/api/savings')
+      .send({ type: 'DEPOSIT', amount: 42, date: '2025-01-10' });
     expect(res.status).toBe(201);
     expect(res.body.goal_id).toBeNull();
   });
 
   it('defaults note to empty string when omitted', async () => {
-    const res = await agentA.post('/api/savings').send({ type: 'YIELD', amount: 10, date: '2025-01-02' });
+    const res = await agentA
+      .post('/api/savings')
+      .send({ type: 'YIELD', amount: 10, date: '2025-01-02' });
     expect(res.status).toBe(201);
     expect(res.body.note).toBe('');
   });
@@ -145,7 +166,9 @@ describe('savings routes', () => {
 
   it('computes summary as DEPOSIT + YIELD - WITHDRAW with known entries', async () => {
     const agentC = request.agent(app);
-    await agentC.post('/api/auth/register').send({ email: 'savings-c@test.com', password: 'password123' });
+    await agentC
+      .post('/api/auth/register')
+      .send({ email: 'savings-c@test.com', password: 'password123' });
 
     await agentC.post('/api/savings').send({ type: 'DEPOSIT', amount: 1000, date: '2025-01-01' });
     await agentC.post('/api/savings').send({ type: 'DEPOSIT', amount: 500, date: '2025-01-02' });
@@ -164,10 +187,7 @@ describe('savings routes', () => {
 
   // ── T-031: edição parcial ──────────────────────────────────────────────────
   describe('PATCH /api/savings/:id (T-031)', () => {
-    async function newEntry(
-      body: Record<string, unknown> = {},
-      agent = agentA,
-    ): Promise<number> {
+    async function newEntry(body: Record<string, unknown> = {}, agent = agentA): Promise<number> {
       const created = await agent
         .post('/api/savings')
         .send({ type: 'DEPOSIT', amount: 100, date: '2025-03-01', ...body });
@@ -188,7 +208,9 @@ describe('savings routes', () => {
 
     it('updates amount only and it reflects in the summary', async () => {
       const agentD = request.agent(app);
-      await agentD.post('/api/auth/register').send({ email: 'savings-d@test.com', password: 'password123' });
+      await agentD
+        .post('/api/auth/register')
+        .send({ email: 'savings-d@test.com', password: 'password123' });
       const id = await newEntry({ amount: 100 }, agentD);
 
       const res = await agentD.patch(`/api/savings/${id}`).send({ amount: 250 });
@@ -206,7 +228,9 @@ describe('savings routes', () => {
 
     it('updates type only and it reflects in the summary', async () => {
       const agentE = request.agent(app);
-      await agentE.post('/api/auth/register').send({ email: 'savings-e@test.com', password: 'password123' });
+      await agentE
+        .post('/api/auth/register')
+        .send({ email: 'savings-e@test.com', password: 'password123' });
       const id = await newEntry({ amount: 80 }, agentE);
 
       const res = await agentE.patch(`/api/savings/${id}`).send({ type: 'WITHDRAW' });
@@ -429,7 +453,12 @@ describe('savings routes', () => {
         .patch(`/api/savings/${id}`)
         .send({ amount: 33, note: 'novo', date: '2025-05-05' });
       expect(res.status).toBe(200);
-      expect(res.body).toMatchObject({ amount: 33, note: 'novo', date: '2025-05-05', goal_id: goalId });
+      expect(res.body).toMatchObject({
+        amount: 33,
+        note: 'novo',
+        date: '2025-05-05',
+        goal_id: goalId,
+      });
       expect((await fetchGoal(goalId)).current_amount).toBe(33);
     });
   });
@@ -472,7 +501,7 @@ describe('savings routes', () => {
     async function deposit(
       agent: ReturnType<typeof request.agent>,
       amount: number,
-      body: Record<string, unknown> = {},
+      body: Record<string, unknown> = {}
     ) {
       const created = await agent
         .post('/api/savings')
@@ -573,12 +602,18 @@ describe('savings routes', () => {
       await deposit(agent, 1000);
 
       expect(
-        (await agent.post('/api/savings/transfer-to-goal').send({ goalId, amount: 100, date: today }))
-          .status,
+        (
+          await agent
+            .post('/api/savings/transfer-to-goal')
+            .send({ goalId, amount: 100, date: today })
+        ).status
       ).toBe(201);
       expect(
-        (await agent.post('/api/savings/transfer-to-goal').send({ goalId, amount: 150, date: today }))
-          .status,
+        (
+          await agent
+            .post('/api/savings/transfer-to-goal')
+            .send({ goalId, amount: 150, date: today })
+        ).status
       ).toBe(201);
 
       const g = await fetchGoal(agent, goalId);
@@ -653,7 +688,9 @@ describe('savings routes', () => {
 
     it('rejects a missing goalId (400)', async () => {
       const agent = await freshAgent();
-      const res = await agent.post('/api/savings/transfer-to-goal').send({ amount: 10, date: today });
+      const res = await agent
+        .post('/api/savings/transfer-to-goal')
+        .send({ amount: 10, date: today });
       expect(res.status).toBe(400);
     });
 
@@ -814,7 +851,8 @@ describe('savings routes', () => {
 
       const list = await agent.get('/api/savings');
       const legs = list.body.entries.filter(
-        (e: { transfer_group: string | null }) => e.transfer_group === created.body.deposit.transfer_group,
+        (e: { transfer_group: string | null }) =>
+          e.transfer_group === created.body.deposit.transfer_group
       );
       expect(legs).toHaveLength(2);
       expect(legs.every((e: { goal_id: number | null }) => e.goal_id === null)).toBe(true);
@@ -823,7 +861,9 @@ describe('savings routes', () => {
   });
 
   it('deletes a savings entry belonging to the user', async () => {
-    const created = await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 10, date: '2025-01-05' });
+    const created = await agentA
+      .post('/api/savings')
+      .send({ type: 'DEPOSIT', amount: 10, date: '2025-01-05' });
     const id = created.body.id;
 
     const del = await agentA.delete(`/api/savings/${id}`);
@@ -834,7 +874,9 @@ describe('savings routes', () => {
   });
 
   it('returns 404 when deleting another user savings entry', async () => {
-    const created = await agentB.post('/api/savings').send({ type: 'DEPOSIT', amount: 20, date: '2025-01-06' });
+    const created = await agentB
+      .post('/api/savings')
+      .send({ type: 'DEPOSIT', amount: 20, date: '2025-01-06' });
     const id = created.body.id;
 
     const del = await agentA.delete(`/api/savings/${id}`);

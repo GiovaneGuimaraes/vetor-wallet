@@ -188,8 +188,8 @@ export interface QuoteSnapshot {
 export interface HourlyQuoteInsight {
   id: number;
   ticker: string;
-  quote_date: string;   // YYYY-MM-DD, the trading day this hour belongs to
-  hour: number;          // 0-23, BRT hour
+  quote_date: string; // YYYY-MM-DD, the trading day this hour belongs to
+  hour: number; // 0-23, BRT hour
   price: number;
   captured_at: string;
 }

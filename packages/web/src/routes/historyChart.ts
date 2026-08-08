@@ -32,12 +32,15 @@ const DOMAIN_PADDING_RATIO = 0.1;
  */
 export function computeHistoryDomain(
   points: PortfolioHistoryPoint[],
-  extraValues: number[] = [],
+  extraValues: number[] = []
 ): ValueDomain {
   const extras = extraValues.filter((v) => Number.isFinite(v));
   if (points.length === 0) {
     if (extras.length === 0) return { min: -MIN_ABS_PADDING, max: MIN_ABS_PADDING };
-    return { min: Math.min(...extras) - MIN_ABS_PADDING, max: Math.max(...extras) + MIN_ABS_PADDING };
+    return {
+      min: Math.min(...extras) - MIN_ABS_PADDING,
+      max: Math.max(...extras) + MIN_ABS_PADDING,
+    };
   }
 
   const all = [...points.flatMap((p) => [p.value, p.invested]), ...extras];
@@ -75,7 +78,7 @@ export function isHistoryDown(points: PortfolioHistoryPoint[]): boolean {
 export function buildHistoryIndexScale(
   pointCount: number,
   rangeMin: number,
-  rangeMax: number,
+  rangeMax: number
 ): (index: number) => number {
   return scaleLinear(0, Math.max(pointCount - 1, 0), rangeMin, rangeMax);
 }

@@ -13,7 +13,7 @@ import path from 'path';
 // inside beforeAll, after the env var is set.
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-income-entries-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-income-entries-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -59,7 +59,7 @@ describe('income entries routes (T-036)', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/income-entries', incomeEntriesRouter);
@@ -179,9 +179,7 @@ describe('income entries routes (T-036)', () => {
     expect(junk.status).toBe(400);
 
     // `?month=a&month=b` chega como array — não é string e também é rejeitado.
-    const repeated = await agentA.get(
-      `/api/income-entries?month=${thisMonth}&month=${prevMonth}`,
-    );
+    const repeated = await agentA.get(`/api/income-entries?month=${thisMonth}&month=${prevMonth}`);
     expect(repeated.status).toBe(400);
   });
 
@@ -225,12 +223,12 @@ describe('income entries routes (T-036)', () => {
 
     const resA = await agentA.get(`/api/income-entries?month=${thisMonth}`);
     expect((resA.body.entries as EntryBody[]).some((e) => e.description === 'Renda da B')).toBe(
-      false,
+      false
     );
 
     const resB = await agentB.get(`/api/income-entries?month=${thisMonth}`);
     expect((resB.body.entries as EntryBody[]).some((e) => e.description === 'Renda da B')).toBe(
-      true,
+      true
     );
   });
 
@@ -410,9 +408,7 @@ describe('income entries routes (T-036)', () => {
     });
 
     it('POST com externalId novo grava o valor', async () => {
-      const res = await agentA
-        .post('/api/income-entries')
-        .send(base({ externalId: 'ofx:INC-1' }));
+      const res = await agentA.post('/api/income-entries').send(base({ externalId: 'ofx:INC-1' }));
       expect(res.status).toBe(201);
       expect(res.body.external_id).toBe('ofx:INC-1');
     });
@@ -432,7 +428,7 @@ describe('income entries routes (T-036)', () => {
 
       const list = await agentA.get(`/api/income-entries?month=${thisMonth}`);
       const hits = (list.body.entries as EntryBody[]).filter(
-        (e) => (e as unknown as { external_id: string }).external_id === 'ofx:INC-DUP',
+        (e) => (e as unknown as { external_id: string }).external_id === 'ofx:INC-DUP'
       );
       expect(hits).toHaveLength(1);
     });

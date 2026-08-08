@@ -22,10 +22,10 @@ router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
     const result = await db.execute(
-      'SELECT * FROM plans WHERE active = 1 ORDER BY price_cents ASC',
+      'SELECT * FROM plans WHERE active = 1 ORDER BY price_cents ASC'
     );
     res.json((result.rows as unknown as PlanRow[]).map(toPlan));
-  }),
+  })
 );
 
 export default router;

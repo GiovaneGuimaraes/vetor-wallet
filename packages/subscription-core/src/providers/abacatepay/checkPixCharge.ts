@@ -9,7 +9,7 @@ import { abacatePayRequest } from './request';
 export const checkPixCharge = async (chargeId: string): Promise<AbacatePixCharge> => {
   const raw = await abacatePayRequest<RawAbacateCharge>(
     `/transparents/check?id=${encodeURIComponent(chargeId)}`,
-    { method: 'GET' },
+    { method: 'GET' }
   );
 
   return toAbacatePixCharge(raw);

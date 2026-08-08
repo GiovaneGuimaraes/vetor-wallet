@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import type { Goal } from '@vetor-wallet/shared';
-import { progressPct, progressPctClamped, isDerivedProgress, progressSourceLabel } from './goalsProgress';
+import {
+  progressPct,
+  progressPctClamped,
+  isDerivedProgress,
+  progressSourceLabel,
+} from './goalsProgress';
 
 function goal(partial: Partial<Goal> = {}): Goal {
   return {
@@ -58,14 +63,14 @@ describe('progressSourceLabel', () => {
   });
 
   it('uses the singular form for one linked entry', () => {
-    expect(progressSourceLabel(goal({ progress_source: 'LINKED_SAVINGS', linked_entries_count: 1 }))).toBe(
-      'Progresso automático · 1 lançamento vinculado',
-    );
+    expect(
+      progressSourceLabel(goal({ progress_source: 'LINKED_SAVINGS', linked_entries_count: 1 }))
+    ).toBe('Progresso automático · 1 lançamento vinculado');
   });
 
   it('uses the plural form for multiple linked entries', () => {
-    expect(progressSourceLabel(goal({ progress_source: 'LINKED_SAVINGS', linked_entries_count: 3 }))).toBe(
-      'Progresso automático · 3 lançamentos vinculados',
-    );
+    expect(
+      progressSourceLabel(goal({ progress_source: 'LINKED_SAVINGS', linked_entries_count: 3 }))
+    ).toBe('Progresso automático · 3 lançamentos vinculados');
   });
 });

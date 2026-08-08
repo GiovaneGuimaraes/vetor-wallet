@@ -7,7 +7,7 @@ import path from 'path';
 // o módulo é importado dinamicamente dentro do beforeAll.
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-billing-seed-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-billing-seed-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -24,7 +24,7 @@ describe('billing schema + plans seed', () => {
 
   it('seeds exactly the two default plans, with prices in cents', async () => {
     const res = await db.execute(
-      'SELECT code, name, description, price_cents, interval, active FROM plans ORDER BY code ASC',
+      'SELECT code, name, description, price_cents, interval, active FROM plans ORDER BY code ASC'
     );
 
     expect(res.rows.length).toBe(2);
@@ -52,7 +52,7 @@ describe('billing schema + plans seed', () => {
     const after = await db.execute('SELECT id, code FROM plans ORDER BY id ASC');
     expect(after.rows.length).toBe(2);
     expect(after.rows.map((r) => [Number(r.id), r.code])).toEqual(
-      before.rows.map((r) => [Number(r.id), r.code]),
+      before.rows.map((r) => [Number(r.id), r.code])
     );
   });
 
@@ -71,14 +71,14 @@ describe('billing schema + plans seed', () => {
   it('rejects an invalid interval and a duplicated plan code', async () => {
     await expect(
       db.execute(
-        `INSERT INTO plans (code, name, price_cents, interval) VALUES ('weird', 'X', 100, 'weekly')`,
-      ),
+        `INSERT INTO plans (code, name, price_cents, interval) VALUES ('weird', 'X', 100, 'weekly')`
+      )
     ).rejects.toThrow();
 
     await expect(
       db.execute(
-        `INSERT INTO plans (code, name, price_cents, interval) VALUES ('pro_monthly', 'Clone', 100, 'monthly')`,
-      ),
+        `INSERT INTO plans (code, name, price_cents, interval) VALUES ('pro_monthly', 'Clone', 100, 'monthly')`
+      )
     ).rejects.toThrow();
   });
 
@@ -106,7 +106,7 @@ describe('billing schema + plans seed', () => {
       db.execute({
         sql: 'INSERT INTO subscriptions (user_id, plan_id) VALUES (?, ?)',
         args: [userId, planId],
-      }),
+      })
     ).rejects.toThrow();
 
     const sub = await db.execute({
@@ -127,7 +127,7 @@ describe('billing schema + plans seed', () => {
         sql: `INSERT INTO pix_charges (user_id, plan_id, abacate_charge_id, amount_cents)
               VALUES (?, ?, ?, ?)`,
         args: [userId, planId, 'pix_char_dup', 990],
-      }),
+      })
     ).rejects.toThrow();
 
     const charge = await db.execute({
@@ -148,7 +148,7 @@ describe('billing schema + plans seed', () => {
       db.execute({
         sql: 'INSERT INTO billing_webhook_events (event_id, event_type) VALUES (?, ?)',
         args: ['evt_1', 'billing.paid'],
-      }),
+      })
     ).rejects.toThrow();
   });
 });

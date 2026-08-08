@@ -45,7 +45,7 @@ export async function normalizeExistingCategories() {
   }
 
   const budgets = await db.execute(
-    'SELECT id, user_id, category FROM category_budgets ORDER BY user_id ASC, id ASC',
+    'SELECT id, user_id, category FROM category_budgets ORDER BY user_id ASC, id ASC'
   );
 
   // Agrupa por (user_id, categoria canônica) mantendo os ids em ordem crescente.

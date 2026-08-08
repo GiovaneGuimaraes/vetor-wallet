@@ -38,7 +38,7 @@ export async function initDb() {
         args: [],
       },
     ],
-    'write',
+    'write'
   );
 
   await db.execute(`
@@ -53,12 +53,12 @@ export async function initDb() {
   // Expression-based unique constraints must be separate indexes in SQLite
   await db.execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_snapshots_unique_day
-     ON quote_snapshots(ticker, date(captured_at))`,
+     ON quote_snapshots(ticker, date(captured_at))`
   );
 
   await db.execute(
     `CREATE INDEX IF NOT EXISTS idx_snapshots_ticker_time
-     ON quote_snapshots(ticker, captured_at)`,
+     ON quote_snapshots(ticker, captured_at)`
   );
 
   await db.execute(`
@@ -74,12 +74,12 @@ export async function initDb() {
 
   await db.execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_hourly_insights_unique
-     ON hourly_quote_insights(ticker, quote_date, hour)`,
+     ON hourly_quote_insights(ticker, quote_date, hour)`
   );
 
   await db.execute(
     `CREATE INDEX IF NOT EXISTS idx_hourly_insights_ticker_date
-     ON hourly_quote_insights(ticker, quote_date)`,
+     ON hourly_quote_insights(ticker, quote_date)`
   );
 
   await db.execute(`
@@ -119,7 +119,7 @@ export async function initDb() {
   `);
 
   await db.execute(
-    'CREATE INDEX IF NOT EXISTS idx_income_entries_user_date ON income_entries(user_id, date)',
+    'CREATE INDEX IF NOT EXISTS idx_income_entries_user_date ON income_entries(user_id, date)'
   );
 
   await db.execute(`
@@ -146,7 +146,7 @@ export async function initDb() {
   `);
 
   await db.execute(
-    'CREATE INDEX IF NOT EXISTS idx_expense_entries_user_date ON expense_entries(user_id, date)',
+    'CREATE INDEX IF NOT EXISTS idx_expense_entries_user_date ON expense_entries(user_id, date)'
   );
 
   // T-035: template de despesa variável que se repete todo mês. Só o template
@@ -170,7 +170,7 @@ export async function initDb() {
 
   await db.execute(
     `CREATE INDEX IF NOT EXISTS idx_recurring_expenses_user_active
-     ON recurring_expenses(user_id, active)`,
+     ON recurring_expenses(user_id, active)`
   );
 
   // Livro-razão de "meses já gerados" de cada recorrência (T-035). É ele — e não
@@ -191,7 +191,7 @@ export async function initDb() {
   // só o vencedor insere a ocorrência.
   await db.execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_recurring_expense_months_unique
-     ON recurring_expense_months(recurring_id, month)`,
+     ON recurring_expense_months(recurring_id, month)`
   );
 
   await db.execute(`
@@ -219,7 +219,7 @@ export async function initDb() {
   // Expression-based unique constraint: um orçamento por categoria por usuário
   await db.execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_category_budgets_user_category
-     ON category_budgets(user_id, category)`,
+     ON category_budgets(user_id, category)`
   );
 
   await db.execute(`
@@ -279,7 +279,7 @@ export async function initDb() {
   // segunda linha; sem isso "qual é o plano do usuário?" deixa de ter resposta
   // única e a leitura precisaria de regra de desempate.
   await db.execute(
-    `CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id)`
   );
 
   await db.execute(`
@@ -304,13 +304,13 @@ export async function initDb() {
   // processamento ambíguo.
   await db.execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_pix_charges_abacate_id
-     ON pix_charges(abacate_charge_id)`,
+     ON pix_charges(abacate_charge_id)`
   );
 
   // Leitura típica: "a cobrança PENDING mais recente deste usuário".
   await db.execute(
     `CREATE INDEX IF NOT EXISTS idx_pix_charges_user_status
-     ON pix_charges(user_id, status, created_at)`,
+     ON pix_charges(user_id, status, created_at)`
   );
 
   // Log de idempotência de webhook. Entra já nesta tarefa de propósito (schema
@@ -329,7 +329,7 @@ export async function initDb() {
 
   await db.execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_webhook_events_event
-     ON billing_webhook_events(event_id)`,
+     ON billing_webhook_events(event_id)`
   );
 
   // Add user_id column to existing tables (idempotent — ignored if already present)
@@ -371,7 +371,7 @@ export async function initDb() {
 
   await db.execute(
     `CREATE INDEX IF NOT EXISTS idx_savings_entries_goal
-     ON savings_entries(user_id, goal_id)`,
+     ON savings_entries(user_id, goal_id)`
   );
 
   // T-084 — dedupe de importação. Índice único PARCIAL: o
@@ -385,11 +385,11 @@ export async function initDb() {
   // criá-los antes falharia com `no such column` no primeiro boot.
   await db.execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_income_entries_user_external
-     ON income_entries(user_id, external_id) WHERE external_id IS NOT NULL`,
+     ON income_entries(user_id, external_id) WHERE external_id IS NOT NULL`
   );
   await db.execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_expense_entries_user_external
-     ON expense_entries(user_id, external_id) WHERE external_id IS NOT NULL`,
+     ON expense_entries(user_id, external_id) WHERE external_id IS NOT NULL`
   );
 
   // Sessões do express-session (T-034): persistidas no mesmo banco em vez do
@@ -403,9 +403,7 @@ export async function initDb() {
     )
   `);
 
-  await db.execute(
-    `CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`,
-  );
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`);
 
   // Varredura de limpeza no boot: remove sessões expiradas de execuções
   // anteriores que nunca mais serão lidas (o lazy-delete do Store só limpa o

@@ -93,7 +93,7 @@ export function buildProjectionSeries(
   currentValue: number,
   monthlyRatePct: number,
   months: number,
-  monthlyContribution = 0,
+  monthlyContribution = 0
 ): ProjectionPoint[] {
   // Uma única chamada com o prazo cheio valida os quatro argumentos e detecta
   // overflow no ponto mais extremo da série antes de materializar nada.
@@ -131,7 +131,7 @@ export function scaleLinear(
   domainMin: number,
   domainMax: number,
   rangeMin: number,
-  rangeMax: number,
+  rangeMax: number
 ): (v: number) => number {
   if (domainMin === domainMax) {
     const center = (rangeMin + rangeMax) / 2;
@@ -153,9 +153,7 @@ function round2(n: number): number {
  */
 export function buildLinePath(points: ChartPoint[]): string {
   if (points.length === 0) return '';
-  return points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${round2(p.x)} ${round2(p.y)}`)
-    .join(' ');
+  return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${round2(p.x)} ${round2(p.y)}`).join(' ');
 }
 
 /**
@@ -204,7 +202,9 @@ export function computeValueDomain(values: number[], baseline: number): ValueDom
   const max = Math.max(...all);
   const range = max - min;
   const padding =
-    range > 0 ? range * DOMAIN_PADDING_RATIO : Math.max(Math.abs(baseline) * DOMAIN_PADDING_RATIO, MIN_ABS_PADDING);
+    range > 0
+      ? range * DOMAIN_PADDING_RATIO
+      : Math.max(Math.abs(baseline) * DOMAIN_PADDING_RATIO, MIN_ABS_PADDING);
   return { min: min - padding, max: max + padding };
 }
 

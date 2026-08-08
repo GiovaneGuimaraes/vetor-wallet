@@ -45,7 +45,7 @@ export type AlignedSeries = (number | null)[];
  */
 export function alignBenchmarkSeries(
   series: BenchmarkSeriesPoint[],
-  dates: string[],
+  dates: string[]
 ): AlignedSeries {
   const sorted = [...series]
     .filter((p) => Number.isFinite(p.value))
@@ -78,7 +78,7 @@ export function alignBenchmarkSeries(
  */
 export function rebaseToPortfolio(
   aligned: AlignedSeries,
-  portfolioValues: number[],
+  portfolioValues: number[]
 ): AlignedSeries | null {
   if (aligned.length !== portfolioValues.length || aligned.length === 0) return null;
 
@@ -108,16 +108,16 @@ export function rebaseToPortfolio(
  */
 export function buildBenchmarkLine(
   series: BenchmarkSeriesPoint[] | null | undefined,
-  points: PortfolioHistoryPoint[],
+  points: PortfolioHistoryPoint[]
 ): AlignedSeries | null {
   if (!series || series.length === 0 || points.length === 0) return null;
   const aligned = alignBenchmarkSeries(
     series,
-    points.map((p) => p.date),
+    points.map((p) => p.date)
   );
   return rebaseToPortfolio(
     aligned,
-    points.map((p) => p.value),
+    points.map((p) => p.value)
   );
 }
 

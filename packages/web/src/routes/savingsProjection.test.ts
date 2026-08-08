@@ -194,7 +194,7 @@ describe('projectSavings', () => {
     expect(totalYield).toBe(Math.round(totalYield * 100) / 100);
     expect(totalContributed).toBe(Math.round(321.99 * 7 * 100) / 100);
     expect(Math.round((1234.56 + totalContributed + totalYield) * 100)).toBe(
-      Math.round(futureValue * 100),
+      Math.round(futureValue * 100)
     );
   });
 
@@ -313,10 +313,7 @@ describe('deriveMonthlyRatePct', () => {
   });
 
   it('devolve null quando só há rendimento no mês corrente', () => {
-    const entries = [
-      makeEntry('DEPOSIT', 1000, dayIn(-1, 1)),
-      makeEntry('YIELD', 5, dayIn(0, 5)),
-    ];
+    const entries = [makeEntry('DEPOSIT', 1000, dayIn(-1, 1)), makeEntry('YIELD', 5, dayIn(0, 5))];
     expect(deriveMonthlyRatePct(entries)).toBeNull();
   });
 

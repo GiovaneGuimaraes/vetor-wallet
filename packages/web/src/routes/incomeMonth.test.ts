@@ -35,7 +35,7 @@ describe('computeIncomeMonthTotals', () => {
   it('sem rendas variáveis, o total é só a soma das fontes fixas', () => {
     const totals = computeIncomeMonthTotals(
       [makeSource({ amount: 5000 }), makeSource({ id: 2, amount: 1200, type: 'FREELA' })],
-      [],
+      []
     );
     expect(totals).toEqual({ fixed: 6200, variable: 0, total: 6200 });
   });
@@ -43,7 +43,7 @@ describe('computeIncomeMonthTotals', () => {
   it('soma fixas + variáveis no total do mês', () => {
     const totals = computeIncomeMonthTotals(
       [makeSource({ amount: 5000 })],
-      [makeEntry({ amount: 800 }), makeEntry({ id: 2, amount: 150.5 })],
+      [makeEntry({ amount: 800 }), makeEntry({ id: 2, amount: 150.5 })]
     );
     expect(totals.fixed).toBe(5000);
     expect(totals.variable).toBeCloseTo(950.5);
@@ -61,7 +61,7 @@ describe('computeIncomeMonthTotals', () => {
     const outroMes = shiftMonth(currentMonthKey(), -1);
     const totals = computeIncomeMonthTotals(
       [],
-      [makeEntry({ amount: 100, date: `${outroMes}-05` })],
+      [makeEntry({ amount: 100, date: `${outroMes}-05` })]
     );
     expect(totals.total).toBe(100);
   });

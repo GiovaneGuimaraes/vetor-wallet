@@ -11,7 +11,7 @@ import path from 'path';
 // módulos de rota/db entram por dynamic import dentro do beforeAll.
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-gating-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-gating-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -72,7 +72,7 @@ describe('requireActiveSubscription', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/toy', toy);

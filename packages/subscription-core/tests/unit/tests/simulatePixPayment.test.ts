@@ -13,9 +13,7 @@ describe('simulatePixPayment', () => {
   test('faz POST em /transparents/simulate-payment com o id na query', async () => {
     await simulatePixPayment('pix_char_abc');
 
-    expect(fetchMock.mock.calls[0][0]).toContain(
-      '/transparents/simulate-payment?id=pix_char_abc',
-    );
+    expect(fetchMock.mock.calls[0][0]).toContain('/transparents/simulate-payment?id=pix_char_abc');
     expect(fetchMock.mock.calls[0][1].method).toBe('POST');
   });
 

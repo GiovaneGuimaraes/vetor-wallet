@@ -13,7 +13,7 @@ import path from 'path';
 // inside beforeAll, after the env var is set.
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-expenses-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-expenses-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -39,7 +39,7 @@ describe('expenses routes', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/expenses', expensesRouter);
@@ -48,8 +48,12 @@ describe('expenses routes', () => {
     agentA = request.agent(app);
     agentB = request.agent(app);
 
-    await agentA.post('/api/auth/register').send({ email: 'expenses-a@test.com', password: 'password123' });
-    await agentB.post('/api/auth/register').send({ email: 'expenses-b@test.com', password: 'password123' });
+    await agentA
+      .post('/api/auth/register')
+      .send({ email: 'expenses-a@test.com', password: 'password123' });
+    await agentB
+      .post('/api/auth/register')
+      .send({ email: 'expenses-b@test.com', password: 'password123' });
   });
 
   it('returns 401 without session', async () => {
@@ -58,7 +62,9 @@ describe('expenses routes', () => {
   });
 
   it('rejects creation with empty name (400)', async () => {
-    const res = await agentA.post('/api/expenses').send({ name: '', category: 'Moradia', amount: 100 });
+    const res = await agentA
+      .post('/api/expenses')
+      .send({ name: '', category: 'Moradia', amount: 100 });
     expect(res.status).toBe(400);
   });
 
@@ -97,7 +103,9 @@ describe('expenses routes', () => {
   });
 
   it('creates a fixed expense', async () => {
-    const res = await agentA.post('/api/expenses').send({ name: 'Aluguel', category: 'Moradia', amount: 1500 });
+    const res = await agentA
+      .post('/api/expenses')
+      .send({ name: 'Aluguel', category: 'Moradia', amount: 1500 });
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ name: 'Aluguel', category: 'moradia', amount: 1500 });
   });
@@ -116,7 +124,7 @@ describe('expenses routes', () => {
 
     const list = await agentA.get('/api/expenses');
     const mercado = (list.body as { category: string; amount: number }[]).filter(
-      (item) => item.category === 'mercado',
+      (item) => item.category === 'mercado'
     );
     expect(mercado).toHaveLength(2);
     expect(mercado.reduce((acc, item) => acc + item.amount, 0)).toBe(400);
@@ -236,7 +244,9 @@ describe('expenses routes', () => {
   });
 
   it('deletes a fixed expense belonging to the user', async () => {
-    const created = await agentA.post('/api/expenses').send({ name: 'Para excluir', category: '', amount: 10 });
+    const created = await agentA
+      .post('/api/expenses')
+      .send({ name: 'Para excluir', category: '', amount: 10 });
     const id = created.body.id;
 
     const del = await agentA.delete(`/api/expenses/${id}`);
@@ -247,7 +257,9 @@ describe('expenses routes', () => {
   });
 
   it('returns 404 when deleting another user fixed expense', async () => {
-    const created = await agentB.post('/api/expenses').send({ name: 'Da B', category: '', amount: 20 });
+    const created = await agentB
+      .post('/api/expenses')
+      .send({ name: 'Da B', category: '', amount: 20 });
     const id = created.body.id;
 
     const del = await agentA.delete(`/api/expenses/${id}`);

@@ -4,10 +4,7 @@ export { getPendingCharge } from './getPendingCharge';
 export { getSubscriptionRow, getSubscriptionRowText } from './getSubscriptionRow';
 export { isBillingEnabled } from './isBillingEnabled';
 export { isSubscriptionActive } from './isSubscriptionActive';
-export {
-  type ActivationResult,
-  markChargePaidAndActivate,
-} from './markChargePaidAndActivate';
+export { type ActivationResult, markChargePaidAndActivate } from './markChargePaidAndActivate';
 export { nowSqliteUtc } from './nowSqliteUtc';
 export { parseInstant } from './parseInstant';
 export { type PixChargeRow, toPixCharge } from './PixCharge';

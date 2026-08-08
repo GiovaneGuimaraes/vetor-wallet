@@ -85,7 +85,9 @@ describe('requireAdmin', () => {
     const next = vi.fn() as unknown as NextFunction;
 
     await new Promise<void>((resolve) => {
-      (status as ReturnType<typeof vi.fn>).mockReturnValue({ json: vi.fn().mockImplementation(resolve) });
+      (status as ReturnType<typeof vi.fn>).mockReturnValue({
+        json: vi.fn().mockImplementation(resolve),
+      });
       requireAdmin(req, res, next);
     });
 
@@ -100,7 +102,9 @@ describe('requireAdmin', () => {
     const next = vi.fn() as unknown as NextFunction;
 
     await new Promise<void>((resolve) => {
-      (status as ReturnType<typeof vi.fn>).mockReturnValue({ json: vi.fn().mockImplementation(resolve) });
+      (status as ReturnType<typeof vi.fn>).mockReturnValue({
+        json: vi.fn().mockImplementation(resolve),
+      });
       requireAdmin(req, res, next);
     });
 

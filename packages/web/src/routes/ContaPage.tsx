@@ -5,7 +5,12 @@ import { getMySubscription, updateMe, changePassword } from '../api';
 import { useShellContext } from '../layout/ShellContext';
 import { BackToHomeLink } from '../components/BackToHomeLink';
 import { CollapsibleSection } from '../components/CollapsibleSection';
-import { formatPhoneForDisplay, normalizePhoneForSubmit, isValidNewPassword, passwordsMatch } from './conta';
+import {
+  formatPhoneForDisplay,
+  normalizePhoneForSubmit,
+  isValidNewPassword,
+  passwordsMatch,
+} from './conta';
 import { formatPlanPrice, planPeriodLabel } from './planos';
 import './layers-savings.css';
 import './planos.css';
@@ -206,7 +211,9 @@ export function ContaPage() {
               </button>
             </div>
             {passwordError && <p className="vw-form-error">{passwordError}</p>}
-            {passwordSuccess && !passwordError && <p className="vw-conta-success">Senha alterada.</p>}
+            {passwordSuccess && !passwordError && (
+              <p className="vw-conta-success">Senha alterada.</p>
+            )}
           </form>
         </CollapsibleSection>
       </div>

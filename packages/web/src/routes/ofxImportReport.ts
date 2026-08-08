@@ -1,4 +1,8 @@
-import type { OfxImportResult, OfxImportTransaction, OfxTransactionStatus } from '@vetor-wallet/shared';
+import type {
+  OfxImportResult,
+  OfxImportTransaction,
+  OfxTransactionStatus,
+} from '@vetor-wallet/shared';
 
 /**
  * Lógica de apresentação do relatório de importação OFX (T-086). Módulo puro
@@ -59,7 +63,7 @@ export interface OfxGroupedTransactions {
 }
 
 export function groupOfxTransactionsByStatus(
-  transactions: OfxImportTransaction[],
+  transactions: OfxImportTransaction[]
 ): OfxGroupedTransactions {
   const grouped: OfxGroupedTransactions = { imported: [], duplicated: [], rejected: [] };
   for (const tx of transactions) {

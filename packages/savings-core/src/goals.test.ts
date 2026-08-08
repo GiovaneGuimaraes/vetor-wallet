@@ -8,11 +8,11 @@ import type { Goal } from '@vetor-wallet/shared';
 // para não tocar o banco de desenvolvimento.
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-goals-service-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-goals-service-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
-type ResolveGoalProgress = typeof import('./goals')['resolveGoalProgress'];
+type ResolveGoalProgress = (typeof import('./goals'))['resolveGoalProgress'];
 
 const baseGoal: Goal = {
   id: 1,

@@ -94,7 +94,7 @@ export function RendaPage() {
   // atrás de "+ Adicionar renda" — substitui os dois forms permanentes que a
   // page tinha antes ("Nova fonte fixa" e "Nova renda do mês").
   const [formState, setFormState] = useState(() =>
-    initialIncomeFormState(defaultEntryDate(currentMonthKey())),
+    initialIncomeFormState(defaultEntryDate(currentMonthKey()))
   );
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -216,7 +216,7 @@ export function RendaPage() {
           setEntries((prev) =>
             Array.isArray(prev)
               ? [created, ...prev].sort((a, b) => b.date.localeCompare(a.date))
-              : [created],
+              : [created]
           );
         }
       }
@@ -227,7 +227,7 @@ export function RendaPage() {
           ? err.message
           : parsed.kind === 'FIXED'
             ? 'Falha ao criar fonte de renda'
-            : 'Falha ao criar renda do mês',
+            : 'Falha ao criar renda do mês'
       );
     } finally {
       setSubmitting(false);
@@ -282,7 +282,7 @@ export function RendaPage() {
     try {
       const saved = await updateIncomeSource(source.id, update);
       setSources((prev) =>
-        Array.isArray(prev) ? prev.map((s) => (s.id === saved.id ? saved : s)) : prev,
+        Array.isArray(prev) ? prev.map((s) => (s.id === saved.id ? saved : s)) : prev
       );
       cancelEdit();
     } catch (err) {
@@ -561,7 +561,10 @@ export function RendaPage() {
                             value={editDraft.type}
                             disabled={savingEdit}
                             onChange={(e) =>
-                              setEditDraft({ ...editDraft, type: e.target.value as IncomeSourceType })
+                              setEditDraft({
+                                ...editDraft,
+                                type: e.target.value as IncomeSourceType,
+                              })
                             }
                           >
                             <option value="SALARIO">Salário</option>
@@ -634,7 +637,7 @@ export function RendaPage() {
                       </div>
                     </div>
                   </li>
-                ),
+                )
               )}
             </ul>
           )}
@@ -689,7 +692,9 @@ export function RendaPage() {
                             step="0.01"
                             value={entryDraft.amount}
                             disabled={savingEntryEdit}
-                            onChange={(e) => setEntryDraft({ ...entryDraft, amount: e.target.value })}
+                            onChange={(e) =>
+                              setEntryDraft({ ...entryDraft, amount: e.target.value })
+                            }
                           />
                         </div>
                         <div className="vw-layerpage-field">
@@ -731,7 +736,9 @@ export function RendaPage() {
                         <p className="vw-layerpage-item-tag">{formatDayMonth(entry.date)}</p>
                       </div>
                       <div className="vw-layerpage-item-right">
-                        <span className="vw-layerpage-item-value">{fmtCur.format(entry.amount)}</span>
+                        <span className="vw-layerpage-item-value">
+                          {fmtCur.format(entry.amount)}
+                        </span>
                         <button
                           type="button"
                           className="vw-layerpage-edit-btn"
@@ -755,7 +762,7 @@ export function RendaPage() {
                       </div>
                     </div>
                   </li>
-                ),
+                )
               )}
             </ul>
           )}

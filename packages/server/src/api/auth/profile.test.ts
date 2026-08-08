@@ -11,7 +11,7 @@ import path from 'path';
 // dinamicamente dentro do beforeAll (mesmo padrão dos demais testes de rota).
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-profile-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-profile-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -35,13 +35,15 @@ describe('PATCH /api/auth/me (T-092)', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use(errorHandler);
 
     agent = request.agent(app);
-    await agent.post('/api/auth/register').send({ email: 'profile-a@test.com', password: 'password123' });
+    await agent
+      .post('/api/auth/register')
+      .send({ email: 'profile-a@test.com', password: 'password123' });
   });
 
   it('returns 401 without session', async () => {
@@ -62,7 +64,9 @@ describe('PATCH /api/auth/me (T-092)', () => {
   });
 
   it('updates name and phone with a valid PATCH', async () => {
-    const res = await agent.patch('/api/auth/me').send({ name: 'Ana Silva', phone: '(11) 98765-4321' });
+    const res = await agent
+      .patch('/api/auth/me')
+      .send({ name: 'Ana Silva', phone: '(11) 98765-4321' });
     expect(res.status).toBe(200);
     expect(res.body.name).toBe('Ana Silva');
     expect(res.body.phone).toBe('11987654321');

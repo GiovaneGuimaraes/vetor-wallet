@@ -76,27 +76,30 @@ describe('computeReservedTotal', () => {
         entry({ amount: 300, goal_id: 1 }),
         entry({ type: 'WITHDRAW', amount: 500, goal_id: 1 }),
         entry({ amount: 120, goal_id: 2 }),
-      ]),
+      ])
     ).toBe(120);
   });
 });
 
 describe('computeFreeBalance (paridade com o service do server)', () => {
   it('equals the balance when nothing is reserved', () => {
-    expect(computeFreeBalance(1050, [entry({ amount: 1000 }), entry({ type: 'YIELD', amount: 50 })])).toBe(
-      1050,
-    );
+    expect(
+      computeFreeBalance(1050, [entry({ amount: 1000 }), entry({ type: 'YIELD', amount: 50 })])
+    ).toBe(1050);
   });
 
   it('subtracts the reserve of every goal', () => {
-    expect(computeFreeBalance(1000, [entry({ amount: 100 }), entry({ amount: 900, goal_id: 1 })])).toBe(
-      100,
-    );
+    expect(
+      computeFreeBalance(1000, [entry({ amount: 100 }), entry({ amount: 900, goal_id: 1 })])
+    ).toBe(100);
   });
 
   it('counts YIELD as free money', () => {
     expect(
-      computeFreeBalance(525, [entry({ amount: 500, goal_id: 1 }), entry({ type: 'YIELD', amount: 25 })]),
+      computeFreeBalance(525, [
+        entry({ amount: 500, goal_id: 1 }),
+        entry({ type: 'YIELD', amount: 25 }),
+      ])
     ).toBe(25);
   });
 
@@ -126,7 +129,7 @@ describe('computeFreeBalance (paridade com o service do server)', () => {
         entry({ amount: 200, goal_id: 1 }),
         entry({ amount: 300, goal_id: 2 }),
         entry({ type: 'WITHDRAW', amount: 500 }),
-      ]),
+      ])
     ).toBe(500);
   });
 });

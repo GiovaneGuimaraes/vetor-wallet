@@ -17,11 +17,36 @@ interface FeatureConfig {
 }
 
 const FEATURES: FeatureConfig[] = [
-  { key: 'renda', mascot: 'receitas-t.png', title: 'Renda', desc: 'Organize entradas fixas e avulsas do mês' },
-  { key: 'despesas', mascot: 'despesas-t.png', title: 'Despesas', desc: 'Organize despesas fixas e gastos variáveis' },
-  { key: 'poupanca', mascot: 'poupanca-t.png', title: 'Poupança', desc: 'Acompanhe saldo, aportes e rendimento' },
-  { key: 'acoes', mascot: 'acoes-t.png', title: 'Ações', desc: 'Carteiras da B3 com cotações em tempo real' },
-  { key: 'metas', mascot: 'metas-t.png', title: 'Metas', desc: 'Defina objetivos e acompanhe o progresso' },
+  {
+    key: 'renda',
+    mascot: 'receitas-t.png',
+    title: 'Renda',
+    desc: 'Organize entradas fixas e avulsas do mês',
+  },
+  {
+    key: 'despesas',
+    mascot: 'despesas-t.png',
+    title: 'Despesas',
+    desc: 'Organize despesas fixas e gastos variáveis',
+  },
+  {
+    key: 'poupanca',
+    mascot: 'poupanca-t.png',
+    title: 'Poupança',
+    desc: 'Acompanhe saldo, aportes e rendimento',
+  },
+  {
+    key: 'acoes',
+    mascot: 'acoes-t.png',
+    title: 'Ações',
+    desc: 'Carteiras da B3 com cotações em tempo real',
+  },
+  {
+    key: 'metas',
+    mascot: 'metas-t.png',
+    title: 'Metas',
+    desc: 'Defina objetivos e acompanhe o progresso',
+  },
 ];
 
 const labelClass = 'block text-xs font-medium text-dim uppercase tracking-wide mb-1.5';
@@ -56,9 +81,7 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
     setLoading(true);
     try {
       const user =
-        mode === 'login'
-          ? await login(email, password)
-          : await register(email, password);
+        mode === 'login' ? await login(email, password) : await register(email, password);
       onAuth(user);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
@@ -90,8 +113,8 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
 
           <h1 className="vw-landing-title">Sua vida financeira, organizada em camadas.</h1>
           <p className="vw-landing-desc">
-            Renda, despesas, poupança, ações e metas — tudo em um só lugar, com cotações em
-            tempo real da B3.
+            Renda, despesas, poupança, ações e metas — tudo em um só lugar, com cotações em tempo
+            real da B3.
           </p>
 
           <ul className="vw-landing-features">
@@ -109,9 +132,7 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
 
         {/* Card direito: login/cadastro */}
         <div className="vw-landing-auth vw-card vw-rise" style={{ ['--vw-rise-i' as string]: 1 }}>
-          <h2 className="vw-landing-auth-title">
-            {mode === 'login' ? 'Entrar' : 'Criar conta'}
-          </h2>
+          <h2 className="vw-landing-auth-title">{mode === 'login' ? 'Entrar' : 'Criar conta'}</h2>
 
           {error && (
             <div
@@ -183,14 +204,22 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
             {mode === 'login' ? (
               <>
                 Não tem conta?{' '}
-                <button type="button" className="vw-landing-switch-link" onClick={() => switchMode('register')}>
+                <button
+                  type="button"
+                  className="vw-landing-switch-link"
+                  onClick={() => switchMode('register')}
+                >
                   Criar conta
                 </button>
               </>
             ) : (
               <>
                 Já tem conta?{' '}
-                <button type="button" className="vw-landing-switch-link" onClick={() => switchMode('login')}>
+                <button
+                  type="button"
+                  className="vw-landing-switch-link"
+                  onClick={() => switchMode('login')}
+                >
                   Entrar
                 </button>
               </>
@@ -199,7 +228,9 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
         </div>
       </div>
 
-      <p className="vw-landing-footer">Cotações via brapi.dev · senhas com bcrypt · seus dados ficam no seu servidor</p>
+      <p className="vw-landing-footer">
+        Cotações via brapi.dev · senhas com bcrypt · seus dados ficam no seu servidor
+      </p>
     </div>
   );
 }

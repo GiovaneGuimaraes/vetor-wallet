@@ -74,7 +74,14 @@ describe('parseOfx — OFX 2.x XML (T-085)', () => {
     const result = parseOfx(compact);
     if (!result.ok) throw new Error('esperado ok');
     expect(result.transactions).toEqual([
-      { fitid: 'C1', dtposted: '20260101', trnamt: '-5.00', memo: 'Cafe', name: null, trntype: 'DEBIT' },
+      {
+        fitid: 'C1',
+        dtposted: '20260101',
+        trnamt: '-5.00',
+        memo: 'Cafe',
+        name: null,
+        trntype: 'DEBIT',
+      },
     ]);
   });
 });

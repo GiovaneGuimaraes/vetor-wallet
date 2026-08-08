@@ -44,14 +44,45 @@ interface LayerCardConfig {
 }
 
 const LAYER_CARDS: LayerCardConfig[] = [
-  { key: 'renda', path: '/renda', mascot: 'receitas-t.png', name: 'Renda mensal', desc: 'Fontes de receita do mês' },
-  { key: 'despesas', path: '/despesas', mascot: 'despesas-t.png', name: 'Despesas', desc: 'Gastos por categoria' },
-  { key: 'poupanca', path: '/poupanca', mascot: 'poupanca-t.png', name: 'Poupança', desc: 'Saldo, aportes e rendimento' },
+  {
+    key: 'renda',
+    path: '/renda',
+    mascot: 'receitas-t.png',
+    name: 'Renda mensal',
+    desc: 'Fontes de receita do mês',
+  },
+  {
+    key: 'despesas',
+    path: '/despesas',
+    mascot: 'despesas-t.png',
+    name: 'Despesas',
+    desc: 'Gastos por categoria',
+  },
+  {
+    key: 'poupanca',
+    path: '/poupanca',
+    mascot: 'poupanca-t.png',
+    name: 'Poupança',
+    desc: 'Saldo, aportes e rendimento',
+  },
   // T-050b: carteira única — o card vai direto ao dashboard, sem passar por
   // uma tela de seleção (`/carteiras` deixou de existir).
   { key: 'acoes', path: '/dash', mascot: 'acoes-t.png', name: 'Ações', desc: 'Sua carteira da B3' },
-  { key: 'cripto', path: '/cripto', mascot: 'cripto-t.png', name: 'Criptomoedas', desc: 'Em breve', chip: 'em breve' },
-  { key: 'metas', path: '/metas', mascot: 'metas-t.png', name: 'Metas', desc: 'Progresso dos seus objetivos' },
+  {
+    key: 'cripto',
+    path: '/cripto',
+    mascot: 'cripto-t.png',
+    name: 'Criptomoedas',
+    desc: 'Em breve',
+    chip: 'em breve',
+  },
+  {
+    key: 'metas',
+    path: '/metas',
+    mascot: 'metas-t.png',
+    name: 'Metas',
+    desc: 'Progresso dos seus objetivos',
+  },
 ];
 
 // T-080: CTA curto exibido no lugar do valor quando o layer ainda não tem
@@ -124,9 +155,7 @@ export function HomePage() {
         entriesRes,
         savingsRes,
         goalsRes,
-      ].filter(
-        (r): r is PromiseRejectedResult => r.status === 'rejected',
-      );
+      ].filter((r): r is PromiseRejectedResult => r.status === 'rejected');
       if (failures.length > 0) {
         const first = failures[0].reason;
         setError(first instanceof Error ? first.message : 'Falha ao carregar alguns dados da home');
@@ -150,7 +179,7 @@ export function HomePage() {
     fixedIncomeTotal,
     fixedExpensesTotal,
     variableEntries,
-    variableIncomeEntries,
+    variableIncomeEntries
   );
   // Renda do mês exibida nos cards = fixas + variáveis do mês (T-036).
   const incomeTotal = cashFlow.incomeTotal;

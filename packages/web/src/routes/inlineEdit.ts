@@ -33,7 +33,7 @@ export function parseMoneyInput(raw: string): number | null {
  */
 export function diffEditableFields<T extends Record<string, string | number | null>>(
   original: T,
-  draft: T,
+  draft: T
 ): Partial<T> {
   const changed: Partial<T> = {};
   for (const key of Object.keys(draft) as (keyof T)[]) {

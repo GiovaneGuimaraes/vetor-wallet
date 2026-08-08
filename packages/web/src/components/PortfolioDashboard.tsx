@@ -10,8 +10,7 @@ interface Props {
 
 // ── Formatters ────────────────────────────────────────────────────────────
 const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-const fmtPct = (v: number | null) =>
-  v === null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+const fmtPct = (v: number | null) => (v === null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`);
 const fmtCur = (v: number | null) => (v === null ? '—' : fmt.format(v));
 
 // ── useCountUp ────────────────────────────────────────────────────────────
@@ -24,8 +23,7 @@ function useCountUp(target: number, duration = 1200): number {
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number | null>(null);
   const prefersReduced = useRef(
-    typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   );
 
   useEffect(() => {
@@ -177,9 +175,7 @@ export function PortfolioDashboard({ summary, walletColor = '#e3d5b8' }: Props) 
           padding: '20px 24px',
         }}
       >
-        <h2
-          style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-ink)', marginBottom: 16 }}
-        >
+        <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-ink)', marginBottom: 16 }}>
           Dashboard
         </h2>
         <p

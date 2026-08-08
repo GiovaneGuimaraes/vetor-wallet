@@ -86,7 +86,7 @@ router.get(
 
     const fresh = await loadCharge(req.params.id, userId);
     res.json(toPixCharge(fresh ?? row));
-  }),
+  })
 );
 
 export default router;

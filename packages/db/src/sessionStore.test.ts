@@ -8,7 +8,7 @@ import type { SessionData } from 'express-session';
 // então db/sessionStore são importados dinamicamente dentro do beforeAll.
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-session-store-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-session-store-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -100,10 +100,8 @@ describe('SqliteSessionStore', () => {
 
     // Renova com um maxAge maior — expires_at deve avançar.
     await new Promise<void>((resolve, reject) => {
-      store.touch(
-        'sid-touch',
-        { ...session, cookie: { maxAge: 60_000 } as never },
-        (err) => (err ? reject(err) : resolve()),
+      store.touch('sid-touch', { ...session, cookie: { maxAge: 60_000 } as never }, (err) =>
+        err ? reject(err) : resolve()
       );
     });
 
@@ -258,10 +256,8 @@ describe('SqliteSessionStore', () => {
     });
 
     await new Promise<void>((resolve, reject) => {
-      store.touch(
-        'sid-touch-negative',
-        { ...session, cookie: { maxAge: -5 } as never },
-        (err) => (err ? reject(err) : resolve()),
+      store.touch('sid-touch-negative', { ...session, cookie: { maxAge: -5 } as never }, (err) =>
+        err ? reject(err) : resolve()
       );
     });
 

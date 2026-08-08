@@ -1,5 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
-import { hashPassword, verifyPassword, isValidEmail, isValidName, isValidPhone, normalizePhone } from './service';
+import {
+  hashPassword,
+  verifyPassword,
+  isValidEmail,
+  isValidName,
+  isValidPhone,
+  normalizePhone,
+} from './service';
 
 // Isolate pure functions from db — createUser/findUserByEmail are tested via router integration
 vi.mock('@vetor-wallet/db', () => ({

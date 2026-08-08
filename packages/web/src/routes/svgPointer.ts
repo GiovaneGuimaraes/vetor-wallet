@@ -10,7 +10,7 @@
  */
 export function svgPointFromPointerEvent(
   svg: SVGSVGElement,
-  event: { clientX: number; clientY: number },
+  event: { clientX: number; clientY: number }
 ): { x: number; y: number } | null {
   const ctm = svg.getScreenCTM();
   if (!ctm) return null;

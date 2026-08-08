@@ -10,7 +10,7 @@ import path from 'path';
 // antes do import dinâmico de '../../db' (ver comentário em operations.test.ts).
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-portfolio-history-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-portfolio-history-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -61,7 +61,7 @@ describe('GET /api/portfolio/history (T-058a)', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/operations', operationsRouter);

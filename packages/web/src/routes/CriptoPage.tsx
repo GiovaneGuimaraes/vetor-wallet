@@ -6,7 +6,6 @@ import { BackToHomeLink } from '../components/BackToHomeLink';
  * design_handoff README seção "Screens / Views > Cripto (mock)".
  */
 export function CriptoPage() {
-
   return (
     <div className="vw-mock-page">
       <img

@@ -58,7 +58,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    getMe().then(setUser).catch(() => setUser(null));
+    getMe()
+      .then(setUser)
+      .catch(() => setUser(null));
   }, []);
 
   // T-072: 402 SUBSCRIPTION_REQUIRED (ver `api.ts`) manda o usuário para a
@@ -193,7 +195,9 @@ export default function App() {
     <Routes>
       <Route
         path="/"
-        element={<LandingRoute user={user} theme={theme} onToggleTheme={toggleTheme} onAuth={handleAuth} />}
+        element={
+          <LandingRoute user={user} theme={theme} onToggleTheme={toggleTheme} onAuth={handleAuth} />
+        }
       />
       <Route path="/admin" element={<AdminRoute user={user} onLogout={handleLogout} />} />
 

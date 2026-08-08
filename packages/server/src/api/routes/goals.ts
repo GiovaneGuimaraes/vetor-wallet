@@ -4,7 +4,11 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import type { NewGoal, GoalUpdate } from '@vetor-wallet/shared';
-import { listGoalsWithProgress, getGoalWithProgress, getGoalLinkAggregate } from '@vetor-wallet/savings-core';
+import {
+  listGoalsWithProgress,
+  getGoalWithProgress,
+  getGoalLinkAggregate,
+} from '@vetor-wallet/savings-core';
 import { isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
 
 const router = Router();
@@ -17,7 +21,7 @@ router.get(
   asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     res.json(await listGoalsWithProgress(userId));
-  }),
+  })
 );
 
 router.post(
@@ -30,7 +34,11 @@ router.post(
       res.status(400).json({ error: 'name é obrigatório' });
       return;
     }
-    if (typeof target_amount !== 'number' || !Number.isFinite(target_amount) || target_amount <= 0) {
+    if (
+      typeof target_amount !== 'number' ||
+      !Number.isFinite(target_amount) ||
+      target_amount <= 0
+    ) {
       res.status(400).json({ error: 'target_amount deve ser um número maior que 0' });
       return;
     }
@@ -38,7 +46,11 @@ router.post(
       res.status(400).json({ error: moneyAmountError(target_amount, 'target_amount') });
       return;
     }
-    if (typeof current_amount !== 'number' || !Number.isFinite(current_amount) || current_amount < 0) {
+    if (
+      typeof current_amount !== 'number' ||
+      !Number.isFinite(current_amount) ||
+      current_amount < 0
+    ) {
       res.status(400).json({ error: 'current_amount deve ser um número maior ou igual a 0' });
       return;
     }
@@ -54,7 +66,7 @@ router.post(
 
     const newId = Number(insert.lastInsertRowid ?? 0);
     res.status(201).json(await getGoalWithProgress(userId, newId));
-  }),
+  })
 );
 
 router.patch(
@@ -140,7 +152,7 @@ router.patch(
     });
 
     res.json(await getGoalWithProgress(userId, Number(id)));
-  }),
+  })
 );
 
 router.delete(
@@ -172,10 +184,10 @@ router.delete(
           args: [id, userId],
         },
       ],
-      'write',
+      'write'
     );
     res.status(204).send();
-  }),
+  })
 );
 
 export default router;

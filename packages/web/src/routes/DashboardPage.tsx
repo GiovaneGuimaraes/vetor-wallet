@@ -30,11 +30,7 @@ import {
   projectPortfolio,
   resolveDefaultCurrentValue,
 } from './portfolioProjection';
-import {
-  formatDecimalInput,
-  parseMonthsInput,
-  parseNonNegativeInput,
-} from './savingsProjection';
+import { formatDecimalInput, parseMonthsInput, parseNonNegativeInput } from './savingsProjection';
 import { computeAveragePrice, computeFromDate, selectDefaultTicker } from './priceChart';
 import type { NewOperation, Operation } from '@vetor-wallet/shared';
 import './layers.css';
@@ -140,8 +136,7 @@ const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BR
 const HISTORY_WINDOW_OPTIONS = [30, 90, 365] as const;
 const DEFAULT_HISTORY_DAYS = 90;
 export function DashboardPage() {
-  const { wallet, walletLoaded, walletLoadError, walletSummary, refreshWallet } =
-    useShellContext();
+  const { wallet, walletLoaded, walletLoadError, walletSummary, refreshWallet } = useShellContext();
   const walletFlow = decideWalletFlow(wallet, walletLoaded, walletLoadError);
 
   const [operations, setOperations] = useState<Operation[]>([]);
@@ -172,7 +167,7 @@ export function DashboardPage() {
     } catch (err) {
       if (historyRequestRef.current !== requestId) return;
       setHistoryError(
-        err instanceof Error ? err.message : 'Erro ao buscar o histórico da carteira',
+        err instanceof Error ? err.message : 'Erro ao buscar o histórico da carteira'
       );
     } finally {
       if (historyRequestRef.current === requestId) setHistoryLoading(false);
@@ -209,9 +204,7 @@ export function DashboardPage() {
       } catch (err) {
         if (benchmarkRequestRef.current !== requestId) return;
         setBenchmarkSeries(null);
-        setBenchmarkError(
-          err instanceof Error ? err.message : 'Erro ao buscar os benchmarks',
-        );
+        setBenchmarkError(err instanceof Error ? err.message : 'Erro ao buscar os benchmarks');
       }
     })();
   }, [hasPositions, historyDays, showCdi, showIbov]);
@@ -219,14 +212,14 @@ export function DashboardPage() {
   const cdiLine = useMemo(
     () =>
       showCdi && historyPoints ? buildBenchmarkLine(benchmarkSeries?.cdi, historyPoints) : null,
-    [showCdi, benchmarkSeries, historyPoints],
+    [showCdi, benchmarkSeries, historyPoints]
   );
   const ibovLine = useMemo(
     () =>
       showIbov && historyPoints
         ? buildBenchmarkLine(benchmarkSeries?.ibovespa, historyPoints)
         : null,
-    [showIbov, benchmarkSeries, historyPoints],
+    [showIbov, benchmarkSeries, historyPoints]
   );
   // Pedida mas indisponível (fonte externa sem dado no período): avisa em vez
   // de deixar o usuário achar que o toggle não funcionou.
@@ -280,7 +273,7 @@ export function DashboardPage() {
 
   const priceAveragePrice = useMemo(
     () => (priceTicker ? computeAveragePrice(operations, priceTicker) : null),
-    [operations, priceTicker],
+    [operations, priceTicker]
   );
 
   // Simulador de projeção de ganhos (T-056b) — 100% client-side, mesmo padrão
@@ -298,11 +291,11 @@ export function DashboardPage() {
 
   const defaultCurrentValue = useMemo(
     () => resolveDefaultCurrentValue(walletSummary),
-    [walletSummary],
+    [walletSummary]
   );
   const derivedRatePct = useMemo(
     () => (walletSummary ? deriveMonthlyReturnPct(operations, walletSummary) : null),
-    [operations, walletSummary],
+    [operations, walletSummary]
   );
 
   useEffect(() => {
@@ -342,12 +335,7 @@ export function DashboardPage() {
     parsedRatePct !== null &&
     parsedMonths !== null &&
     parsedContribution !== null
-      ? buildProjectionSeries(
-          parsedCurrentValue,
-          parsedRatePct,
-          parsedMonths,
-          parsedContribution,
-        )
+      ? buildProjectionSeries(parsedCurrentValue, parsedRatePct, parsedMonths, parsedContribution)
       : [];
 
   const refresh = useCallback(async () => {
@@ -406,7 +394,9 @@ export function DashboardPage() {
         {walletFlow === 'error' && (
           <button
             type="button"
-            onClick={() => { void refreshWallet(); }}
+            onClick={() => {
+              void refreshWallet();
+            }}
             className="text-xs text-dim hover:text-ink underline cursor-pointer"
           >
             Tentar novamente
@@ -456,7 +446,11 @@ export function DashboardPage() {
                 {/* Comparativo (T-068): dois toggles independentes — cada
                     linha mostra quanto o MESMO dinheiro do primeiro dia da
                     janela valeria no benchmark. */}
-                <div className="vw-history-window" role="group" aria-label="Comparar com benchmarks">
+                <div
+                  className="vw-history-window"
+                  role="group"
+                  aria-label="Comparar com benchmarks"
+                >
                   <button
                     type="button"
                     aria-pressed={showCdi}
@@ -517,8 +511,8 @@ export function DashboardPage() {
 
               {!historyError && historyPoints !== null && historyPoints.length < 2 && (
                 <p className="vw-field-hint">
-                  O histórico da carteira começa a ser coletado a partir de agora — volte em
-                  alguns dias.
+                  O histórico da carteira começa a ser coletado a partir de agora — volte em alguns
+                  dias.
                 </p>
               )}
 
@@ -567,7 +561,11 @@ export function DashboardPage() {
                       ))}
                     </select>
                   </div>
-                  <div className="vw-history-window" role="group" aria-label="Janela do gráfico de preço">
+                  <div
+                    className="vw-history-window"
+                    role="group"
+                    aria-label="Janela do gráfico de preço"
+                  >
                     {HISTORY_WINDOW_OPTIONS.map((days) => (
                       <button
                         key={days}
@@ -695,7 +693,9 @@ export function DashboardPage() {
                 <div className="vw-savings-projection">
                   <div className="vw-savings-summary-card">
                     <p className="vw-savings-summary-label">Valor projetado</p>
-                    <p className="vw-savings-summary-value">{fmtCur.format(projection.futureValue)}</p>
+                    <p className="vw-savings-summary-value">
+                      {fmtCur.format(projection.futureValue)}
+                    </p>
                     {projection.totalContributed > 0 && (
                       <p className="vw-savings-summary-sub">
                         Inclui {fmtCur.format(projection.totalContributed)} aportados no período.

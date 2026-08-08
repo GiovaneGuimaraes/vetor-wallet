@@ -13,10 +13,7 @@ export const getActivePlanText = 'SELECT * FROM plans WHERE id = ?';
  * plano (o plano vigente da assinatura), não o valor da coluna. Quem precisa da
  * vitrine filtra na própria rota.
  */
-export const getActivePlan = async (args: {
-  db: Db;
-  planId: number;
-}): Promise<PlanRow | null> => {
+export const getActivePlan = async (args: { db: Db; planId: number }): Promise<PlanRow | null> => {
   const res = await args.db.execute({ sql: getActivePlanText, args: [args.planId] });
   return (res.rows[0] as unknown as PlanRow) ?? null;
 };

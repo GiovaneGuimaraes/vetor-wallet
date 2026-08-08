@@ -15,7 +15,7 @@ function mockFetch(stocks = MOCK_STOCKS, ok = true) {
       ok,
       status: ok ? 200 : 500,
       json: async () => ({ stocks }),
-    }),
+    })
   );
 }
 
@@ -63,7 +63,7 @@ describe('searchTickers — filtering', () => {
   beforeEach(() => {
     _setCache(
       MOCK_STOCKS.map((s) => ({ ticker: s.stock, name: s.name })),
-      Date.now(),
+      Date.now()
     );
   });
 
@@ -88,7 +88,7 @@ describe('getUnknownTickers', () => {
   beforeEach(() => {
     _setCache(
       MOCK_STOCKS.map((s) => ({ ticker: s.stock, name: s.name })),
-      Date.now(),
+      Date.now()
     );
   });
 

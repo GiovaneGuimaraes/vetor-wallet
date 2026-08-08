@@ -13,7 +13,7 @@ import path from 'path';
 // inside beforeAll, after the env var is set.
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-budgets-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-budgets-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -39,7 +39,7 @@ describe('budgets routes', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/budgets', budgetsRouter);
@@ -149,7 +149,9 @@ describe('budgets routes', () => {
   });
 
   it('deletes a budget belonging to the user', async () => {
-    const created = await agentA.post('/api/budgets').send({ category: 'Para excluir', amount: 80 });
+    const created = await agentA
+      .post('/api/budgets')
+      .send({ category: 'Para excluir', amount: 80 });
     const id = created.body.id;
 
     const del = await agentA.delete(`/api/budgets/${id}`);
@@ -160,7 +162,9 @@ describe('budgets routes', () => {
   });
 
   it('returns 404 when deleting another user budget', async () => {
-    const created = await agentB.post('/api/budgets').send({ category: 'Da B protegida', amount: 90 });
+    const created = await agentB
+      .post('/api/budgets')
+      .send({ category: 'Da B protegida', amount: 90 });
     const id = created.body.id;
 
     const del = await agentA.delete(`/api/budgets/${id}`);
