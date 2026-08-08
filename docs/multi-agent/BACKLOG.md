@@ -365,10 +365,11 @@
 - **Fora de escopo (virou T-105)**: o `format` foi corrigido para cobrir todos os packages, mas **não foi executado** — `pnpm format:check` acusa **181 arquivos** fora do padrão, inclusive no `web`, que já tinha o script e claramente não o rodava. Reformatar é diff cosmético grande e merece commit próprio.
 
 ### T-105 — Passar o Prettier em tudo e travar no CI
-- **Status**: PENDENTE
+- **Status**: EM_ANDAMENTO (delegada 2026-08-08, executor Sonnet)
 - **Prioridade**: P3
-- **Complexidade**: baixa
+- **Complexidade**: média — reclassificada de baixa pelo orquestrador (2026-08-08): o diff toca 181 arquivos de código e precisa ser **provado** neutro em comportamento (suítes + build), além de editar o `ci.yml`. Fora do critério de segurança do Haiku.
 - **Depende de**: T-102
+- **Ordem**: roda ANTES da T-104 — o Prettier toca os mesmos arquivos que a migração de formato reescreve; invertido, o diff cosmético colide com a reescrita.
 - **Contexto**: achado da T-102. `pnpm format:check` reprova **181 arquivos** — os onze cores nunca foram formatados, e o `web` tinha o script mas não o rodava. Enquanto ninguém roda, o script é decorativo.
 - **Escopo**: rodar `pnpm format`, commitar o resultado **sozinho** (nenhuma mudança de comportamento junto), registrar o hash em `.git-blame-ignore-revs` para não poluir o `git blame`, e acrescentar o step `format:check` ao `ci.yml` para não voltar a divergir.
 - **Fora de escopo**: mudar as regras do `.prettierrc`.
@@ -405,6 +406,17 @@
 - **Atenção**: injetar `db` muda assinatura pública, então **cada package arrasta uma leva de call sites** — é o que impede fazer os dez de uma vez. `portfolio-core` e `insights-core` ainda têm o acoplamento core→core do Ciclo 19; migrar não é a hora de desfazê-lo.
 - **Fora de escopo**: mudar regra de negócio; desfazer os acoplamentos pré-existentes; a T-100.
 - **Critério de aceite**: por package — `pnpm --filter <pkg> test` verde com cobertura 100%, `pnpm build` e `pnpm test` da raiz verdes, contagem de testes do server preservada ou maior.
+- **DIVIDIDA em T-104a..g pelo orquestrador (2026-08-08)**, uma tarefa/PR por package, em série (cada uma arrasta call sites do `server`/`cli` e mexe nos mesmos arquivos de config). Ordem: `validation-core` → `savings-core` → `expenses-core` → `bank-import-core` → `auth-core` → `insights-core` → `portfolio-core`.
+
+### T-104a — `validation-core` no formato-alvo
+- **Status**: PENDENTE (fila: entra assim que a T-105 mergear)
+- **Prioridade**: P2
+- **Complexidade**: média — executor Sonnet. É o package trivial da fila (puro, sem I/O, sem `db` para injetar), escolhido de propósito para **calibrar** o formato antes dos cores pesados. Se o formato da T-103 não generalizar, descobre-se aqui e barato.
+- **Depende de**: T-103, T-105
+- **Escopo**: quebrar `validation-core` em 1 função por arquivo (`isValidIsoDate`, `isValidMoneyAmount`, `normalizeCategory`), `index.ts` só barrel, mover os testes de `src/**/*.test.ts` para `tests/unit/tests/<função>.test.ts` (Jest + ts-jest, espelhando a T-103), cobertura 100%, atualizar os ~18 call sites e o `CLAUDE.md` do package + a tabela de estado da migração no `PACKAGES.md`.
+- **Fora de escopo**: injeção de `db` (o package não tem I/O); mudar qualquer regra de validação; os demais cores.
+- **Atenção**: `db/src/migrations.ts` usa `normalizeCategory` numa migração de DADOS — o caso unicode (`SAÚDE`/`saúde`, motivo do `toLocaleLowerCase('pt-BR')`) tem que continuar coberto.
+- **Critério de aceite**: `pnpm --filter @vetor-wallet/validation-core test` verde com cobertura 100%; `pnpm build`, `pnpm lint` e `pnpm test` da raiz verdes; contagem de testes do server preservada.
 
 ### T-100 — Renomear `server` → `rest-api`
 - **Status**: PENDENTE — **aguardando o humano** (ver abaixo)
