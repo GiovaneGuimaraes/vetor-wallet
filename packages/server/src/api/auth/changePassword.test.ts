@@ -9,7 +9,7 @@ import path from 'path';
 // Banco temporário próprio por arquivo de teste (mesmo padrão de profile.test.ts).
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-change-password-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-change-password-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -33,13 +33,15 @@ describe('POST /api/auth/change-password (T-094)', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use(errorHandler);
 
     agent = request.agent(app);
-    await agent.post('/api/auth/register').send({ email: 'change-pw@test.com', password: 'password123' });
+    await agent
+      .post('/api/auth/register')
+      .send({ email: 'change-pw@test.com', password: 'password123' });
   });
 
   it('returns 401 without session', async () => {
@@ -50,7 +52,9 @@ describe('POST /api/auth/change-password (T-094)', () => {
   });
 
   it('returns 400 for an incomplete body', async () => {
-    const res = await agent.post('/api/auth/change-password').send({ currentPassword: 'password123' });
+    const res = await agent
+      .post('/api/auth/change-password')
+      .send({ currentPassword: 'password123' });
     expect(res.status).toBe(400);
   });
 

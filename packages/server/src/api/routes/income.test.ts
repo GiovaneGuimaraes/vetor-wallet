@@ -13,7 +13,7 @@ import path from 'path';
 // inside beforeAll, after the env var is set.
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-income-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-income-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -39,7 +39,7 @@ describe('income routes', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/income', incomeRouter);
@@ -48,8 +48,12 @@ describe('income routes', () => {
     agentA = request.agent(app);
     agentB = request.agent(app);
 
-    await agentA.post('/api/auth/register').send({ email: 'income-a@test.com', password: 'password123' });
-    await agentB.post('/api/auth/register').send({ email: 'income-b@test.com', password: 'password123' });
+    await agentA
+      .post('/api/auth/register')
+      .send({ email: 'income-a@test.com', password: 'password123' });
+    await agentB
+      .post('/api/auth/register')
+      .send({ email: 'income-b@test.com', password: 'password123' });
   });
 
   it('returns 401 without session', async () => {
@@ -63,12 +67,16 @@ describe('income routes', () => {
   });
 
   it('rejects creation with non-numeric amount (400)', async () => {
-    const res = await agentA.post('/api/income').send({ name: 'Salário', type: 'SALARIO', amount: 'abc' });
+    const res = await agentA
+      .post('/api/income')
+      .send({ name: 'Salário', type: 'SALARIO', amount: 'abc' });
     expect(res.status).toBe(400);
   });
 
   it('rejects creation with negative amount (400)', async () => {
-    const res = await agentA.post('/api/income').send({ name: 'Salário', type: 'SALARIO', amount: -50 });
+    const res = await agentA
+      .post('/api/income')
+      .send({ name: 'Salário', type: 'SALARIO', amount: -50 });
     expect(res.status).toBe(400);
   });
 
@@ -97,7 +105,9 @@ describe('income routes', () => {
   });
 
   it('creates an income source', async () => {
-    const res = await agentA.post('/api/income').send({ name: 'Salário CLT', type: 'SALARIO', amount: 5000 });
+    const res = await agentA
+      .post('/api/income')
+      .send({ name: 'Salário CLT', type: 'SALARIO', amount: 5000 });
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ name: 'Salário CLT', type: 'SALARIO', amount: 5000 });
   });
@@ -232,7 +242,9 @@ describe('income routes', () => {
     // linha (rowsAffected 0) — independente do guard anterior existir.
     it('UPDATE final não afeta registro de outro usuário mesmo com id válido', async () => {
       const { db } = await import('@vetor-wallet/db');
-      const created = await agentB.post('/api/income').send({ name: 'Defesa em profundidade', amount: 42 });
+      const created = await agentB
+        .post('/api/income')
+        .send({ name: 'Defesa em profundidade', amount: 42 });
       const id = created.body.id;
 
       const result = await db.execute({
@@ -241,7 +253,10 @@ describe('income routes', () => {
       });
       expect(result.rowsAffected).toBe(0);
 
-      const row = await db.execute({ sql: 'SELECT amount FROM income_sources WHERE id = ?', args: [id] });
+      const row = await db.execute({
+        sql: 'SELECT amount FROM income_sources WHERE id = ?',
+        args: [id],
+      });
       expect(row.rows[0].amount).toBe(42);
     });
 
@@ -272,14 +287,16 @@ describe('income routes', () => {
         const updateCall = calls.find((c) => /^\s*UPDATE income_sources/i.test(c.sql));
         expect(updateCall).toBeDefined();
         expect(updateCall!.sql).toBe(
-          'UPDATE income_sources SET amount = ? WHERE id = ? AND user_id = ?',
+          'UPDATE income_sources SET amount = ? WHERE id = ? AND user_id = ?'
         );
         expect(updateCall!.args).toEqual([60, String(id), userId]);
 
         // Re-SELECT final que monta a resposta do PATCH — precisa ser o ÚLTIMO
         // SELECT * (o primeiro SELECT * é a checagem de existência que usa
         // `id` sozinho como coluna, não `SELECT *`).
-        const selectStarCalls = calls.filter((c) => /^\s*SELECT \* FROM income_sources/i.test(c.sql));
+        const selectStarCalls = calls.filter((c) =>
+          /^\s*SELECT \* FROM income_sources/i.test(c.sql)
+        );
         expect(selectStarCalls.length).toBeGreaterThan(0);
         const finalSelect = selectStarCalls[selectStarCalls.length - 1];
         expect(finalSelect.sql).toBe('SELECT * FROM income_sources WHERE id = ? AND user_id = ?');
@@ -291,7 +308,9 @@ describe('income routes', () => {
   });
 
   it('deletes an income source belonging to the user', async () => {
-    const created = await agentA.post('/api/income').send({ name: 'Para excluir', type: 'OUTRO', amount: 10 });
+    const created = await agentA
+      .post('/api/income')
+      .send({ name: 'Para excluir', type: 'OUTRO', amount: 10 });
     const id = created.body.id;
 
     const del = await agentA.delete(`/api/income/${id}`);
@@ -302,7 +321,9 @@ describe('income routes', () => {
   });
 
   it('returns 404 when deleting another user income source', async () => {
-    const created = await agentB.post('/api/income').send({ name: 'Da B', type: 'OUTRO', amount: 20 });
+    const created = await agentB
+      .post('/api/income')
+      .send({ name: 'Da B', type: 'OUTRO', amount: 20 });
     const id = created.body.id;
 
     const del = await agentA.delete(`/api/income/${id}`);

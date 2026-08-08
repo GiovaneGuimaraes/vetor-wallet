@@ -5,7 +5,11 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import { computeFreeBalance, pickTransferLegs, toCents } from '@vetor-wallet/savings-core';
-import { isValidIsoDate, isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
+import {
+  isValidIsoDate,
+  isValidMoneyAmount,
+  moneyAmountError,
+} from '@vetor-wallet/validation-core';
 import type {
   NewSavingsEntry,
   SavingsEntryType,
@@ -56,7 +60,7 @@ router.get(
     });
     const entries = result.rows as unknown as SavingsEntry[];
     res.json({ entries, summary: buildSummary(entries) });
-  }),
+  })
 );
 
 router.post(
@@ -118,7 +122,7 @@ router.post(
       args: [Number(newId), userId],
     });
     res.status(201).json(row.rows[0]);
-  }),
+  })
 );
 
 const fmtBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -191,7 +195,7 @@ router.post(
       args: [userId],
     });
     const free = computeFreeBalance(
-      ledger.rows as unknown as { type: SavingsEntryType; amount: number; goal_id: number | null }[],
+      ledger.rows as unknown as { type: SavingsEntryType; amount: number; goal_id: number | null }[]
     );
 
     // Comparação em centavos inteiros: em float, transferir exatamente um saldo
@@ -199,7 +203,7 @@ router.post(
     if (toCents(amount) > toCents(free)) {
       res.status(400).json({
         error: `Saldo livre insuficiente: você tentou transferir ${fmtBRL.format(
-          amount,
+          amount
         )} e há ${fmtBRL.format(Math.max(0, free))} livres na poupança (o restante já está reservado em metas).`,
       });
       return;
@@ -223,7 +227,7 @@ router.post(
           args: [userId, amount, date, legNote, goalId, transferGroup],
         },
       ],
-      'write',
+      'write'
     );
 
     const withdrawId = Number(withdrawResult.lastInsertRowid ?? 0);
@@ -245,7 +249,7 @@ router.post(
     const { withdraw, deposit } = pickTransferLegs(created, withdrawId, depositId);
     const result: SavingsTransferResult = { withdraw, deposit };
     res.status(201).json(result);
-  }),
+  })
 );
 
 /**
@@ -382,7 +386,7 @@ router.patch(
       args: [id, userId],
     });
     res.json(row.rows[0]);
-  }),
+  })
 );
 
 router.delete(
@@ -399,7 +403,7 @@ router.delete(
       return;
     }
     res.status(204).send();
-  }),
+  })
 );
 
 export default router;

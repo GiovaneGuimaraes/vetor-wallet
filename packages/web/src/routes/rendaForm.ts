@@ -35,7 +35,7 @@ export function initialIncomeFormState(defaultDate: string): IncomeFormState {
  */
 export function resetIncomeFormFields(
   state: IncomeFormState,
-  defaultDate: string,
+  defaultDate: string
 ): IncomeFormState {
   return { ...state, name: '', type: 'SALARIO', amount: '', date: defaultDate };
 }
@@ -43,7 +43,7 @@ export function resetIncomeFormFields(
 /** Troca o tipo (Fixa/Avulsa), preservando nome/valor já digitados. */
 export function switchIncomeFormKind(
   state: IncomeFormState,
-  kind: IncomeFormKind,
+  kind: IncomeFormKind
 ): IncomeFormState {
   return { ...state, kind };
 }

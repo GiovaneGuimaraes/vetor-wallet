@@ -4,7 +4,11 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import type { NewCategoryBudget } from '@vetor-wallet/shared';
-import { normalizeCategory, isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
+import {
+  normalizeCategory,
+  isValidMoneyAmount,
+  moneyAmountError,
+} from '@vetor-wallet/validation-core';
 
 const router = Router();
 
@@ -20,7 +24,7 @@ router.get(
       args: [userId],
     });
     res.json(result.rows);
-  }),
+  })
 );
 
 /**
@@ -36,8 +40,7 @@ router.post(
     const userId = res.locals.userId as number;
     const { category, amount } = req.body as Partial<NewCategoryBudget>;
 
-    const normalizedCategory =
-      typeof category === 'string' ? normalizeCategory(category) : '';
+    const normalizedCategory = typeof category === 'string' ? normalizeCategory(category) : '';
 
     if (!normalizedCategory) {
       res.status(400).json({ error: 'category é obrigatória' });
@@ -64,7 +67,7 @@ router.post(
       args: [userId, normalizedCategory],
     });
     res.status(201).json(row.rows[0]);
-  }),
+  })
 );
 
 router.delete(
@@ -81,7 +84,7 @@ router.delete(
       return;
     }
     res.status(204).send();
-  }),
+  })
 );
 
 export default router;

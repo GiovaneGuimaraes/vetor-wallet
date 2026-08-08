@@ -12,7 +12,7 @@ router.get(
     const query = typeof req.query.search === 'string' ? req.query.search : '';
     const response = await searchTickers(query);
     res.json(response);
-  }),
+  })
 );
 
 export default router;

@@ -12,7 +12,7 @@ const planRow = { id: 1, interval: 'monthly', active: 1 };
  */
 const stubReads = (
   db: MockDb,
-  reads: { charge?: unknown; plan?: unknown; subscription?: unknown },
+  reads: { charge?: unknown; plan?: unknown; subscription?: unknown }
 ) => {
   db.execute.mockImplementation(async ({ sql }: { sql: string }) => {
     if (sql.includes('FROM pix_charges')) {
@@ -165,7 +165,7 @@ describe('markChargePaidAndActivate', () => {
     await markChargePaidAndActivate({ db, abacateChargeId: CHARGE_ID });
 
     const lookup = db.execute.mock.calls.find(([stmt]: [{ sql: string }]) =>
-      stmt.sql.includes('FROM pix_charges'),
+      stmt.sql.includes('FROM pix_charges')
     );
     expect(lookup[0].args).toEqual([CHARGE_ID]);
     expect(db.batch.mock.calls[0][0][1].args[0]).toBe(7);
@@ -180,8 +180,10 @@ describe('markChargePaidAndActivate', () => {
     const result = await markChargePaidAndActivate({ db, abacateChargeId: CHARGE_ID });
 
     expect(result.userId).toBe(42);
-    expect(db.execute.mock.calls.some(([stmt]: [{ args: unknown[] }]) =>
-      JSON.stringify(stmt.args) === JSON.stringify([1]),
-    )).toBe(true);
+    expect(
+      db.execute.mock.calls.some(
+        ([stmt]: [{ args: unknown[] }]) => JSON.stringify(stmt.args) === JSON.stringify([1])
+      )
+    ).toBe(true);
   });
 });

@@ -62,7 +62,7 @@ export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
 
   const ticks = pickTicks(
     snapshots.map((s, i) => ({ ...s, index: i })),
-    TICK_COUNT,
+    TICK_COUNT
   ).map((tick) => ({
     ...tick,
     x: xScale(tick.index),
@@ -74,7 +74,7 @@ export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
   const first = snapshots[0];
   const last = snapshots[snapshots.length - 1];
   const description = `Preço de ${formatDayMonth(snapshotDate(first.captured_at))} (${fmtCur.format(
-    first.price,
+    first.price
   )}) a ${formatDayMonth(snapshotDate(last.captured_at))} (${fmtCur.format(last.price)}).${
     averagePrice !== null ? ` Preço médio de compra: ${fmtCur.format(averagePrice)}.` : ''
   }`;
@@ -86,7 +86,12 @@ export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
   const tooltipWidth = 96;
   const tooltip =
     hoverSnapshot !== null
-      ? positionTooltip(pricePoints[hoverIndex as number].x, pricePoints[hoverIndex as number].y, VIEW_WIDTH, tooltipWidth)
+      ? positionTooltip(
+          pricePoints[hoverIndex as number].x,
+          pricePoints[hoverIndex as number].y,
+          VIEW_WIDTH,
+          tooltipWidth
+        )
       : null;
 
   function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
@@ -170,7 +175,13 @@ export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
         return (
           <g key={`tick-${tick.id}`}>
             <circle cx={tick.x} cy={tick.y} r={2.5} fill={lineColor} />
-            <text x={tick.x} y={valueLabelY} textAnchor={anchor} fontSize={9} fill="var(--color-dim)">
+            <text
+              x={tick.x}
+              y={valueLabelY}
+              textAnchor={anchor}
+              fontSize={9}
+              fill="var(--color-dim)"
+            >
               {fmtCur.format(tick.price)}
             </text>
             <text
@@ -198,10 +209,22 @@ export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
             strokeDasharray="2 2"
             vectorEffect="non-scaling-stroke"
           />
-          <circle cx={pricePoints[hoverIndex as number].x} cy={pricePoints[hoverIndex as number].y} r={3.5} fill={lineColor} />
-          <foreignObject x={tooltip.anchor === 'end' ? tooltip.x - tooltipWidth : tooltip.x} y={Math.max(tooltip.y - 34, 0)} width={tooltipWidth} height={34}>
+          <circle
+            cx={pricePoints[hoverIndex as number].x}
+            cy={pricePoints[hoverIndex as number].y}
+            r={3.5}
+            fill={lineColor}
+          />
+          <foreignObject
+            x={tooltip.anchor === 'end' ? tooltip.x - tooltipWidth : tooltip.x}
+            y={Math.max(tooltip.y - 34, 0)}
+            width={tooltipWidth}
+            height={34}
+          >
             <div className="vw-chart-tooltip">
-              <div className="vw-chart-tooltip-date">{formatDayMonth(snapshotDate(hoverSnapshot.captured_at))}</div>
+              <div className="vw-chart-tooltip-date">
+                {formatDayMonth(snapshotDate(hoverSnapshot.captured_at))}
+              </div>
               <div className="vw-chart-tooltip-value">{fmtCur.format(hoverSnapshot.price)}</div>
             </div>
           </foreignObject>

@@ -34,9 +34,7 @@ describe('formatRecurrenceDay (T-035)', () => {
 
   it('warns about short months for days 29-31', () => {
     for (const day of [29, 30, 31]) {
-      expect(formatRecurrenceDay(day)).toBe(
-        `todo dia ${day} (ou no último dia, em meses curtos)`,
-      );
+      expect(formatRecurrenceDay(day)).toBe(`todo dia ${day} (ou no último dia, em meses curtos)`);
     }
   });
 

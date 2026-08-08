@@ -77,27 +77,25 @@ describe('formatOfxTransactionDate', () => {
 describe('formatOfxTransactionAmount', () => {
   it('formata despesa com sinal negativo', () => {
     expect(
-      formatOfxTransactionAmount({ status: 'imported', amount: 150, entryType: 'expense' }),
+      formatOfxTransactionAmount({ status: 'imported', amount: 150, entryType: 'expense' })
     ).toBe('-R$ 150,00');
   });
 
   it('formata renda com sinal positivo', () => {
     expect(
-      formatOfxTransactionAmount({ status: 'imported', amount: 200, entryType: 'income' }),
+      formatOfxTransactionAmount({ status: 'imported', amount: 200, entryType: 'income' })
     ).toBe('R$ 200,00');
   });
 
   it('devolve — quando o valor não pôde ser lido (rejeitada por TRNAMT)', () => {
-    expect(formatOfxTransactionAmount({ status: 'rejected', reason: 'TRNAMT inválido' })).toBe(
-      '—',
-    );
+    expect(formatOfxTransactionAmount({ status: 'rejected', reason: 'TRNAMT inválido' })).toBe('—');
   });
 });
 
 describe('formatOfxTransactionDescription', () => {
   it('usa a descrição quando presente', () => {
     expect(formatOfxTransactionDescription({ status: 'imported', description: 'Mercado' })).toBe(
-      'Mercado',
+      'Mercado'
     );
   });
 
@@ -108,9 +106,9 @@ describe('formatOfxTransactionDescription', () => {
 
 describe('formatOfxRejectionReason', () => {
   it('devolve o motivo do server (já em pt-BR)', () => {
-    expect(
-      formatOfxRejectionReason({ status: 'rejected', reason: 'FITID ausente' }),
-    ).toBe('FITID ausente');
+    expect(formatOfxRejectionReason({ status: 'rejected', reason: 'FITID ausente' })).toBe(
+      'FITID ausente'
+    );
   });
 
   it('usa fallback quando o motivo não veio', () => {

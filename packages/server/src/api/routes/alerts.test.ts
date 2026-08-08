@@ -13,7 +13,7 @@ import path from 'path';
 // inside beforeAll, after the env var is set.
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-alerts-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-alerts-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -39,7 +39,7 @@ describe('alerts routes', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/alerts', alertsRouter);
@@ -48,8 +48,12 @@ describe('alerts routes', () => {
     agentA = request.agent(app);
     agentB = request.agent(app);
 
-    await agentA.post('/api/auth/register').send({ email: 'alerts-a@test.com', password: 'password123' });
-    await agentB.post('/api/auth/register').send({ email: 'alerts-b@test.com', password: 'password123' });
+    await agentA
+      .post('/api/auth/register')
+      .send({ email: 'alerts-a@test.com', password: 'password123' });
+    await agentB
+      .post('/api/auth/register')
+      .send({ email: 'alerts-b@test.com', password: 'password123' });
   });
 
   it('returns 401 without session', async () => {
@@ -58,17 +62,23 @@ describe('alerts routes', () => {
   });
 
   it('rejects creation with empty ticker (400)', async () => {
-    const res = await agentA.post('/api/alerts').send({ ticker: '', type: 'PRICE_ABOVE', threshold: 30 });
+    const res = await agentA
+      .post('/api/alerts')
+      .send({ ticker: '', type: 'PRICE_ABOVE', threshold: 30 });
     expect(res.status).toBe(400);
   });
 
   it('rejects creation with invalid type (400)', async () => {
-    const res = await agentA.post('/api/alerts').send({ ticker: 'PETR4', type: 'INVALID', threshold: 30 });
+    const res = await agentA
+      .post('/api/alerts')
+      .send({ ticker: 'PETR4', type: 'INVALID', threshold: 30 });
     expect(res.status).toBe(400);
   });
 
   it('rejects creation with threshold <= 0 (400)', async () => {
-    const res = await agentA.post('/api/alerts').send({ ticker: 'PETR4', type: 'PRICE_ABOVE', threshold: 0 });
+    const res = await agentA
+      .post('/api/alerts')
+      .send({ ticker: 'PETR4', type: 'PRICE_ABOVE', threshold: 0 });
     expect(res.status).toBe(400);
   });
 
@@ -76,7 +86,9 @@ describe('alerts routes', () => {
   // mensagem antiga ("maior que 0"), não a de casas decimais — a checagem de
   // sinal/finitude roda ANTES da de granularidade.
   it('rejects threshold <= 0 with the "maior que 0" message, not the decimals one', async () => {
-    const res = await agentA.post('/api/alerts').send({ ticker: 'PETR4', type: 'PRICE_ABOVE', threshold: -1 });
+    const res = await agentA
+      .post('/api/alerts')
+      .send({ ticker: 'PETR4', type: 'PRICE_ABOVE', threshold: -1 });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/maior que 0/);
     expect(res.body.error).not.toMatch(/casas decimais/);
@@ -108,7 +120,9 @@ describe('alerts routes', () => {
   });
 
   it('creates an alert rule', async () => {
-    const res = await agentA.post('/api/alerts').send({ ticker: 'petr4', type: 'PRICE_ABOVE', threshold: 35.5 });
+    const res = await agentA
+      .post('/api/alerts')
+      .send({ ticker: 'petr4', type: 'PRICE_ABOVE', threshold: 35.5 });
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({ ticker: 'PETR4', type: 'PRICE_ABOVE', threshold: 35.5 });
   });
@@ -126,7 +140,9 @@ describe('alerts routes', () => {
   // operations/T-051) — a criação de A não deve nunca conseguir devolver a linha
   // de outro usuário, mesmo que os ids colidissem por acaso.
   it('the created row returned by POST always belongs to the requesting user', async () => {
-    const resA = await agentA.post('/api/alerts').send({ ticker: 'MGLU3', type: 'PRICE_ABOVE', threshold: 12 });
+    const resA = await agentA
+      .post('/api/alerts')
+      .send({ ticker: 'MGLU3', type: 'PRICE_ABOVE', threshold: 12 });
     expect(resA.status).toBe(201);
 
     const listA = await agentA.get('/api/alerts');
@@ -149,7 +165,9 @@ describe('alerts routes', () => {
   });
 
   it('deletes an alert rule belonging to the user', async () => {
-    const created = await agentA.post('/api/alerts').send({ ticker: 'ITUB4', type: 'CHANGE_PCT', threshold: 5 });
+    const created = await agentA
+      .post('/api/alerts')
+      .send({ ticker: 'ITUB4', type: 'CHANGE_PCT', threshold: 5 });
     const id = created.body.id;
 
     const del = await agentA.delete(`/api/alerts/${id}`);
@@ -160,7 +178,9 @@ describe('alerts routes', () => {
   });
 
   it('returns 404 when deleting another user alert rule', async () => {
-    const created = await agentB.post('/api/alerts').send({ ticker: 'BBAS3', type: 'ALLOCATION_PCT', threshold: 10 });
+    const created = await agentB
+      .post('/api/alerts')
+      .send({ ticker: 'BBAS3', type: 'ALLOCATION_PCT', threshold: 10 });
     const id = created.body.id;
 
     const del = await agentA.delete(`/api/alerts/${id}`);

@@ -8,7 +8,7 @@ import path from 'path';
 
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-subs-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-subs-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -60,7 +60,7 @@ describe('subscriptions routes', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/plans', plansRouter);
@@ -73,14 +73,12 @@ describe('subscriptions routes', () => {
       .send({ email: 'subs-a@test.com', password: 'password123' });
 
     const plans = await db.execute('SELECT id, code FROM plans');
-    monthlyPlanId = Number(
-      plans.rows.find((r) => String(r.code) === 'pro_monthly')!.id,
-    );
+    monthlyPlanId = Number(plans.rows.find((r) => String(r.code) === 'pro_monthly')!.id);
     yearlyPlanId = Number(plans.rows.find((r) => String(r.code) === 'pro_yearly')!.id);
 
     await db.execute(
       `INSERT INTO plans (code, name, description, price_cents, interval, active)
-       VALUES ('legacy_off', 'Legado', '', 500, 'monthly', 0)`,
+       VALUES ('legacy_off', 'Legado', '', 500, 'monthly', 0)`
     );
     const inactive = await db.execute("SELECT id FROM plans WHERE code = 'legacy_off'");
     inactivePlanId = Number(inactive.rows[0].id);
@@ -202,7 +200,7 @@ describe('subscriptions routes', () => {
   it('returns 502 PAYMENT_PROVIDER_ERROR when the provider fails', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: 'boom' }) }),
+      vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: 'boom' }) })
     );
 
     const res = await agentA.post('/api/subscriptions').send({ planId: monthlyPlanId });

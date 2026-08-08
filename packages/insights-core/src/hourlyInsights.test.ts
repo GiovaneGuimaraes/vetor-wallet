@@ -13,7 +13,11 @@ vi.mock('@vetor-wallet/portfolio-core', () => ({
 }));
 
 import { db } from '@vetor-wallet/db';
-import { resolveActiveTickers, getBRTDate, saveSnapshotForDate } from '@vetor-wallet/portfolio-core';
+import {
+  resolveActiveTickers,
+  getBRTDate,
+  saveSnapshotForDate,
+} from '@vetor-wallet/portfolio-core';
 
 const mockExecute = vi.mocked(db.execute);
 const mockResolveActiveTickers = vi.mocked(resolveActiveTickers);
@@ -33,7 +37,7 @@ function mockFetchWithCandles(candles: { date: number; close: number }[]) {
       json: async () => ({
         results: [{ symbol: 'PETR4', historicalDataPrice: candles }],
       }),
-    }),
+    })
   );
 }
 
@@ -44,7 +48,7 @@ function mockFetchError(status: number, body = '') {
       ok: false,
       status,
       text: async () => body,
-    }),
+    })
   );
 }
 
@@ -81,7 +85,11 @@ describe('saveHourlyInsight', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('uses INSERT OR IGNORE to prevent duplicate hourly insights', async () => {
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 0, lastInsertRowid: undefined } as never);
+    mockExecute.mockResolvedValue({
+      rows: [],
+      rowsAffected: 0,
+      lastInsertRowid: undefined,
+    } as never);
 
     await saveHourlyInsight('PETR4', '2024-01-08', 10, 35.5);
 
@@ -90,14 +98,22 @@ describe('saveHourlyInsight', () => {
   });
 
   it('returns false when the insight is a duplicate (rowsAffected === 0)', async () => {
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 0, lastInsertRowid: undefined } as never);
+    mockExecute.mockResolvedValue({
+      rows: [],
+      rowsAffected: 0,
+      lastInsertRowid: undefined,
+    } as never);
 
     const inserted = await saveHourlyInsight('PETR4', '2024-01-08', 10, 35.5);
     expect(inserted).toBe(false);
   });
 
   it('returns true when the insight is new (rowsAffected === 1)', async () => {
-    mockExecute.mockResolvedValue({ rows: [], rowsAffected: 1, lastInsertRowid: BigInt(1) } as never);
+    mockExecute.mockResolvedValue({
+      rows: [],
+      rowsAffected: 1,
+      lastInsertRowid: BigInt(1),
+    } as never);
 
     const inserted = await saveHourlyInsight('VALE3', '2024-01-08', 11, 90.2);
     expect(inserted).toBe(true);
@@ -160,20 +176,26 @@ describe('runHourlyInsightsJob', () => {
     mockResolveActiveTickers.mockResolvedValue(['PETR4', 'VALE3']);
     vi.stubGlobal(
       'fetch',
-      vi.fn()
+      vi
+        .fn()
         .mockRejectedValueOnce(new Error('network error'))
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({
-            results: [{ symbol: 'VALE3', historicalDataPrice: [{ date: JAN08_UTC_TS, close: 90.0 }] }],
+            results: [
+              { symbol: 'VALE3', historicalDataPrice: [{ date: JAN08_UTC_TS, close: 90.0 }] },
+            ],
           }),
-        }),
+        })
     );
 
     const results = await runHourlyInsightsJob(TARGET_DATE);
 
     expect(results).toHaveLength(2);
-    expect(results[0]).toMatchObject({ ticker: 'PETR4', error: expect.stringContaining('network error') });
+    expect(results[0]).toMatchObject({
+      ticker: 'PETR4',
+      error: expect.stringContaining('network error'),
+    });
     expect(results[1]).toMatchObject({ ticker: 'VALE3', processed: 1, saved: 1 });
   });
 

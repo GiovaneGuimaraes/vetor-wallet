@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { getGoals, createGoal, updateGoal, deleteGoal } from '../api';
 import type { Goal } from '@vetor-wallet/shared';
-import { progressPct, progressPctClamped, isDerivedProgress, progressSourceLabel } from './goalsProgress';
+import {
+  progressPct,
+  progressPctClamped,
+  isDerivedProgress,
+  progressSourceLabel,
+} from './goalsProgress';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { BackToHomeLink } from '../components/BackToHomeLink';
 import './layers-savings.css';
@@ -26,7 +31,11 @@ const EMPTY_FORM: FormState = { name: '', target: '', current: '' };
  * (aportes − retiradas vinculados) — nesses casos o campo de edição manual não
  * aparece, porque o server rejeita o PATCH de `current_amount` com 400.
  */
-function GoalCard({ goal, onUpdate, onDelete }: {
+function GoalCard({
+  goal,
+  onUpdate,
+  onDelete,
+}: {
   goal: Goal;
   onUpdate: (id: number, currentAmount: number) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
@@ -213,7 +222,12 @@ export function MetasPage() {
           ) : (
             <div className="vw-goals-list">
               {goals.map((goal) => (
-                <GoalCard key={goal.id} goal={goal} onUpdate={handleUpdate} onDelete={handleDelete} />
+                <GoalCard
+                  key={goal.id}
+                  goal={goal}
+                  onUpdate={handleUpdate}
+                  onDelete={handleDelete}
+                />
               ))}
             </div>
           )}

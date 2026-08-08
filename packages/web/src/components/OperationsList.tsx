@@ -56,7 +56,7 @@ export function OperationsList({ operations, onDelete }: Props) {
   async function handleDelete(op: Operation) {
     if (
       !window.confirm(
-        `Remover operação de ${op.type === 'BUY' ? 'Compra' : 'Venda'} de ${op.ticker} em ${op.date}?`,
+        `Remover operação de ${op.type === 'BUY' ? 'Compra' : 'Venda'} de ${op.ticker} em ${op.date}?`
       )
     )
       return;
@@ -93,8 +93,7 @@ export function OperationsList({ operations, onDelete }: Props) {
       `}</style>
 
       <h2 className="text-sm font-semibold text-ink mb-4">
-        Operações{' '}
-        <span className="font-normal text-dim">({operations.length})</span>
+        Operações <span className="font-normal text-dim">({operations.length})</span>
       </h2>
 
       {deleteError && (
@@ -106,10 +105,7 @@ export function OperationsList({ operations, onDelete }: Props) {
       <div className="overflow-x-auto -mx-5 md:-mx-6">
         <div style={{ minWidth: '560px' }}>
           {/* Header */}
-          <div
-            style={headerBase}
-            className="border-b border-edge/50"
-          >
+          <div style={headerBase} className="border-b border-edge/50">
             <span className={LBL}>Data</span>
             <span className={LBL}>Ticker</span>
             <span className={LBL}>Tipo</span>

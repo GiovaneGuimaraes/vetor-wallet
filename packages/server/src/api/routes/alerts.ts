@@ -20,7 +20,7 @@ router.get(
       args: [userId],
     });
     res.json(result.rows);
-  }),
+  })
 );
 
 router.post(
@@ -37,7 +37,12 @@ router.post(
       res.status(400).json({ error: `type deve ser um de: ${VALID_TYPES.join(', ')}` });
       return;
     }
-    if (threshold === undefined || typeof threshold !== 'number' || !Number.isFinite(threshold) || threshold <= 0) {
+    if (
+      threshold === undefined ||
+      typeof threshold !== 'number' ||
+      !Number.isFinite(threshold) ||
+      threshold <= 0
+    ) {
       res.status(400).json({ error: 'threshold deve ser maior que 0' });
       return;
     }
@@ -62,7 +67,7 @@ router.post(
       args: [Number(newId), userId],
     });
     res.status(201).json(row.rows[0]);
-  }),
+  })
 );
 
 router.delete(
@@ -79,7 +84,7 @@ router.delete(
       return;
     }
     res.status(204).send();
-  }),
+  })
 );
 
 export default router;

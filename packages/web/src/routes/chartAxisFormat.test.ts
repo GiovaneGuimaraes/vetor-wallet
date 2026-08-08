@@ -15,7 +15,9 @@ describe('formatAxisValue', () => {
   });
 
   it('mantém o formato de moeda cheio abaixo de mil', () => {
-    expect(formatAxisValue(823.1)).toBe(new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(823.1));
+    expect(formatAxisValue(823.1)).toBe(
+      new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(823.1)
+    );
   });
 
   it('preserva o sinal negativo antes de "R$" para valores abreviados', () => {

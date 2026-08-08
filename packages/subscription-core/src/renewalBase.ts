@@ -8,7 +8,7 @@ import { parseInstant } from './parseInstant';
  */
 export const renewalBase = (
   nowIso: string,
-  currentPeriodEnd: string | null | undefined,
+  currentPeriodEnd: string | null | undefined
 ): string => {
   if (!currentPeriodEnd) return nowIso;
   return parseInstant(currentPeriodEnd) > parseInstant(nowIso) ? currentPeriodEnd : nowIso;

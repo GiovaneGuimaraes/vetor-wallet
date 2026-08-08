@@ -78,7 +78,7 @@ export type TransferValidation = { error: string; amount: null } | { error: null
 export function validateTransfer(
   amountRaw: string,
   goalIdRaw: string,
-  freeBalance: number,
+  freeBalance: number
 ): TransferValidation {
   if (!goalIdRaw) return { error: 'Escolha a meta que vai receber o valor.', amount: null };
 

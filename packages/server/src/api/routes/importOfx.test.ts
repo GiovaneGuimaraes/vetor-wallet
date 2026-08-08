@@ -11,7 +11,7 @@ import type { OfxImportResult } from '@vetor-wallet/shared';
 // import de '../../db' (o client lê o env no top-level do módulo).
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-import-ofx-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-import-ofx-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -27,7 +27,10 @@ describe('POST /api/import/ofx (T-085)', () => {
   let sgmlLatin1: Buffer;
 
   function postOfx(agent: ReturnType<typeof request.agent>, body: string | Buffer) {
-    return agent.post(OFX_ROUTE).set('Content-Type', 'text/plain').send(body as string);
+    return agent
+      .post(OFX_ROUTE)
+      .set('Content-Type', 'text/plain')
+      .send(body as string);
   }
 
   /**
@@ -63,7 +66,7 @@ describe('POST /api/import/ofx (T-085)', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use(OFX_ROUTE, importOfxRouter);
@@ -100,7 +103,9 @@ describe('POST /api/import/ofx (T-085)', () => {
       ['ITAU00003', 'imported', 'expense', 39.9],
     ]);
 
-    const expenses = await db.execute('SELECT description, category, amount, date, external_id FROM expense_entries ORDER BY id');
+    const expenses = await db.execute(
+      'SELECT description, category, amount, date, external_id FROM expense_entries ORDER BY id'
+    );
     expect(expenses.rows).toHaveLength(2);
     expect(expenses.rows[0].external_id).toBe('ofx:ITAU00001');
     expect(expenses.rows[0].amount).toBe(152.9);
@@ -117,7 +122,9 @@ describe('POST /api/import/ofx (T-085)', () => {
   it('preserva acentuação de arquivo cp1252 (header CHARSET:1252 + bytes latin1)', async () => {
     const res = await postOfx(agentA, sgmlLatin1);
     expect(res.status).toBe(200);
-    const rows = await db.execute("SELECT description FROM expense_entries WHERE external_id = 'ofx:ITAU00001'");
+    const rows = await db.execute(
+      "SELECT description FROM expense_entries WHERE external_id = 'ofx:ITAU00001'"
+    );
     expect(rows.rows[0].description).toBe('SUPERMERCADO AÇAÍ LTDA');
   });
 
@@ -128,7 +135,7 @@ describe('POST /api/import/ofx (T-085)', () => {
     const res = await postOfx(agentA, Buffer.from(utf8Sgml, 'utf8'));
     expect(res.status).toBe(200);
     const rows = await db.execute(
-      "SELECT description, category FROM expense_entries WHERE external_id = 'ofx:ITAU00001'",
+      "SELECT description, category FROM expense_entries WHERE external_id = 'ofx:ITAU00001'"
     );
     expect(rows.rows[0].description).toBe('SUPERMERCADO AÇAÍ LTDA');
     expect(rows.rows[0].category).toBe('supermercado açaí ltda');
@@ -151,14 +158,17 @@ describe('POST /api/import/ofx (T-085)', () => {
   });
 
   it('FITID repetido DENTRO do mesmo arquivo cai como duplicata, não como erro', async () => {
-    const doubled = sgml.replace('</BANKTRANLIST>', `<STMTTRN>
+    const doubled = sgml.replace(
+      '</BANKTRANLIST>',
+      `<STMTTRN>
 <TRNTYPE>DEBIT
 <DTPOSTED>20260703120000[-3:BRT]
 <TRNAMT>-152,90
 <FITID>ITAU00001
 <MEMO>SUPERMERCADO AÇAÍ LTDA
 </STMTTRN>
-</BANKTRANLIST>`);
+</BANKTRANLIST>`
+    );
     const res = await postSgml(agentA, doubled);
     expect(res.body).toMatchObject({ imported: 3, duplicated: 1, rejected: 0 });
     const expenses = await db.execute('SELECT id FROM expense_entries');
@@ -202,7 +212,10 @@ describe('POST /api/import/ofx (T-085)', () => {
   });
 
   it('arquivo que não é OFX responde 400 (documento inteiro, não linha)', async () => {
-    const res = await postOfx(agentA, 'ticker,type,quantity,price,date\nPETR4,BUY,10,30,2026-07-01');
+    const res = await postOfx(
+      agentA,
+      'ticker,type,quantity,price,date\nPETR4,BUY,10,30,2026-07-01'
+    );
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/OFX/);
     const expenses = await db.execute('SELECT id FROM expense_entries');
@@ -216,7 +229,7 @@ describe('POST /api/import/ofx (T-085)', () => {
     expect(resB.body).toMatchObject({ imported: 3, duplicated: 0 });
 
     const rows = await db.execute(
-      "SELECT user_id, COUNT(*) AS n FROM expense_entries WHERE external_id = 'ofx:ITAU00001' GROUP BY user_id",
+      "SELECT user_id, COUNT(*) AS n FROM expense_entries WHERE external_id = 'ofx:ITAU00001' GROUP BY user_id"
     );
     expect(rows.rows).toHaveLength(2);
     expect(rows.rows.every((r) => Number(r.n) === 1)).toBe(true);

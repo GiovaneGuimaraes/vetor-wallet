@@ -16,28 +16,28 @@
 /* (ver web/src/theme.ts para a mecânica de aplicação/persistência).    */
 /* ------------------------------------------------------------------ */
 @theme {
-  --color-canvas:       #fcfcfc;
-  --color-card-1:       #ffffff;
-  --color-card-2:       #fafafa;
-  --color-card:         #ffffff;   /* alias → card-1 */
-  --color-surface:      #f2f2f0;   /* alias → raised */
-  --color-raised:       #f2f2f0;
-  --color-edge:         #ebebe9;
-  --color-ink:          #141414;
-  --color-dim:          #a3a3a0;
-  --color-mid:          #666663;
-  --color-accent:       #141414;   /* accent É o ink (neutro, sem cor) */
-  --color-accent-2:     #000000;
+  --color-canvas: #fcfcfc;
+  --color-card-1: #ffffff;
+  --color-card-2: #fafafa;
+  --color-card: #ffffff; /* alias → card-1 */
+  --color-surface: #f2f2f0; /* alias → raised */
+  --color-raised: #f2f2f0;
+  --color-edge: #ebebe9;
+  --color-ink: #141414;
+  --color-dim: #a3a3a0;
+  --color-mid: #666663;
+  --color-accent: #141414; /* accent É o ink (neutro, sem cor) */
+  --color-accent-2: #000000;
   --color-accent-hover: #000000;
   /* Sentiment — semântico, inalterado entre temas */
-  --color-up:   #10b981;
+  --color-up: #10b981;
   --color-down: #f43f5e;
   --color-warn: #f59e0b;
   /* Benchmarks (T-068) — identidade de SÉRIE, não sentimento: cada linha do
      comparativo do gráfico de evolução tem uma cor fixa, distinta de
      up/down (que já significam alta/baixa da carteira) e de --color-dim (a
      linha de custo). Como up/down/warn, são inalteradas entre temas. */
-  --color-bench-cdi:  #3b82f6;
+  --color-bench-cdi: #3b82f6;
   --color-bench-ibov: #8b5cf6;
 }
 
@@ -49,25 +49,25 @@
 :root {
   color-scheme: light;
 
-  --card-1:      #ffffff;
-  --card-2:      #fafafa;
-  --raised-rgb:  235, 235, 232;
-  --edge-rgb:    180, 180, 175;
-  --accent-rgb:  20, 20, 20;
-  --btn-1:       #171717;
-  --btn-2:       #000000;
-  --btn-ink:     #ffffff;
-  --header-bg:   rgba(252, 252, 252, 0.85);
-  --leather-1:   #f2f2f0;   /* superfície elevada — sem couro/gradiente no tema neutro */
-  --up-rgb:      16, 185, 129;
-  --down-rgb:    244, 63, 94;
-  --warn-rgb:    245, 158, 11;
+  --card-1: #ffffff;
+  --card-2: #fafafa;
+  --raised-rgb: 235, 235, 232;
+  --edge-rgb: 180, 180, 175;
+  --accent-rgb: 20, 20, 20;
+  --btn-1: #171717;
+  --btn-2: #000000;
+  --btn-ink: #ffffff;
+  --header-bg: rgba(252, 252, 252, 0.85);
+  --leather-1: #f2f2f0; /* superfície elevada — sem couro/gradiente no tema neutro */
+  --up-rgb: 16, 185, 129;
+  --down-rgb: 244, 63, 94;
+  --warn-rgb: 245, 158, 11;
 
   /* Formas base (handoff: "Tipografia e formas") */
-  --radius-input:      10px;
-  --radius-card:        16px;
+  --radius-input: 10px;
+  --radius-card: 16px;
   --radius-card-cartao: 20px;
-  --radius-pill:        99px;
+  --radius-pill: 99px;
 }
 
 /* ------------------------------------------------------------------ */
@@ -78,30 +78,30 @@
 html.light {
   color-scheme: light;
 
-  --color-canvas:       #fcfcfc;
-  --color-card-1:       #ffffff;
-  --color-card-2:       #fafafa;
-  --color-card:         #ffffff;
-  --color-surface:      #f2f2f0;
-  --color-raised:       #f2f2f0;
-  --color-edge:         #ebebe9;
-  --color-ink:          #141414;
-  --color-dim:          #a3a3a0;
-  --color-mid:          #666663;
-  --color-accent:       #141414;
-  --color-accent-2:     #000000;
+  --color-canvas: #fcfcfc;
+  --color-card-1: #ffffff;
+  --color-card-2: #fafafa;
+  --color-card: #ffffff;
+  --color-surface: #f2f2f0;
+  --color-raised: #f2f2f0;
+  --color-edge: #ebebe9;
+  --color-ink: #141414;
+  --color-dim: #a3a3a0;
+  --color-mid: #666663;
+  --color-accent: #141414;
+  --color-accent-2: #000000;
   --color-accent-hover: #000000;
 
-  --card-1:     #ffffff;
-  --card-2:     #fafafa;
+  --card-1: #ffffff;
+  --card-2: #fafafa;
   --raised-rgb: 235, 235, 232;
-  --edge-rgb:   180, 180, 175;
+  --edge-rgb: 180, 180, 175;
   --accent-rgb: 20, 20, 20;
-  --btn-1:      #171717;
-  --btn-2:      #000000;
-  --btn-ink:    #ffffff;
-  --header-bg:  rgba(252, 252, 252, 0.85);
-  --leather-1:  #f2f2f0;
+  --btn-1: #171717;
+  --btn-2: #000000;
+  --btn-ink: #ffffff;
+  --header-bg: rgba(252, 252, 252, 0.85);
+  --leather-1: #f2f2f0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -110,30 +110,30 @@ html.light {
 html.dark {
   color-scheme: dark;
 
-  --color-canvas:       #0a0a0a;
-  --color-card-1:       #161616;
-  --color-card-2:       #121212;
-  --color-card:         #161616;
-  --color-surface:      #222222;
-  --color-raised:       #222222;
-  --color-edge:         #282828;
-  --color-ink:          #f5f5f4;
-  --color-dim:          #8b8b88;
-  --color-mid:          #c0c0bd;
-  --color-accent:       #f5f5f4;
-  --color-accent-2:     #ffffff;
+  --color-canvas: #0a0a0a;
+  --color-card-1: #161616;
+  --color-card-2: #121212;
+  --color-card: #161616;
+  --color-surface: #222222;
+  --color-raised: #222222;
+  --color-edge: #282828;
+  --color-ink: #f5f5f4;
+  --color-dim: #8b8b88;
+  --color-mid: #c0c0bd;
+  --color-accent: #f5f5f4;
+  --color-accent-2: #ffffff;
   --color-accent-hover: #ffffff;
 
-  --card-1:     #161616;
-  --card-2:     #121212;
+  --card-1: #161616;
+  --card-2: #121212;
   --raised-rgb: 34, 34, 34;
-  --edge-rgb:   40, 40, 40;
+  --edge-rgb: 40, 40, 40;
   --accent-rgb: 245, 245, 244;
-  --btn-1:      #f5f5f4;
-  --btn-2:      #e2e2e0;
-  --btn-ink:    #111111;
-  --header-bg:  rgba(10, 10, 10, 0.85);
-  --leather-1:  #222222;
+  --btn-1: #f5f5f4;
+  --btn-2: #e2e2e0;
+  --btn-ink: #111111;
+  --header-bg: rgba(10, 10, 10, 0.85);
+  --leather-1: #222222;
 }
 
 /* ------------------------------------------------------------------ */
@@ -286,11 +286,21 @@ textarea:focus {
   animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.rise.d1 { animation-delay: 0.06s; }
-.rise.d2 { animation-delay: 0.12s; }
-.rise.d3 { animation-delay: 0.18s; }
-.rise.d4 { animation-delay: 0.24s; }
-.rise.d5 { animation-delay: 0.30s; }
+.rise.d1 {
+  animation-delay: 0.06s;
+}
+.rise.d2 {
+  animation-delay: 0.12s;
+}
+.rise.d3 {
+  animation-delay: 0.18s;
+}
+.rise.d4 {
+  animation-delay: 0.24s;
+}
+.rise.d5 {
+  animation-delay: 0.3s;
+}
 
 /* ------------------------------------------------------------------ */
 /* Form element theming                                                */

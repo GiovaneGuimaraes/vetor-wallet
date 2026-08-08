@@ -118,7 +118,7 @@ export function brapiRangeForDays(days: number): string {
 export function clampSeriesToWindow(
   series: BenchmarkSeriesPoint[],
   from: string,
-  to: string,
+  to: string
 ): BenchmarkSeriesPoint[] {
   return series.filter((p) => p.date >= from && p.date <= to);
 }
@@ -129,10 +129,10 @@ export function clampSeriesToWindow(
  */
 export async function fetchCdiSeries(
   from: string,
-  to: string,
+  to: string
 ): Promise<BenchmarkSeriesPoint[] | null> {
   const url = `https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json&dataInicial=${isoToBcbDate(
-    from,
+    from
   )}&dataFinal=${isoToBcbDate(to)}`;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
@@ -153,7 +153,7 @@ export async function fetchCdiSeries(
 export async function fetchIbovespaSeries(
   from: string,
   to: string,
-  days: number,
+  days: number
 ): Promise<BenchmarkSeriesPoint[] | null> {
   const token = process.env.BRAPI_TOKEN;
   const tokenParam = token ? `&token=${token}` : '';

@@ -18,7 +18,10 @@ const norm = (s: string) => s.replace(/ /g, ' ');
 
 /** `expires_at`/`current_period_end` chegam no formato SQLite UTC ('YYYY-MM-DD HH:MM:SS'). */
 function sqliteUtc(ms: number): string {
-  return new Date(ms).toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+  return new Date(ms)
+    .toISOString()
+    .replace('T', ' ')
+    .replace(/\.\d+Z$/, '');
 }
 
 function makePlan(overrides: Partial<Plan> = {}): Plan {
@@ -158,15 +161,13 @@ describe('chargeUiState', () => {
   it('PENDING com prazo válido', () => {
     const future = sqliteUtc(now + 60_000);
     expect(chargeUiState(makeCharge({ status: 'PENDING', expires_at: future }), now)).toBe(
-      'awaiting',
+      'awaiting'
     );
   });
 
   it('PENDING com expires_at no passado', () => {
     const past = sqliteUtc(now - 60_000);
-    expect(chargeUiState(makeCharge({ status: 'PENDING', expires_at: past }), now)).toBe(
-      'expired',
-    );
+    expect(chargeUiState(makeCharge({ status: 'PENDING', expires_at: past }), now)).toBe('expired');
   });
 
   it('EXPIRED', () => {
@@ -211,24 +212,27 @@ describe('planBadge', () => {
   });
 
   it('pending', () => {
-    expect(planBadge({ billingEnabled: true, subscription: makeSub({ status: 'pending' }) }, now)).toBe(
-      'pending',
-    );
+    expect(
+      planBadge({ billingEnabled: true, subscription: makeSub({ status: 'pending' }) }, now)
+    ).toBe('pending');
   });
 
   it('expired por status', () => {
-    expect(planBadge({ billingEnabled: true, subscription: makeSub({ status: 'expired' }) }, now)).toBe(
-      'expired',
-    );
+    expect(
+      planBadge({ billingEnabled: true, subscription: makeSub({ status: 'expired' }) }, now)
+    ).toBe('expired');
   });
 
   it('active com período vigente', () => {
     const future = new Date(now + 86_400_000).toISOString();
     expect(
       planBadge(
-        { billingEnabled: true, subscription: makeSub({ status: 'active', current_period_end: future }) },
-        now,
-      ),
+        {
+          billingEnabled: true,
+          subscription: makeSub({ status: 'active', current_period_end: future }),
+        },
+        now
+      )
     ).toBe('active');
   });
 });

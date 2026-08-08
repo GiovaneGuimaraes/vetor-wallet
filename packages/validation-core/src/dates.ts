@@ -48,9 +48,7 @@ export function isValidIsoDate(value: unknown): value is string {
   // usa datas de calendário anteriores ao ano 100.
   const date = new Date(Date.UTC(year, month - 1, day));
   return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
   );
 }
 
@@ -68,11 +66,7 @@ export function isValidIsoDate(value: unknown): value is string {
  * Devolve `null` quando o valor é inválido ou fora da faixa `[1, maxDays]` —
  * a mensagem de erro fica com a rota, que sabe o próprio texto.
  */
-export function parseDaysParam(
-  raw: unknown,
-  defaultDays: number,
-  maxDays: number,
-): number | null {
+export function parseDaysParam(raw: unknown, defaultDays: number, maxDays: number): number | null {
   if (raw === undefined) return defaultDays;
   if (typeof raw !== 'string' || !/^\d+$/.test(raw)) return null;
   const days = Number(raw);

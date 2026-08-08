@@ -13,7 +13,7 @@ import path from 'path';
 // inside beforeAll, after the env var is set.
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-import-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-import-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -42,7 +42,7 @@ describe('import routes — CSV SELL validation', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/import', importRouter);
@@ -50,7 +50,9 @@ describe('import routes — CSV SELL validation', () => {
     app.use(errorHandler);
 
     agentA = request.agent(app);
-    await agentA.post('/api/auth/register').send({ email: 'import-a@test.com', password: 'password123' });
+    await agentA
+      .post('/api/auth/register')
+      .send({ email: 'import-a@test.com', password: 'password123' });
   });
 
   it('rejects only the offending SELL row when it exceeds the position built from prior valid rows in the same file, importing the rest', async () => {

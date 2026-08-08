@@ -32,8 +32,8 @@ export const addInterval = (fromIso: string, interval: PlanInterval): string => 
         day,
         from.getUTCHours(),
         from.getUTCMinutes(),
-        from.getUTCSeconds(),
-      ),
-    ),
+        from.getUTCSeconds()
+      )
+    )
   );
 };

@@ -28,8 +28,7 @@ export type EntryTable = 'income_entries' | 'expense_entries';
 export const MAX_EXTERNAL_ID_LENGTH = 255;
 
 export type ExternalIdValidation =
-  | { ok: true; value: string | null }
-  | { ok: false; error: string };
+  { ok: true; value: string | null } | { ok: false; error: string };
 
 /**
  * Valida o `externalId` opcional do corpo de um POST.
@@ -71,8 +70,7 @@ export interface InsertEntryParams {
 }
 
 export type InsertEntryResult =
-  | { status: 'created'; row: Row | undefined }
-  | { status: 'duplicate'; row: Row | undefined };
+  { status: 'created'; row: Row | undefined } | { status: 'duplicate'; row: Row | undefined };
 
 const COLUMN_RE = /^[a-z_][a-z0-9_]*$/;
 
@@ -94,7 +92,7 @@ const COLUMN_RE = /^[a-z_][a-z0-9_]*$/;
  * a duplicata sem corpo do registro. Sem retry — a próxima importação recria.
  */
 export async function insertEntryWithExternalId(
-  params: InsertEntryParams,
+  params: InsertEntryParams
 ): Promise<InsertEntryResult> {
   const { table, userId, values, externalId } = params;
 

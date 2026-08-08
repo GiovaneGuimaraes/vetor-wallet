@@ -1,4 +1,47 @@
-import type { NewOperation, Operation, PortfolioSummary, PortfolioHistoryResponse, CsvImportResult, AlertRule, NewAlertRule, BenchmarkData, BenchmarkHistoryResponse, User, TickersResponse, QuoteSnapshot, Wallet, NewWallet, IncomeSource, NewIncomeSource, IncomeSourceUpdate, IncomeEntry, NewIncomeEntry, IncomeEntryUpdate, FixedExpense, NewFixedExpense, FixedExpenseUpdate, ExpenseEntry, NewExpenseEntry, ExpenseEntryUpdate, ExpenseMonthSummaryResponse, RecurringExpense, SavingsEntry, NewSavingsEntry, SavingsEntryUpdate, SavingsSummary, SavingsTransferRequest, SavingsTransferResult, Goal, NewGoal, GoalUpdate, Plan, MySubscriptionResponse, CreateSubscriptionResponse, PixCharge, OfxImportResult } from '@vetor-wallet/shared';
+import type {
+  NewOperation,
+  Operation,
+  PortfolioSummary,
+  PortfolioHistoryResponse,
+  CsvImportResult,
+  AlertRule,
+  NewAlertRule,
+  BenchmarkData,
+  BenchmarkHistoryResponse,
+  User,
+  TickersResponse,
+  QuoteSnapshot,
+  Wallet,
+  NewWallet,
+  IncomeSource,
+  NewIncomeSource,
+  IncomeSourceUpdate,
+  IncomeEntry,
+  NewIncomeEntry,
+  IncomeEntryUpdate,
+  FixedExpense,
+  NewFixedExpense,
+  FixedExpenseUpdate,
+  ExpenseEntry,
+  NewExpenseEntry,
+  ExpenseEntryUpdate,
+  ExpenseMonthSummaryResponse,
+  RecurringExpense,
+  SavingsEntry,
+  NewSavingsEntry,
+  SavingsEntryUpdate,
+  SavingsSummary,
+  SavingsTransferRequest,
+  SavingsTransferResult,
+  Goal,
+  NewGoal,
+  GoalUpdate,
+  Plan,
+  MySubscriptionResponse,
+  CreateSubscriptionResponse,
+  PixCharge,
+  OfxImportResult,
+} from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -68,7 +111,10 @@ export async function logout(): Promise<void> {
  * Edição parcial do perfil (T-093, endpoint da T-092): só `name`/`phone`.
  * Mesmo padrão dos demais PATCH — corpo vazio → 400; `null` limpa o campo.
  */
-export async function updateMe(update: { name?: string | null; phone?: string | null }): Promise<User> {
+export async function updateMe(update: {
+  name?: string | null;
+  phone?: string | null;
+}): Promise<User> {
   const res = await apiFetch('/api/auth/me', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -239,7 +285,11 @@ export async function getBenchmarkHistory(days?: number): Promise<BenchmarkHisto
   return res.json();
 }
 
-export async function getSnapshots(ticker: string, from?: string, to?: string): Promise<QuoteSnapshot[]> {
+export async function getSnapshots(
+  ticker: string,
+  from?: string,
+  to?: string
+): Promise<QuoteSnapshot[]> {
   const params = new URLSearchParams();
   if (from) params.set('from', from);
   if (to) params.set('to', to);
@@ -287,7 +337,7 @@ export async function createIncomeSource(income: NewIncomeSource): Promise<Incom
 /** Edição parcial (T-031): só os campos informados são alterados. */
 export async function updateIncomeSource(
   id: number,
-  update: IncomeSourceUpdate,
+  update: IncomeSourceUpdate
 ): Promise<IncomeSource> {
   const res = await apiFetch(`/api/income/${id}`, {
     method: 'PATCH',
@@ -313,7 +363,7 @@ export async function deleteIncomeSource(id: number): Promise<void> {
  * server usa o mês corrente e devolve qual mês respondeu.
  */
 export async function getIncomeEntries(
-  month?: string,
+  month?: string
 ): Promise<{ month: string; entries: IncomeEntry[] }> {
   const qs = month ? `?month=${encodeURIComponent(month)}` : '';
   const res = await apiFetch(`/api/income-entries${qs}`);
@@ -340,7 +390,7 @@ export async function createIncomeEntry(entry: NewIncomeEntry): Promise<IncomeEn
  */
 export async function updateIncomeEntry(
   id: number,
-  update: IncomeEntryUpdate,
+  update: IncomeEntryUpdate
 ): Promise<IncomeEntry> {
   const res = await apiFetch(`/api/income-entries/${id}`, {
     method: 'PATCH',
@@ -383,7 +433,7 @@ export async function createFixedExpense(expense: NewFixedExpense): Promise<Fixe
 /** Edição parcial (T-031). `category` volta normalizada pelo server (T-028). */
 export async function updateFixedExpense(
   id: number,
-  update: FixedExpenseUpdate,
+  update: FixedExpenseUpdate
 ): Promise<FixedExpense> {
   const res = await apiFetch(`/api/expenses/${id}`, {
     method: 'PATCH',
@@ -409,7 +459,7 @@ export async function deleteFixedExpense(id: number): Promise<void> {
  * usa o mês corrente e devolve qual mês respondeu.
  */
 export async function getExpenseEntries(
-  month?: string,
+  month?: string
 ): Promise<{ month: string; entries: ExpenseEntry[] }> {
   const qs = month ? `?month=${encodeURIComponent(month)}` : '';
   const res = await apiFetch(`/api/expense-entries${qs}`);
@@ -457,7 +507,7 @@ export async function importOfx(fileBytes: ArrayBuffer): Promise<OfxImportResult
  */
 export async function updateExpenseEntry(
   id: number,
-  update: ExpenseEntryUpdate,
+  update: ExpenseEntryUpdate
 ): Promise<ExpenseEntry> {
   const res = await apiFetch(`/api/expense-entries/${id}`, {
     method: 'PATCH',
@@ -486,7 +536,7 @@ export async function deleteExpenseEntry(id: number): Promise<void> {
  */
 export async function getExpenseEntriesSummary(
   months?: number,
-  endMonth?: string,
+  endMonth?: string
 ): Promise<ExpenseMonthSummaryResponse> {
   const params = new URLSearchParams();
   if (months !== undefined) params.set('months', String(months));
@@ -547,7 +597,7 @@ export async function createSavingsEntry(entry: NewSavingsEntry): Promise<Saving
  */
 export async function updateSavingsEntry(
   id: number,
-  update: SavingsEntryUpdate,
+  update: SavingsEntryUpdate
 ): Promise<SavingsEntry> {
   const res = await apiFetch(`/api/savings/${id}`, {
     method: 'PATCH',
@@ -567,7 +617,7 @@ export async function updateSavingsEntry(
  * e o progresso da meta sobe. Responde 400 quando o valor excede o saldo livre.
  */
 export async function transferSavingsToGoal(
-  transfer: SavingsTransferRequest,
+  transfer: SavingsTransferRequest
 ): Promise<SavingsTransferResult> {
   const res = await apiFetch('/api/savings/transfer-to-goal', {
     method: 'POST',
@@ -661,7 +711,9 @@ export async function createSubscription(planId: number): Promise<CreateSubscrip
 }
 
 /** Polling do pagamento; `providerUnavailable` sinaliza blip do provedor (ver billing.md). */
-export async function getPixCharge(id: number): Promise<PixCharge & { providerUnavailable?: boolean }> {
+export async function getPixCharge(
+  id: number
+): Promise<PixCharge & { providerUnavailable?: boolean }> {
   const res = await apiFetch(`/api/pix-charges/${id}`);
   if (!res.ok) throw new Error('Falha ao consultar a cobrança');
   return res.json();

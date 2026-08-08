@@ -19,23 +19,20 @@ describe('alignBenchmarkSeries', () => {
   it('faz forward-fill dos buracos internos (fim de semana/feriado)', () => {
     const aligned = alignBenchmarkSeries(
       [bench('2026-01-02', 100), bench('2026-01-05', 110)],
-      ['2026-01-02', '2026-01-03', '2026-01-04', '2026-01-05'],
+      ['2026-01-02', '2026-01-03', '2026-01-04', '2026-01-05']
     );
     expect(aligned).toEqual([100, 100, 100, 110]);
   });
 
   it('estende o último valor conhecido até o fim da janela', () => {
-    const aligned = alignBenchmarkSeries([bench('2026-01-02', 100)], [
-      '2026-01-02',
-      '2026-01-03',
-    ]);
+    const aligned = alignBenchmarkSeries([bench('2026-01-02', 100)], ['2026-01-02', '2026-01-03']);
     expect(aligned).toEqual([100, 100]);
   });
 
   it('deixa null nas datas anteriores ao primeiro ponto do benchmark (sem back-fill)', () => {
     const aligned = alignBenchmarkSeries(
       [bench('2026-01-03', 100)],
-      ['2026-01-01', '2026-01-02', '2026-01-03'],
+      ['2026-01-01', '2026-01-02', '2026-01-03']
     );
     expect(aligned).toEqual([null, null, 100]);
   });
@@ -43,7 +40,7 @@ describe('alignBenchmarkSeries', () => {
   it('ordena a série de entrada e ignora valores não finitos', () => {
     const aligned = alignBenchmarkSeries(
       [bench('2026-01-05', 110), bench('2026-01-02', 100), bench('2026-01-03', Number.NaN)],
-      ['2026-01-02', '2026-01-03', '2026-01-05'],
+      ['2026-01-02', '2026-01-03', '2026-01-05']
     );
     expect(aligned).toEqual([100, 100, 110]);
   });
@@ -93,7 +90,7 @@ describe('buildBenchmarkLine', () => {
   it('compõe alinhamento + rebase em uma linha em reais', () => {
     const line = buildBenchmarkLine(
       [bench('2026-01-02', 100), bench('2026-01-05', 102)],
-      points,
+      points
     ) as number[];
     expect(line[0]).toBe(1000);
     expect(line[1]).toBe(1000); // forward-fill do dia sem dado

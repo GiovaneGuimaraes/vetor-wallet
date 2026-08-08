@@ -92,7 +92,8 @@ async function handler(req: Request, res: Response): Promise<void> {
 
   // Idempotência: o UNIQUE de `event_id` é a trava. Reentrega do mesmo evento
   // não chega a chamar a ativação. O fallback de id cobre payloads sem `id`.
-  const eventId = typeof payload.id === 'string' && payload.id ? payload.id : `${event}:${chargeId}`;
+  const eventId =
+    typeof payload.id === 'string' && payload.id ? payload.id : `${event}:${chargeId}`;
   const inserted = await db.execute({
     sql: `INSERT OR IGNORE INTO billing_webhook_events (event_id, event_type, charge_id)
           VALUES (?, ?, ?)`,

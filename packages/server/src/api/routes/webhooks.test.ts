@@ -8,7 +8,7 @@ import path from 'path';
 
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-webhooks-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-webhooks-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -45,13 +45,13 @@ describe('abacatepay webhook route', () => {
       args: ['webhook@test.com', 'hash'],
     });
     userId = Number(
-      (await db.execute("SELECT id FROM users WHERE email = 'webhook@test.com'")).rows[0].id,
+      (await db.execute("SELECT id FROM users WHERE email = 'webhook@test.com'")).rows[0].id
     );
     planId = Number(
-      (await db.execute("SELECT id FROM plans WHERE code = 'pro_monthly'")).rows[0].id,
+      (await db.execute("SELECT id FROM plans WHERE code = 'pro_monthly'")).rows[0].id
     );
     yearlyPlanId = Number(
-      (await db.execute("SELECT id FROM plans WHERE code = 'pro_yearly'")).rows[0].id,
+      (await db.execute("SELECT id FROM plans WHERE code = 'pro_yearly'")).rows[0].id
     );
   });
 
@@ -105,9 +105,7 @@ describe('abacatepay webhook route', () => {
       args: [userId],
     });
     expect(String(sub.rows[0].status)).toBe('active');
-    expect(String(sub.rows[0].current_period_end)).toMatch(
-      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
-    );
+    expect(String(sub.rows[0].current_period_end)).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
 
     const charge = await db.execute({
       sql: 'SELECT status, paid_at FROM pix_charges WHERE abacate_charge_id = ?',
@@ -161,7 +159,7 @@ describe('abacatepay webhook route', () => {
       args: [userId],
     });
     expect(String(second.rows[0].current_period_end)).toBe(
-      String(first.rows[0].current_period_end),
+      String(first.rows[0].current_period_end)
     );
     expect((await db.execute('SELECT * FROM billing_webhook_events')).rows).toHaveLength(1);
   });
@@ -270,7 +268,7 @@ describe('abacatepay webhook route', () => {
     });
     const otherUserId = Number(
       (await db.execute({ sql: 'SELECT id FROM users WHERE email = ?', args: [otherUserEmail] }))
-        .rows[0].id,
+        .rows[0].id
     );
 
     await db.execute({
@@ -297,10 +295,12 @@ describe('abacatepay webhook route', () => {
     });
     expect(String(sub.rows[0].current_period_end)).toBe('2099-02-15 00:00:00');
     expect(
-      (await db.execute({
-        sql: 'SELECT * FROM subscriptions WHERE user_id = ?',
-        args: [otherUserId],
-      })).rows,
+      (
+        await db.execute({
+          sql: 'SELECT * FROM subscriptions WHERE user_id = ?',
+          args: [otherUserId],
+        })
+      ).rows
     ).toHaveLength(0);
   });
 });

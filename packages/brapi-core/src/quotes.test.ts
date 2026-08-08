@@ -9,7 +9,7 @@ describe('fetchQuotes', () => {
   it('returns an empty map and failed=true (prices null upstream) when the request times out', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockRejectedValue(new DOMException('The operation was aborted.', 'TimeoutError')),
+      vi.fn().mockRejectedValue(new DOMException('The operation was aborted.', 'TimeoutError'))
     );
 
     const { quotes, failed } = await fetchQuotes(['PETR4']);
@@ -30,7 +30,7 @@ describe('fetchQuotes', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({ signal: expect.any(Object) }),
+      expect.objectContaining({ signal: expect.any(Object) })
     );
   });
 
@@ -58,7 +58,7 @@ describe('fetchQuotes', () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ results: [{ symbol: 'PETR4', regularMarketPrice: 30 }] }),
-      }),
+      })
     );
 
     const { quotes, failed } = await fetchQuotes(['PETR4']);

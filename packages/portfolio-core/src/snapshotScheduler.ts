@@ -35,7 +35,7 @@ export interface SnapshotSchedulerHandle {
  */
 export function startSnapshotScheduler(
   intervalMs: number,
-  runner: () => Promise<void>,
+  runner: () => Promise<void>
 ): SnapshotSchedulerHandle {
   const timer = setInterval(() => {
     Promise.resolve()

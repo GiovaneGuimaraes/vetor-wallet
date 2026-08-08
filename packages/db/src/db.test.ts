@@ -7,11 +7,11 @@ import path from 'path';
 // dinamicamente dentro do beforeAll (mesmo padrão dos testes de rota).
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-db-migration-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-db-migration-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
-type Db = typeof import('./index')['db'];
+type Db = (typeof import('./index'))['db'];
 
 /**
  * Migração de normalização de categoria (T-028): dados gravados antes da
@@ -136,7 +136,7 @@ describe('initDb — migração de normalização de categorias', () => {
   it('roda de novo sem erro e sem alterar mais nada (idempotente)', async () => {
     const snapshot = async () => {
       const budgets = await db.execute(
-        'SELECT id, user_id, category, amount FROM category_budgets ORDER BY id',
+        'SELECT id, user_id, category, amount FROM category_budgets ORDER BY id'
       );
       const fixed = await db.execute('SELECT id, category FROM fixed_expenses ORDER BY id');
       const entries = await db.execute('SELECT id, category FROM expense_entries ORDER BY id');

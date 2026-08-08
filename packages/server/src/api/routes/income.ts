@@ -22,7 +22,7 @@ router.get(
       args: [userId],
     });
     res.json(result.rows);
-  }),
+  })
 );
 
 router.post(
@@ -60,7 +60,7 @@ router.post(
       args: [Number(newId), userId],
     });
     res.status(201).json(row.rows[0]);
-  }),
+  })
 );
 
 // T-031: edição parcial, espelhando o padrão de PATCH /api/goals/:id.
@@ -132,7 +132,7 @@ router.patch(
       args: [id, userId],
     });
     res.json(row.rows[0]);
-  }),
+  })
 );
 
 router.delete(
@@ -149,7 +149,7 @@ router.delete(
       return;
     }
     res.status(204).send();
-  }),
+  })
 );
 
 export default router;

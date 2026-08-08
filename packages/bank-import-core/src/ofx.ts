@@ -1,4 +1,8 @@
-import { isValidIsoDate, isValidMoneyAmount, normalizeCategory } from '@vetor-wallet/validation-core';
+import {
+  isValidIsoDate,
+  isValidMoneyAmount,
+  normalizeCategory,
+} from '@vetor-wallet/validation-core';
 import { MAX_EXTERNAL_ID_LENGTH } from './externalId';
 
 /**
@@ -41,8 +45,7 @@ export interface RawOfxTransaction {
 }
 
 export type OfxParseResult =
-  | { ok: true; transactions: RawOfxTransaction[] }
-  | { ok: false; error: string };
+  { ok: true; transactions: RawOfxTransaction[] } | { ok: false; error: string };
 
 const HEADER_PEEK_BYTES = 512;
 
@@ -79,9 +82,10 @@ const ENTITIES: Record<string, string> = {
 export function decodeEntities(value: string): string {
   return value.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (match, body: string) => {
     if (body.startsWith('#')) {
-      const code = body[1] === 'x' || body[1] === 'X'
-        ? Number.parseInt(body.slice(2), 16)
-        : Number.parseInt(body.slice(1), 10);
+      const code =
+        body[1] === 'x' || body[1] === 'X'
+          ? Number.parseInt(body.slice(2), 16)
+          : Number.parseInt(body.slice(1), 10);
       return Number.isFinite(code) && code > 0 && code <= 0x10ffff
         ? String.fromCodePoint(code)
         : match;
@@ -189,8 +193,7 @@ export interface MappedOfxTransaction {
 }
 
 export type OfxMapResult =
-  | { ok: true; transaction: MappedOfxTransaction }
-  | { ok: false; reason: string };
+  { ok: true; transaction: MappedOfxTransaction } | { ok: false; reason: string };
 
 /**
  * Valida e converte uma transação crua no lançamento a inserir.
@@ -233,7 +236,9 @@ export function mapOfxTransaction(raw: RawOfxTransaction): OfxMapResult {
   // (T-028), para que o mesmo estabelecimento caia numa categoria só. Sem
   // classificação inteligente (fora de escopo): a categoria é o próprio memo
   // normalizado, e cai em 'outros' quando não há memo/name.
-  const category = memo ? normalizeCategory(memo).slice(0, MAX_OFX_DESCRIPTION_LENGTH) : DEFAULT_OFX_CATEGORY;
+  const category = memo
+    ? normalizeCategory(memo).slice(0, MAX_OFX_DESCRIPTION_LENGTH)
+    : DEFAULT_OFX_CATEGORY;
 
   return {
     ok: true,

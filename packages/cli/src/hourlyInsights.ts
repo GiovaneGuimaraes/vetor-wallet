@@ -20,7 +20,9 @@ async function main(): Promise<void> {
 
   await initDb();
 
-  console.log(`[cli] Starting hourly insights job${targetDate ? ` for ${targetDate}` : ' (yesterday)'}...`);
+  console.log(
+    `[cli] Starting hourly insights job${targetDate ? ` for ${targetDate}` : ' (yesterday)'}...`
+  );
 
   const results = await runHourlyInsightsJob(targetDate);
 
@@ -42,15 +44,17 @@ async function main(): Promise<void> {
       totalProcessed += r.processed;
       totalSaved += r.saved;
       totalDuplicates += r.duplicates;
-      console.log(`  [OK]   ${r.ticker}: ${r.processed} processed, ${r.saved} saved, ${r.duplicates} duplicate(s)`);
+      console.log(
+        `  [OK]   ${r.ticker}: ${r.processed} processed, ${r.saved} saved, ${r.duplicates} duplicate(s)`
+      );
     }
   }
 
   const succeeded = results.length - failures;
   console.log(
     `\n[cli] Summary — ${results.length} ticker(s): ` +
-    `${succeeded} succeeded, ${failures} failed | ` +
-    `${totalSaved} saved, ${totalDuplicates} duplicate(s), ${totalProcessed} processed`,
+      `${succeeded} succeeded, ${failures} failed | ` +
+      `${totalSaved} saved, ${totalDuplicates} duplicate(s), ${totalProcessed} processed`
   );
 
   process.exit(failures === results.length ? 1 : 0);

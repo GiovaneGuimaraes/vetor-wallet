@@ -1,7 +1,17 @@
 import { useState, type PointerEvent } from 'react';
 import type { PortfolioHistoryPoint } from '@vetor-wallet/shared';
-import { buildAreaPath, buildLinePath, pickTicks, scaleLinear, type ChartPoint } from '../routes/chartGeometry';
-import { buildHistoryIndexScale, computeHistoryDomain, isHistoryDown } from '../routes/historyChart';
+import {
+  buildAreaPath,
+  buildLinePath,
+  pickTicks,
+  scaleLinear,
+  type ChartPoint,
+} from '../routes/chartGeometry';
+import {
+  buildHistoryIndexScale,
+  computeHistoryDomain,
+  isHistoryDown,
+} from '../routes/historyChart';
 import { collectLineValues, splitSegments, type AlignedSeries } from '../routes/benchmarkSeries';
 import { formatDayMonth } from '../routes/expenseMonth';
 import { formatAxisValue } from '../routes/chartAxisFormat';
@@ -79,7 +89,7 @@ export function HistoryChart({ points, cdiLine, ibovLine }: HistoryChartProps) {
   function benchmarkSegments(line: AlignedSeries | null): ChartPoint[][] {
     if (line === null) return [];
     const projected: (ChartPoint | null)[] = line.map((v, i) =>
-      v === null ? null : { x: xScale(i), y: yScale(v) },
+      v === null ? null : { x: xScale(i), y: yScale(v) }
     );
     return splitSegments(projected).filter((segment) => segment.length >= 2);
   }
@@ -98,7 +108,7 @@ export function HistoryChart({ points, cdiLine, ibovLine }: HistoryChartProps) {
 
   const ticks = pickTicks(
     points.map((p, i) => ({ ...p, index: i })),
-    TICK_COUNT,
+    TICK_COUNT
   ).map((tick) => ({
     ...tick,
     x: xScale(tick.index),
@@ -116,9 +126,9 @@ export function HistoryChart({ points, cdiLine, ibovLine }: HistoryChartProps) {
     .filter((part): part is string => part !== null)
     .join('. ');
   const description = `Evolução da carteira de ${formatDayMonth(first.date)} (${fmtCur.format(
-    first.value,
+    first.value
   )}) a ${formatDayMonth(last.date)} (${fmtCur.format(last.value)}). Custo de aquisição: ${fmtCur.format(
-    last.invested,
+    last.invested
   )}.${
     benchmarkDescription
       ? ` Mesmo valor inicial aplicado nos benchmarks ao fim do período — ${benchmarkDescription}.`
@@ -150,7 +160,7 @@ export function HistoryChart({ points, cdiLine, ibovLine }: HistoryChartProps) {
           valuePoints[hoverIndex as number].x,
           valuePoints[hoverIndex as number].y,
           VIEW_WIDTH,
-          tooltipWidth,
+          tooltipWidth
         )
       : null;
 
@@ -260,7 +270,13 @@ export function HistoryChart({ points, cdiLine, ibovLine }: HistoryChartProps) {
           return (
             <g key={`tick-${tick.date}`}>
               <circle cx={tick.x} cy={tick.y} r={2.5} fill={lineColor} />
-              <text x={tick.x} y={valueLabelY} textAnchor={anchor} fontSize={9} fill="var(--color-dim)">
+              <text
+                x={tick.x}
+                y={valueLabelY}
+                textAnchor={anchor}
+                fontSize={9}
+                fill="var(--color-dim)"
+              >
                 {formatAxisValue(tick.value)}
               </text>
               <text
@@ -288,7 +304,12 @@ export function HistoryChart({ points, cdiLine, ibovLine }: HistoryChartProps) {
               strokeDasharray="2 2"
               vectorEffect="non-scaling-stroke"
             />
-            <circle cx={valuePoints[hoverIndex as number].x} cy={valuePoints[hoverIndex as number].y} r={3.5} fill={lineColor} />
+            <circle
+              cx={valuePoints[hoverIndex as number].x}
+              cy={valuePoints[hoverIndex as number].y}
+              r={3.5}
+              fill={lineColor}
+            />
             <foreignObject
               x={tooltip.anchor === 'end' ? tooltip.x - tooltipWidth : tooltip.x}
               y={Math.max(tooltip.y - tooltipHeight, 0)}
@@ -299,7 +320,11 @@ export function HistoryChart({ points, cdiLine, ibovLine }: HistoryChartProps) {
                 <div className="vw-chart-tooltip-date">{formatDayMonth(hoverPoint.date)}</div>
                 <div className="vw-chart-tooltip-value">{fmtCur.format(hoverPoint.value)}</div>
                 {hoverRows.map((row) => (
-                  <div key={row.label} className="vw-chart-tooltip-row" style={{ color: row.color }}>
+                  <div
+                    key={row.label}
+                    className="vw-chart-tooltip-row"
+                    style={{ color: row.color }}
+                  >
                     {row.label} {fmtCur.format(row.value)}
                   </div>
                 ))}

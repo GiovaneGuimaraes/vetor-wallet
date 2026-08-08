@@ -148,7 +148,7 @@ describe('abacatePayRequest', () => {
 
     test('HTTP 200 com `error` preenchido é FALHA (checar res.ok não basta)', async () => {
       fetchMock.mockResolvedValue(
-        rawResponse({ data: null, error: 'saldo insuficiente', success: false }, 200),
+        rawResponse({ data: null, error: 'saldo insuficiente', success: false }, 200)
       );
 
       const err = await abacatePayRequest('/x', { method: 'GET' }).catch((e) => e);
@@ -162,7 +162,7 @@ describe('abacatePayRequest', () => {
       fetchMock.mockResolvedValue(rawResponse({ data: null, error: null }, 200));
 
       await expect(abacatePayRequest('/x', { method: 'GET' })).rejects.toBeInstanceOf(
-        AbacatePayError,
+        AbacatePayError
       );
     });
 
@@ -186,7 +186,7 @@ describe('abacatePayRequest', () => {
       fetchMock.mockResolvedValue(rawResponse(null, 200));
 
       await expect(abacatePayRequest('/x', { method: 'GET' })).rejects.toBeInstanceOf(
-        AbacatePayError,
+        AbacatePayError
       );
     });
   });

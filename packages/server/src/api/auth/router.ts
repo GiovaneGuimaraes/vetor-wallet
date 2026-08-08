@@ -50,7 +50,7 @@ router.post(
       created_at: user.created_at,
       roles: user.roles,
     });
-  }),
+  })
 );
 
 router.post(
@@ -83,7 +83,7 @@ router.post(
       created_at: user.created_at,
       roles: user.roles,
     });
-  }),
+  })
 );
 
 router.post('/logout', (req: Request, res: Response) => {
@@ -118,7 +118,7 @@ router.get(
       created_at: row.created_at,
       roles: parseRoles(row.roles),
     });
-  }),
+  })
 );
 
 router.patch(
@@ -172,7 +172,7 @@ router.patch(
       created_at: user.created_at,
       roles: user.roles,
     });
-  }),
+  })
 );
 
 // T-094: troca de senha na page /conta. Mensagem genérica na senha atual
@@ -217,7 +217,7 @@ router.post(
 
     await updateUserPassword(user.id, newPassword);
     res.status(204).send();
-  }),
+  })
 );
 
 export default router;

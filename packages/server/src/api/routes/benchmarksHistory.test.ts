@@ -10,7 +10,7 @@ import path from 'path';
 // dinâmico de '../../db' (mesmo padrão dos outros testes de rota).
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-benchmarks-history-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-benchmarks-history-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -40,7 +40,7 @@ describe('GET /api/benchmarks/history (T-068)', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/benchmarks', benchmarksRouter);
@@ -93,9 +93,7 @@ describe('GET /api/benchmarks/history (T-068)', () => {
       const response = {
         results: [
           {
-            historicalDataPrice: [
-              { date: todayTs, close: 130000 },
-            ],
+            historicalDataPrice: [{ date: todayTs, close: 130000 }],
           },
         ],
       };

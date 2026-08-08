@@ -175,13 +175,13 @@ describe('isPriceSeriesDown', () => {
 
   it('true quando o último preço é menor que o primeiro', () => {
     expect(
-      isPriceSeriesDown([snap(10, '2026-01-01 00:00:00'), snap(8, '2026-01-02 00:00:00')]),
+      isPriceSeriesDown([snap(10, '2026-01-01 00:00:00'), snap(8, '2026-01-02 00:00:00')])
     ).toBe(true);
   });
 
   it('false quando o último preço é igual ou maior', () => {
     expect(
-      isPriceSeriesDown([snap(10, '2026-01-01 00:00:00'), snap(10, '2026-01-02 00:00:00')]),
+      isPriceSeriesDown([snap(10, '2026-01-01 00:00:00'), snap(10, '2026-01-02 00:00:00')])
     ).toBe(false);
   });
 });

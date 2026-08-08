@@ -24,7 +24,7 @@ describe('getActivePlan', () => {
     const result = await getActivePlan({ db, planId: 1 });
 
     expect(db.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ sql: expect.any(String), args: [1] }),
+      expect.objectContaining({ sql: expect.any(String), args: [1] })
     );
     expect(db.execute.mock.calls[0][0].sql).toMatchSnapshot();
     expect(result).toEqual(planRow);

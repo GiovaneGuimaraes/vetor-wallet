@@ -8,7 +8,12 @@
 
 import PQueue from 'p-queue';
 import { db } from '@vetor-wallet/db';
-import { resolveActiveTickers, getBRTDate, saveSnapshotForDate, withRetry } from '@vetor-wallet/portfolio-core';
+import {
+  resolveActiveTickers,
+  getBRTDate,
+  saveSnapshotForDate,
+  withRetry,
+} from '@vetor-wallet/portfolio-core';
 
 const BRAPI_BASE = 'https://brapi.dev/api/quote';
 
@@ -49,7 +54,7 @@ export async function saveHourlyInsight(
   ticker: string,
   quoteDate: string,
   hour: number,
-  price: number,
+  price: number
 ): Promise<boolean> {
   const result = await db.execute({
     sql: `INSERT OR IGNORE INTO hourly_quote_insights (ticker, quote_date, hour, price) VALUES (?, ?, ?, ?)`,
@@ -105,7 +110,7 @@ export async function runHourlyInsightsJob(targetDate?: string): Promise<Insight
   console.log(`[hourly-insights] Processing ${tickers.length} ticker(s) for ${date}`);
 
   const results = await Promise.all(
-    tickers.map((ticker) => queue.add(() => processTicker(ticker, date))),
+    tickers.map((ticker) => queue.add(() => processTicker(ticker, date)))
   );
 
   return results.filter((r): r is InsightJobResult => r !== undefined);

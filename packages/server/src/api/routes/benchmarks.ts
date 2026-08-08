@@ -53,7 +53,7 @@ router.get(
     };
 
     res.json(result);
-  }),
+  })
 );
 
 /**
@@ -92,7 +92,7 @@ router.get(
 
     const result: BenchmarkHistoryResponse = { period: { from, to }, cdi, ibovespa };
     res.json(result);
-  }),
+  })
 );
 
 export default router;

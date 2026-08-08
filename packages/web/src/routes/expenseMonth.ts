@@ -71,7 +71,7 @@ export interface MonthExpenseTotals {
  */
 export function computeMonthTotals(
   fixedExpenses: FixedExpense[],
-  entries: ExpenseEntry[],
+  entries: ExpenseEntry[]
 ): MonthExpenseTotals {
   const fixed = fixedExpenses.reduce((acc, e) => acc + e.amount, 0);
   const variable = entries.reduce((acc, e) => acc + e.amount, 0);
@@ -103,7 +103,7 @@ export function buildMonthlyHistory(
   monthsCount: number,
   todayMonthKey: string,
   summary: ExpenseMonthSummaryItem[],
-  fixedTotal: number,
+  fixedTotal: number
 ): MonthHistoryRow[] {
   const variableByMonth = new Map(summary.map((item) => [item.month, item.total]));
   const rows: MonthHistoryRow[] = [];

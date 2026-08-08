@@ -56,7 +56,13 @@ export function OperationForm({ onSubmit }: Props) {
     if (!date) return setError('Informe a data');
     if (date > today) return setError('Data não pode ser futura');
 
-    const op: NewOperation = { ticker: ticker.trim().toUpperCase(), type, quantity: qty, price: prc, date };
+    const op: NewOperation = {
+      ticker: ticker.trim().toUpperCase(),
+      type,
+      quantity: qty,
+      price: prc,
+      date,
+    };
 
     if (tickerIsKnown === false) {
       doSubmitRef.current = () => doSubmit(op);
@@ -86,12 +92,16 @@ export function OperationForm({ onSubmit }: Props) {
       {showUnknownWarning && (
         <div className="mb-4 text-sm bg-warn/10 border border-warn/30 rounded-lg px-3 py-2.5">
           <p className="text-ink mb-2">
-            <span className="font-semibold">{ticker}</span> não está na lista de ativos conhecidos da brapi.dev. Deseja registrar mesmo assim?
+            <span className="font-semibold">{ticker}</span> não está na lista de ativos conhecidos
+            da brapi.dev. Deseja registrar mesmo assim?
           </p>
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => { setShowUnknownWarning(false); doSubmitRef.current?.(); }}
+              onClick={() => {
+                setShowUnknownWarning(false);
+                doSubmitRef.current?.();
+              }}
               className="text-xs font-medium bg-warn/20 hover:bg-warn/30 text-ink px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
             >
               Registrar mesmo assim

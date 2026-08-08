@@ -10,7 +10,10 @@ interface CsvPreviewRow {
 }
 
 function parseCsv(text: string): CsvPreviewRow[] {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
   const rows: CsvPreviewRow[] = [];
   const start = lines.length > 0 && /ticker/i.test(lines[0]) ? 1 : 0;
 
@@ -20,7 +23,12 @@ function parseCsv(text: string): CsvPreviewRow[] {
     const cols = raw.split(',').map((c) => c.trim());
 
     if (cols.length !== 5) {
-      rows.push({ line: lineNum, raw, op: null, error: `esperado 5 colunas, encontrado ${cols.length}` });
+      rows.push({
+        line: lineNum,
+        raw,
+        op: null,
+        error: `esperado 5 colunas, encontrado ${cols.length}`,
+      });
       continue;
     }
 
@@ -134,7 +142,10 @@ export function CsvImport({ onSuccess }: Props) {
     <div className={card}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-ink">Importar CSV</h2>
-        <button onClick={handleClose} className="text-dim hover:text-ink text-lg leading-none cursor-pointer">
+        <button
+          onClick={handleClose}
+          className="text-dim hover:text-ink text-lg leading-none cursor-pointer"
+        >
           ×
         </button>
       </div>
@@ -142,11 +153,14 @@ export function CsvImport({ onSuccess }: Props) {
       {!result && (
         <>
           <div className="mb-4 p-3 bg-surface border border-edge rounded-lg text-xs text-dim font-mono leading-relaxed">
-            <span className="text-ink font-semibold not-italic">Formato:</span> ticker,tipo,quantidade,preço,data
+            <span className="text-ink font-semibold not-italic">Formato:</span>{' '}
+            ticker,tipo,quantidade,preço,data
             <br />
-            <span className="text-ink font-semibold not-italic">Exemplo:</span> PETR4,BUY,100,38.50,2024-01-15
+            <span className="text-ink font-semibold not-italic">Exemplo:</span>{' '}
+            PETR4,BUY,100,38.50,2024-01-15
             <br />
-            Tipo: <span className="text-ink">BUY</span> ou <span className="text-ink">SELL</span> — Data: <span className="text-ink">YYYY-MM-DD</span>
+            Tipo: <span className="text-ink">BUY</span> ou <span className="text-ink">SELL</span> —
+            Data: <span className="text-ink">YYYY-MM-DD</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -156,13 +170,21 @@ export function CsvImport({ onSuccess }: Props) {
             >
               Escolher arquivo .csv
             </button>
-            <input ref={fileRef} type="file" accept=".csv,text/plain" className="hidden" onChange={handleFileChange} />
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,text/plain"
+              className="hidden"
+              onChange={handleFileChange}
+            />
             <span className="text-xs text-dim">ou cole o conteúdo abaixo</span>
           </div>
 
           <textarea
             className="w-full h-28 bg-canvas border border-edge rounded-lg px-3 py-2 text-xs font-mono text-ink placeholder:text-dim/50 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/40 transition-colors resize-none mb-4"
-            placeholder={'ticker,tipo,quantidade,preço,data\nPETR4,BUY,100,38.50,2024-01-15\nVALE3,SELL,50,90.20,2024-02-01'}
+            placeholder={
+              'ticker,tipo,quantidade,preço,data\nPETR4,BUY,100,38.50,2024-01-15\nVALE3,SELL,50,90.20,2024-02-01'
+            }
             value={csvText}
             onChange={(e) => setCsvText(e.target.value)}
           />
@@ -189,17 +211,25 @@ export function CsvImport({ onSuccess }: Props) {
                         {row.op ? (
                           <>
                             <td className="py-1.5 pr-4 font-medium text-ink">{row.op.ticker}</td>
-                            <td className={`py-1.5 pr-4 ${row.op.type === 'BUY' ? 'text-up' : 'text-down'}`}>
+                            <td
+                              className={`py-1.5 pr-4 ${row.op.type === 'BUY' ? 'text-up' : 'text-down'}`}
+                            >
                               {row.op.type === 'BUY' ? 'Compra' : 'Venda'}
                             </td>
                             <td className="py-1.5 pr-4 text-right text-ink">{row.op.quantity}</td>
-                            <td className="py-1.5 pr-4 text-right text-ink">R$ {fmt.format(row.op.price)}</td>
+                            <td className="py-1.5 pr-4 text-right text-ink">
+                              R$ {fmt.format(row.op.price)}
+                            </td>
                             <td className="py-1.5 pr-4 text-dim">{row.op.date}</td>
                             <td className="py-1.5 text-up font-bold">✓</td>
                           </>
                         ) : (
                           <>
-                            <td colSpan={5} className="py-1.5 pr-4 text-down truncate max-w-xs" title={row.error ?? ''}>
+                            <td
+                              colSpan={5}
+                              className="py-1.5 pr-4 text-down truncate max-w-xs"
+                              title={row.error ?? ''}
+                            >
                               {row.error}
                             </td>
                             <td className="py-1.5 text-down font-bold">✗</td>
@@ -213,7 +243,9 @@ export function CsvImport({ onSuccess }: Props) {
 
               <p className="text-xs text-dim mb-4">
                 {validCount > 0 && (
-                  <span className="text-up font-medium">{validCount} válida{validCount !== 1 ? 's' : ''}</span>
+                  <span className="text-up font-medium">
+                    {validCount} válida{validCount !== 1 ? 's' : ''}
+                  </span>
                 )}
                 {validCount > 0 && errorCount > 0 && <span> · </span>}
                 {errorCount > 0 && (
@@ -230,7 +262,10 @@ export function CsvImport({ onSuccess }: Props) {
           )}
 
           <div className="flex flex-wrap gap-3 justify-end">
-            <button onClick={handleClose} className={`${btn} bg-surface border border-edge text-ink hover:border-edge`}>
+            <button
+              onClick={handleClose}
+              className={`${btn} bg-surface border border-edge text-ink hover:border-edge`}
+            >
               Cancelar
             </button>
             <button
@@ -250,21 +285,26 @@ export function CsvImport({ onSuccess }: Props) {
         <div className="text-center py-4">
           {result.imported > 0 && (
             <p className="text-up font-medium text-sm mb-2">
-              ✓ {result.imported} operaç{result.imported !== 1 ? 'ões importadas' : 'ão importada'} com sucesso
+              ✓ {result.imported} operaç{result.imported !== 1 ? 'ões importadas' : 'ão importada'}{' '}
+              com sucesso
             </p>
           )}
           {result.unknownTickers && result.unknownTickers.length > 0 && (
             <div className="text-left mb-4 bg-warn/10 border border-warn/30 rounded-lg px-3 py-2.5">
-              <p className="text-xs font-semibold text-warn uppercase tracking-wide mb-1">Tickers não reconhecidos</p>
+              <p className="text-xs font-semibold text-warn uppercase tracking-wide mb-1">
+                Tickers não reconhecidos
+              </p>
               <p className="text-xs text-ink">
-                {result.unknownTickers.join(', ')} — importados, mas não estão na lista da brapi.dev. Verifique se os tickers estão corretos.
+                {result.unknownTickers.join(', ')} — importados, mas não estão na lista da
+                brapi.dev. Verifique se os tickers estão corretos.
               </p>
             </div>
           )}
           {result.errors.length > 0 && (
             <div className="text-left mb-4">
               <p className="text-xs text-dim mb-2 uppercase tracking-wide">
-                {result.errors.length} linha{result.errors.length !== 1 ? 's ignoradas' : ' ignorada'} por erro:
+                {result.errors.length} linha
+                {result.errors.length !== 1 ? 's ignoradas' : ' ignorada'} por erro:
               </p>
               <ul className="space-y-1">
                 {result.errors.map((e) => (
@@ -275,7 +315,10 @@ export function CsvImport({ onSuccess }: Props) {
               </ul>
             </div>
           )}
-          <button onClick={handleClose} className={`${btn} bg-surface border border-edge text-ink hover:border-accent`}>
+          <button
+            onClick={handleClose}
+            className={`${btn} bg-surface border border-edge text-ink hover:border-accent`}
+          >
             Fechar
           </button>
         </div>

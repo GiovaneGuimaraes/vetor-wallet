@@ -13,7 +13,7 @@ import path from 'path';
 // inside beforeAll, after the env var is set.
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-goals-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-goals-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -40,7 +40,7 @@ describe('goals routes', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/goals', goalsRouter);
@@ -50,8 +50,12 @@ describe('goals routes', () => {
     agentA = request.agent(app);
     agentB = request.agent(app);
 
-    await agentA.post('/api/auth/register').send({ email: 'goals-a@test.com', password: 'password123' });
-    await agentB.post('/api/auth/register').send({ email: 'goals-b@test.com', password: 'password123' });
+    await agentA
+      .post('/api/auth/register')
+      .send({ email: 'goals-a@test.com', password: 'password123' });
+    await agentB
+      .post('/api/auth/register')
+      .send({ email: 'goals-b@test.com', password: 'password123' });
   });
 
   it('returns 401 without session', async () => {
@@ -75,7 +79,9 @@ describe('goals routes', () => {
   });
 
   it('rejects creation with negative current_amount (400)', async () => {
-    const res = await agentA.post('/api/goals').send({ name: 'Viagem', target_amount: 1000, current_amount: -1 });
+    const res = await agentA
+      .post('/api/goals')
+      .send({ name: 'Viagem', target_amount: 1000, current_amount: -1 });
     expect(res.status).toBe(400);
   });
 
@@ -104,7 +110,9 @@ describe('goals routes', () => {
   });
 
   it('rejects PATCH with non-finite target_amount (Infinity) (400)', async () => {
-    const created = await agentA.post('/api/goals').send({ name: 'Patch infinity', target_amount: 3000 });
+    const created = await agentA
+      .post('/api/goals')
+      .send({ name: 'Patch infinity', target_amount: 3000 });
     const id = created.body.id;
 
     const res = await agentA
@@ -115,7 +123,9 @@ describe('goals routes', () => {
   });
 
   it('rejects PATCH with non-finite current_amount (Infinity) (400)', async () => {
-    const created = await agentA.post('/api/goals').send({ name: 'Patch infinity 2', target_amount: 3000 });
+    const created = await agentA
+      .post('/api/goals')
+      .send({ name: 'Patch infinity 2', target_amount: 3000 });
     const id = created.body.id;
 
     const res = await agentA
@@ -140,7 +150,9 @@ describe('goals routes', () => {
   });
 
   it('rejects PATCH with target_amount with more than 2 decimal places (400) (T-052)', async () => {
-    const created = await agentA.post('/api/goals').send({ name: 'Patch decimais', target_amount: 3000 });
+    const created = await agentA
+      .post('/api/goals')
+      .send({ name: 'Patch decimais', target_amount: 3000 });
     const id = created.body.id;
 
     const res = await agentA.patch(`/api/goals/${id}`).send({ target_amount: 1.005 });
@@ -155,7 +167,9 @@ describe('goals routes', () => {
   });
 
   it('accepts an explicit current_amount on creation', async () => {
-    const res = await agentA.post('/api/goals').send({ name: 'Carro', target_amount: 50000, current_amount: 1000 });
+    const res = await agentA
+      .post('/api/goals')
+      .send({ name: 'Carro', target_amount: 50000, current_amount: 1000 });
     expect(res.status).toBe(201);
     expect(res.body.current_amount).toBe(1000);
   });
@@ -216,7 +230,9 @@ describe('goals routes', () => {
   });
 
   it('deletes a goal belonging to the user', async () => {
-    const created = await agentA.post('/api/goals').send({ name: 'Para excluir', target_amount: 100 });
+    const created = await agentA
+      .post('/api/goals')
+      .send({ name: 'Para excluir', target_amount: 100 });
     const id = created.body.id;
 
     const del = await agentA.delete(`/api/goals/${id}`);
@@ -276,8 +292,12 @@ describe('goals routes', () => {
 
     it('subtracts linked WITHDRAW from the derived progress', async () => {
       const id = await newGoal('Aporte e retirada');
-      await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 100, date: '2025-02-01', goalId: id });
-      await agentA.post('/api/savings').send({ type: 'WITHDRAW', amount: 30, date: '2025-02-02', goalId: id });
+      await agentA
+        .post('/api/savings')
+        .send({ type: 'DEPOSIT', amount: 100, date: '2025-02-01', goalId: id });
+      await agentA
+        .post('/api/savings')
+        .send({ type: 'WITHDRAW', amount: 30, date: '2025-02-02', goalId: id });
 
       const goal = await fetchGoal(agentA, id);
       expect(goal.current_amount).toBe(70);
@@ -286,9 +306,13 @@ describe('goals routes', () => {
     });
 
     it('ignores unlinked entries and the manual value once linked entries exist', async () => {
-      const created = await agentA.post('/api/goals').send({ name: 'Manual ignorado', target_amount: 1000, current_amount: 900 });
+      const created = await agentA
+        .post('/api/goals')
+        .send({ name: 'Manual ignorado', target_amount: 1000, current_amount: 900 });
       const id = created.body.id;
-      await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 40, date: '2025-02-03', goalId: id });
+      await agentA
+        .post('/api/savings')
+        .send({ type: 'DEPOSIT', amount: 40, date: '2025-02-03', goalId: id });
       await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 5000, date: '2025-02-03' });
 
       const goal = await fetchGoal(agentA, id);
@@ -297,8 +321,12 @@ describe('goals routes', () => {
 
     it('floors derived progress at 0 when linked withdrawals exceed deposits', async () => {
       const id = await newGoal('Retirada maior');
-      await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 50, date: '2025-02-04', goalId: id });
-      await agentA.post('/api/savings').send({ type: 'WITHDRAW', amount: 80, date: '2025-02-05', goalId: id });
+      await agentA
+        .post('/api/savings')
+        .send({ type: 'DEPOSIT', amount: 50, date: '2025-02-04', goalId: id });
+      await agentA
+        .post('/api/savings')
+        .send({ type: 'WITHDRAW', amount: 80, date: '2025-02-05', goalId: id });
 
       const goal = await fetchGoal(agentA, id);
       expect(goal.current_amount).toBe(0);
@@ -309,7 +337,9 @@ describe('goals routes', () => {
       const first = await agentA
         .post('/api/savings')
         .send({ type: 'DEPOSIT', amount: 100, date: '2025-02-06', goalId: id });
-      await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 25, date: '2025-02-07', goalId: id });
+      await agentA
+        .post('/api/savings')
+        .send({ type: 'DEPOSIT', amount: 25, date: '2025-02-07', goalId: id });
 
       expect((await fetchGoal(agentA, id)).current_amount).toBe(125);
 
@@ -323,7 +353,9 @@ describe('goals routes', () => {
 
     it('rejects PATCH of current_amount on a goal with linked entries (400)', async () => {
       const id = await newGoal('Bloqueada');
-      await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 10, date: '2025-02-08', goalId: id });
+      await agentA
+        .post('/api/savings')
+        .send({ type: 'DEPOSIT', amount: 10, date: '2025-02-08', goalId: id });
 
       const res = await agentA.patch(`/api/goals/${id}`).send({ current_amount: 999 });
       expect(res.status).toBe(400);
@@ -334,9 +366,13 @@ describe('goals routes', () => {
 
     it('still allows PATCH of name/target_amount on a goal with linked entries', async () => {
       const id = await newGoal('Renomear vinculada');
-      await agentA.post('/api/savings').send({ type: 'DEPOSIT', amount: 10, date: '2025-02-09', goalId: id });
+      await agentA
+        .post('/api/savings')
+        .send({ type: 'DEPOSIT', amount: 10, date: '2025-02-09', goalId: id });
 
-      const res = await agentA.patch(`/api/goals/${id}`).send({ name: 'Renomeada', target_amount: 2000 });
+      const res = await agentA
+        .patch(`/api/goals/${id}`)
+        .send({ name: 'Renomeada', target_amount: 2000 });
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({
         name: 'Renomeada',
@@ -347,7 +383,9 @@ describe('goals routes', () => {
     });
 
     it('returns 404 when linking a savings entry to another user goal', async () => {
-      const otherGoal = await agentB.post('/api/goals').send({ name: 'Meta da B', target_amount: 500 });
+      const otherGoal = await agentB
+        .post('/api/goals')
+        .send({ name: 'Meta da B', target_amount: 500 });
 
       const res = await agentA
         .post('/api/savings')
@@ -404,7 +442,9 @@ describe('goals routes', () => {
 
     it('blocks POST with 402 when billing is on and the user has no subscription', async () => {
       process.env.BILLING_ENABLED = 'true';
-      const res = await agentA.post('/api/goals').send({ name: 'Sem assinatura', target_amount: 100 });
+      const res = await agentA
+        .post('/api/goals')
+        .send({ name: 'Sem assinatura', target_amount: 100 });
       expect(res.status).toBe(402);
       expect(res.body.code).toBe('SUBSCRIPTION_REQUIRED');
     });
@@ -434,7 +474,9 @@ describe('goals routes', () => {
         ],
       });
 
-      const res = await agentA.post('/api/goals').send({ name: 'Com assinatura', target_amount: 100 });
+      const res = await agentA
+        .post('/api/goals')
+        .send({ name: 'Com assinatura', target_amount: 100 });
       expect(res.status).toBe(201);
     });
   });

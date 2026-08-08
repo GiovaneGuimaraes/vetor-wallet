@@ -17,24 +17,27 @@ export function TickerCombobox({ value, onChange, className, placeholder = 'PETR
   const containerRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
 
-  const runSearch = useCallback(async (query: string) => {
-    if (!query.trim()) {
-      setSuggestions([]);
-      setOpen(false);
-      return;
-    }
-    const { results, listAvailable } = await searchTickers(query);
-    setSuggestions(results);
-    setOpen(results.length > 0);
-    setHighlighted(-1);
-    // Determine known status for the current exact value
-    if (!listAvailable) {
-      onChange(query.toUpperCase(), null);
-    } else {
-      const exactMatch = results.some((r) => r.ticker === query.toUpperCase());
-      onChange(query.toUpperCase(), results.length > 0 ? exactMatch : false);
-    }
-  }, [onChange]);
+  const runSearch = useCallback(
+    async (query: string) => {
+      if (!query.trim()) {
+        setSuggestions([]);
+        setOpen(false);
+        return;
+      }
+      const { results, listAvailable } = await searchTickers(query);
+      setSuggestions(results);
+      setOpen(results.length > 0);
+      setHighlighted(-1);
+      // Determine known status for the current exact value
+      if (!listAvailable) {
+        onChange(query.toUpperCase(), null);
+      } else {
+        const exactMatch = results.some((r) => r.ticker === query.toUpperCase());
+        onChange(query.toUpperCase(), results.length > 0 ? exactMatch : false);
+      }
+    },
+    [onChange]
+  );
 
   function handleInput(raw: string) {
     const upper = raw.toUpperCase();
@@ -91,7 +94,9 @@ export function TickerCombobox({ value, onChange, className, placeholder = 'PETR
         value={value}
         onChange={(e) => handleInput(e.target.value)}
         onKeyDown={handleKeyDown}
-        onFocus={() => { if (value) runSearch(value); }}
+        onFocus={() => {
+          if (value) runSearch(value);
+        }}
         placeholder={placeholder}
         maxLength={10}
         autoComplete="off"
@@ -110,7 +115,10 @@ export function TickerCombobox({ value, onChange, className, placeholder = 'PETR
               id={`${listboxId}-${i}`}
               role="option"
               aria-selected={i === highlighted}
-              onPointerDown={(e) => { e.preventDefault(); select(s.ticker); }}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                select(s.ticker);
+              }}
               className={`px-3 py-2 text-sm cursor-pointer flex items-baseline gap-2 ${
                 i === highlighted ? 'bg-accent/10 text-ink' : 'text-ink hover:bg-raised/60'
               }`}

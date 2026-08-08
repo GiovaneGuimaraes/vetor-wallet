@@ -15,7 +15,7 @@ router.get(
 
     const data = await getSnapshotHistory(ticker, from, to);
     res.json(data);
-  }),
+  })
 );
 
 export default router;

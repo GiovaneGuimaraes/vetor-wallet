@@ -13,7 +13,7 @@ import path from 'path';
 // padrão de operations.test.ts).
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-session-persistence-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-session-persistence-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -42,7 +42,7 @@ async function buildApp(): Promise<Express> {
       saveUninitialized: false,
       store: new SqliteSessionStore(client),
       cookie: { secure: false, maxAge: 60 * 60 * 1000 },
-    }),
+    })
   );
   app.use('/api/auth', authRouterMod.default);
   return app;

@@ -22,7 +22,7 @@ export interface MonthIncomeTotals {
  */
 export function computeIncomeMonthTotals(
   sources: IncomeSource[],
-  entries: IncomeEntry[],
+  entries: IncomeEntry[]
 ): MonthIncomeTotals {
   const fixed = sources.reduce((acc, s) => acc + s.amount, 0);
   const variable = entries.reduce((acc, e) => acc + e.amount, 0);

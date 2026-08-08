@@ -22,9 +22,4 @@ export {
   DEFAULT_OFX_DESCRIPTION,
   MAX_OFX_DESCRIPTION_LENGTH,
 } from './ofx';
-export type {
-  RawOfxTransaction,
-  OfxParseResult,
-  MappedOfxTransaction,
-  OfxMapResult,
-} from './ofx';
+export type { RawOfxTransaction, OfxParseResult, MappedOfxTransaction, OfxMapResult } from './ofx';

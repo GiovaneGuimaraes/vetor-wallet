@@ -7,7 +7,7 @@ export interface PositionEntry {
 
 export function applyOperation(
   positionMap: Map<string, PositionEntry>,
-  op: Pick<Operation, 'ticker' | 'type' | 'quantity' | 'price'>,
+  op: Pick<Operation, 'ticker' | 'type' | 'quantity' | 'price'>
 ): PositionEntry {
   const current = positionMap.get(op.ticker) ?? { quantity: 0, avgPrice: 0 };
   let updated: PositionEntry;
@@ -33,7 +33,7 @@ export function buildPositionMap(ops: Operation[]): Map<string, PositionEntry> {
 
 export function getPositionQuantity(
   positionMap: Map<string, PositionEntry>,
-  ticker: string,
+  ticker: string
 ): number {
   return positionMap.get(ticker)?.quantity ?? 0;
 }
@@ -41,7 +41,7 @@ export function getPositionQuantity(
 export function wouldExceedPosition(
   positionMap: Map<string, PositionEntry>,
   ticker: string,
-  sellQuantity: number,
+  sellQuantity: number
 ): boolean {
   return sellQuantity > getPositionQuantity(positionMap, ticker);
 }
@@ -59,7 +59,7 @@ export function computeDayProfitLoss(
   positionMap: Map<string, PositionEntry>,
   currentQuotes: Map<string, number>,
   previousCloses: Map<string, number>,
-  quotesFailed = false,
+  quotesFailed = false
 ): { dayProfitLoss: number | null; dayProfitLossPct: number | null } {
   if (quotesFailed) return { dayProfitLoss: null, dayProfitLossPct: null };
 
@@ -92,7 +92,7 @@ export function buildPortfolioSummary(
   positionMap: Map<string, PositionEntry>,
   quotes: Map<string, number>,
   quotesFailed = false,
-  previousCloses: Map<string, number> = new Map(),
+  previousCloses: Map<string, number> = new Map()
 ): PortfolioSummary {
   const activeTickers: string[] = [];
   for (const [ticker, pos] of positionMap.entries()) {
@@ -142,15 +142,13 @@ export function buildPortfolioSummary(
 
   const totalProfitLoss = totalCurrentValue !== null ? totalCurrentValue - totalInvested : null;
   const totalProfitLossPct =
-    totalProfitLoss !== null && totalInvested > 0
-      ? (totalProfitLoss / totalInvested) * 100
-      : null;
+    totalProfitLoss !== null && totalInvested > 0 ? (totalProfitLoss / totalInvested) * 100 : null;
 
   const { dayProfitLoss, dayProfitLossPct } = computeDayProfitLoss(
     positionMap,
     quotes,
     previousCloses,
-    quotesFailed,
+    quotesFailed
   );
 
   return {

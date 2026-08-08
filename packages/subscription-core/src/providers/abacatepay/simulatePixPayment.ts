@@ -14,7 +14,7 @@ import { abacatePayRequest } from './request';
 export const simulatePixPayment = async (chargeId: string): Promise<AbacatePixCharge> => {
   const raw = await abacatePayRequest<RawAbacateCharge>(
     `/transparents/simulate-payment?id=${encodeURIComponent(chargeId)}`,
-    { method: 'POST', body: {} },
+    { method: 'POST', body: {} }
   );
 
   return toAbacatePixCharge(raw);

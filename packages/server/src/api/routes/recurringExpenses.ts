@@ -36,7 +36,7 @@ router.get(
       args: [userId],
     });
     res.json(result.rows);
-  }),
+  })
 );
 
 async function endRecurrence(id: string, userId: number): Promise<boolean> {
@@ -79,9 +79,7 @@ router.patch(
       // Reativar reabriria a janela de meses entre o encerramento e hoje, que
       // seriam materializados de uma vez no próximo GET — comportamento
       // surpreendente. Quem quiser voltar a recorrência cria outra.
-      res
-        .status(400)
-        .json({ error: 'não é possível reativar uma recorrência — crie uma nova' });
+      res.status(400).json({ error: 'não é possível reativar uma recorrência — crie uma nova' });
       return;
     }
 
@@ -97,7 +95,7 @@ router.patch(
       args: [id, userId],
     });
     res.json(row.rows[0]);
-  }),
+  })
 );
 
 /** Alias de encerrar — não apaga o template (ver doc do módulo). */
@@ -111,7 +109,7 @@ router.delete(
       return;
     }
     res.status(204).send();
-  }),
+  })
 );
 
 export default router;

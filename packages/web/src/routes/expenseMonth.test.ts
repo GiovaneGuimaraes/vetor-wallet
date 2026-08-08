@@ -86,7 +86,7 @@ describe('computeMonthTotals', () => {
   it('sums fixed expenses and month entries', () => {
     const totals = computeMonthTotals(
       [fixed(1500, 1), fixed(40, 2)],
-      [entry(234.5, '2026-07-10', 1), entry(65.5, '2026-07-12', 2)],
+      [entry(234.5, '2026-07-10', 1), entry(65.5, '2026-07-12', 2)]
     );
     expect(totals.fixed).toBe(1540);
     expect(totals.variable).toBe(300);
@@ -129,8 +129,22 @@ describe('buildMonthlyHistory', () => {
     const rows = buildMonthlyHistory(3, '2026-07', summary, 1500);
 
     expect(rows).toEqual([
-      { month: '2026-05', label: 'maio de 2026', fixed: 1500, variable: 100, total: 1600, isCurrent: false },
-      { month: '2026-06', label: 'junho de 2026', fixed: 1500, variable: 300, total: 1800, isCurrent: false },
+      {
+        month: '2026-05',
+        label: 'maio de 2026',
+        fixed: 1500,
+        variable: 100,
+        total: 1600,
+        isCurrent: false,
+      },
+      {
+        month: '2026-06',
+        label: 'junho de 2026',
+        fixed: 1500,
+        variable: 300,
+        total: 1800,
+        isCurrent: false,
+      },
       {
         month: '2026-07',
         label: 'julho de 2026',

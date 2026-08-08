@@ -24,7 +24,7 @@ router.get(
     });
 
     res.json(result.rows);
-  }),
+  })
 );
 
 // POST /api/wallets — carteira única (T-050): só cria se o usuário ainda não tiver nenhuma.
@@ -81,7 +81,7 @@ router.post(
     }
 
     res.status(201).json(outcome.wallet);
-  }),
+  })
 );
 
 // DELETE /api/wallets/:id foi removido na T-050 — com carteira única não há o que

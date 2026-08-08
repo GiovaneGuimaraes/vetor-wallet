@@ -29,7 +29,10 @@ export function monthlyEquivalentCents(plan: Plan): number {
  * (arredondado ao inteiro mais próximo). `null` quando não há como comparar
  * (falta o mensal, preço mensal zerado, ou o próprio plano não é anual).
  */
-export function yearlySavingsPercent(yearlyPlan: Plan, monthlyPlan: Plan | undefined): number | null {
+export function yearlySavingsPercent(
+  yearlyPlan: Plan,
+  monthlyPlan: Plan | undefined
+): number | null {
   if (yearlyPlan.interval !== 'yearly' || !monthlyPlan || monthlyPlan.price_cents <= 0) return null;
   const fullYearCents = monthlyPlan.price_cents * 12;
   if (fullYearCents <= 0) return null;

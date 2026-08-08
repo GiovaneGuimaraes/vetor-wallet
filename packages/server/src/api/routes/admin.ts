@@ -27,7 +27,7 @@ router.post(
     }
     const results = await runHourlyInsightsJob(date);
     res.json(summariseResults(results));
-  }),
+  })
 );
 
 export default router;

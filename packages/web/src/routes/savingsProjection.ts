@@ -86,7 +86,7 @@ export function projectSavings(
   initial: number,
   monthlyRatePct: number,
   months: number,
-  monthlyContribution = 0,
+  monthlyContribution = 0
 ): SavingsProjection | null {
   if (!Number.isFinite(initial) || initial < 0) return null;
   if (!Number.isFinite(monthlyRatePct) || monthlyRatePct < 0) return null;

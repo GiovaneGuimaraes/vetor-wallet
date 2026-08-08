@@ -35,7 +35,7 @@ interface Envelope<T> {
  */
 export const abacatePayRequest = async <T>(
   path: string,
-  init: { method: 'GET' | 'POST'; body?: unknown },
+  init: { method: 'GET' | 'POST'; body?: unknown }
 ): Promise<T> => {
   const apiKey = (process.env.ABACATEPAY_API_KEY ?? '').trim();
   const baseUrl = (process.env.ABACATEPAY_API_URL ?? '').trim() || ABACATEPAY_DEFAULT_URL;
@@ -57,7 +57,7 @@ export const abacatePayRequest = async <T>(
     // Rede/timeout: nenhuma resposta chegou → status 0.
     throw new AbacatePayError(
       `Falha de rede ao chamar a AbacatePay (${path}): ${(err as Error)?.message ?? 'erro desconhecido'}`,
-      0,
+      0
     );
   }
 
@@ -74,7 +74,7 @@ export const abacatePayRequest = async <T>(
     throw new AbacatePayError(
       `AbacatePay respondeu erro em ${path} (HTTP ${res.status})`,
       res.status,
-      body,
+      body
     );
   }
 

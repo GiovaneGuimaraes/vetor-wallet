@@ -11,7 +11,11 @@ import {
   wouldExceedPosition,
 } from '@vetor-wallet/portfolio-core';
 import { getUnknownTickers } from '@vetor-wallet/brapi-core';
-import { isValidIsoDate, isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
+import {
+  isValidIsoDate,
+  isValidMoneyAmount,
+  moneyAmountError,
+} from '@vetor-wallet/validation-core';
 import type { NewOperation, CsvRowError, CsvImportResult, Operation } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -23,7 +27,10 @@ interface ParsedRow {
 }
 
 function parseRows(body: string): { rows: ParsedRow[]; errors: CsvRowError[] } {
-  const lines = body.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const lines = body
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
   const rows: ParsedRow[] = [];
   const errors: CsvRowError[] = [];
 
@@ -108,7 +115,10 @@ router.post(
 
     const valid: NewOperation[] = [];
     for (const row of rows) {
-      if (row.op.type === 'SELL' && wouldExceedPosition(positionMap, row.op.ticker, row.op.quantity)) {
+      if (
+        row.op.type === 'SELL' &&
+        wouldExceedPosition(positionMap, row.op.ticker, row.op.quantity)
+      ) {
         errors.push({
           line: row.line,
           raw: row.raw,
@@ -128,7 +138,7 @@ router.post(
           sql: 'INSERT INTO operations (ticker, type, quantity, price, date, user_id, wallet_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
           args: [op.ticker, op.type, op.quantity, op.price, op.date, userId, walletId],
         })),
-        'write',
+        'write'
       );
     }
 
@@ -137,7 +147,7 @@ router.post(
 
     const result: CsvImportResult = { imported: valid.length, errors, unknownTickers };
     res.json(result);
-  }),
+  })
 );
 
 export default router;

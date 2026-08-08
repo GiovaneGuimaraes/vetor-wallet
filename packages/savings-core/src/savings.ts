@@ -101,7 +101,7 @@ export function computeFreeBalance(entries: SavingsBalanceEntry[]): number {
 export function pickTransferLegs<T extends { id: number | string | bigint }>(
   rows: T[],
   withdrawId: number,
-  depositId: number,
+  depositId: number
 ): { withdraw: T; deposit: T } {
   const withdraw = rows.find((row) => Number(row.id) === withdrawId);
   const deposit = rows.find((row) => Number(row.id) === depositId);

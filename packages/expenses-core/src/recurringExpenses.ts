@@ -127,7 +127,7 @@ export interface CreateRecurringEntryResult {
  * reusar em rotas de alta frequência sem revisitar esse custo.
  */
 export async function createRecurringExpenseEntry(
-  params: CreateRecurringEntryParams,
+  params: CreateRecurringEntryParams
 ): Promise<CreateRecurringEntryResult> {
   const tx = await db.transaction('write');
   try {
@@ -162,7 +162,14 @@ export async function createRecurringExpenseEntry(
     const insert = await tx.execute({
       sql: `INSERT INTO expense_entries (user_id, description, category, amount, date, recurring_id)
             VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [params.userId, params.description, params.category, params.amount, params.date, recurringId],
+      args: [
+        params.userId,
+        params.description,
+        params.category,
+        params.amount,
+        params.date,
+        recurringId,
+      ],
     });
 
     await tx.commit();
@@ -190,7 +197,7 @@ export async function createRecurringExpenseEntry(
  */
 export async function materializeRecurringExpenses(
   userId: number,
-  months: string[],
+  months: string[]
 ): Promise<number> {
   const targetMonths = months.filter((m) => /^\d{4}-(0[1-9]|1[0-2])$/.test(m));
   if (targetMonths.length === 0) return 0;
@@ -221,7 +228,7 @@ export async function materializeRecurringExpenses(
     args: [userId],
   });
   const alreadyGenerated = new Set(
-    generated.rows.map((row) => `${Number(row.recurring_id)} ${String(row.month)}`),
+    generated.rows.map((row) => `${Number(row.recurring_id)} ${String(row.month)}`)
   );
 
   let created = 0;
@@ -261,7 +268,7 @@ export async function materializeRecurringExpenses(
               ],
             },
           ],
-          'write',
+          'write'
         );
         created += 1;
       } catch (err) {

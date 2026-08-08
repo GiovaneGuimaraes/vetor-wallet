@@ -44,28 +44,28 @@ describe('validateIncomeForm', () => {
 
   it('requires a name for FIXED', () => {
     expect(validateIncomeForm({ ...base, amount: '100' })).toBe(
-      'Informe um nome para a fonte de renda.',
+      'Informe um nome para a fonte de renda.'
     );
   });
 
   it('requires a description for VARIABLE', () => {
     expect(validateIncomeForm({ ...base, kind: 'VARIABLE', amount: '100' })).toBe(
-      'Informe uma descrição para a renda.',
+      'Informe uma descrição para a renda.'
     );
   });
 
   it('rejects a missing/invalid amount', () => {
     expect(validateIncomeForm({ ...base, name: 'Salário', amount: '' })).toBe(
-      'Informe um valor válido maior que zero.',
+      'Informe um valor válido maior que zero.'
     );
     expect(validateIncomeForm({ ...base, name: 'Salário', amount: '0' })).toBe(
-      'Informe um valor válido maior que zero.',
+      'Informe um valor válido maior que zero.'
     );
     expect(validateIncomeForm({ ...base, name: 'Salário', amount: '-5' })).toBe(
-      'Informe um valor válido maior que zero.',
+      'Informe um valor válido maior que zero.'
     );
     expect(validateIncomeForm({ ...base, name: 'Salário', amount: 'abc' })).toBe(
-      'Informe um valor válido maior que zero.',
+      'Informe um valor válido maior que zero.'
     );
   });
 
@@ -81,7 +81,7 @@ describe('validateIncomeForm', () => {
         name: 'Freela',
         amount: '100',
         date: '',
-      }),
+      })
     ).toBe('Informe a data da renda.');
     expect(
       validateIncomeForm({
@@ -90,7 +90,7 @@ describe('validateIncomeForm', () => {
         name: 'Salário',
         amount: '100',
         date: '',
-      }),
+      })
     ).toBeNull();
   });
 
@@ -102,7 +102,7 @@ describe('validateIncomeForm', () => {
         type: 'FREELA',
         amount: '250.50',
         date: '2026-08-10',
-      }),
+      })
     ).toBeNull();
   });
 });

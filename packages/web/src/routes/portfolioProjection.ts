@@ -107,7 +107,7 @@ export function projectPortfolio(
   currentValue: number,
   monthlyRatePct: number,
   months: number,
-  monthlyContribution = 0,
+  monthlyContribution = 0
 ): PortfolioProjection | null {
   if (!Number.isFinite(currentValue) || currentValue < 0) return null;
   if (!Number.isFinite(monthlyRatePct) || monthlyRatePct <= -100) return null;
@@ -194,7 +194,7 @@ function parseLocalDateMs(isoDate: string): number {
  */
 export function deriveMonthlyReturnPct(
   operations: Operation[],
-  summary: Pick<PortfolioSummary, 'totalProfitLossPct' | 'totalInvested'>,
+  summary: Pick<PortfolioSummary, 'totalProfitLossPct' | 'totalInvested'>
 ): number | null {
   if (summary.totalProfitLossPct == null) return null;
   if (!Number.isFinite(summary.totalInvested) || summary.totalInvested <= 0) return null;
@@ -254,7 +254,7 @@ export interface DefaultCurrentValue {
  * default nunca chega a aparecer na tela.
  */
 export function resolveDefaultCurrentValue(
-  summary: Pick<PortfolioSummary, 'totalCurrentValue' | 'totalInvested'> | null,
+  summary: Pick<PortfolioSummary, 'totalCurrentValue' | 'totalInvested'> | null
 ): DefaultCurrentValue {
   if (!summary) return { value: 0, usedFallback: false };
   if (summary.totalCurrentValue !== null) {

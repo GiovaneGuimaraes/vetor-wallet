@@ -68,7 +68,7 @@ router.post(
       args: [req.params.chargeId, userId],
     });
     res.json(toPixCharge((fresh.rows[0] as unknown as PixChargeRow) ?? row));
-  }),
+  })
 );
 
 export default router;

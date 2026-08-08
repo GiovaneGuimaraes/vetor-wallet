@@ -11,7 +11,7 @@ import path from 'path';
 // beforeAll (mesmo padrão de expenseEntries.test.ts).
 const testDbPath = path.join(
   tmpdir(),
-  `vetor-wallet-test-recurring-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
+  `vetor-wallet-test-recurring-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
@@ -70,7 +70,7 @@ describe('recurring expenses (T-035)', () => {
   /** Cria um lançamento marcado como recorrente e devolve a recorrência ativa. */
   async function createRecurring(
     agent: ReturnType<typeof request.agent>,
-    body: Record<string, unknown>,
+    body: Record<string, unknown>
   ) {
     const created = await agent.post('/api/expense-entries').send({ recurring: true, ...body });
     expect(created.status).toBe(201);
@@ -79,7 +79,7 @@ describe('recurring expenses (T-035)', () => {
     return {
       entry: created.body as EntryBody,
       recurrence: (list.body as RecurringBody[]).find(
-        (r) => r.id === (created.body as EntryBody).recurring_id,
+        (r) => r.id === (created.body as EntryBody).recurring_id
       )!,
     };
   }
@@ -109,7 +109,7 @@ describe('recurring expenses (T-035)', () => {
         resave: false,
         saveUninitialized: false,
         cookie: { secure: false },
-      }),
+      })
     );
     app.use('/api/auth', authRouter);
     app.use('/api/expense-entries', entriesModule.default);
@@ -189,7 +189,7 @@ describe('recurring expenses (T-035)', () => {
     const next = shift(thisMonth, 1);
     const nextRes = await agent.get(`/api/expense-entries?month=${next}`);
     expect(entriesOf(nextRes).find((e) => e.recurring_id === recurrence.id)?.date).toBe(
-      `${next}-20`,
+      `${next}-20`
     );
   });
 
@@ -217,7 +217,7 @@ describe('recurring expenses (T-035)', () => {
     expect(entriesOf(second).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(1);
     // O id é o mesmo — não foi gerada e substituída, foi simplesmente reusada.
     expect(entriesOf(second).find((e) => e.recurring_id === recurrence.id)?.id).toBe(
-      firstOccurrences[0].id,
+      firstOccurrences[0].id
     );
   });
 
@@ -231,7 +231,7 @@ describe('recurring expenses (T-035)', () => {
 
     const current = await agent.get(`/api/expense-entries?month=${thisMonth}`);
     const occurrences = entriesOf(current).filter(
-      (e) => e.recurring_id === recurrence.id || e.id === entry.id,
+      (e) => e.recurring_id === recurrence.id || e.id === entry.id
     );
     expect(occurrences).toHaveLength(1);
     expect(occurrences[0].id).toBe(entry.id);
@@ -294,7 +294,7 @@ describe('recurring expenses (T-035)', () => {
       const month = shift(thisMonth, delta);
       const res = await agent.get(`/api/expense-entries?month=${month}`);
       const generated = entriesOf(res).filter(
-        (e) => e.recurring_id === recurrence.id && e.id !== entry.id,
+        (e) => e.recurring_id === recurrence.id && e.id !== entry.id
       );
       expect(generated).toHaveLength(0);
     }
@@ -303,7 +303,7 @@ describe('recurring expenses (T-035)', () => {
     const summary = await agent.get('/api/expense-entries/summary?months=6');
     expect(summary.status).toBe(200);
     const byMonth = new Map(
-      (summary.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total]),
+      (summary.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total])
     );
     // Só o mês do lançamento original (500) e o mês corrente (a 1ª ocorrência).
     expect(byMonth.get(pastMonth)).toBe(500);
@@ -602,7 +602,7 @@ describe('recurring expenses (T-035)', () => {
     const summary = await agent.get('/api/expense-entries/summary?months=2');
     expect(summary.status).toBe(200);
     const byMonth = new Map(
-      (summary.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total]),
+      (summary.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total])
     );
     expect(byMonth.get(thisMonth)).toBe(300);
     expect(byMonth.has(shift(thisMonth, -1))).toBe(false);
@@ -610,14 +610,12 @@ describe('recurring expenses (T-035)', () => {
     // Segundo GET não duplica os totais.
     const again = await agent.get('/api/expense-entries/summary?months=2');
     const byMonthAgain = new Map(
-      (again.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total]),
+      (again.body.months as { month: string; total: number }[]).map((m) => [m.month, m.total])
     );
     expect(byMonthAgain.get(thisMonth)).toBe(300);
 
     const currentList = await agent.get('/api/expense-entries');
-    expect(
-      entriesOf(currentList).filter((e) => e.recurring_id === recurrence.id),
-    ).toHaveLength(1);
+    expect(entriesOf(currentList).filter((e) => e.recurring_id === recurrence.id)).toHaveLength(1);
   });
 
   it('does not materialize when the month filter is invalid (400 before any write)', async () => {

@@ -108,7 +108,12 @@ router.post(
         userId,
         values: isIncome
           ? { description: tx.description, amount: tx.amount, date: tx.date }
-          : { description: tx.description, amount: tx.amount, date: tx.date, category: tx.category },
+          : {
+              description: tx.description,
+              amount: tx.amount,
+              date: tx.date,
+              category: tx.category,
+            },
         externalId: tx.externalId,
       });
 
@@ -128,7 +133,7 @@ router.post(
 
     const result: OfxImportResult = { imported, duplicated, rejected, transactions };
     res.json(result);
-  }),
+  })
 );
 
 export default router;

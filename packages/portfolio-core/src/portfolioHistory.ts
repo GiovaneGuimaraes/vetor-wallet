@@ -92,7 +92,7 @@ export function buildDateWindow(endDateISO: string, days: number): string[] {
 export function buildPortfolioHistory(
   ops: Operation[],
   snapshots: SnapshotPoint[],
-  dates: string[],
+  dates: string[]
 ): PortfolioHistoryPoint[] {
   if (ops.length === 0 || dates.length === 0) return [];
 
@@ -100,7 +100,7 @@ export function buildPortfolioHistory(
   // já vem com `ORDER BY date ASC, created_at ASC`).
   const sortedOps = [...ops].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const sortedSnaps = [...snapshots].sort((a, b) =>
-    a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+    a.date < b.date ? -1 : a.date > b.date ? 1 : 0
   );
 
   const firstOpDate = sortedOps[0].date;
