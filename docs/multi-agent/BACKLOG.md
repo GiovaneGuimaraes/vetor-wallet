@@ -357,21 +357,22 @@
 - **Sugestão não-bloqueante do revisor**: não existe **nenhum** teste de render de componente em `packages/web/src` hoje — a função pura prova a decisão, mas não que o `App.tsx` a chama nem que o listener está montado. Um teste leve de componente fecharia essa lacuna (mesma sugestão que o revisor da T-076 já tinha feito).
 
 ### T-102 — `lint` e `format` da raiz não cobrem os 12 packages novos
+- **Status**: CONCLUIDA (2026-08-08). **Config única na raiz** em vez de uma por package: `eslint.config.mjs` cobre o monorepo inteiro (`pnpm lint` = `eslint .`), com as regras de React escopadas por `files: ['packages/web/**']`. As duas configs antigas (`server`, `web`) e os scripts `lint`/`format` por package saíram, junto com as devDeps duplicadas de ESLint/Prettier — agora vivem só na raiz, como o `.prettierrc` já vivia.
+  - **Verificado que cobre e que as regras rodam**: `eslint .` lê **270 arquivos** (os onze cores, `db`, `server`, `web`); um arquivo-sonda com variável não usada + `any` foi reprovado no `savings-core`, e um hook chamado fora de componente foi reprovado no `web` — cobertura de arquivo ≠ regra ativa, então os dois foram checados.
+  - **Zero erros** nos cores: eles nunca tinham passado por ESLint, mas já estavam limpos.
+  - Precisou ignorar `.claude/**`: os worktrees de subagente têm `node_modules` próprio dentro do repo e faziam o ESLint resolver os plugins de lá (erro de módulo, não de lint).
+  - `pnpm build`, `pnpm lint` e `pnpm test` verdes (server 452, web 451, subscription-core 131).
+- **Fora de escopo (virou T-105)**: o `format` foi corrigido para cobrir todos os packages, mas **não foi executado** — `pnpm format:check` acusa **181 arquivos** fora do padrão, inclusive no `web`, que já tinha o script e claramente não o rodava. Reformatar é diff cosmético grande e merece commit próprio.
+
+### T-105 — Passar o Prettier em tudo e travar no CI
 - **Status**: PENDENTE
-- **Prioridade**: P2
+- **Prioridade**: P3
 - **Complexidade**: baixa
-- **Depende de**: —
-- **Contexto**: achado do executor da T-101, confirmado pelo orquestrador. O script `test` da raiz foi atualizado ao longo do Ciclo 19 e cobre os 12 packages, mas `lint` e `format` continuam sendo `pnpm --filter vetor-wallet-server ... && pnpm --filter vetor-wallet-web ...`. Ou seja, **nenhum dos onze `*-core` nem o `db` passa por ESLint ou Prettier no CI** — e como o Lint roda antes do Test no `ci.yml`, é uma lacuna numa etapa que já provou ser capaz de mascarar a suíte inteira (T-101).
-- **Escopo**: dar a cada package extraído no Ciclo 19 os scripts `lint`/`format` e a config de ESLint (avaliar config compartilhada na raiz em vez de copiar em 12 lugares — decisão do executor, registrada), e trocar os scripts da raiz por uma forma que cubra tudo (ex.: `pnpm -r lint`). Corrigir o que o lint apontar nos packages.
-- **Fora de escopo**: mudar regras de ESLint; a T-100.
-- **Critério de aceite**: `pnpm lint` da raiz roda em todos os packages e passa verde; CI verde nos três steps; adicionar um package novo não exige lembrar de editar o script da raiz.
-- **Prioridade**: **P1** — mais urgente que a T-100
-- **Complexidade**: média (mexe em comportamento de render do `App.tsx`, exige teste)
-- **Depende de**: —
-- **Contexto**: o CI está vermelho **desde antes do Ciclo 19** (já falhava nos runs do Ciclo 18, 2026-08-06) e ninguém percebeu. `pnpm lint` falha em `packages/web/src/App.tsx:69` com a regra `react-hooks/refs` do `eslint-plugin-react-hooks@7`: `pathnameRef.current = location.pathname` atribui a um ref **durante o render**. O `.github/workflows/ci.yml` roda Build → Lint → Test **em série**, então o Lint vermelho faz o **step de Test nunca executar**. Na prática, todo o Ciclo 19 foi validado só por execução local do orquestrador — a rede de segurança do CI estava desligada o tempo todo.
-- **Escopo**: corrigir a violação de verdade (mover a atualização do ref para um `useEffect`, ou eliminar o ref se o listener puder ler o valor de outra forma), **não** silenciar a regra com `eslint-disable`. Verificar que a navegação que depende do `pathnameRef` continua funcionando e cobrir com teste.
-- **Fora de escopo**: outras regras de lint; a T-100.
-- **Critério de aceite**: `pnpm lint` verde localmente; run do CI **completo e verde** na branch (os três steps, com o Test finalmente executando); comportamento do listener de rota preservado, com teste que o cubra.
+- **Depende de**: T-102
+- **Contexto**: achado da T-102. `pnpm format:check` reprova **181 arquivos** — os onze cores nunca foram formatados, e o `web` tinha o script mas não o rodava. Enquanto ninguém roda, o script é decorativo.
+- **Escopo**: rodar `pnpm format`, commitar o resultado **sozinho** (nenhuma mudança de comportamento junto), registrar o hash em `.git-blame-ignore-revs` para não poluir o `git blame`, e acrescentar o step `format:check` ao `ci.yml` para não voltar a divergir.
+- **Fora de escopo**: mudar as regras do `.prettierrc`.
+- **Critério de aceite**: `pnpm format:check` verde; CI verde com o step novo; `git blame` de um arquivo tocado ainda aponta o autor original da linha.
 
 > **Ciclo 20 — direcionamento do humano (2026-08-08)**: o formato dos packages extraídos no
 > Ciclo 19 não agradou. O alvo passa a ser o do

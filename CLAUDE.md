@@ -84,6 +84,9 @@ pnpm dev                                  # server :3001 + web :5173 (usa `&`;
                                           # no Windows prefira dois terminais)
 pnpm dev:server / pnpm dev:web
 pnpm build                                # server → dist/ (entry dist/api/index.js), web → dist/
+pnpm lint                                 # ESLint em TODO o monorepo (config única na raiz;
+                                          # package não tem config nem script próprio — T-102)
+pnpm format / pnpm format:check           # Prettier em packages/*/{src,tests}
 pnpm --filter vetor-wallet-server test    # Vitest (server)
 pnpm --filter @vetor-wallet/db test       # Vitest (db)
 pnpm --filter @vetor-wallet/brapi-core test        # Vitest (brapi-core)

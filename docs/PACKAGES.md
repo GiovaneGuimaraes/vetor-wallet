@@ -99,6 +99,12 @@ runtime também para o bundle do web — não é o caso hoje.
 
 - Cada package tem seu próprio `CLAUDE.md` com as invariantes do domínio — é o que os agentes
   leem antes de mexer ali. Ele substitui o arquivo equivalente em `docs/decisions/`.
+- **ESLint e Prettier são configurados só na raiz** (`eslint.config.mjs`, `.prettierrc`) e
+  rodam pelos scripts da raiz (`pnpm lint`, `pnpm format`). Package **não** tem config nem
+  script próprio de lint/format: um package novo já nasce coberto, sem ninguém precisar
+  lembrar de criar o arquivo. Regras específicas de um package (React no `web`, por exemplo)
+  entram como bloco com `files:` na config da raiz. Foi assim que os onze `*-core` ficaram
+  fora do ESLint durante o Ciclo 19 inteiro (T-102).
 - Cada core publica `main: dist/index.js` + `types: dist/index.d.ts` — é o que o `rest-api`
   **compilado** precisa em produção, já que o `require()` emitido no `dist` do `rest-api` não
   entende `.ts`. Em dev e teste, porém, a resolução tem que ir para o CÓDIGO-FONTE, nunca para o
