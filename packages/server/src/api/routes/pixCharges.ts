@@ -2,13 +2,14 @@ import { Router, Request, Response } from 'express';
 import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
-import { AbacatePayError, checkPixCharge } from '@vetor-wallet/abacatepay-core';
 import {
+  AbacatePayError,
+  checkPixCharge,
   markChargePaidAndActivate,
   nowSqliteUtc,
   toPixCharge,
   type PixChargeRow,
-} from '@vetor-wallet/billing-core';
+} from '@vetor-wallet/subscription-core';
 
 const router = Router();
 
@@ -64,7 +65,7 @@ router.get(
     }
 
     if (remote.status === 'PAID') {
-      await markChargePaidAndActivate(String(row.abacate_charge_id));
+      await markChargePaidAndActivate({ db, abacateChargeId: String(row.abacate_charge_id) });
     } else if (remote.status !== 'PENDING') {
       // EXPIRED / CANCELLED / REFUNDED: estado final do provedor, persistido
       // para o polling parar de consultar.

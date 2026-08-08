@@ -24,8 +24,7 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **brapi-core** | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | ✅ existe (T-098) |
 | **expenses-core** | Core | Expenses | Recorrência lazy (categoria normalizada saiu para `validation-core`, T-099a) | ✅ existe (T-099b) |
 | **savings-core** | Core | Savings | Saldo livre, progresso de meta, transferência | ✅ existe (T-099b) |
-| **billing-core** | Core | Billing | Datas, ativação idempotente, gating | ✅ existe (T-099b) |
-| **abacatepay-core** | Integration | Billing | Client HTTP da AbacatePay (Pix) | ✅ existe (T-098) |
+| **subscription-core** | Core | Subscriptions | Datas, ativação idempotente, gating + provider AbacatePay | ✅ existe (T-103) |
 | **insights-core** | Core | Insights | Benchmarks CDI/Ibovespa, insights horários | ✅ existe (T-099c) |
 | **bank-import-core** | Core | BankImport | Parser OFX, dedupe por `external_id` | ✅ existe (T-099c) |
 | **pluggy-core** *(planejado)* | Integration | BankImport | Open Finance via Pluggy (Onda C) | – (código novo) |
@@ -35,11 +34,12 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 - **Frontend** — aplicação web voltada ao usuário.
 - **Backend** — a API HTTP. Só aqui existe Express, sessão, `req`/`res`.
 - **Core** — lógica de negócio dona de um domínio. A maioria é pura, mas um core **pode** ter
-  persistência quando ele é o dono daquele dado (`billing-core`, `savings-core` e
+  persistência quando ele é o dono daquele dado (`subscription-core`, `savings-core` e
   `portfolio-core` falam com `db`). "Core" significa *dono das regras/dados do domínio*, não
   *nunca faz I/O*.
-- **Integration** — cliente de serviço de terceiro (brapi, AbacatePay, Pluggy). Traduz o mundo
-  externo em tipos nossos e devolve.
+- **Integration** — cliente de serviço de terceiro (brapi, Pluggy). Traduz o mundo externo em
+  tipos nossos e devolve. **Só vira package quando mais de um módulo o consome** — integração
+  de um módulo só vive como provider dentro do core dele (ver regra 3).
 - **Infrastructure** — banco e afins, sem regra de negócio.
 - **Tool** — utilitários de desenvolvimento e operação.
 
@@ -48,10 +48,17 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 1. **Core não depende de Frontend/Backend.** Nenhum `*-core` importa `express`, `req`, `res`
    ou qualquer coisa de `rest-api`/`web`. Um core que precisa reportar erro lança um erro
    tipado; quem traduz para status HTTP é a rota.
-2. **Integration não toca `db`.** Um client de terceiro busca, valida o envelope e devolve.
-   Quem persiste é o core de domínio. (Hoje `abacatepay.ts` e `quotes.ts` já respeitam isso.)
-3. **Integration pode depender de Core**, nunca o contrário na mesma direção de dado:
-   `billing-core` orquestra `abacatepay-core`, não o inverso.
+2. **Client de terceiro não toca `db`.** Busca, valida o envelope e devolve; quem persiste é o
+   core de domínio. Vale tanto para package de Integração quanto para provider dentro de um
+   core — lá a regra é fronteira de *pasta*, não de package.
+3. **Integração de um módulo só nasce como provider dentro do core dele**, em
+   `src/providers/<nome>/`; vira package de Integração quando um segundo módulo passar a
+   consumi-la.
+
+   > `brapi-core` é package porque Portfolio **e** Insights o consomem. A AbacatePay virou
+   > `subscription-core/src/providers/abacatepay/` (T-103) porque só existe por causa da
+   > assinatura — Pix é forma de cobrar, não domínio. Enquanto era package irmão, "quem
+   > orquestra o provedor" não tinha dono e a orquestração se espalhou por quatro rotas.
 4. **Backend depende de Core e Integration**, e é o único lugar onde dois módulos se cruzam.
 5. **`shared` é types-only** e não depende de nada. **`db` é standalone** — não importa nenhum core.
 6. **Core não depende de outro core de módulo diferente.** Transversais (`validation-core`,
@@ -78,7 +85,8 @@ runtime também para o bundle do web — não é o caso hoje.
 ## Onde colocar este código?
 
 1. **É regra de negócio de um domínio (com ou sem banco)?** → `*-core` do módulo dono.
-2. **Chama uma API externa (brapi, AbacatePay, Pluggy)?** → package de Integração.
+2. **Chama uma API externa (brapi, AbacatePay, Pluggy)?** → `src/providers/<nome>/` do core do
+   módulo que a usa; package de Integração só se **dois ou mais** módulos a consumirem.
 3. **É rota HTTP, middleware ou validação de request?** → `rest-api`.
 4. **É SQL de schema, migração ou o client?** → `db`.
 5. **É tipo compartilhado entre server e web?** → `shared` (só tipos).
@@ -99,6 +107,36 @@ runtime também para o bundle do web — não é o caso hoje.
   correspondente em `resolve.alias` (ex.: `'@vetor-wallet/db': path.resolve(__dirname,
   '../db/src/index.ts')`) — sem ele o Vitest cai no `main` do package.json e a suíte passa a
   validar um build antigo (falso verde).
-- Teste ao lado do código (`src/**/*.test.ts`), Vitest, em todo package.
-- Teste que toca banco define `DATABASE_URL` **antes** do `await import('@vetor-wallet/db')` —
-  o client lê o env no top-level do módulo.
+
+## Formato de package (alvo)
+
+O `subscription-core` (T-103) é o **piloto** do formato para o qual todos os `*-core` vão
+migrar. Package novo já nasce assim; os antigos migram um por vez, em tarefas próprias.
+
+- **Uma função exportada por arquivo**, nome do arquivo = nome da função. `src/index.ts` é um
+  barrel de exports nomeados explícitos, nada mais. Tipo de linha do banco fica junto do mapper
+  que o projeta (`Plan.ts` = `PlanRow` + `toPlan`).
+- **`db` chega injetado.** Nenhum core importa o singleton `db`; as funções com I/O recebem
+  `db: Db` (tipo de `@vetor-wallet/db`) no objeto de argumentos, e quem passa é a rota, o job ou
+  o teste. É o que permite testar com `{ execute: jest.fn(), batch: jest.fn() }`, sem banco
+  temporário e sem `DATABASE_URL` antes de um `await import()` dinâmico.
+- **Teste fora do `src/`**, em `tests/unit/tests/*.test.ts`, **um por arquivo de `src/`**,
+  importando por path alias (`import { x } from 'src/x'`). Bordas (`db`, `fetch`) são mockadas;
+  funções do próprio package, **nunca** — mockar o vizinho faz o teste provar a chamada em vez
+  da regra.
+- **Cobertura 100%** em statements/branches/functions/lines, com `src/index.ts` fora da conta.
+- **Snapshot no SQL** das queries: elas são o contrato com o banco, e um `WHERE` alterado em
+  silêncio é o que mais passa despercebido em review.
+- **Stryker (mutation testing) sob demanda** — `pnpm --filter <pkg> mutation`, fora do
+  `pnpm test` e do CI de PR.
+
+### Estado da migração de formato
+
+| Package | Formato | Runner |
+|---|---|---|
+| `subscription-core` | ✅ alvo | Jest + Stryker |
+| demais `*-core`, `db` | arquivo-balaio, `db` importado, teste em `src/**/*.test.ts` | Vitest |
+
+Enquanto um package não migrou, valem as regras antigas: teste ao lado do código
+(`src/**/*.test.ts`) e teste que toca banco define `DATABASE_URL` **antes** do
+`await import('@vetor-wallet/db')` — o client lê o env no top-level do módulo.

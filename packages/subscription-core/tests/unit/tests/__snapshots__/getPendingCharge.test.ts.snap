@@ -1,0 +1,19 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`getPendingCharge com planId: acrescenta a cláusula de plano e o arg na ordem certa 1`] = `
+"SELECT * FROM pix_charges
+          WHERE user_id = ? AND status = 'PENDING'
+            AND (expires_at IS NULL OR expires_at > ?)
+            AND plan_id = ?
+          ORDER BY created_at DESC, id DESC
+          LIMIT 1"
+`;
+
+exports[`getPendingCharge sem planId: filtra por usuário, PENDING e prazo, sem cláusula de plano 1`] = `
+"SELECT * FROM pix_charges
+          WHERE user_id = ? AND status = 'PENDING'
+            AND (expires_at IS NULL OR expires_at > ?)
+            
+          ORDER BY created_at DESC, id DESC
+          LIMIT 1"
+`;
