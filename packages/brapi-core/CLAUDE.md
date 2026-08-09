@@ -1,7 +1,7 @@
 # CLAUDE.md — @vetor-wallet/brapi-core
 
 Client HTTP da [brapi.dev](https://brapi.dev) do Vetor Wallet, extraído de
-`packages/server/src/api/services/quotes.ts` e `tickers.ts` na T-098
+`packages/rest-api/src/api/services/quotes.ts` e `tickers.ts` na T-098
 (Ciclo 19 — arquitetura em módulos). Categoria **Integração**, módulo
 **Portfolio** (ver `docs/MODULES.md`/`docs/PACKAGES.md`). Consumido hoje só
 pelo `server` (via `@vetor-wallet/brapi-core`).

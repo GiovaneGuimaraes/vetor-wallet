@@ -5,7 +5,7 @@
  * também move esse cálculo do `AppShell` para aqui, testado).
  *
  * O server aceita dígitos com ou sem `55` na frente e guarda só dígitos
- * (ver `packages/server/src/api/auth/service.ts` — `normalizePhone`/`isValidPhone`).
+ * (ver `packages/rest-api/src/api/auth/service.ts` — `normalizePhone`/`isValidPhone`).
  * Aqui replicamos a MESMA lógica de máscara de exibição (não a validação —
  * essa é decisão do server) para não fazer round-trip só para formatar.
  */

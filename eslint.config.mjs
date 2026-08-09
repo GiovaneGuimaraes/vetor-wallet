@@ -6,7 +6,7 @@ import prettierConfig from 'eslint-config-prettier';
 /**
  * ESLint de TODO o monorepo, num arquivo só.
  *
- * Antes existiam duas configs (`packages/server/eslint.config.mjs` e
+ * Antes existiam duas configs (`packages/rest-api/eslint.config.mjs` e
  * `packages/web/eslint.config.js`) e o script da raiz era
  * `--filter server && --filter web`. Consequência: **nenhum dos onze `*-core`
  * nem o `db` passava por ESLint** — e como o CI roda Lint antes de Test em

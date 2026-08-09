@@ -3,7 +3,7 @@
 Carteira e ações da B3: posição por **preço médio ponderado**, validação de SELL
 contra a posição atual, série histórica valor × custo, snapshots diários de
 fechamento e o agendador in-process da coleta. Extraído de
-`packages/server/src/api/services/{portfolio,portfolioHistory,wallets,snapshots,snapshotScheduler}.ts`
+`packages/rest-api/src/api/services/{portfolio,portfolioHistory,wallets,snapshots,snapshotScheduler}.ts`
 na T-099c (Ciclo 19 — arquitetura em módulos). Categoria **Core**, módulo
 **Portfolio** (ver `docs/MODULES.md` / `docs/PACKAGES.md`).
 
@@ -36,8 +36,8 @@ src/
 └── index.ts              # barrel
 ```
 
-Rotas: `packages/server/src/api/routes/{wallets,operations,portfolio,snapshots,import,alerts}.ts`.
-Boot: `packages/server/src/api/index.ts` chama `catchUpIfNeeded()` e
+Rotas: `packages/rest-api/src/api/routes/{wallets,operations,portfolio,snapshots,import,alerts}.ts`.
+Boot: `packages/rest-api/src/api/index.ts` chama `catchUpIfNeeded()` e
 `startSnapshotScheduler(30min, catchUpIfNeeded)` — ver "Coleta diária" abaixo.
 Telas: `packages/web/src/routes/DashboardPage.tsx` e os módulos puros ao lado.
 

@@ -26,11 +26,12 @@ Regras que valem já hoje, antes mesmo da migração terminar:
   package antes de mexer nele.
 
 > **Migração em curso.** O alvo é `packages/` = `web`, `rest-api`, `db`, `cli`, `shared` +
-> os `*-core`. Desde a T-099c (Ciclo 19) `packages/server/src/api/services/` **não existe
-> mais** — toda a lógica de domínio virou package e o `server` ficou só com Express (entry,
-> routers, middleware, `auth/router.ts`, `auth/middleware.ts`). Falta renomear `server` →
-> `rest-api` (T-100). Os documentos acima marcam o que é *planejado* — não procure um package
-> assim marcado. Código **novo** já nasce no formato alvo.
+> os `*-core`. Desde a T-099c (Ciclo 19) `packages/rest-api/src/api/services/` **não existe
+> mais** — toda a lógica de domínio virou package e o `rest-api` ficou só com Express (entry,
+> routers, middleware, `auth/router.ts`, `auth/middleware.ts`). O rename `server` → `rest-api`
+> saiu na T-100 (2026-08-09): **não existe mais `packages/server`**. O que segue aberto é a
+> migração de formato dos `*-core` (T-104x). Os documentos acima marcam o que é *planejado* —
+> não procure um package assim marcado. Código **novo** já nasce no formato alvo.
 
 ## Stack e estrutura
 
@@ -69,28 +70,28 @@ packages/
 │                     # job de insights horários (T-099c, Ciclo 19)
 ├── bank-import-core/ # @vetor-wallet/bank-import-core — parser OFX e dedupe
 │                     # por external_id (T-099c, Ciclo 19)
-├── server/   # Node + Express (CJS) — API REST; SÓ Express desde a T-099c
-│   └── src/
+├── rest-api/ # Node + Express (CJS) — API REST; SÓ Express desde a T-099c
+│   └── src/  # (chamava-se `server` até a T-100)
 │       └── api/   # index.ts (entry), auth/{router,middleware}.ts, routes/,
 │                  # middleware/  — não há mais services/
 ├── web/      # Vite + React 18 (ESM) — páginas em src/routes/ com funções puras
 │             # testáveis ao lado (*.test.ts); estado global em App.tsx via props
 └── cli/      # jobs de coleta (tsx; consome @vetor-wallet/{db,insights-core,
-            #  auth-core,validation-core} — o alias @vetor-wallet/server/* saiu na T-099c)
+            #  auth-core,validation-core} — o alias para dentro da API saiu na T-099c)
 ```
 
 ## Comandos (sempre da raiz)
 
 ```bash
 pnpm install                              # nunca npm/yarn
-pnpm dev                                  # server :3001 + web :5173 (usa `&`;
+pnpm dev                                  # rest-api :3001 + web :5173 (usa `&`;
                                           # no Windows prefira dois terminais)
-pnpm dev:server / pnpm dev:web
-pnpm build                                # server → dist/ (entry dist/api/index.js), web → dist/
+pnpm dev:server / pnpm dev:web            # `dev:server` mantém o nome antigo por hábito (T-100)
+pnpm build                                # rest-api → dist/ (entry dist/api/index.js), web → dist/
 pnpm lint                                 # ESLint em TODO o monorepo (config única na raiz;
                                           # package não tem config nem script próprio — T-102)
 pnpm format / pnpm format:check           # Prettier em packages/*/{src,tests}
-pnpm --filter vetor-wallet-server test    # Vitest (server)
+pnpm --filter vetor-wallet-rest-api test  # Vitest (rest-api)
 pnpm --filter @vetor-wallet/db test       # Vitest (db)
 pnpm --filter @vetor-wallet/brapi-core test        # Vitest (brapi-core)
 pnpm --filter @vetor-wallet/subscription-core test # Jest (subscription-core)
@@ -108,15 +109,15 @@ pnpm --filter vetor-wallet-cli insights:hourly [YYYY-MM-DD]
 
 ## Ambiente
 
-`cp packages/<pkg>/.env.example packages/<pkg>/.env` para server, web e cli.
+`cp packages/<pkg>/.env.example packages/<pkg>/.env` para rest-api, web e cli.
 
 | Pacote | Principais variáveis |
 |---|---|
-| server | `PORT` (3001), `SESSION_SECRET`*, `ALLOWED_ORIGIN`*, `NODE_ENV`*, `BRAPI_TOKEN`, `DATABASE_URL` (default `process.cwd()/data/wallet.db`), `ABACATEPAY_API_KEY`, `ABACATEPAY_API_URL` (default `https://api.abacatepay.com/v2`), `ABACATEPAY_WEBHOOK_SECRET`, `BILLING_ENABLED` (default false; obrigatória true em prod com billing) — * obrigatórias em prod |
+| rest-api | `PORT` (3001), `SESSION_SECRET`*, `ALLOWED_ORIGIN`*, `NODE_ENV`*, `BRAPI_TOKEN`, `DATABASE_URL` (default `process.cwd()/data/wallet.db`), `ABACATEPAY_API_KEY`, `ABACATEPAY_API_URL` (default `https://api.abacatepay.com/v2`), `ABACATEPAY_WEBHOOK_SECRET`, `BILLING_ENABLED` (default false; obrigatória true em prod com billing) — * obrigatórias em prod |
 | web | `VITE_API_URL` (http://localhost:3001) |
-| cli | `DATABASE_URL=file:../server/data/wallet.db` (relativo a packages/cli/), `BRAPI_TOKEN` |
+| cli | `DATABASE_URL=file:../rest-api/data/wallet.db` (relativo a packages/cli/), `BRAPI_TOKEN` |
 
-O SQLite (`packages/server/data/wallet.db`) é criado no primeiro boot.
+O SQLite (`packages/rest-api/data/wallet.db`) é criado no primeiro boot.
 
 ## API (base :3001, sessão via cookie `sid` exceto /api/auth/*)
 

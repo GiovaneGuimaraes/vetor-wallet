@@ -1,7 +1,7 @@
 # CLAUDE.md — @vetor-wallet/savings-core
 
 Regras de poupança/reserva e metas do Vetor Wallet. Extraído de
-`packages/server/src/api/services/{savings,goals}.ts` na T-099b (Ciclo 19 —
+`packages/rest-api/src/api/services/{savings,goals}.ts` na T-099b (Ciclo 19 —
 arquitetura em módulos). Categoria **Core**, módulo **Savings** (ver
 `docs/MODULES.md`/`docs/PACKAGES.md`). É dono das tabelas `savings_entries` e
 `goals`, e por isso `goals.ts` importa `@vetor-wallet/db` — "Core" é *dono das
@@ -23,7 +23,7 @@ src/
 └── index.ts    # barrel
 ```
 
-Rotas: `packages/server/src/api/routes/{savings,goals}.ts`. Telas e lógica pura
+Rotas: `packages/rest-api/src/api/routes/{savings,goals}.ts`. Telas e lógica pura
 do cliente: `packages/web/src/routes/{savingsTransfer,savingsProjection,savingsWithdraw}.ts`.
 
 ## Invariantes (não quebrar)

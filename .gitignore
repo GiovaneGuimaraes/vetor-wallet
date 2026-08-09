@@ -1,6 +1,6 @@
 node_modules/
 dist/
-packages/server/data/
+packages/rest-api/data/
 *.log
 # qualquer .env fica de fora; só o .example é versionado
 .env

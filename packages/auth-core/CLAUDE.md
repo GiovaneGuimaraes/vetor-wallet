@@ -2,7 +2,7 @@
 
 Identidade e credenciais: registro, login (bcrypt), perfil (`name`/`phone`),
 troca de senha e papéis (`grantRole`). Extraído de
-`packages/server/src/api/auth/service.ts` na T-099c (Ciclo 19 — arquitetura em
+`packages/rest-api/src/api/auth/service.ts` na T-099c (Ciclo 19 — arquitetura em
 módulos). Categoria **Core**, módulo **Auth** (ver `docs/MODULES.md` /
 `docs/PACKAGES.md`).
 
@@ -31,7 +31,7 @@ src/
 └── index.ts     # barrel
 ```
 
-Consumidores: `packages/server/src/api/auth/{router,middleware}.ts` e
+Consumidores: `packages/rest-api/src/api/auth/{router,middleware}.ts` e
 `packages/cli/src/grantAdmin.ts` (`pnpm --filter vetor-wallet-cli roles:grant-admin`).
 
 ## Invariantes (não quebrar)
@@ -77,7 +77,7 @@ Veio para cá:
   `verifyPassword`, `isValidEmail`, `isValidName`, `isValidPhone`,
   `normalizePhone`) com `@vetor-wallet/db` mockado. Nenhum Express.
 
-Ficou em `packages/server/src/api/auth/`, porque sobe app Express com
+Ficou em `packages/rest-api/src/api/auth/`, porque sobe app Express com
 `supertest` e testa rota/middleware, não o serviço:
 
 - `middleware.test.ts` (`requireAuth`/`requireAdmin` com `Request`/`Response`)
