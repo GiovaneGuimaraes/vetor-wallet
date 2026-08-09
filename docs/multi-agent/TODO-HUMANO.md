@@ -18,6 +18,13 @@
 
 ## Abertos
 
+### [2026-08-09] Token do bot e IDs dos canais do Discord (integração do fluxo)
+- **Origem**: orquestrador (pedido do humano via chat)
+- **Bloqueia**: o uso da interface do Discord. Nada do backlog de produto depende disso — o loop segue funcionando por chat como sempre.
+- **Pergunta/pendência**: o bridge está pronto e testado até onde dá sem credencial (validações, limites de tamanho, erros; a chamada real volta 401 por falta de token). Faltam os passos que só rodam no navegador, documentados em `tools/discord/README.md`: criar a aplicação no Developer Portal, **Reset Token**, ligar **MESSAGE CONTENT INTENT**, gerar a URL de convite pelo OAuth2 URL Generator com as permissões listadas, adicionar o bot ao servidor e copiar os IDs dos 4 canais (Modo desenvolvedor ligado). Depois: `cp tools/discord/.env.example tools/discord/.env`, preencher, e `node tools/discord/bridge.mjs whoami` para sanidade.
+- **Resposta do humano**: _(preencher)_
+- **Nota de segurança**: o token vai **só** para `tools/discord/.env` (não versionado — `.gitignore:6`). Nunca neste arquivo, que é versionado, nem em corpo de PR ou log.
+
 ### [2026-08-09] ~~Arte do personagem da marca para o logo (T-020b)~~ — RESOLVIDO no mesmo dia
 - **Origem**: orquestrador (feedback do humano sobre o logo entregue na T-020)
 - **Bloqueia**: nada — **entregue**. O humano substituiu `logo-vetor-wallet.png` por uma folha de 6 variações de tom e escolheu o **marrom chocolate claro**; o orquestrador recortou e integrou (T-020b CONCLUIDA). Fica registrado abaixo porque o achado técnico vale para qualquer arte futura.

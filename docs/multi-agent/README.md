@@ -22,6 +22,21 @@ Este diretório define o fluxo de trabalho multi-agente em loop fechado do proje
 | [`TODO-HUMANO.md`](./TODO-HUMANO.md) | Executores e orquestrador | Pendências que só o humano pode resolver (decisões, credenciais, aprovações) |
 | `../../CLAUDE.md` | Humano | Arquitetura, comandos, convenções e política de testes — leitura obrigatória de todos |
 
+## Interface no Discord
+
+O loop tem uma superfície opcional no Discord (4 canais de texto: `#new-tasks`, `#backlog`,
+`#todo-ai`, `#todo-human`), operada pelo orquestrador via [`tools/discord/`](../../tools/discord/README.md).
+Regras que valem sempre:
+
+- **Discord é interface, não fonte da verdade.** `BACKLOG.md` e `TODO-HUMANO.md` continuam
+  sendo o estado real; as mensagens são espelhos editáveis. Divergiu? O markdown ganha.
+- **Só o orquestrador escreve no Discord e em `discord-state.json`** — mesma regra do
+  `BACKLOG.md`, para não haver conflito de escrita entre worktrees. Executores seguem
+  reportando ao orquestrador.
+- O humano confirma por reação (✅ aprova · ❌ recusa · 🔁 refaz) ou por resposta em texto;
+  o orquestrador transcreve a resposta para o campo "Resposta do humano" do `TODO-HUMANO.md`,
+  que segue sendo o registro permanente da decisão.
+
 ## O loop fechado
 
 ```
