@@ -444,11 +444,29 @@
 
 ## Em espera (decisão do humano — ver `TODO-HUMANO.md`)
 
-### T-020 — Logo oficial no header e na AuthPage
-- **Status**: PENDENTE — decisão de UX pendente: mascotes vs logo oficial no header (favicon/head já entregues na T-018).
+### T-020 — Logo oficial no header + mascotes nas pages
+- **Status**: PENDENTE — **DESBLOQUEADA (decisão do humano, 2026-08-08)**; asset já pronto pelo orquestrador
+- **Prioridade**: P2
+- **Complexidade**: média — mexe em `AppShell`, `AuthPage` e nas 6 pages de layer; a lógica pura de mascote (`mascots.ts`) muda de consumidor e tem teste ao lado
+- **Depende de**: —
+- **Decisão**: logo oficial **fixa** no header (acaba a troca por layer); mascotes **continuam**, mas nas respectivas pages. Apresentação escolhida: **recorte transparente**, sem moldura, o mesmo arquivo servindo light e dark.
+- **Asset pronto (não refazer)**: `packages/web/public/logo.png`, 224×224 RGBA, 25 KB — recortado do `logo-vetor-wallet.png` da raiz (que é RGB sem alpha, 1,7 MB) pelo orquestrador, com verificação visual sobre os dois fundos de tema. Detalhes do método no `TODO-HUMANO.md`. **O executor não precisa de ferramenta de imagem.**
+- **Escopo**: (1) `AppShell.tsx` — trocar `mascotSrcForPathname(location.pathname)` por `/logo.png` estático; o `key={mascotSrc}` que forçava remount a cada rota deixa de fazer sentido. (2) As 6 pages de layer (`RendaPage`, `DespesasPage`, `PoupancaPage`, `MetasPage`, `DashboardPage`, `CriptoPage`) passam a exibir o próprio mascote — `mascots.ts` continua sendo a fonte do mapa layer → arquivo. (3) `AuthPage.tsx:110` usa `/layers/receitas-t.png` como se fosse logo: trocar pelo `/logo.png`; os mascotes da lista de features (`:123`) **ficam como estão**.
+- **Fora de escopo**: mudar o wordmark "vetor", o favicon/apple-touch-icon (T-018), a paleta, ou a lista de features da landing.
+- **Atenção**: `mascots.ts` tem teste ao lado e continua em uso — não apague `mascotSrcForPathname` sem conferir os consumidores. O `onError` que esconde a imagem quebrada no header deve ser preservado.
+- **Critério de aceite**: header mostra o mesmo logo em qualquer rota, legível em light e dark; cada page de layer mostra seu mascote; landing usa o logo oficial; `pnpm --filter vetor-wallet-web test` verde; `pnpm lint`, `pnpm format:check` e `pnpm build` verdes.
 
-### T-021 — Validação de SELL por data histórica
-- **Status**: PENDENTE — avaliar custo/benefício (SELL retroativo é validado contra a posição de hoje; documentado como decisão consciente no `CLAUDE.md`).
+### T-021 — SELL retroativo é aceito e depois descartado em silêncio
+- **Status**: PENDENTE — **investigada e requalificada pelo orquestrador (2026-08-08)**; aguarda decisão do humano sobre executar
+- **Prioridade**: P2 (era "avaliar custo/benefício")
+- **Complexidade**: alta — cálculo financeiro; recomendado spike `Plan`/Opus antes
+- **Achado (reproduzido com as funções reais do `portfolio-core`, não deduzido do código)**: com 100 PETR4 compradas em 2026-08-01, uma venda de 100 datada em 2026-01-15 (**antes** da compra) é **aceita**, e a posição depois da venda continua **100 ações**. Ou seja: vende e continua com tudo. A operação aparece na lista e não tem efeito nenhum.
+- **Causa — dois comportamentos corretos isoladamente que juntos abrem o buraco**:
+  1. `packages/server/src/api/routes/operations.ts:74-84` valida a venda contra a **posição de hoje** (`buildPositionMap` sobre TODAS as operações do ticker), ignorando a `date` informada. Como hoje há 100, passa.
+  2. `packages/portfolio-core/src/portfolio.ts:20-21` recalcula em ordem cronológica com `Math.max(0, newQty)` no SELL. A venda de janeiro vem antes da compra de agosto, subtrai de zero, é truncada e **evapora**. O clamp existe para a posição nunca ficar negativa — está certo; o efeito colateral é engolir a operação impossível em vez de recusá-la.
+- **Escopo provável**: validar a posição **acumulada até a data da venda** (mesma `buildPositionMap`, sobre as operações com `date <= date da venda`) em vez da posição de hoje. O clamp permanece como rede de segurança.
+- **Risco que exige o spike**: a regra nova **rejeita lançamentos que hoje passam**. Base com histórico cadastrado fora de ordem cronológica pode ter operações que a validação nova recusaria — decidir se a regra vale só para inserções novas, e o que fazer com o que já está gravado.
+- **Critério de aceite**: SELL datado antes de haver posição naquela data → 400 com mensagem clara; SELL datado corretamente segue funcionando; teste de rota cobrindo o cenário do achado acima; suíte server verde.
 
 ## Candidatas (não urgentes)
 

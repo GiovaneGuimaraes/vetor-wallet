@@ -26,6 +26,13 @@
 
 ## Resolvidos
 
+### [2026-07-24→2026-08-08] Logo oficial × mascotes no header (T-020)
+- **Origem**: orquestrador (ciclo 4; a pergunta ficou parada desde 2026-07-24)
+- **Bloqueia**: ~~T-020~~ — **desbloqueado**
+- **Pergunta/pendência**: no header do app v4 valem os mascotes por layer (design atual) — a logo oficial entra onde? Só na landing/auth, ou substitui os mascotes?
+- **Resposta do humano**: (via chat, 2026-08-08) **logo oficial fixa no header**, no lugar da troca por layer; **os mascotes continuam**, mas nas respectivas pages. Escolhida a apresentação **recorte transparente** (logo "flutua" no header, sem moldura, mesmo arquivo servindo light e dark) entre as três opções apresentadas — as outras eram chip arredondado estilo app icon e só a wordmark.
+- **Execução do asset (feita pelo orquestrador, 2026-08-08)**: o `logo-vetor-wallet.png` da raiz do repo é **RGB sem canal alpha**, 1254×1254, 1,7 MB, fundo branco sólido — colocá-lo no header como estava produziria um quadrado branco sobre o canvas escuro. Não há `sharp` nem ImageMagick no ambiente, então o recorte foi feito com `sharp` instalado **fora do repo** (scratchpad), por flood fill a partir das bordas (só remove branco conectado ao fundo, preservando brancos internos do desenho) com rampa de alpha 195→232 nas bordas anti-aliased. O limiar inicial (225→248) deixava halo claro visível a 320% e foi apertado. Resultado conferido **visualmente** sobre os dois fundos de tema antes de aceitar: `packages/web/public/logo.png`, 224×224 RGBA, 25 KB (de 1,7 MB). O PNG original continua na raiz como fonte.
+
 ### [2026-08-07] Caminho do entry de produção muda com o rename `server` → `rest-api` (T-100)
 - **Origem**: orquestrador (Ciclo 19 — migração para arquitetura em módulos)
 - **Bloqueia**: ~~T-100~~ — **desbloqueado em 2026-08-08**
