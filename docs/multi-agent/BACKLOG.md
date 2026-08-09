@@ -365,7 +365,11 @@
 - **Fora de escopo (virou T-105)**: o `format` foi corrigido para cobrir todos os packages, mas **não foi executado** — `pnpm format:check` acusa **181 arquivos** fora do padrão, inclusive no `web`, que já tinha o script e claramente não o rodava. Reformatar é diff cosmético grande e merece commit próprio.
 
 ### T-105 — Passar o Prettier em tudo e travar no CI
-- **Status**: EM_ANDAMENTO (delegada 2026-08-08, executor Sonnet)
+- **Status**: CONCLUIDA — PR #150 mergeado (2026-08-08). Executor Sonnet, revisor Sonnet (APROVADA, nenhum bloqueante). **169 arquivos** reformatados (server 50, web 62, subscription-core 16, portfolio-core 10, db 7, brapi 4, bank-import 4, insights 4, savings 4, auth 2, expenses 2, validation 2, cli 1, shared 1). Dois commits na ordem exigida: reformatação pura (`b83eee7`) e depois `.git-blame-ignore-revs` + step `Format check` no `ci.yml`. Suítes idênticas antes/depois (server 452, web 451, subscription-core 131, e os nove cores).
+  - **Neutralidade provada por construção**, não presumida: com checkout no commit de formatação, `pnpm format:check` passa limpo — o commit é exatamente o que o Prettier produz. O revisor também descartou os riscos específicos do repo: nenhuma template literal de SQL teve conteúdo interno alterado, os 5 snapshots Jest do `subscription-core` estão idênticos e o CSS do `web` só mudou espaçamento.
+  - **169 × 181**: a diferença para a medição da T-102 não era cobertura incompleta — o revisor rodou `format:check` no commit base e obteve exatamente os mesmos 169 arquivos. A `main` avançou entre as duas medições.
+  - **Incidente de integração (lição nova)**: o worktree nasceu antes do commit de backlog, e o rebase na `main` **reescreveu o hash** do commit de reformatação, deixando o `.git-blame-ignore-revs` apontando para um commit inexistente. O orquestrador corrigiu o hash e revalidou o blame após o rebase. **Regra**: tarefa que grava um hash do próprio PR num arquivo versionado tem que ter esse hash reconferido depois de qualquer rebase/squash.
+  - CI verde e confirmado por log que o step `Format check` de fato executou (não só que o job passou).
 - **Prioridade**: P3
 - **Complexidade**: média — reclassificada de baixa pelo orquestrador (2026-08-08): o diff toca 181 arquivos de código e precisa ser **provado** neutro em comportamento (suítes + build), além de editar o `ci.yml`. Fora do critério de segurança do Haiku.
 - **Depende de**: T-102
@@ -409,7 +413,7 @@
 - **DIVIDIDA em T-104a..g pelo orquestrador (2026-08-08)**, uma tarefa/PR por package, em série (cada uma arrasta call sites do `server`/`cli` e mexe nos mesmos arquivos de config). Ordem: `validation-core` → `savings-core` → `expenses-core` → `bank-import-core` → `auth-core` → `insights-core` → `portfolio-core`.
 
 ### T-104a — `validation-core` no formato-alvo
-- **Status**: PENDENTE (fila: entra assim que a T-105 mergear)
+- **Status**: EM_ANDAMENTO (delegada 2026-08-08, executor Sonnet)
 - **Prioridade**: P2
 - **Complexidade**: média — executor Sonnet. É o package trivial da fila (puro, sem I/O, sem `db` para injetar), escolhido de propósito para **calibrar** o formato antes dos cores pesados. Se o formato da T-103 não generalizar, descobre-se aqui e barato.
 - **Depende de**: T-103, T-105
@@ -449,6 +453,7 @@
 - Backfill histórico de snapshots via `hourly_quote_insights` (o agendador in-process foi entregue na T-061; Lambda/EventBridge segue como dívida de produção).
 - Ampliar `/admin`; backend de cripto (aguardando o humano); agendador do job de insights (Lambda/EventBridge); redesign de Alertas/Import (hoje sem UI).
 - **Do Ciclo 19 (2026-08-07)** — dois acoplamentos **pré-existentes** que a extração em packages tornou visíveis (o revisor confirmou por diff que já existiam dentro do server; desfazê-los é refactor, não movimentação): (a) `auth-core → portfolio-core` (`createUser` chama `getOrCreateDefaultWallet`) e `insights-core → portfolio-core` (benchmarks usam `buildPositionMap`/`buildPortfolioSummary`) violam a **regra 6** do `PACKAGES.md` — a saída natural é a rota orquestrar os dois módulos em vez de um core chamar o outro; (b) `portfolio-core/src/snapshots.ts` tem `fetchQuotesStrict`, um **segundo client da brapi** que lança em erro, enquanto `brapi-core.fetchQuotes` degrada em silêncio — unificar movendo `fetchQuotesStrict` para o `brapi-core` e fazendo o tolerante virar wrapper dele. ~~Item (c): mover para `billing-core` a orquestração do client AbacatePay que hoje vive nas rotas~~ — **resolvido na T-103**: o client virou provider dentro do `subscription-core`, então a orquestração passa a ter dono por construção.
+- **Da T-105 (2026-08-08)**: o glob `packages/*/{src,tests}/**` dos scripts `format`/`format:check` não alcança arquivos na **raiz** de cada package — `packages/server/vitest.config.ts` segue fora do padrão Prettier e o step novo do CI não o detecta. Achado do revisor; expandir o glob é diff próprio.
 - **Dos ciclos 17–18 (2026-08-05)**: limpar backend de budgets (rotas + tabela `category_budgets` + tipo no shared) — a UI foi removida na T-089 e nada mais consome; datar `buildIbovespaSeries` em BRT em vez de UTC (consistência com a âncora da rota; hoje um candle intraday após 21h BRT pode ser datado como "amanhã" e recortado — achado da T-095).
 - **Da revisão de 2026-08-02** (não viraram tarefa do ciclo 16): padronizar casing da API (goals usa `target_amount`, operations usa camelCase — só dói para integradores); default silencioso `type: 'OUTRO'` no POST /api/income; "caixa de entrada" de revisão para transações importadas (confirmar/categorizar antes de virar lançamento — extratos reais têm estornos e transferências entre contas próprias); endpoint `investments` da Pluggy para reconciliar posição B3.
 
