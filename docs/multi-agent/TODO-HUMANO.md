@@ -18,9 +18,9 @@
 
 ## Abertos
 
-### [2026-08-09] Arte do personagem da marca para o logo (T-020b)
+### [2026-08-09] ~~Arte do personagem da marca para o logo (T-020b)~~ — RESOLVIDO no mesmo dia
 - **Origem**: orquestrador (feedback do humano sobre o logo entregue na T-020)
-- **Bloqueia**: T-020b (trocar o logo). **Não bloqueia mais nada** — a carteira de massinha da T-020 segue no ar até o personagem chegar.
+- **Bloqueia**: nada — **entregue**. O humano substituiu `logo-vetor-wallet.png` por uma folha de 6 variações de tom e escolheu o **marrom chocolate claro**; o orquestrador recortou e integrou (T-020b CONCLUIDA). Fica registrado abaixo porque o achado técnico vale para qualquer arte futura.
 - **Pergunta/pendência**: o humano não gostou da carteira de massinha como logo e pediu um **personagem padrão**, no estilo dos mascotes, **sem ser nenhum dos 6 de layer**. O orquestrador **não tem ferramenta de geração de imagem**, então não consegue produzir arte inédita nesse acabamento. Tentativa feita e descartada: recolorir o mascote da Renda para marrom-couro e recortar em busto — fica legível e na paleta, mas lado a lado é visivelmente o mesmo personagem em outra cor (amostras em `C:\Users\giovane\Desktop\vetor-logo-propostas\`). **Decisão do humano (2026-08-09): ele mesmo gera a arte e o orquestrador integra.**
 - **O que o humano precisa entregar**: um arquivo de imagem (PNG/JPG/WEBP, ≥512×512), personagem centralizado com margem. Não precisa recortar fundo nem otimizar. Prompt pronto e especificação completa em `Desktop\vetor-logo-propostas\PROMPT-personagem-logo.txt`.
 - **Achado técnico que vale para qualquer arte futura**: os mascotes são de **corpo inteiro** (285×390) e **não sobrevivem ao header**. Reduzidos ao quadrado de 56px, o corpo fica com ~30px e vira borrão. Logo precisa nascer em **enquadramento de busto**. Isso não era óbvio antes de testar — a carteira de massinha funciona a 56px justamente por ser um objeto compacto.

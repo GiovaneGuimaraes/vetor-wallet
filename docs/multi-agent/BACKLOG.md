@@ -461,7 +461,14 @@
 - **Critério de aceite**: header mostra o mesmo logo em qualquer rota, legível em light e dark; cada page de layer mostra seu mascote; landing usa o logo oficial; `pnpm --filter vetor-wallet-web test` verde; `pnpm lint`, `pnpm format:check` e `pnpm build` verdes.
 
 ### T-020b — Trocar o logo pelo personagem da marca
-- **Status**: BLOQUEADA — aguarda a arte do humano (ver `TODO-HUMANO.md`, item 2026-08-09)
+- **Status**: CONCLUIDA (2026-08-09) — feita direto na `main` pelo orquestrador (troca de asset; a T-020 já tinha deixado `/logo.png` como único ponto de referência, então **nenhuma linha de código mudou**). Web 454 testes e `pnpm build` verdes, como esperado.
+  - O humano substituiu `logo-vetor-wallet.png` por uma folha de 6 variações de tom ("estilo Cuphead") e escolheu o **marrom chocolate claro** (linha de baixo, à esquerda).
+  - **Recorte**: mesmo pipeline da T-020, mas o fundo agora é **papel bege texturizado**, não branco — o teste virou distância euclidiana até o bege de referência (229,207,172), não limiar de `min(R,G,B)`.
+  - **Dois problemas que só apareceram ampliando** e o método que resolveu cada um:
+    1. Subir o limiar o bastante para comer a sombra fazia o flood fill **vazar para dentro da luva branca** do personagem. Resolvido com um **portão de cromaticidade** (`R − B > 18`): papel e sombra são bege; a luva é acromática. Com ele, dá para usar limiar alto sem risco.
+    2. Sobrava textura de chão em volta dos sapatos. Parte é **hachura desenhada** (tinta, nenhum limiar de cor pega) e parte eram **bolsões de papel presos** entre as hachuras, inalcançáveis pelo flood fill a partir da borda. Resolvido com uma passada por área restrita à faixa inferior (78%+ da altura), onde só existem sapatos (marrom escuro, distante do bege) e papel. Limpeza por componente conectado foi tentada antes e removeu só 376 px — a hachura encosta no personagem.
+  - **Enquadramento**: a restrição de "busto" registrada na T-020 **não se aplicou** a esta arte. Ela é quase quadrada (395×355), diferente dos mascotes de layer (285×390), então o corpo inteiro sobrevive aos 56px — verificado por prova visual no tamanho real. O busto foi gerado e descartado (cortava tocos de perna).
+  - Asset final: `packages/web/public/logo.png`, 224×224 RGBA, 27 KB. Amostras e o recorte em resolução original ficaram em `Desktop\vetor-logo-propostas\`.
 - **Prioridade**: P3
 - **Complexidade**: baixa — é troca de asset; a T-020 já deixou o header com logo fixo e um único ponto de referência (`/logo.png`)
 - **Depende de**: T-020 (CONCLUIDA) + a arte
