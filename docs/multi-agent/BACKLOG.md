@@ -480,13 +480,14 @@
 ### T-021 — SELL retroativo é aceito e depois descartado em silêncio
 - **Status**: PENDENTE — **investigada e requalificada pelo orquestrador (2026-08-08)**; aguarda decisão do humano sobre executar
 - **Prioridade**: P2 (era "avaliar custo/benefício")
-- **Complexidade**: alta — cálculo financeiro; recomendado spike `Plan`/Opus antes
+- **Complexidade**: média — rebaixada de alta em 2026-08-09 depois da medição de impacto abaixo. Executor Sonnet, sem spike.
 - **Achado (reproduzido com as funções reais do `portfolio-core`, não deduzido do código)**: com 100 PETR4 compradas em 2026-08-01, uma venda de 100 datada em 2026-01-15 (**antes** da compra) é **aceita**, e a posição depois da venda continua **100 ações**. Ou seja: vende e continua com tudo. A operação aparece na lista e não tem efeito nenhum.
 - **Causa — dois comportamentos corretos isoladamente que juntos abrem o buraco**:
   1. `packages/server/src/api/routes/operations.ts:74-84` valida a venda contra a **posição de hoje** (`buildPositionMap` sobre TODAS as operações do ticker), ignorando a `date` informada. Como hoje há 100, passa.
   2. `packages/portfolio-core/src/portfolio.ts:20-21` recalcula em ordem cronológica com `Math.max(0, newQty)` no SELL. A venda de janeiro vem antes da compra de agosto, subtrai de zero, é truncada e **evapora**. O clamp existe para a posição nunca ficar negativa — está certo; o efeito colateral é engolir a operação impossível em vez de recusá-la.
 - **Escopo provável**: validar a posição **acumulada até a data da venda** (mesma `buildPositionMap`, sobre as operações com `date <= date da venda`) em vez da posição de hoje. O clamp permanece como rede de segurança.
-- **Risco que exige o spike**: a regra nova **rejeita lançamentos que hoje passam**. Base com histórico cadastrado fora de ordem cronológica pode ter operações que a validação nova recusaria — decidir se a regra vale só para inserções novas, e o que fazer com o que já está gravado.
+- **~~Risco que exige o spike~~ — MEDIDO E DESCARTADO (2026-08-09)**: a preocupação era a regra nova **rejeitar lançamentos que hoje passam**, exigindo decidir o que fazer com histórico já gravado. O orquestrador rodou a validação nova contra o banco local real (`packages/server/data/wallet.db`), reexecutando a linha do tempo por usuário+ticker: **6 operações, 0 vendas, 0 rejeições**. Não há dado legado a migrar nem decisão de produto pendente. **Consequência: o spike `Plan` deixa de ser necessário e a complexidade cai de alta para média** (segue sendo cálculo financeiro, mas o escopo é uma query com filtro de data e um teste de rota).
+- **Como remedir se o banco crescer**: o script da medição está em `scratchpad/t021-impacto.mjs` — reexecuta a linha do tempo e lista as vendas que falhariam, com ticker, data, quantidade vendida e posição disponível naquela data.
 - **Critério de aceite**: SELL datado antes de haver posição naquela data → 400 com mensagem clara; SELL datado corretamente segue funcionando; teste de rota cobrindo o cenário do achado acima; suíte server verde.
 
 ## Candidatas (não urgentes)
