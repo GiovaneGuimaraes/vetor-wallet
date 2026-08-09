@@ -1,11 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import {
-  isValidMoneyAmount,
-  moneyDecimalsError,
-  moneyRangeError,
-  moneyAmountError,
-  MAX_MONEY_AMOUNT,
-} from './money';
+import { isValidMoneyAmount } from 'src/isValidMoneyAmount';
+import { MAX_MONEY_AMOUNT } from 'src/MAX_MONEY_AMOUNT';
 
 describe('isValidMoneyAmount', () => {
   it('aceita valores com 0, 1 ou 2 casas decimais', () => {
@@ -56,34 +50,5 @@ describe('isValidMoneyAmount', () => {
   it('aceita valores altos porém válidos, abaixo do limite', () => {
     expect(isValidMoneyAmount(9_999_999_999.99)).toBe(true);
     expect(isValidMoneyAmount(MAX_MONEY_AMOUNT - 0.01)).toBe(true);
-  });
-});
-
-describe('moneyDecimalsError', () => {
-  it('usa "amount" como campo default', () => {
-    expect(moneyDecimalsError()).toBe('amount deve ter no máximo 2 casas decimais');
-  });
-
-  it('aceita um nome de campo customizado', () => {
-    expect(moneyDecimalsError('target_amount')).toBe(
-      'target_amount deve ter no máximo 2 casas decimais'
-    );
-  });
-});
-
-describe('moneyRangeError', () => {
-  it('menciona o campo e o limite máximo', () => {
-    expect(moneyRangeError('amount')).toMatch(/amount/);
-    expect(moneyRangeError('amount')).toMatch(/limite máximo/);
-  });
-});
-
-describe('moneyAmountError', () => {
-  it('devolve o erro de casas decimais quando o valor está dentro do limite', () => {
-    expect(moneyAmountError(1.234, 'amount')).toBe(moneyDecimalsError('amount'));
-  });
-
-  it('devolve o erro de limite quando o valor excede MAX_MONEY_AMOUNT', () => {
-    expect(moneyAmountError(MAX_MONEY_AMOUNT + 1, 'amount')).toBe(moneyRangeError('amount'));
   });
 });

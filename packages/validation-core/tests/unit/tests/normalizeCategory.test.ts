@@ -1,10 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { normalizeCategory } from './categories';
+import { normalizeCategory } from 'src/normalizeCategory';
 
 /**
  * Espelho de `web/src/routes/categories.test.ts` — as duas cópias da
- * normalização devem continuar concordando (ver comentário em categories.ts
- * sobre por que a função não vive em `shared/`).
+ * normalização devem continuar concordando (ver comentário em
+ * normalizeCategory.ts sobre por que a função não vive em `shared/`).
  */
 describe('normalizeCategory', () => {
   it('remove espaços das pontas', () => {
