@@ -141,7 +141,17 @@ migrar. Package novo já nasce assim; os antigos migram um por vez, em tarefas p
 | Package | Formato | Runner |
 |---|---|---|
 | `subscription-core` | ✅ alvo | Jest + Stryker |
+| `validation-core` | ✅ alvo (T-104a) | Jest |
 | demais `*-core`, `db` | arquivo-balaio, `db` importado, teste em `src/**/*.test.ts` | Vitest |
+
+> `validation-core` foi o segundo package migrado e o **calibre** do formato:
+> puro, sem I/O, sem `db` para injetar — escolhido de propósito para descobrir
+> cedo e barato o que do padrão do `subscription-core` só faz sentido por
+> causa de `db`/provider HTTP. Achado: `db` injetado, `setupTests.ts` e
+> `moduleNameMapper` de workspace package não se aplicam a um core sem
+> dependência nem estado global; Stryker não entrou nesta migração (fora do
+> escopo da T-104a). Ver `packages/validation-core/CLAUDE.md` → "Onde este
+> package DIVERGE do piloto".
 
 Enquanto um package não migrou, valem as regras antigas: teste ao lado do código
 (`src/**/*.test.ts`) e teste que toca banco define `DATABASE_URL` **antes** do

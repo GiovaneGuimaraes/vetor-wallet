@@ -46,7 +46,10 @@ packages/
 │                     # (cotações, tickers); extraído do server (T-098, Ciclo 19)
 ├── validation-core/  # @vetor-wallet/validation-core — isValidIsoDate,
 │                     # isValidMoneyAmount, normalizeCategory; transversal, sem
-│                     # módulo, sem I/O; extraído do server (T-099a, Ciclo 19)
+│                     # módulo, sem I/O; extraído do server (T-099a, Ciclo 19).
+│                     # Formato-alvo (T-104a, Ciclo 20): 1 função por arquivo,
+│                     # Jest com testes em tests/unit/tests/ e cobertura 100%;
+│                     # sem `db` injetado (não tem I/O) — calibre do formato
 ├── subscription-core/ # @vetor-wallet/subscription-core — datas UTC no formato
 │                     # SQLite, ativação idempotente e o provider AbacatePay em
 │                     # src/providers/abacatepay/ (fusão de billing-core +
@@ -92,7 +95,7 @@ pnpm --filter @vetor-wallet/db test       # Vitest (db)
 pnpm --filter @vetor-wallet/brapi-core test        # Vitest (brapi-core)
 pnpm --filter @vetor-wallet/subscription-core test # Jest (subscription-core)
 pnpm --filter @vetor-wallet/subscription-core mutation  # Stryker, sob demanda
-pnpm --filter @vetor-wallet/validation-core test   # Vitest (validation-core)
+pnpm --filter @vetor-wallet/validation-core test   # Jest (validation-core)
 pnpm --filter @vetor-wallet/savings-core test      # Vitest (savings-core)
 pnpm --filter @vetor-wallet/expenses-core test     # Vitest (expenses-core)
 pnpm --filter @vetor-wallet/bank-import-core test  # Vitest (bank-import-core)

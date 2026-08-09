@@ -12,6 +12,5 @@
     "esModuleInterop": true,
     "baseUrl": "."
   },
-  "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/**/__fixtures__/**"]
+  "include": ["src"]
 }
