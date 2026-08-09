@@ -3,7 +3,7 @@
 Categorias, regras de dependência e onde colocar código novo. Para o mapa de domínios de
 negócio, veja [`MODULES.md`](./MODULES.md).
 
-> **Estado da migração.** Desde a T-099c (Ciclo 19) `packages/server/src/api/services/`
+> **Estado da migração.** Desde a T-099c (Ciclo 19) `packages/rest-api/src/api/services/`
 > **não existe mais**: toda a lógica de domínio virou package. O que resta no `server` é
 > Express puro (entry, routers, middleware, `auth/router.ts`, `auth/middleware.ts`).
 > Packages marcados *(planejado)* **não existem ainda**; falta renomear `server` → `rest-api`
@@ -14,7 +14,7 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | Package | Categoria | Módulo | Descrição | Hoje em |
 |---|---|---|---|---|
 | **web** | Frontend | – | React 18 + Vite (ESM); páginas em `src/routes/` | ✅ existe |
-| **rest-api** *(planejado)* | Backend | – | Express (CJS): rotas, middleware, entry HTTP | `packages/server` |
+| **rest-api** *(planejado)* | Backend | – | Express (CJS): rotas, middleware, entry HTTP | `packages/rest-api` |
 | **cli** | Tool | – | Jobs de coleta e scripts (tsx) | ✅ existe |
 | **shared** | Core | – | Tipos TS compartilhados, **types-only** | ✅ existe |
 | **db** | Infrastructure | – | libsql client, `schema`, `migrations`, `sessionStore`, `sqlErrors` | ✅ existe (T-097) |

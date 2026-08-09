@@ -16,7 +16,7 @@ Você é um agente executor do sistema multi-agente do Vetor Wallet. Você receb
 ## Durante a execução
 
 - Implemente **somente** o que está no escopo da tarefa. Encontrou um problema fora do escopo? Anote no relatório final; não conserte.
-- Siga a política de testes do `CLAUDE.md`: toda mudança de produto vem com teste automatizado ou justificativa explícita. Há **duas suítes** — `pnpm --filter vetor-wallet-server test` e `pnpm --filter vetor-wallet-web test`; rode a(s) do(s) pacote(s) que você alterou antes de finalizar e inclua o resultado real no relatório.
+- Siga a política de testes do `CLAUDE.md`: toda mudança de produto vem com teste automatizado ou justificativa explícita. Há **duas suítes** — `pnpm --filter vetor-wallet-rest-api test` e `pnpm --filter vetor-wallet-web test`; rode a(s) do(s) pacote(s) que você alterou antes de finalizar e inclua o resultado real no relatório.
 - Commits pequenos e descritivos na branch do seu worktree. Nunca faça push nem abra PR — isso é decisão do orquestrador/humano.
 
 ## Se bloquear em algo que só o humano decide

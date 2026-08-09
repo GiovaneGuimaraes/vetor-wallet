@@ -1,8 +1,8 @@
 # CLAUDE.md — @vetor-wallet/db
 
-Camada de banco do Vetor Wallet, extraída de `packages/server/src/db/` na T-097
+Camada de banco do Vetor Wallet, extraída de `packages/rest-api/src/db/` na T-097
 (Ciclo 19 — arquitetura em módulos). Consumida hoje só pelo `server`
-(via `@vetor-wallet/db`) e indiretamente pelo `cli` (via `@vetor-wallet/server`).
+(via `@vetor-wallet/db`) e indiretamente pelo `cli` (via `@vetor-wallet/rest-api`).
 Não importa nada de `server`/`web`/Express. Desde a T-099a depende de
 `@vetor-wallet/validation-core` (transversal, sem I/O, sem ciclo) para
 `normalizeCategory` — nenhum outro `*-core` de domínio é importado.

@@ -1,4 +1,4 @@
-# CLAUDE.md — vetor-wallet-server
+# CLAUDE.md — vetor-wallet-rest-api
 
 API REST em Node + Express + TypeScript (CJS). Leia junto com o `CLAUDE.md` da raiz e o(s) `docs/decisions/*.md` do domínio da tarefa.
 
@@ -69,7 +69,7 @@ Na T-099c (Ciclo 19) saiu o resto, esvaziando `services/`:
 
 Cada um tem seu `CLAUDE.md` com as invariantes do domínio — leia antes de mexer.
 
-Entry compilado: `dist/api/index.js` (`pnpm --filter vetor-wallet-server start`). Rodar `node dist/api/index.js` de fora de `packages/server/` sem `DATABASE_URL` cria um banco novo no cwd errado.
+Entry compilado: `dist/api/index.js` (`pnpm --filter vetor-wallet-rest-api start`). Rodar `node dist/api/index.js` de fora de `packages/rest-api/` sem `DATABASE_URL` cria um banco novo no cwd errado.
 
 ## Regras do pacote
 
@@ -93,9 +93,10 @@ A migração para **AWS Cloud** está no horizonte, mas sem data e sem tarefa
 aberta. Quando entrar em pauta, os TODOs abaixo (Turso, Cognito,
 Lambda/EventBridge) deixam de ser hipotéticos e passam a ter um alvo concreto.
 
-Consequência prática: qualquer tarefa que mude o caminho do entry compilado
-(ex.: a T-100, rename `server` → `rest-api`) é segura hoje, porque não há
-ambiente externo apontando para `dist/api/index.js`.
+Consequência prática: o rename `server` → `rest-api` (T-100, 2026-08-09) pôde ser
+feito sem risco, porque não há ambiente externo apontando para `dist/api/index.js`
+— só o `start` deste package. Se um dia houver deploy, o caminho do entry passa a
+ser um contrato externo e essa liberdade acaba.
 
 ## TODOs futuros
 

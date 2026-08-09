@@ -8,7 +8,7 @@ Para categorias de package, regras de dependência e onde colocar código novo, 
 [`PACKAGES.md`](./PACKAGES.md). Para as decisões de produto/implementação de cada domínio,
 veja o `CLAUDE.md` do package core correspondente (as antigas notas de `docs/decisions/`).
 
-> **Estado da migração.** Desde a T-099c (Ciclo 19) `packages/server/src/api/services/` **não
+> **Estado da migração.** Desde a T-099c (Ciclo 19) `packages/rest-api/src/api/services/` **não
 > existe mais** — toda a lógica de domínio virou package e o `server` ficou só com Express
 > (entry, routers, middleware). O que falta é renomear `server` → `rest-api` (T-100). Não
 > procure um package marcado como *planejado* — ele não existe.

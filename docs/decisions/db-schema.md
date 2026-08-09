@@ -1,8 +1,8 @@
 # Schema do banco
 
-> Extraído do CLAUDE.md raiz. O schema é gerenciado em `packages/server/src/db/schema.ts > initDb()` via `CREATE TABLE IF NOT EXISTS` e `ALTER TABLE` idempotentes; migrações de dados em `db/migrations.ts`.
+> Extraído do CLAUDE.md raiz. O schema é gerenciado em `packages/rest-api/src/db/schema.ts > initDb()` via `CREATE TABLE IF NOT EXISTS` e `ALTER TABLE` idempotentes; migrações de dados em `db/migrations.ts`.
 
-Gerenciado em `packages/server/src/db/ > initDb()` via `CREATE TABLE IF NOT EXISTS` e `ALTER TABLE` idempotentes.
+Gerenciado em `packages/rest-api/src/db/ > initDb()` via `CREATE TABLE IF NOT EXISTS` e `ALTER TABLE` idempotentes.
 
 ```sql
 -- Usuários

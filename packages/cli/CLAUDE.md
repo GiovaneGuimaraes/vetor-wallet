@@ -6,7 +6,7 @@ Instruções específicas do package `cli/`. Leia em conjunto com o `CLAUDE.md` 
 
 ## Responsabilidade
 
-CLIs de coleta e manutenção de dados, sem dependência do Express. Cada script é uma função pura exportada do `packages/server/src/api/services/` envelopada num entry point mínimo — estruturada para virar um handler Lambda fino no futuro.
+CLIs de coleta e manutenção de dados, sem dependência do Express. Cada script é uma função exportada por um package `*-core` envelopada num entry point mínimo — estruturada para virar um handler Lambda fino no futuro.
 
 ---
 
@@ -18,7 +18,7 @@ cli/
 │   └── hourlyInsights.ts  # job de captura horária de cotações B3
 ├── .env.example           # DATABASE_URL + BRAPI_TOKEN
 ├── package.json           # vetor-wallet-cli; script: insights:hourly
-└── tsconfig.json          # path aliases para server e shared
+└── tsconfig.json          # path aliases para os packages consumidos
 ```
 
 ---
@@ -44,31 +44,36 @@ Sem argumento de data, o job usa o dia útil anterior em BRT.
 
 | Variável | Exemplo | Obrigatório |
 |---|---|---|
-| `DATABASE_URL` | `file:../server/data/wallet.db` | **Sim** |
+| `DATABASE_URL` | `file:../rest-api/data/wallet.db` | **Sim** |
 | `BRAPI_TOKEN` | — | Não (limite maior com token) |
 
-`DATABASE_URL` é relativo ao diretório onde o script roda (`packages/cli/`), então `../server/data/wallet.db` aponta corretamente para o banco do server. Para Turso: `libsql://seu-db.turso.io?authToken=...`.
+`DATABASE_URL` é relativo ao diretório onde o script roda (`packages/cli/`), então `../rest-api/data/wallet.db` aponta corretamente para o banco da API. Para Turso: `libsql://seu-db.turso.io?authToken=...`.
+
+> **Atenção (T-100)**: o package se chamava `server` até 2026-08-09. Um `.env` local
+> antigo com `file:../server/data/wallet.db` **não dá erro** — o libsql cria um banco
+> novo e vazio nesse caminho, e o job roda "com sucesso" sobre nada. Se o job parecer
+> não enxergar seus dados, confira esta variável primeiro.
 
 ---
 
 ## Imports e path aliases
 
-O `tsconfig.json` do CLI define dois aliases:
+O `tsconfig.json` do CLI aponta cada package consumido para o **código-fonte**, não
+para o `dist/`: `@vetor-wallet/{shared,db,validation-core,auth-core,insights-core}` e,
+como transitivos de `auth-core`/`insights-core`, `@vetor-wallet/{portfolio-core,brapi-core}`.
+Os transitivos existem de propósito — sem eles o `tsx` cairia na resolução do Node e
+exigiria o `dist` desses cores já construído, e um job de CLI não pode depender de
+`pnpm build` ter rodado antes.
 
-| Alias | Resolve para |
-|---|---|
-| `@vetor-wallet/shared` | `../shared/src/index.ts` |
-| `@vetor-wallet/validation-core` | `../validation-core/src/index.ts` |
-| `@vetor-wallet/server/*` | `../server/src/*` |
-
-Isso permite importar serviços e o cliente de banco do server sem duplicar código:
+O CLI **não** tem alias para dentro da API (o `@vetor-wallet/server/*` saiu na T-099c,
+quando `services/` deixou de existir). Ele importa dos cores:
 
 ```typescript
 import { initDb } from '@vetor-wallet/db';
-import { runHourlyInsightsJob } from '@vetor-wallet/server/api/services/hourlyInsights';
+import { runHourlyInsightsJob } from '@vetor-wallet/insights-core';
 ```
 
-**Não adicione lógica de negócio diretamente nos arquivos de `cli/src/`** — ela pertence a `packages/server/src/api/services/`. O CLI só chama `initDb()`, invoca o job e loga o resultado.
+**Não adicione lógica de negócio diretamente nos arquivos de `cli/src/`** — ela pertence ao `*-core` do domínio. O CLI só chama `initDb()`, invoca o job e loga o resultado.
 
 ---
 
@@ -76,7 +81,7 @@ import { runHourlyInsightsJob } from '@vetor-wallet/server/api/services/hourlyIn
 
 1. Criar `cli/src/<nome>.ts` — chama `initDb()` + função do serviço + loga + `process.exit`.
 2. Adicionar script em `cli/package.json`: `"<nome>": "tsx src/<nome>.ts"`.
-3. A lógica de negócio fica em `packages/server/src/api/services/<nome>.ts` com seus testes Vitest.
+3. A lógica de negócio fica no `*-core` do domínio, com seus testes.
 
 ---
 
@@ -87,7 +92,7 @@ Quando o deploy em AWS Lambda + EventBridge for feito, cada `cli/src/*.ts` vira 
 ```typescript
 // lambda/hourlyInsights.ts (exemplo)
 import { initDb } from '@vetor-wallet/db';
-import { runHourlyInsightsJob } from '@vetor-wallet/server/api/services/hourlyInsights';
+import { runHourlyInsightsJob } from '@vetor-wallet/insights-core';
 
 export const handler = async () => {
   await initDb();

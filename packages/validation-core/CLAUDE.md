@@ -1,7 +1,7 @@
 # CLAUDE.md — @vetor-wallet/validation-core
 
 Validações transversais do Vetor Wallet, extraídas de
-`packages/server/src/api/services/{dates,money,categories}.ts` na T-099a
+`packages/rest-api/src/api/services/{dates,money,categories}.ts` na T-099a
 (Ciclo 19 — arquitetura em módulos). Categoria **Core**, **sem módulo** — é
 transversal como `db` e `shared` (regra 6 de `docs/PACKAGES.md`): qualquer
 `*-core` ou `rest-api` pode depender dele, e ele não depende de nenhum outro
@@ -67,7 +67,7 @@ foram replicadas por imitação:
 
 - **`isValidIsoDate`/`isValidMoneyAmount`/`normalizeCategory` não têm
   implementação alternativa em lugar nenhum do backend.** `packages/db`
-  (`migrations.ts`) e `packages/server` importam daqui. Antes da T-099a havia
+  (`migrations.ts`) e `packages/rest-api` importam daqui. Antes da T-099a havia
   três cópias byte a byte idênticas (server, db, web); agora db e server
   compartilham a mesma função — só resta a duplicata do `web`, abaixo.
 - **A cópia em `packages/web/src/routes/categories.ts` FICA e é esperada.**

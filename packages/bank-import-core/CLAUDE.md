@@ -2,7 +2,7 @@
 
 Trazer lançamentos de fora para dentro do app **sem duplicar**: parser de extrato
 OFX (T-085) e a política de dedupe por `external_id` (T-084). Extraído de
-`packages/server/src/api/services/ofx.ts` e `externalId.ts` na T-099c (Ciclo 19 —
+`packages/rest-api/src/api/services/ofx.ts` e `externalId.ts` na T-099c (Ciclo 19 —
 arquitetura em módulos). Categoria **Core**, módulo **BankImport** (ver
 `docs/MODULES.md` / `docs/PACKAGES.md`).
 
@@ -32,7 +32,7 @@ src/
 └── index.ts             # barrel
 ```
 
-Rota: `packages/server/src/api/routes/importOfx.ts` (`express.raw`, 1 MB).
+Rota: `packages/rest-api/src/api/routes/importOfx.ts` (`express.raw`, 1 MB).
 Consumidores do dedupe unitário: `routes/incomeEntries.ts`, `routes/expenseEntries.ts`.
 Lógica pura do cliente: `packages/web/src/routes/ofxImportReport.ts`.
 
@@ -41,7 +41,7 @@ Lógica pura do cliente: `packages/web/src/routes/ofxImportReport.ts`.
 `src/__fixtures__/ofx.ts` é usado por dois testes em packages diferentes: o do
 parser aqui e `server/src/api/routes/importOfx.test.ts`. O server o importa como
 `@vetor-wallet/bank-import-core/fixtures`, um alias **só de teste** declarado em
-`packages/server/vitest.config.ts`. Esse alias precisa vir **antes** do alias do
+`packages/rest-api/vitest.config.ts`. Esse alias precisa vir **antes** do alias do
 package base no objeto `resolve.alias`: o alias de string do Vite casa por
 prefixo, então `'@vetor-wallet/bank-import-core'` sozinho capturaria o subpath e
 resolveria para `.../src/index.ts/fixtures`. As fixtures ficam fora do build

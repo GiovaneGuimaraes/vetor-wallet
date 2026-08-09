@@ -3,7 +3,7 @@ import path from 'path';
 
 export default defineConfig({
   resolve: {
-    // Ver comentário equivalente em packages/server/vitest.config.ts: sem o
+    // Ver comentário equivalente em packages/rest-api/vitest.config.ts: sem o
     // alias explícito o Vitest resolveria pelo `main`/dist do package, que
     // pode não existir ou estar desatualizado (falso verde). Vale também para
     // core → core (portfolio-core).

@@ -2,7 +2,7 @@
 
 Comparação da carteira com **CDI/Ibovespa** (T-068) e o **job de insights
 horários**. Extraído de
-`packages/server/src/api/services/{benchmarks,benchmarkHistory,hourlyInsights}.ts`
+`packages/rest-api/src/api/services/{benchmarks,benchmarkHistory,hourlyInsights}.ts`
 na T-099c (Ciclo 19 — arquitetura em módulos). Categoria **Core**, módulo
 **Insights** (ver `docs/MODULES.md` / `docs/PACKAGES.md`).
 
@@ -27,7 +27,7 @@ src/
 └── index.ts              # barrel
 ```
 
-Rotas: `packages/server/src/api/routes/{benchmarks,admin}.ts`.
+Rotas: `packages/rest-api/src/api/routes/{benchmarks,admin}.ts`.
 CLI: `packages/cli/src/hourlyInsights.ts` (`pnpm --filter vetor-wallet-cli insights:hourly`).
 Lógica pura do cliente: `packages/web/src/routes/benchmarkSeries.ts`.
 

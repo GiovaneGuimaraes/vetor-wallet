@@ -1,5 +1,5 @@
 {
-  "name": "vetor-wallet-server",
+  "name": "vetor-wallet-rest-api",
   "version": "1.0.0",
   "private": true,
   "type": "commonjs",
