@@ -50,6 +50,13 @@ repetidamente. Ele contém **apenas trabalho vivo**.
 - **Atenção (achado da T-104a)**: separar funções que dividiam um arquivo expõe branches de parâmetro default antes cobertos por acidente. Rodar `--coverage` cedo, não só no fim.
 - **Critério de aceite**: `pnpm --filter @vetor-wallet/savings-core test` verde com cobertura 100%; `pnpm build`, `pnpm lint`, `pnpm format:check` e `pnpm test` da raiz verdes; contagem de testes do `rest-api` preservada ou maior.
 
+### T-087 — Job `pluggy:sync` no cli (Meu Pluggy / Conector 200)
+- **Status**: **BLOQUEADA** — credenciais do humano (`TODO-HUMANO.md`) · **Complexidade**: alta · **Depende de**: T-084 (concluída)
+- **Objetivo**: automatizar por cima do pipeline que o OFX fundou. Meu Pluggy dá acesso gratuito às contas do próprio usuário via Open Finance — único caminho automático viável para PF.
+- **Arquitetura**: client em `packages/pluggy-core` (Integração) — busca transações, **sem tocar o banco**; mapeamento e gravação no `bank-import-core`; job no `cli` (padrão `insights:hourly`) só orquestra. `external_id` = id da transação (dedupe da T-084); crédito → income, débito → expense. Flag `--dry-run`.
+- **Fora de escopo**: endpoint `investments` (candidata); UI; agendamento.
+- **Critério de aceite**: com mocks, `pluggy:sync -- --dry-run` lista sem gravar; execução real idempotente; testes do mapeamento; suítes verdes.
+
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 
 - **Acoplamentos core→core** (violam a regra 6 do `PACKAGES.md`; pré-existentes, tornados visíveis pela extração): `auth-core → portfolio-core` e `insights-core → portfolio-core` — a saída é a **rota** orquestrar os dois módulos. E `portfolio-core/snapshots.ts` tem um **segundo client da brapi** (`fetchQuotesStrict`, que lança) paralelo ao `brapi-core.fetchQuotes` (que degrada em silêncio) — unificar no `brapi-core`.

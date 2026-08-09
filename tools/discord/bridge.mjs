@@ -223,6 +223,14 @@ const commands = {
     out({ ok: true });
   },
 
+  /** pin <canal> <messageId> — fixa a mensagem (instrucoes nao podem sumir no scroll) */
+  async pin(args) {
+    const [channel, messageId] = parseFlags(args).positional;
+    if (!messageId) fail('messageId nao informado');
+    await api('PUT', `/channels/${resolveChannel(channel)}/pins/${messageId}`);
+    out({ ok: true });
+  },
+
   /** whoami — sanidade: confirma que o token vale e mostra o bot autenticado */
   async whoami() {
     const me = await api('GET', '/users/@me');

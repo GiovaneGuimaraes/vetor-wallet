@@ -1,7 +1,12 @@
 {
   "_comment": "Mapa de mensagens fixas do Discord. Escrito SO pelo orquestrador. Os arquivos markdown continuam sendo a fonte da verdade; isto guarda apenas onde cada espelho mora no Discord.",
+  "instrucoes": {
+    "newTasks": "1536142928139788299",
+    "backlog": "1536147991306698855",
+    "todoAi": "1536147994662011034",
+    "todoHuman": "1536147998436888587"
+  },
   "backlog": { "messageId": "1536142925069557824" },
-  "instrucoes": { "newTasks": "1536142928139788299" },
   "tasks": {
     "T-104b": { "canal": "todo-ai", "messageId": "1536143027494453331", "status": "PENDENTE" }
   },
@@ -11,7 +16,17 @@
       "messageId": "1536142930925068369",
       "modo": "emoji + resposta",
       "opcoes": { "✅": "entra na fila", "❌": "fica parada" }
+    },
+    "T-087": {
+      "canal": "todo-human",
+      "messageId": "1536148001666633759",
+      "modo": "emoji + resposta",
+      "opcoes": {
+        "1️⃣": "tenho as credenciais",
+        "2️⃣": "continua na fila sem previsao",
+        "3️⃣": "cancelar a T-087"
+      }
     }
   },
-  "lastSeen": { "newTasks": "1536143158381908058", "todoHuman": "1536142930925068369" }
+  "lastSeen": { "newTasks": "1536143158381908058", "todoHuman": "1536148001666633759" }
 }
