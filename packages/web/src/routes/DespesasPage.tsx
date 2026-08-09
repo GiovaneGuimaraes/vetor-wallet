@@ -60,6 +60,7 @@ import {
 } from './despesasForm';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { BackToHomeLink } from '../components/BackToHomeLink';
+import { mascotSrcForLayer } from '../layout/mascots';
 import './layers.css';
 
 const HISTORY_MONTHS = 6;
@@ -561,9 +562,19 @@ export function DespesasPage() {
   return (
     <div>
       <BackToHomeLink />
-      <div className="vw-page-header">
-        <h1 className="vw-page-title">Despesas</h1>
-        <p className="vw-page-subtitle">Gastos fixos e do dia a dia</p>
+      <div className="vw-page-header-row">
+        <div className="vw-page-header">
+          <h1 className="vw-page-title">Despesas</h1>
+          <p className="vw-page-subtitle">Gastos fixos e do dia a dia</p>
+        </div>
+        <img
+          src={mascotSrcForLayer('despesas')}
+          alt=""
+          className="vw-page-mascot"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
+          }}
+        />
       </div>
 
       <div className="vw-hero-card">

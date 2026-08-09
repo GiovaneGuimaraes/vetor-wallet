@@ -31,6 +31,7 @@ import {
 } from './rendaForm';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { BackToHomeLink } from '../components/BackToHomeLink';
+import { mascotSrcForLayer } from '../layout/mascots';
 import './layers.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -394,9 +395,19 @@ export function RendaPage() {
   return (
     <div>
       <BackToHomeLink />
-      <div className="vw-page-header">
-        <h1 className="vw-page-title">Renda</h1>
-        <p className="vw-page-subtitle">Renda fixa e renda variável do mês</p>
+      <div className="vw-page-header-row">
+        <div className="vw-page-header">
+          <h1 className="vw-page-title">Renda</h1>
+          <p className="vw-page-subtitle">Renda fixa e renda variável do mês</p>
+        </div>
+        <img
+          src={mascotSrcForLayer('renda')}
+          alt=""
+          className="vw-page-mascot"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
+          }}
+        />
       </div>
 
       <div className="vw-hero-card">

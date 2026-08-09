@@ -34,6 +34,7 @@ import {
 import { wouldOverdrawBalance } from './savingsWithdraw';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { BackToHomeLink } from '../components/BackToHomeLink';
+import { mascotSrcForLayer } from '../layout/mascots';
 import './layers.css';
 import './layers-savings.css';
 
@@ -491,9 +492,19 @@ export function PoupancaPage() {
   return (
     <div>
       <BackToHomeLink />
-      <div className="vw-page-header">
-        <h1 className="vw-page-title">Poupança</h1>
-        <p className="vw-page-subtitle">Saldo, aportes e rendimento</p>
+      <div className="vw-page-header-row">
+        <div className="vw-page-header">
+          <h1 className="vw-page-title">Poupança</h1>
+          <p className="vw-page-subtitle">Saldo, aportes e rendimento</p>
+        </div>
+        <img
+          src={mascotSrcForLayer('poupanca')}
+          alt=""
+          className="vw-page-mascot"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
+          }}
+        />
       </div>
 
       {loading ? (

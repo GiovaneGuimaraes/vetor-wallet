@@ -12,6 +12,7 @@ import { OperationsList } from '../components/OperationsList';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { BackToHomeLink } from '../components/BackToHomeLink';
+import { mascotSrcForLayer } from '../layout/mascots';
 import { ProjectionChart } from '../components/ProjectionChart';
 import { HistoryChart } from '../components/HistoryChart';
 import { PriceChart } from '../components/PriceChart';
@@ -402,6 +403,18 @@ export function DashboardPage() {
             Tentar novamente
           </button>
         )}
+        {/* T-020: mascote decorativo da layer de Ações — mesmo mecanismo de
+            breakpoint das demais pages (`.vw-page-mascot`, some <=480px em
+            vez de encolher); só a posição é diferente aqui (na pill da
+            carteira, via `ml-auto`), porque esta page não tem `<h1>`. */}
+        <img
+          src={mascotSrcForLayer('dash')}
+          alt=""
+          className="vw-page-mascot ml-auto"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
+          }}
+        />
       </div>
 
       {apiError && (

@@ -10,6 +10,7 @@ import {
 } from './goalsProgress';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { BackToHomeLink } from '../components/BackToHomeLink';
+import { mascotSrcForLayer } from '../layout/mascots';
 import './layers-savings.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -206,9 +207,19 @@ export function MetasPage() {
   return (
     <div>
       <BackToHomeLink />
-      <div className="vw-page-header">
-        <h1 className="vw-page-title">Metas</h1>
-        <p className="vw-page-subtitle">Progresso dos seus objetivos</p>
+      <div className="vw-page-header-row">
+        <div className="vw-page-header">
+          <h1 className="vw-page-title">Metas</h1>
+          <p className="vw-page-subtitle">Progresso dos seus objetivos</p>
+        </div>
+        <img
+          src={mascotSrcForLayer('metas')}
+          alt=""
+          className="vw-page-mascot"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
+          }}
+        />
       </div>
 
       {loading ? (
