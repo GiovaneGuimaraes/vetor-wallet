@@ -30,7 +30,7 @@
 - **Pergunta/pendência**: os 4 canais tinham permissão própria escondendo o bot (403 Missing Access nos quatro, enquanto a categoria pai respondia 200). O humano adicionou o cargo `agentic-bot` em cada canal.
 - **Resposta do humano**: (via chat, 2026-08-09) **cargo adicionado**. Validado ponta a ponta em seguida: `post`, `post --embed`, `edit`, `react`, `reactions` (com filtro de bot) e `post --mention --reply-to` funcionando nos 4 canais.
 - **Sobra pequena (não bloqueia nada)**: `pin` responde **403 Missing Permissions** (código 50013, não 50001 — o bot vê o canal, só não pode fixar). O cargo tem `MANAGE_MESSAGES` no nível do servidor, mas a permissão adicionada por canal não a inclui. Para as instruções ficarem fixadas no topo: adicionar **Gerenciar Mensagens** ao cargo nos 4 canais, ou fixar as 5 mensagens à mão (dois cliques cada). As mensagens já estão postadas de qualquer forma.
-- **Pendente de prova**: o `MESSAGE CONTENT INTENT` só pode ser verificado lendo uma mensagem **escrita pelo humano** — se estiver desligado, o texto volta vazio sem erro nenhum. Pedido feito no `#new-tasks`.
+- **`MESSAGE CONTENT INTENT` provado** (2026-08-09): o humano escreveu no `#new-tasks` e o `read --after` devolveu o texto intacto (`content: "mensagem de test"`, `bot: false`). Era o único risco que não dava para descartar sem uma mensagem escrita por ele — com a intent desligada, o texto voltaria vazio **sem erro nenhum**.
 - **Nota de segurança**: o token vive **só** em `tools/discord/.env` (não versionado — `.gitignore:6`). Nunca neste arquivo, que é versionado, nem em corpo de PR ou log.
 
 ### [2026-08-09] ~~Arte do personagem da marca para o logo (T-020b)~~ — RESOLVIDO no mesmo dia
