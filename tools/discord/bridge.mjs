@@ -82,17 +82,35 @@ function readContent(source) {
 /**
  * Mensagem simples estoura em 2000 caracteres; embed aceita 4096 na descricao.
  * Por isso texto longo (backlog, status de ciclo) sempre vai como embed.
+ *
+ * --mention: o Discord NAO notifica em edicao de mensagem, so na criacao. Entao
+ * mencao que precisa pingar tem que ir numa mensagem NOVA (tipicamente um
+ * --reply-to da mensagem de status), nunca editando a mensagem existente.
  */
-function buildPayload(content, { embed, title }) {
+function buildPayload(content, { embed, title, mention, replyTo }) {
+  const payload = {};
+
+  if (replyTo) payload.message_reference = { message_id: replyTo, fail_if_not_exists: false };
+
+  let prefix = '';
+  if (mention) {
+    const humanId = process.env.DISCORD_HUMAN_ID;
+    if (!humanId) fail('--mention exige DISCORD_HUMAN_ID no tools/discord/.env');
+    prefix = `<@${humanId}> `;
+  }
+
   if (!embed) {
-    if (content.length > 2000) {
-      fail(`conteudo tem ${content.length} caracteres (limite 2000) — use --embed`);
+    const full = prefix + content;
+    if (full.length > 2000) {
+      fail(`conteudo tem ${full.length} caracteres (limite 2000) — use --embed`);
     }
-    return { content };
+    return { ...payload, content: full };
   }
   if (content.length > 4096) fail(`embed tem ${content.length} caracteres (limite 4096)`);
+  // Mencao dentro de embed nao notifica; por isso ela vai no content, fora dele.
   return {
-    content: '',
+    ...payload,
+    content: prefix,
     embeds: [{ description: content, ...(title ? { title } : {}), color: 0xa8814f }],
   };
 }
@@ -101,7 +119,9 @@ function parseFlags(args) {
   const flags = { positional: [] };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--embed') flags.embed = true;
+    else if (args[i] === '--mention') flags.mention = true;
     else if (args[i] === '--title') flags.title = args[++i];
+    else if (args[i] === '--reply-to') flags.replyTo = args[++i];
     else if (args[i] === '--after') flags.after = args[++i];
     else if (args[i] === '--limit') flags.limit = args[++i];
     else flags.positional.push(args[i]);
@@ -129,6 +149,13 @@ const commands = {
     const f = parseFlags(args);
     const [channel, messageId, source] = f.positional;
     if (!messageId) fail('messageId nao informado');
+    if (f.mention) {
+      fail(
+        'editar nao notifica: o Discord so dispara notificacao na criacao da mensagem. ' +
+          'Para pingar, poste mensagem nova com --mention --reply-to ' +
+          messageId,
+      );
+    }
     const msg = await api(
       'PATCH',
       `/channels/${resolveChannel(channel)}/messages/${messageId}`,
@@ -172,10 +199,14 @@ const commands = {
         'GET',
         `/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(key)}`,
       );
+      // O proprio bot reage (ack de leitura), entao contar reacao crua confundiria
+      // ack com decisao. Só vale como decisao a reacao do humano configurado.
+      const humanId = process.env.DISCORD_HUMAN_ID;
+      const humanos = users.filter((u) => !u.bot);
       result.push({
         emoji: r.emoji.name,
-        count: r.count,
-        users: users.map((u) => u.username),
+        users: humanos.map((u) => ({ id: u.id, username: u.username })),
+        doHumano: humanId ? humanos.some((u) => u.id === humanId) : null,
       });
     }
     out(result);

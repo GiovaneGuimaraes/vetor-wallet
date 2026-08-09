@@ -18,12 +18,18 @@
 
 ## Abertos
 
-### [2026-08-09] Token do bot e IDs dos canais do Discord (integração do fluxo)
-- **Origem**: orquestrador (pedido do humano via chat)
-- **Bloqueia**: o uso da interface do Discord. Nada do backlog de produto depende disso — o loop segue funcionando por chat como sempre.
-- **Pergunta/pendência**: o bridge está pronto e testado até onde dá sem credencial (validações, limites de tamanho, erros; a chamada real volta 401 por falta de token). Faltam os passos que só rodam no navegador, documentados em `tools/discord/README.md`: criar a aplicação no Developer Portal, **Reset Token**, ligar **MESSAGE CONTENT INTENT**, gerar a URL de convite pelo OAuth2 URL Generator com as permissões listadas, adicionar o bot ao servidor e copiar os IDs dos 4 canais (Modo desenvolvedor ligado). Depois: `cp tools/discord/.env.example tools/discord/.env`, preencher, e `node tools/discord/bridge.mjs whoami` para sanidade.
+### [2026-08-09] Executar a T-021 (SELL retroativo aceito e descartado em silêncio)?
+- **Origem**: orquestrador (a tarefa estava parada no `BACKLOG.md` como "aguarda decisão", que não é lugar de backlog)
+- **Bloqueia**: nada — a fila segue com a T-104b
+- **Pergunta/pendência**: o bug é real e está **reproduzido com as funções reais do `portfolio-core`**: com 100 PETR4 compradas em 2026-08-01, uma venda de 100 datada em 2026-01-15 (antes da compra) é **aceita** e a posição continua 100 ações. Vende e continua com tudo; a operação aparece na lista e não faz nada. Causa: a rota valida contra a posição de **hoje** (`operations.ts:74-84`), e o recálculo cronológico trunca com `Math.max(0, …)` (`portfolio.ts:20-21`) — dois comportamentos corretos isolados que juntos abrem o buraco. Correção provável: validar a posição acumulada **até a data da venda**. O risco que antes exigia spike foi **medido e descartado** (banco local real: 6 operações, 0 vendas, 0 rejeições — não há dado legado a migrar). Complexidade caiu para **média**, executor Sonnet, sem spike. **Pergunta**: entra na fila depois da T-104b, ou fica parada?
 - **Resposta do humano**: _(preencher)_
-- **Nota de segurança**: o token vai **só** para `tools/discord/.env` (não versionado — `.gitignore:6`). Nunca neste arquivo, que é versionado, nem em corpo de PR ou log.
+
+### [2026-08-09] Liberar os 4 canais do Discord para o cargo `agentic-bot`
+- **Origem**: orquestrador (pedido do humano via chat)
+- **Bloqueia**: a interface do Discord. Nada do backlog de produto depende disso — o loop segue por chat.
+- **Pergunta/pendência**: token e IDs já preenchidos e **validados** — `whoami` responde `agentic-bot` e o bot está no servidor `vetor-wallet` com as 7 permissões corretas **no nível do servidor**. Falta o último passo: os 4 canais têm permissão própria que esconde o bot (403 Missing Access nos quatro, enquanto a categoria pai responde 200). Em cada canal: engrenagem → **Permissões** → **Adicionar cargo** → `agentic-bot` → ligar **Ver Canal**. O bot não pode se autoconsertar (não tem `MANAGE_ROLES`, de propósito).
+- **Resposta do humano**: _(preencher)_
+- **Nota de segurança**: o token vive **só** em `tools/discord/.env` (não versionado — `.gitignore:6`). Nunca neste arquivo, que é versionado, nem em corpo de PR ou log.
 
 ### [2026-08-09] ~~Arte do personagem da marca para o logo (T-020b)~~ — RESOLVIDO no mesmo dia
 - **Origem**: orquestrador (feedback do humano sobre o logo entregue na T-020)

@@ -25,7 +25,7 @@ Node puro com `fetch` nativo, **zero dependência** e fora do `pnpm-workspace` (
 
 ```bash
 node tools/discord/bridge.mjs whoami
-node tools/discord/bridge.mjs post <canal> <arquivo|-> [--embed] [--title T]   # -> { id }
+node tools/discord/bridge.mjs post <canal> <arquivo|-> [--embed] [--title T] [--mention] [--reply-to <id>]
 node tools/discord/bridge.mjs edit <canal> <messageId> <arquivo|-> [--embed] [--title T]
 node tools/discord/bridge.mjs read <canal> [--after <messageId>] [--limit N]
 node tools/discord/bridge.mjs reactions <canal> <messageId>
@@ -39,14 +39,49 @@ Toda saída é JSON no stdout — o orquestrador consome direto.
 caracteres, embed 4096. Conteúdo longo — espelho do backlog, resumo de ciclo — vai com
 `--embed`. Rate limit (429) tem retry automático até 3 vezes.
 
+**`reactions` só conta reação de gente.** O próprio bot reage 👀 como ack de leitura; se a
+contagem crua valesse como decisão, o ack viraria aprovação. A saída traz `doHumano`, que é
+o único campo que o orquestrador pode tratar como decisão.
+
+## Notificar × editar
+
+O Discord dispara notificação **na criação** da mensagem, nunca na edição. Menção adicionada
+por edição **não pinga** — o texto muda, o `@` aparece e nenhum aviso sai. Por isso:
+
+- **progresso rotineiro** (`EM_ANDAMENTO → EM_REVISAO`) → `edit`, silencioso, canal limpo;
+- **precisa do humano** (`BLOQUEADA`, pedido de aprovação, ciclo fechado) → `post --mention
+  --reply-to <id da mensagem de status>`: mensagem nova (notifica de verdade) e agrupada
+  como resposta (não polui).
+
+`edit --mention` falha de propósito, com essa explicação na mensagem de erro.
+
 ## Protocolo dos canais
 
 | Canal | Escreve | Como funciona |
 |---|---|---|
 | `#new-tasks` | humano | texto livre. O orquestrador lê com `read --after <lastSeen>`, reage 👀 (li) e ✅ (virou tarefa), e responde com o ID `T-XXX` atribuído |
 | `#backlog` | orquestrador | **uma** mensagem-embed editada a cada ciclo, espelho da fila do `BACKLOG.md` |
-| `#todo-ai` | orquestrador | uma mensagem por tarefa, editada nas transições `PENDENTE → EM_ANDAMENTO → EM_REVISAO → CONCLUIDA`, com link do PR ao fim |
-| `#todo-human` | orquestrador pergunta, humano responde | uma mensagem por pendência aberta do `TODO-HUMANO.md`. ✅ aprova · ❌ recusa · 🔁 refaz. Resposta em texto também vale — o orquestrador grava no campo "Resposta do humano" |
+| `#todo-ai` | orquestrador | uma mensagem por tarefa, editada nas transições de status; link do PR ao fim |
+| `#todo-human` | orquestrador pergunta, humano responde | uma mensagem por pendência aberta do `TODO-HUMANO.md` |
+
+### Como o orquestrador pede resposta
+
+Toda mensagem de `#todo-human` **declara na última linha** o que ela precisa. São só dois modos:
+
+```
+**Responder**: só emoji — ✅ aprovo · ❌ não
+**Responder**: emoji + resposta — ✅/❌ e me diga o porquê (vai virar registro de decisão)
+```
+
+- **Só emoji** quando a pergunta é um bit fechado e o "porquê" não muda nada depois.
+- **Emoji + resposta** quando o motivo vira registro: o texto é transcrito para o campo
+  "Resposta do humano" do `TODO-HUMANO.md`, que é o que sobrevive e vira memória do projeto.
+  O emoji dá a decisão; a resposta dá o porquê. O `read` devolve `replyTo`, então a resposta
+  é amarrada à pendência exata, sem adivinhação.
+
+**Uma mensagem = uma decisão.** Reação é um bit; pendência multi-parte torna o ✅ ambíguo.
+Quando houver mais de duas saídas, emoji distinto por opção (1️⃣2️⃣3️⃣) com o mapa escrito na
+própria mensagem.
 
 Os IDs das mensagens fixas ficam em [`docs/multi-agent/discord-state.json`](../../docs/multi-agent/discord-state.json),
 escrito **só pelo orquestrador** (mesma regra do `BACKLOG.md` — evita conflito entre worktrees).

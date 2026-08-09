@@ -17,8 +17,8 @@ Este diretório define o fluxo de trabalho multi-agente em loop fechado do proje
 | Arquivo | Dono da escrita | Conteúdo |
 |---|---|---|
 | [`ORQUESTRADOR.md`](./ORQUESTRADOR.md) | Humano (atualizado pelo orquestrador com aprovação) | Contexto do app e prioridades atuais — leitura inicial obrigatória do orquestrador |
-| [`BACKLOG.md`](./BACKLOG.md) | Orquestrador | TODOs decompostos, com status e branch de cada tarefa — **mantido enxuto**: ao encerrar um ciclo, os detalhes das concluídas migram para o arquivo |
-| [`BACKLOG-ARQUIVO.md`](./BACKLOG-ARQUIVO.md) | Orquestrador | Histórico permanente dos ciclos concluídos — **não carregar em sessões**, só consulta pontual |
+| [`BACKLOG.md`](./BACKLOG.md) | Orquestrador | **Só trabalho vivo.** Tarefa concluída sai do arquivo — não migra para outro lugar do repo. Teto de 8 KB, verificado por `pnpm backlog:check` |
+| [`CALIBRAGEM.md`](./CALIBRAGEM.md) | Orquestrador | Placar dos modelos e as causas das reprovações — o dado que calibra o roteamento abaixo |
 | [`TODO-HUMANO.md`](./TODO-HUMANO.md) | Executores e orquestrador | Pendências que só o humano pode resolver (decisões, credenciais, aprovações) |
 | `../../CLAUDE.md` | Humano | Arquitetura, comandos, convenções e política de testes — leitura obrigatória de todos |
 
@@ -89,7 +89,8 @@ Regras complementares:
 - **Escalonamento automático**: 2 vereditos REPROVADA seguidos na mesma tarefa → o orquestrador re-delega o próximo ciclo com executor `opus`, incluindo no prompt o histórico dos achados das reprovações.
 - **Spike de design (opcional, recomendado para alta)**: antes de delegar uma tarefa alta, o orquestrador pode spawnar o agente `Plan` com `model: "opus"` para produzir plano de implementação (arquivos-alvo, abordagem, riscos, casos de borda). O plano entra na íntegra no prompt do executor — reduz retrabalho e permite até executar em Sonnet com plano de Opus quando o desafio é de *design*, não de *execução*.
 - **Na dúvida entre média e alta, escolha alta.** O custo extra de Opus numa tarefa é menor que um ciclo executar→reprovar→corrigir→re-revisar.
-- O orquestrador registra o modelo usado no campo **Resultado** da tarefa ao concluir — vira dado para calibrar a heurística nos próximos ciclos.
+- **O que a evidência dos ciclos 1–20 diz** ([`CALIBRAGEM.md`](./CALIBRAGEM.md)): nenhuma reprovação caiu em cálculo financeiro (essas foram para Opus e passaram) — todas caíram em **estado assíncrono, gates de render e consistência entre N arquivos**, que é onde lint, build e suíte passam verdes com o código errado. Haiku nunca errou código, mas errou um **relatório** (T-095): com Haiku, confira o diff, não a prosa.
+- Ao concluir, o modelo usado e o veredito vão para o **corpo da PR**; só o que muda decisão futura de roteamento entra em `CALIBRAGEM.md`. Nada disso volta para o `BACKLOG.md`.
 
 ## Regras de paralelismo (multi-branch)
 
