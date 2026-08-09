@@ -107,7 +107,7 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
         {/* Card esquerdo: apresentação */}
         <div className="vw-landing-intro vw-card vw-rise">
           <div className="vw-landing-logo">
-            <img src="/layers/receitas-t.png" alt="" className="vw-landing-logo-mascot" />
+            <img src="/logo.png" alt="" className="vw-landing-logo-mascot" />
             <span className="vw-wordmark vw-landing-wordmark">vetor</span>
           </div>
 

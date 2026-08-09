@@ -186,6 +186,30 @@ body,
   margin-bottom: 24px;
 }
 
+/* T-020: mascote decorativo ao lado do título da page de layer (Renda,
+   Despesas, Poupança, Metas). Só decorativo (alt=""), então some em telas
+   pequenas em vez de encolher até virar borrão — o conteúdo de consulta
+   nunca pode ir para baixo da dobra por causa dele. */
+.vw-page-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.vw-page-mascot {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .vw-page-mascot {
+    display: none;
+  }
+}
+
 .vw-page-title {
   margin: 0;
   font-size: 26px;

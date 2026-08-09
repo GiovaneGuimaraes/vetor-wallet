@@ -12,6 +12,7 @@ import { OperationsList } from '../components/OperationsList';
 import { PortfolioDashboard } from '../components/PortfolioDashboard';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { BackToHomeLink } from '../components/BackToHomeLink';
+import { MASCOT_FILE_BY_LAYER } from '../layout/mascots';
 import { ProjectionChart } from '../components/ProjectionChart';
 import { HistoryChart } from '../components/HistoryChart';
 import { PriceChart } from '../components/PriceChart';
@@ -402,6 +403,17 @@ export function DashboardPage() {
             Tentar novamente
           </button>
         )}
+        {/* T-020: mascote decorativo da layer de Ações — some em telas
+            pequenas em vez de encolher, o resumo do portfolio não pode ir
+            para baixo da dobra por causa dele. */}
+        <img
+          src={`/layers/${MASCOT_FILE_BY_LAYER.dash}`}
+          alt=""
+          className="w-12 h-12 object-contain ml-auto flex-shrink-0 hidden sm:block"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
+          }}
+        />
       </div>
 
       {apiError && (
