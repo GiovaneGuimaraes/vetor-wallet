@@ -18,26 +18,26 @@
 
 ## Abertos
 
-### [2026-08-07] Caminho do entry de produção muda com o rename `server` → `rest-api` (T-100)
-- **Origem**: orquestrador (Ciclo 19 — migração para arquitetura em módulos)
-- **Bloqueia**: T-100 (última tarefa do Ciclo 19; o resto do ciclo já está na `main`)
-- **Pergunta/pendência**: não há configuração de deploy versionada no repo (nenhum Dockerfile, `fly.toml`, `Procfile`; o `ci.yml` só usa scripts da raiz e não quebra), então o deploy é configurado num painel de hospedagem que os agentes não enxergam. A T-100 renomeia `packages/server` → `packages/rest-api`, mudando o entry de `packages/server/dist/api/index.js` para `packages/rest-api/dist/api/index.js`. **Onde está configurado o start do server em produção?** Duas saídas: (a) você atualiza o caminho no painel e avisa, e aí a T-100 roda; (b) versionamos a config de deploy no repo (Dockerfile ou equivalente) numa tarefa antes da T-100, e aí o rename passa a ser auto-contido — é a opção que o orquestrador recomenda, porque hoje uma parte do deploy não está sob revisão nem sob CI.
-- **Resposta do humano**: _(preencher)_
-
 ### [2026-08-02] Credenciais do Meu Pluggy para o job `pluggy:sync` (T-087)
 - **Origem**: sessão de revisão com o Claude (planejamento do ciclo 16)
 - **Bloqueia**: T-087 (o resto da Onda C — T-084/T-085/T-086 — não depende disso)
 - **Pergunta/pendência**: criar conta em https://meu.pluggy.ai, conectar as contas bancárias/corretoras via Open Finance (Conector 200), gerar `CLIENT_ID`/`CLIENT_SECRET` no painel e colocar em `packages/cli/.env` (`PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`). Sem custo — o Meu Pluggy é gratuito para uso pessoal (não pode virar produto multi-CPF comercial). Enquanto isso, o executor da T-087 pode trabalhar com mocks, mas a validação final precisa das credenciais reais.
-- **Resposta do humano**: _(preencher)_
+- **Resposta do humano**: (via chat, 2026-08-08) **conta ainda não criada, "talvez demore um pouco"** — item segue ABERTO e a T-087 segue BLOQUEADA, sem previsão. Não é prioridade; não replanejar em torno dela.
+
+## Resolvidos
+
+### [2026-08-07] Caminho do entry de produção muda com o rename `server` → `rest-api` (T-100)
+- **Origem**: orquestrador (Ciclo 19 — migração para arquitetura em módulos)
+- **Bloqueia**: ~~T-100~~ — **desbloqueado em 2026-08-08**
+- **Pergunta/pendência**: não há configuração de deploy versionada no repo, então o deploy pareceria estar num painel de hospedagem invisível aos agentes. Onde está configurado o start do server em produção?
+- **Resposta do humano**: (via chat, 2026-08-08) **não existe deploy nenhum ainda** — a premissa da pergunta estava errada: não há painel a atualizar porque a API só roda localmente. Decisão: **manter a API testável apenas em local por enquanto**; a migração para **AWS Cloud** está no horizonte, mas **não deve ser feita agora** e não gera tarefa. Consequências: (1) a **T-100 está desbloqueada** — sem entry de produção, o rename não derruba nada; (2) a opção (b) da pergunta (versionar Dockerfile antes do rename) fica **sem objeto por ora** e volta à mesa quando a AWS entrar; (3) nenhum agente deve criar config de deploy, Dockerfile ou pipeline de infra sem pedido explícito.
 
 ### [2026-08-01] Credenciais AbacatePay (dev agora, prod depois)
 - **Origem**: orquestrador (Ciclo 15 — T-069/T-070)
-- **Bloqueia**: nada para o desenvolvimento (executores usam fetch mockado nos testes); bloqueia apenas o **teste real em dev mode** e o deploy em produção
-- **Pergunta/pendência**: (1) criar conta em https://www.abacatepay.com (nasce em Dev Mode), gerar a API key de sandbox e colocar em `packages/server/.env` como `ABACATEPAY_API_KEY`; (2) para produção, futuramente: completar o cadastro/aprovação da conta, gerar chave de produção, cadastrar o webhook no dashboard apontando para `https://<seu-host>/api/webhooks/abacatepay?webhookSecret=<secret>` e definir `ABACATEPAY_WEBHOOK_SECRET` + `BILLING_ENABLED=true` no ambiente de prod. Staging/local fica com `BILLING_ENABLED=false` (default) e não exige pagamento.
-- **Preços dos planos (default adotado, contestável)**: Pro Mensal R$ 9,90 e Pro Anual R$ 99,00 — ajuste na tabela `plans` se quiser outros valores.
-- **Resposta do humano**: _(preencher)_
-
-## Resolvidos
+- **Bloqueia**: nada para o desenvolvimento (executores usam fetch mockado nos testes); bloqueava o **teste real em dev mode**
+- **Pergunta/pendência**: (1) criar conta em https://www.abacatepay.com (nasce em Dev Mode), gerar a API key de sandbox e colocar em `packages/server/.env` como `ABACATEPAY_API_KEY`; (2) para produção, futuramente: chave de produção, webhook apontando para `https://<seu-host>/api/webhooks/abacatepay?webhookSecret=<secret>`, `ABACATEPAY_WEBHOOK_SECRET` + `BILLING_ENABLED=true`.
+- **Resposta do humano**: (via chat, 2026-08-08) **chave de staging (`abc_dev_…`) fornecida e gravada** pelo orquestrador em `packages/server/.env` (arquivo não versionado — `.gitignore:6`; confirmado por `git grep` que nenhum arquivo versionado contém a string). A chave anterior que estava no `.env` local foi substituída. **A parte (2) — produção — continua pendente**, mas sem urgência: como não há deploy (ver item acima), não existe ambiente de produção para configurar. Os preços default (Pro Mensal R$ 9,90 / Pro Anual R$ 99,00) seguem não contestados.
+- **Nota de segurança para agentes**: chaves vão **só** para `.env` local. Nunca commitar, nunca escrever o valor neste arquivo (que é versionado), nunca ecoar em corpo de PR ou log.
 
 ### [2026-07-25] Custo do multi-agente: revisor volta a ser Sonnet
 - **Origem**: humano (via chat, durante o ciclo 12)

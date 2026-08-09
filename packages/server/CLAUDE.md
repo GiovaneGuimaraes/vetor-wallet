@@ -83,6 +83,20 @@ Entry compilado: `dist/api/index.js` (`pnpm --filter vetor-wallet-server start`)
 
 Ver tabela no `CLAUDE.md` da raiz. `DATABASE_URL` aceita `file:` local ou URL Turso (migração futura: só trocar a env).
 
+## Deploy: não existe (decisão do humano, 2026-08-08)
+
+A API roda **só localmente** por enquanto — não há host, painel, Dockerfile,
+`Procfile` nem pipeline de infra, e isso é **intencional**, não uma lacuna a
+preencher. Não crie configuração de deploy sem pedido explícito.
+
+A migração para **AWS Cloud** está no horizonte, mas sem data e sem tarefa
+aberta. Quando entrar em pauta, os TODOs abaixo (Turso, Cognito,
+Lambda/EventBridge) deixam de ser hipotéticos e passam a ter um alvo concreto.
+
+Consequência prática: qualquer tarefa que mude o caminho do entry compilado
+(ex.: a T-100, rename `server` → `rest-api`) é segura hoje, porque não há
+ambiente externo apontando para `dist/api/index.js`.
+
 ## TODOs futuros
 
 - **Turso** para deploy multi-usuário (zero reescrita de queries).

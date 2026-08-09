@@ -430,8 +430,9 @@
 - **Critério de aceite**: `pnpm --filter @vetor-wallet/validation-core test` verde com cobertura 100%; `pnpm build`, `pnpm lint` e `pnpm test` da raiz verdes; contagem de testes do server preservada.
 
 ### T-100 — Renomear `server` → `rest-api`
-- **Status**: PENDENTE — **aguardando o humano** (ver abaixo)
-- **BLOQUEIO (2026-08-07)**: não existe configuração de deploy no repo (sem Dockerfile, `fly.toml`, `Procfile` ou similar; o `.github/workflows/ci.yml` só usa scripts da raiz e não quebra). Isso significa que o deploy é configurado **fora** do repositório, num painel de hospedagem que o orquestrador não enxerga. Renomear o diretório muda o caminho do entry de produção de `packages/server/dist/api/index.js` para `packages/rest-api/dist/api/index.js`, e só o humano pode atualizar o host. Fazer o rename antes disso derruba o deploy no próximo push.
+- **Status**: PENDENTE — **DESBLOQUEADA em 2026-08-08**
+- **Bloqueio resolvido (2026-08-08)**: a hipótese de 2026-08-07 (deploy num painel de hospedagem invisível ao orquestrador) estava **errada**. Resposta do humano: **não existe deploy nenhum ainda** — a API é testável só localmente, e a migração para **AWS Cloud** fica para o futuro, sem tarefa agora. Sem entry de produção, o rename não derruba nada e a tarefa pode rodar quando o humano quiser. A opção "versionar Dockerfile antes do rename" fica sem objeto até a AWS entrar em pauta.
+- **Nota**: continua P3 e continua sendo churn puro — o valor é fechar o alvo cosmético do Ciclo 19. Se rodar, é melhor **entre** migrações da T-104 do que no meio de uma, porque toca `package.json`, tsconfig e aliases que as T-104x também tocam.
 - **Prioridade**: P3
 - **Complexidade**: média
 - **Depende de**: T-099
