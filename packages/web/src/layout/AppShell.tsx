@@ -18,9 +18,9 @@ interface Props {
  * filhas recebem `ShellContext` via <Outlet context={...} /> — ver
  * `web/src/layout/ShellContext.ts`.
  *
- * T-020: a logo do header deixou de trocar por layer (era `mascotSrcForPathname`)
- * e passou a ser fixa (`/logo.png`, recorte transparente que funciona em
- * light e dark); os mascotes por layer continuam, mas nas respectivas pages.
+ * T-020: a logo do header deixou de trocar por layer e passou a ser fixa
+ * (`/logo.png`, recorte transparente que funciona em light e dark); os
+ * mascotes por layer continuam, mas nas respectivas pages (ver `mascots.ts`).
  */
 export function AppShell({ user, theme, onToggleTheme, onLogout, outletContext }: Props) {
   const location = useLocation();

@@ -60,7 +60,7 @@ import {
 } from './despesasForm';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { BackToHomeLink } from '../components/BackToHomeLink';
-import { MASCOT_FILE_BY_LAYER } from '../layout/mascots';
+import { mascotSrcForLayer } from '../layout/mascots';
 import './layers.css';
 
 const HISTORY_MONTHS = 6;
@@ -568,7 +568,7 @@ export function DespesasPage() {
           <p className="vw-page-subtitle">Gastos fixos e do dia a dia</p>
         </div>
         <img
-          src={`/layers/${MASCOT_FILE_BY_LAYER.despesas}`}
+          src={mascotSrcForLayer('despesas')}
           alt=""
           className="vw-page-mascot"
           onError={(e) => {

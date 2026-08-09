@@ -1,8 +1,10 @@
 /**
- * Mapa layer → mascote (T-004). Os PNGs em `web/public/layers/*.png` são
- * copiados pela T-003 (paralela) — os paths abaixo são referenciados mesmo
- * que os arquivos ainda não existam neste worktree; ver README do handoff
- * (`design_handoff_vetor_wallet_refactor/README.md`, seção "Mascotes").
+ * Mapa layer → mascote (T-004). Os PNGs vivem em `web/public/layers/*.png`.
+ *
+ * T-020: o header deixou de trocar de logo por layer (agora é `/logo.png`
+ * fixo, ver `AppShell.tsx`) — este mapa hoje serve as pages de layer
+ * (Renda, Despesas, Poupança, Metas, Dashboard, Cripto), cada uma exibindo
+ * o próprio mascote via `mascotSrcForLayer`.
  */
 export const MASCOT_FILE_BY_LAYER: Record<string, string> = {
   home: 'receitas-t.png',
@@ -17,13 +19,7 @@ export const MASCOT_FILE_BY_LAYER: Record<string, string> = {
 
 export const DEFAULT_MASCOT_LAYER = 'home';
 
-/** Extrai a "layer" (primeiro segmento do path) a partir de um pathname de rota. */
-export function layerFromPathname(pathname: string): string {
-  const first = pathname.split('/').filter(Boolean)[0];
-  return first && first in MASCOT_FILE_BY_LAYER ? first : DEFAULT_MASCOT_LAYER;
-}
-
-export function mascotSrcForPathname(pathname: string): string {
-  const layer = layerFromPathname(pathname);
+/** Caminho do mascote de uma layer conhecida; layer desconhecida cai no mascote de `DEFAULT_MASCOT_LAYER`. */
+export function mascotSrcForLayer(layer: string): string {
   return `/layers/${MASCOT_FILE_BY_LAYER[layer] ?? MASCOT_FILE_BY_LAYER[DEFAULT_MASCOT_LAYER]}`;
 }

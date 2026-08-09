@@ -31,7 +31,7 @@ import {
 } from './rendaForm';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { BackToHomeLink } from '../components/BackToHomeLink';
-import { MASCOT_FILE_BY_LAYER } from '../layout/mascots';
+import { mascotSrcForLayer } from '../layout/mascots';
 import './layers.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -401,7 +401,7 @@ export function RendaPage() {
           <p className="vw-page-subtitle">Renda fixa e renda variável do mês</p>
         </div>
         <img
-          src={`/layers/${MASCOT_FILE_BY_LAYER.renda}`}
+          src={mascotSrcForLayer('renda')}
           alt=""
           className="vw-page-mascot"
           onError={(e) => {

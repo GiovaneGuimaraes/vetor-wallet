@@ -10,7 +10,7 @@ import {
 } from './goalsProgress';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { BackToHomeLink } from '../components/BackToHomeLink';
-import { MASCOT_FILE_BY_LAYER } from '../layout/mascots';
+import { mascotSrcForLayer } from '../layout/mascots';
 import './layers-savings.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -213,7 +213,7 @@ export function MetasPage() {
           <p className="vw-page-subtitle">Progresso dos seus objetivos</p>
         </div>
         <img
-          src={`/layers/${MASCOT_FILE_BY_LAYER.metas}`}
+          src={mascotSrcForLayer('metas')}
           alt=""
           className="vw-page-mascot"
           onError={(e) => {
