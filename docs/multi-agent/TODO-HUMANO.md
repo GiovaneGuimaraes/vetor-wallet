@@ -18,6 +18,14 @@
 
 ## Abertos
 
+### [2026-08-09] Arte do personagem da marca para o logo (T-020b)
+- **Origem**: orquestrador (feedback do humano sobre o logo entregue na T-020)
+- **Bloqueia**: T-020b (trocar o logo). **Não bloqueia mais nada** — a carteira de massinha da T-020 segue no ar até o personagem chegar.
+- **Pergunta/pendência**: o humano não gostou da carteira de massinha como logo e pediu um **personagem padrão**, no estilo dos mascotes, **sem ser nenhum dos 6 de layer**. O orquestrador **não tem ferramenta de geração de imagem**, então não consegue produzir arte inédita nesse acabamento. Tentativa feita e descartada: recolorir o mascote da Renda para marrom-couro e recortar em busto — fica legível e na paleta, mas lado a lado é visivelmente o mesmo personagem em outra cor (amostras em `C:\Users\giovane\Desktop\vetor-logo-propostas\`). **Decisão do humano (2026-08-09): ele mesmo gera a arte e o orquestrador integra.**
+- **O que o humano precisa entregar**: um arquivo de imagem (PNG/JPG/WEBP, ≥512×512), personagem centralizado com margem. Não precisa recortar fundo nem otimizar. Prompt pronto e especificação completa em `Desktop\vetor-logo-propostas\PROMPT-personagem-logo.txt`.
+- **Achado técnico que vale para qualquer arte futura**: os mascotes são de **corpo inteiro** (285×390) e **não sobrevivem ao header**. Reduzidos ao quadrado de 56px, o corpo fica com ~30px e vira borrão. Logo precisa nascer em **enquadramento de busto**. Isso não era óbvio antes de testar — a carteira de massinha funciona a 56px justamente por ser um objeto compacto.
+- **Resposta do humano**: _(entregar a arte)_
+
 ### [2026-08-02] Credenciais do Meu Pluggy para o job `pluggy:sync` (T-087)
 - **Origem**: sessão de revisão com o Claude (planejamento do ciclo 16)
 - **Bloqueia**: T-087 (o resto da Onda C — T-084/T-085/T-086 — não depende disso)

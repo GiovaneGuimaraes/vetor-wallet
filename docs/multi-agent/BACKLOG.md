@@ -460,6 +460,16 @@
 - **Atenção**: `mascots.ts` tem teste ao lado e continua em uso — não apague `mascotSrcForPathname` sem conferir os consumidores. O `onError` que esconde a imagem quebrada no header deve ser preservado.
 - **Critério de aceite**: header mostra o mesmo logo em qualquer rota, legível em light e dark; cada page de layer mostra seu mascote; landing usa o logo oficial; `pnpm --filter vetor-wallet-web test` verde; `pnpm lint`, `pnpm format:check` e `pnpm build` verdes.
 
+### T-020b — Trocar o logo pelo personagem da marca
+- **Status**: BLOQUEADA — aguarda a arte do humano (ver `TODO-HUMANO.md`, item 2026-08-09)
+- **Prioridade**: P3
+- **Complexidade**: baixa — é troca de asset; a T-020 já deixou o header com logo fixo e um único ponto de referência (`/logo.png`)
+- **Depende de**: T-020 (CONCLUIDA) + a arte
+- **Contexto**: o humano não gostou da carteira de massinha e pediu um personagem padrão no estilo dos mascotes, sem ser nenhum dos 6 de layer. O orquestrador não tem ferramenta de geração de imagem; a tentativa de derivar (recolorir o mascote da Renda para marrom-couro + recorte de busto) foi descartada por continuar sendo o mesmo personagem em outra cor. Decisão: o humano gera a arte.
+- **Escopo quando a arte chegar**: recorte de fundo + otimização pelo orquestrador (pipeline já validado na T-020: flood fill a partir das bordas, rampa de alpha 195→232, conferência visual sobre os dois fundos de tema), substituir `packages/web/public/logo.png` e conferir header + landing. **Não** precisa mexer em código se o arquivo mantiver o nome.
+- **Restrição de arte (achado da T-020)**: enquadramento de **busto**, nunca corpo inteiro — os mascotes têm proporção 285×390 e, reduzidos ao quadrado de 56px do header, ficam ilegíveis.
+- **Critério de aceite**: logo novo legível a 56px em light e dark; `pnpm build` e suíte web verdes (não deve haver mudança de teste — é troca de arquivo).
+
 ### T-021 — SELL retroativo é aceito e depois descartado em silêncio
 - **Status**: PENDENTE — **investigada e requalificada pelo orquestrador (2026-08-08)**; aguarda decisão do humano sobre executar
 - **Prioridade**: P2 (era "avaliar custo/benefício")
