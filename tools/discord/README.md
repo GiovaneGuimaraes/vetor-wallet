@@ -60,7 +60,7 @@ por edição **não pinga** — o texto muda, o `@` aparece e nenhum aviso sai. 
 
 ## Protocolo dos canais
 
-Quatro canais, **todos escritos pelo orquestrador**. O humano só responde no `#todo-human`.
+Cinco canais, **todos escritos pelo orquestrador**. O humano só responde no `#todo-human`.
 
 | Canal | Escreve | Como funciona |
 |---|---|---|
@@ -68,6 +68,7 @@ Quatro canais, **todos escritos pelo orquestrador**. O humano só responde no `#
 | `#todo-ai` | orquestrador | uma mensagem por tarefa, editada nas transições de status; link do PR ao fim |
 | `#todo-human` | orquestrador pergunta, humano responde | uma mensagem por pendência aberta do `TODO-HUMANO.md` |
 | `#docs-app` | orquestrador | **uma** mensagem-embed com o resumo legível do app, **editada ao fim de cada onda de tarefas**. É vista derivada, não fonte: o estado real são os `CLAUDE.md` de package e `docs/decisions/`. Nunca vira um quarto lugar onde "o que o app é" está escrito — se divergir do repo, o repo ganha |
+| `#agentic-system` | orquestrador | **uma** mensagem com o fluxograma do loop multi-agente (ASCII em bloco de código — o Discord não renderiza Mermaid nem SVG). Editada quando o **processo** muda: roteamento de modelos, papéis, travas. Não muda quando o app muda — isso é o `#docs-app` |
 
 ### Como o orquestrador pede resposta
 

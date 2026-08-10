@@ -40,6 +40,7 @@ Carteira financeira pessoal para um único usuário real (Giovane), organizada e
 - Executores NÃO deixam servidores dev rodando (porta 3001 livre ao terminar) — incidentes de `EADDRINUSE` nos ciclos 3 e 6.
 - Worktrees novos precisam de `pnpm install --frozen-lockfile` antes de testar; rodar testes com `cd` explícito no worktree (executor da T-025 rodou no checkout principal por engano).
 - Corpo de PR sempre via `--body-file` (aspas duplas quebram o quoting nativo do PowerShell 5.1).
+- **Texto com crases, `$` ou acentos nunca passa por string de shell** — escreva o arquivo com a ferramenta Write e aponte o comando para ele. Um `--body-file` montado dentro de aspas duplas no bash teve **todas** as crases comidas por substituição de comando, e a mensagem foi publicada sem os trechos de código (incidente do fluxograma do `#agentic-system`, 2026-08-10). Mesma classe do item acima.
 - Após resolução manual de conflito, conferir marcadores residuais (incidente do orquestrador na T-024, pego pelo revisor da T-023).
 - Suítes de teste com datas: ancorar em datas relativas (`currentMonth()`/shift), nunca fixas — testes da T-035 "envelheciam".
 

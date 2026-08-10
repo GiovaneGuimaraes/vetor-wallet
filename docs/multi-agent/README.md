@@ -24,8 +24,8 @@ Este diretório define o fluxo de trabalho multi-agente em loop fechado do proje
 
 ## Interface no Discord
 
-O loop tem uma superfície opcional no Discord — 4 canais (`#backlog`, `#todo-ai`,
-`#todo-human`, `#docs-app`), operada pelo orquestrador via
+O loop tem uma superfície opcional no Discord — 5 canais (`#backlog`, `#todo-ai`,
+`#todo-human`, `#docs-app`, `#agentic-system`), operada pelo orquestrador via
 [`tools/discord/`](../../tools/discord/README.md).
 
 **É só saída, mais decisões.** Não há canal de entrada: trabalho novo nasce na sessão do
