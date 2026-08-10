@@ -49,6 +49,13 @@
 
 ## Resolvidos
 
+### [2026-08-10] Aviso do GitHub: "Your main branch isn't protected"
+- **Origem**: humano (via chat)
+- **Bloqueia**: nada
+- **Pergunta/pendência**: o repositório é **público** e não tinha ruleset nenhum. Como estranhos não conseguem dar push, proteger a `main` aqui é protegê-la **dos próprios agentes**, que rodam git no repo. Dois buracos reais medidos na ocasião: (1) o fluxo mergeia sem esperar o CI — a #154 foi mergeada segundos depois do push; (2) o `pnpm backlog:check` não estava no CI, ou seja, o guard criado para não depender de memória dependia de memória.
+- **Resposta do humano**: (via chat, 2026-08-10) nível **mínimo** + guard no CI. Executado: ruleset "main protegida" com `non_fast_forward` e `deletion`; step `Backlog hygiene` no `ci.yml`.
+- **Conscientemente aberto**: push direto na `main` e merge com CI vermelho seguem permitidos. O nível completo trocaria o merge instantâneo por `gh pr merge --auto` (espera o CI) e proibiria commit direto de docs/asset. Fica como alavanca se o merge vermelho um dia morder.
+
 ### [2026-07-24→2026-08-08] Logo oficial × mascotes no header (T-020)
 - **Origem**: orquestrador (ciclo 4; a pergunta ficou parada desde 2026-07-24)
 - **Bloqueia**: ~~T-020~~ — **desbloqueado**

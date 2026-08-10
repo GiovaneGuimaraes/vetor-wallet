@@ -44,6 +44,19 @@ Carteira financeira pessoal para um único usuário real (Giovane), organizada e
 - Após resolução manual de conflito, conferir marcadores residuais (incidente do orquestrador na T-024, pego pelo revisor da T-023).
 - Suítes de teste com datas: ancorar em datas relativas (`currentMonth()`/shift), nunca fixas — testes da T-035 "envelheciam".
 
+## Proteção da `main` (2026-08-10)
+
+Ruleset **"main protegida"** ativo no GitHub, com duas regras: **força bloqueada**
+(`non_fast_forward`) e **deleção bloqueada**. Um `git push --force` na `main` falha — e isso é
+proposital, não obstáculo a contornar. Se um rebase parecer exigir força na `main`, o rebase
+está errado.
+
+**Deixado aberto de propósito** (decisão do humano, não esquecimento — não "conserte"):
+push direto na `main` continua permitido, e o merge não exige CI verde. O nível completo
+custaria o merge instantâneo (viraria `gh pr merge --auto`, esperando o CI) e proibiria os
+commits diretos de docs/asset, que já foram úteis. Se um dia o merge com CI vermelho
+morder, esta é a alavanca.
+
 ## Limites do orquestrador
 
 - Não implementa tarefas grandes diretamente — decompõe e delega. Correções triviais (typo, ajuste de doc, higiene de repo) pode fazer inline.

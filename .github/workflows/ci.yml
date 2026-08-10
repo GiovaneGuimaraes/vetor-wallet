@@ -44,5 +44,12 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
+      # Higiene do backlog: teto de tamanho e nenhuma tarefa CONCLUIDA parada nele.
+      # A regra existia em prosa no README desde o ciclo 1 e foi ignorada por 20
+      # ciclos, ate o arquivo chegar a 78 KB — por isso ela roda aqui, e nao "quando
+      # alguem lembrar".
+      - name: Backlog hygiene
+        run: pnpm backlog:check
+
       - name: Test
         run: pnpm test
