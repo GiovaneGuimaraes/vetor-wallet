@@ -1,13 +1,13 @@
 {
   "_comment": "Mapa de mensagens fixas do Discord. Escrito SO pelo orquestrador. Os arquivos markdown continuam sendo a fonte da verdade; isto guarda apenas onde cada espelho mora no Discord.",
   "instrucoes": {
-    "newTasks": "1536142928139788299",
     "backlog": "1536147991306698855",
     "todoAi": "1536147994662011034",
     "todoHuman": "1536147998436888587"
   },
   "backlog": { "messageId": "1536142925069557824" },
   "docsApp": { "messageId": "1536196532053737605", "atualizadoEm": "2026-08-09" },
+  "agenticSystem": { "messageId": "1536205023682232321", "atualizadoEm": "2026-08-10" },
   "tasks": {
     "T-104b": { "canal": "todo-ai", "messageId": "1536143027494453331", "status": "PENDENTE" }
   },
@@ -29,5 +29,5 @@
       }
     }
   },
-  "lastSeen": { "newTasks": "1536150676051333170", "todoHuman": "1536148001666633759" }
+  "lastSeen": { "todoHuman": "1536148001666633759" }
 }

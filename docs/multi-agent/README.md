@@ -24,8 +24,16 @@ Este diretório define o fluxo de trabalho multi-agente em loop fechado do proje
 
 ## Interface no Discord
 
-O loop tem uma superfície opcional no Discord (4 canais de texto: `#new-tasks`, `#backlog`,
-`#todo-ai`, `#todo-human`), operada pelo orquestrador via [`tools/discord/`](../../tools/discord/README.md).
+O loop tem uma superfície opcional no Discord — 5 canais (`#backlog`, `#todo-ai`,
+`#todo-human`, `#docs-app`, `#agentic-system`), operada pelo orquestrador via
+[`tools/discord/`](../../tools/discord/README.md).
+
+**É só saída, mais decisões.** Não há canal de entrada: trabalho novo nasce na sessão do
+Claude Code, conversado. Status e pendências viajam bem por mensagem porque são conteúdo
+pronto e a resposta é um clique; *começar* trabalho exige ida e volta, que uma mensagem
+única não tem. Um `#new-tasks` e um daemon de Gateway existiram e foram removidos em
+2026-08-10 por isso — estão no git se o cenário mudar.
+
 Regras que valem sempre:
 
 - **Discord é interface, não fonte da verdade.** `BACKLOG.md` e `TODO-HUMANO.md` continuam
