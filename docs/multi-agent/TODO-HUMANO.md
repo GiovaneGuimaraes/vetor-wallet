@@ -18,6 +18,21 @@
 
 ## Abertos
 
+### [2026-08-09] Executar a T-021 (SELL retroativo aceito e descartado em silêncio)?
+- **Origem**: orquestrador (a tarefa estava parada no `BACKLOG.md` como "aguarda decisão", que não é lugar de backlog)
+- **Bloqueia**: nada — a fila segue com a T-104b
+- **Pergunta/pendência**: o bug é real e está **reproduzido com as funções reais do `portfolio-core`**: com 100 PETR4 compradas em 2026-08-01, uma venda de 100 datada em 2026-01-15 (antes da compra) é **aceita** e a posição continua 100 ações. Vende e continua com tudo; a operação aparece na lista e não faz nada. Causa: a rota valida contra a posição de **hoje** (`operations.ts:74-84`), e o recálculo cronológico trunca com `Math.max(0, …)` (`portfolio.ts:20-21`) — dois comportamentos corretos isolados que juntos abrem o buraco. Correção provável: validar a posição acumulada **até a data da venda**. O risco que antes exigia spike foi **medido e descartado** (banco local real: 6 operações, 0 vendas, 0 rejeições — não há dado legado a migrar). Complexidade caiu para **média**, executor Sonnet, sem spike. **Pergunta**: entra na fila depois da T-104b, ou fica parada?
+- **Resposta do humano**: _(preencher)_
+
+### [2026-08-09] ~~Liberar os 4 canais do Discord~~ — RESOLVIDO no mesmo dia, com uma sobra
+- **Origem**: orquestrador (pedido do humano via chat)
+- **Bloqueia**: nada — **integração funcionando**
+- **Pergunta/pendência**: os 4 canais tinham permissão própria escondendo o bot (403 Missing Access nos quatro, enquanto a categoria pai respondia 200). O humano adicionou o cargo `agentic-bot` em cada canal.
+- **Resposta do humano**: (via chat, 2026-08-09) **cargo adicionado**. Validado ponta a ponta em seguida: `post`, `post --embed`, `edit`, `react`, `reactions` (com filtro de bot) e `post --mention --reply-to` funcionando nos 4 canais.
+- **Sobra pequena (não bloqueia nada)**: `pin` responde **403 Missing Permissions** (código 50013, não 50001 — o bot vê o canal, só não pode fixar). O cargo tem `MANAGE_MESSAGES` no nível do servidor, mas a permissão adicionada por canal não a inclui. Para as instruções ficarem fixadas no topo: adicionar **Gerenciar Mensagens** ao cargo nos 4 canais, ou fixar as 5 mensagens à mão (dois cliques cada). As mensagens já estão postadas de qualquer forma.
+- **`MESSAGE CONTENT INTENT` provado** (2026-08-09): o humano escreveu no `#new-tasks` e o `read --after` devolveu o texto intacto (`content: "mensagem de test"`, `bot: false`). Era o único risco que não dava para descartar sem uma mensagem escrita por ele — com a intent desligada, o texto voltaria vazio **sem erro nenhum**.
+- **Nota de segurança**: o token vive **só** em `tools/discord/.env` (não versionado — `.gitignore:6`). Nunca neste arquivo, que é versionado, nem em corpo de PR ou log.
+
 ### [2026-08-09] ~~Arte do personagem da marca para o logo (T-020b)~~ — RESOLVIDO no mesmo dia
 - **Origem**: orquestrador (feedback do humano sobre o logo entregue na T-020)
 - **Bloqueia**: nada — **entregue**. O humano substituiu `logo-vetor-wallet.png` por uma folha de 6 variações de tom e escolheu o **marrom chocolate claro**; o orquestrador recortou e integrou (T-020b CONCLUIDA). Fica registrado abaixo porque o achado técnico vale para qualquer arte futura.
