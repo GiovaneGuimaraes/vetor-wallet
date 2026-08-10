@@ -1,6 +1,5 @@
-// Cliente HTTP do Discord, compartilhado entre o bridge (CLI) e o daemon.
-// Nao ter duas copias disto e o ponto: token, rate limit e resolucao de canal
-// mudam juntos.
+// Cliente HTTP do Discord: token, rate limit, resolucao de canal e montagem de
+// payload. O bridge.mjs e a camada de CLI em cima disto.
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -48,16 +47,6 @@ export function resolveChannel(nameOrId) {
   const id = process.env[key];
   if (!id) fail(`canal "${nameOrId}" nao mapeado — defina ${key} no tools/discord/.env`);
   return id;
-}
-
-/** Mapa apelido -> id de todos os canais configurados (o daemon escuta estes). */
-export function canaisConfigurados() {
-  const mapa = {};
-  for (const [k, v] of Object.entries(process.env)) {
-    const m = /^DISCORD_CHANNEL_(.+)$/.exec(k);
-    if (m && v) mapa[m[1].toLowerCase().replace(/_/g, '-')] = v;
-  }
-  return mapa;
 }
 
 /** Chamada a API com retry no rate limit (429 devolve retry_after em segundos). */
@@ -115,11 +104,3 @@ export function buildPayload(content, { embed, title, mention, replyTo } = {}) {
   };
 }
 
-export const postar = (canal, content, opts) =>
-  api('POST', `/channels/${resolveChannel(canal)}/messages`, buildPayload(content, opts));
-
-export const reagir = (canal, messageId, emoji) =>
-  api(
-    'PUT',
-    `/channels/${resolveChannel(canal)}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}/@me`,
-  );
