@@ -58,7 +58,7 @@ const aguardandoConfirmacao = new Map();
  * aspas, quebras de linha e acentos, e passar isso por linha de comando no
  * Windows e fonte garantida de bug de quoting.
  */
-function rodarClaude({ prompt, modelo, autonomo }) {
+function rodarClaude({ prompt, modelo, autonomo, texto }) {
   const args = ['-p', '--output-format', 'json', '--model', modelo];
   if (autonomo) {
     args.push('--permission-mode', 'bypassPermissions');
@@ -69,9 +69,22 @@ function rodarClaude({ prompt, modelo, autonomo }) {
   }
 
   if (DRY_RUN) {
-    log(`DRY-RUN claude ${args.join(' ')}`);
-    log(`DRY-RUN prompt (${prompt.length} chars):\n${prompt.slice(0, 400)}…`);
-    return Promise.resolve({ dryRun: true, result: '(dry-run — nada foi executado)' });
+    log(`DRY-RUN claude ${args.join(' ')} (prompt: ${prompt.length} chars)`);
+    // Devolve uma saida plausivel para o caminho INTEIRO ser exercitavel sem
+    // gastar token. Escreva "alta" na mensagem para exercitar a trava de custo.
+    if (!autonomo) {
+      const complexidade = /alta/i.test(texto ?? '') ? 'alta' : 'média';
+      return Promise.resolve({
+        result: JSON.stringify({
+          id: 'T-DRY',
+          titulo: 'Tarefa simulada do dry-run',
+          complexidade,
+          justificativa: 'classificação simulada — nenhum modelo foi chamado',
+          escopo: 'nada é implementado em dry-run',
+        }),
+      });
+    }
+    return Promise.resolve({ result: '(dry-run — nenhum agente rodou, nada foi mergeado)' });
   }
 
   return new Promise((resolve, reject) => {
@@ -148,6 +161,7 @@ async function classificar(item) {
     prompt: PROMPT_CLASSIFICA(item.texto),
     modelo: 'haiku',
     autonomo: false,
+    texto: item.texto,
   });
   const c = extrairJson(saida.result) ?? extrairJson(JSON.stringify(saida));
   if (!c?.complexidade) throw new Error(`classificação não devolveu JSON utilizável`);
@@ -201,7 +215,13 @@ async function bombear() {
     await postar(
       CANAL_EXECUCAO,
       `**${item.classificacao.id} — ${item.classificacao.titulo}**\n\n${resumo}`,
-      { embed: true, title: 'Integração concluída', mention: true },
+      // O titulo tem que denunciar o dry-run: "Integração concluída" numa
+      // simulação e mentira no canal, e o canal e o que o humano le.
+      {
+        embed: true,
+        title: DRY_RUN ? '[DRY-RUN] simulação — nada foi executado' : 'Integração concluída',
+        mention: !DRY_RUN,
+      },
     );
     log(`${item.classificacao.id} concluída`);
   } catch (err) {
