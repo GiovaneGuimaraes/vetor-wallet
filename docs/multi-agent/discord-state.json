@@ -7,6 +7,7 @@
     "todoHuman": "1536147998436888587"
   },
   "backlog": { "messageId": "1536142925069557824" },
+  "docsApp": { "messageId": "1536196532053737605", "atualizadoEm": "2026-08-09" },
   "tasks": {
     "T-104b": { "canal": "todo-ai", "messageId": "1536143027494453331", "status": "PENDENTE" }
   },

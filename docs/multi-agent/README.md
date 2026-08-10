@@ -36,6 +36,9 @@ Regras que valem sempre:
 - O humano confirma por reação (✅ aprova · ❌ recusa · 🔁 refaz) ou por resposta em texto;
   o orquestrador transcreve a resposta para o campo "Resposta do humano" do `TODO-HUMANO.md`,
   que segue sendo o registro permanente da decisão.
+- **Ao fechar uma onda de tarefas, atualize o `#docs-app`** (mensagem única, editada) com o
+  resumo legível do app. É vista derivada dos `CLAUDE.md` de package e de `docs/decisions/` —
+  nunca uma quarta cópia de "o que o app é". Se divergir do repo, o repo ganha.
 
 ## O loop fechado
 

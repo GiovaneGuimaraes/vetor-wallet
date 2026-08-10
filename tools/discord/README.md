@@ -63,6 +63,7 @@ por edição **não pinga** — o texto muda, o `@` aparece e nenhum aviso sai. 
 | `#backlog` | orquestrador | **uma** mensagem-embed editada a cada ciclo, espelho da fila do `BACKLOG.md` |
 | `#todo-ai` | orquestrador | uma mensagem por tarefa, editada nas transições de status; link do PR ao fim |
 | `#todo-human` | orquestrador pergunta, humano responde | uma mensagem por pendência aberta do `TODO-HUMANO.md` |
+| `#docs-app` | orquestrador | **uma** mensagem-embed com o resumo legível do app, **editada ao fim de cada onda de tarefas**. É vista derivada, não fonte: o estado real são os `CLAUDE.md` de package e `docs/decisions/`. Nunca vira um quarto lugar onde "o que o app é" está escrito — se divergir do repo, o repo ganha |
 
 ### Como o orquestrador pede resposta
 
@@ -86,9 +87,45 @@ própria mensagem.
 Os IDs das mensagens fixas ficam em [`docs/multi-agent/discord-state.json`](../../docs/multi-agent/discord-state.json),
 escrito **só pelo orquestrador** (mesma regra do `BACKLOG.md` — evita conflito entre worktrees).
 
-## Limite conhecido
+## Daemon — o fluxo dispara sozinho
 
-O Claude Code não é um daemon: o bridge só roda dentro de uma sessão aberta. Mensagem
-escrita no `#new-tasks` com a sessão fechada é vista na próxima abertura, via
-`read --after`, e nada se perde — mas não há reação em tempo real. Um agente agendado
-(`/schedule`) pluga nestes mesmos comandos sem retrabalho, se um dia valer o custo.
+```bash
+node tools/discord/daemon.mjs --dry-run   # loga o que faria, sem executar nada
+node tools/discord/daemon.mjs             # pra valer
+```
+
+Mantém aberta a conexão **Gateway** (WebSocket) do Discord e traduz "mensagem nova no
+`#new-tasks`" em "agente rodando". Zero dependência — `WebSocket` é global no Node 22+.
+
+**Por que Gateway e não webhook**: o Discord tem dois caminhos de push. O *Interactions
+Endpoint* faz POST numa URL sua (é para isso que serve a Public Key da aplicação), mas só
+entrega slash command, botão e modal — **mensagem de texto comum não passa por lá**. Para
+reagir ao que o humano escreve, só o Gateway serve, e ele exige um processo sempre ligado.
+
+### As cinco travas
+
+1. **Autoria** — só mensagem do `DISCORD_HUMAN_ID`, só no `#new-tasks`.
+2. **Serial** — um agente por vez. Dois merges concorrentes na `main` é problema garantido,
+   e worktree isolado não protege contra isso.
+3. **Custo** — a classificação roda em **Haiku** e em `--permission-mode plan` (não escreve
+   nada). Se sair **alta** (executor Opus), o daemon **não dispara**: pergunta no
+   `#todo-human` e espera ✅. Baixa e média executam e mergeiam sozinhas.
+4. **Notificação** — toda integração (e toda falha) vai para o `#todo-ai` com menção.
+5. **Pausa** — escrever `pausar` no `#new-tasks` congela a fila; `retomar` libera.
+
+### O que isso significa de verdade
+
+A fase de execução roda com **`--permission-mode bypassPermissions`**: um agente com
+liberdade de rodar qualquer comando na máquina, disparado por uma mensagem de Discord. É a
+natureza do que um daemon autônomo é, não um detalhe de implementação. `FERRAMENTAS_NEGADAS`
+no topo do arquivo cobre os acidentes mais óbvios (`rm -rf`, `push --force`, `reset --hard`)
+— é **guarda-corpo, não sandbox**.
+
+Se o daemon morrer no meio de uma tarefa, o processo filho morre junto e pode sobrar uma
+branch/worktree pela metade. Nada é mergeado sem passar pelo revisor, então o pior caso é
+lixo a limpar, não código ruim na `main`.
+
+## Sem o daemon
+
+Com o daemon parado, o modelo é **pull**: o orquestrador roda `read --after <lastSeen>` ao
+abrir a sessão e processa tudo que chegou. Nada se perde — só não há reação em tempo real.
