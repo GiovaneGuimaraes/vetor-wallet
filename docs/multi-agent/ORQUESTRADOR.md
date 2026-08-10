@@ -20,7 +20,7 @@ Carteira financeira pessoal para um único usuário real (Giovane), organizada e
 - **Roteamento econômico vigente** (humano, 2026-07-25): revisor SEMPRE Sonnet; Opus só em executor de tarefa alta e spikes `Plan`; Haiku em complexidade baixa que não toca lógica nem SQL.
 - **Modo auto ativo** (humano, 2026-07-24): após APROVADA do revisor, PR + merge automático; revisão humana a posteriori.
 - **Dívidas de produção**: não há deploy nenhum (decisão de 2026-08-08 — API só local; AWS no horizonte, sem tarefa). Agendador de snapshots e job de insights são in-process e morrem com o processo. Alertas e import CSV sem UI.
-- **Higiene pendente**: dezenas de diretórios órfãos em `.claude/worktrees/` com `node_modules` próprio ocupando disco (o git já não os referencia).
+- **Higiene pendente**: 28 diretórios órfãos em `.claude/worktrees/`, cada um com `node_modules` próprio. Desde 2026-08-10 o git **não referencia nenhum** (os 3 worktrees que restavam foram desregistrados; `git worktree list` só mostra a raiz). São lixo puro de disco — `git worktree remove` falha no Windows porque o `node_modules` não sai, então é remoção manual do diretório.
 
 > Atualize a cada ciclo, substituindo — não acumulando. Mudança de prioridade que envolva produto → `TODO-HUMANO.md`.
 
@@ -43,6 +43,20 @@ Carteira financeira pessoal para um único usuário real (Giovane), organizada e
 - **Texto com crases, `$` ou acentos nunca passa por string de shell** — escreva o arquivo com a ferramenta Write e aponte o comando para ele. Um `--body-file` montado dentro de aspas duplas no bash teve **todas** as crases comidas por substituição de comando, e a mensagem foi publicada sem os trechos de código (incidente do fluxograma do `#agentic-system`, 2026-08-10). Mesma classe do item acima.
 - Após resolução manual de conflito, conferir marcadores residuais (incidente do orquestrador na T-024, pego pelo revisor da T-023).
 - Suítes de teste com datas: ancorar em datas relativas (`currentMonth()`/shift), nunca fixas — testes da T-035 "envelheciam".
+
+## Branches (2026-08-10)
+
+`delete_branch_on_merge` está **ligado no repositório**: toda PR mergeada apaga a própria
+branch, pelo GitHub, sem depender de ninguém lembrar do `--delete-branch`. Não crie processo
+manual para isso.
+
+Faxina feita no mesmo dia: 68 branches remotas e 64 locais (o histórico dos ciclos 1–20)
+foram apagadas depois de verificadas como integradas. **Como verificar, se precisar repetir**:
+`git branch --merged` não basta — 7 branches apareciam como não-mergeadas por terem entrado
+via **squash**, que gera SHA e patch-id diferentes. `git cherry main <branch>` resolve a
+maioria (`-` = conteúdo já aplicado); para as que ainda acusarem pendência, compare a **API
+exportada** dos arquivos tocados entre a branch e a `main` — foi o que provou que a
+`feat/t-080-home-ctas` já estava integrada apesar de dois commits com patch-id distinto.
 
 ## Proteção da `main` (2026-08-10)
 
