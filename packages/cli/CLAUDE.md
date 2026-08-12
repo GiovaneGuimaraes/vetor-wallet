@@ -16,11 +16,13 @@ CLIs de coleta e manutenção de dados, sem dependência do Express. Cada script
 cli/
 ├── src/
 │   ├── hourlyInsights.ts  # job de captura horária de cotações B3
-│   ├── pluggySync.ts      # sincronização Open Finance via Pluggy (T-087)
+│   ├── pluggyCli.ts       # plumbing dos dois jobs Pluggy (argv/env, máscara)
+│   ├── pluggyLink.ts      # registra/remove um item da Pluggy p/ um usuário (T-089a)
+│   ├── pluggySync.ts      # sincronização Open Finance via Pluggy (T-087/T-089a)
 │   └── grantAdmin.ts      # concede a role admin a um e-mail
 ├── .env.example           # DATABASE_URL, BRAPI_TOKEN, PLUGGY_*
 ├── package.json           # vetor-wallet-cli; scripts: insights:hourly,
-│                          # pluggy:sync, roles:grant-admin
+│                          # pluggy:link, pluggy:sync, roles:grant-admin
 └── tsconfig.json          # path aliases para os packages consumidos
 ```
 
@@ -41,12 +43,44 @@ pnpm --filter vetor-wallet-cli insights:hourly 2025-07-10
 
 Sem argumento de data, o job usa o dia útil anterior em BRT.
 
+### Pluggy: primeiro vincular o item, depois sincronizar (T-089a)
+
+Desde a T-089a o `pluggy:sync` **não lê mais `PLUGGY_ITEM_ID`**: as conexões
+vivem na tabela `pluggy_items`, por usuário. As rotas e o botão do app (fases (b)
+e (c) da T-089) **não existem ainda**, então **hoje o único caminho para criar a
+linha é o `pluggy:link`** — sem ele, o `pluggy:sync` responde "nenhuma conexão
+registrada" e sai com código 1.
+
 ```bash
-# Sincronização Pluggy (T-087) — sempre confira com --dry-run primeiro
+# 1. Vincular o item ao usuário — uma vez por instituição conectada.
+#    Sem argumento, usa PLUGGY_ITEM_ID do .env (bootstrap de quem vem da T-087).
+pnpm --filter vetor-wallet-cli pluggy:link
+pnpm --filter vetor-wallet-cli pluggy:link <itemId> --connector-id=200 --connector-name=MeuPluggy
+pnpm --filter vetor-wallet-cli pluggy:link <itemId> --email=voce@exemplo.com
+
+# Conferir o que está vinculado (o comando sempre lista ao final) / remover:
+pnpm --filter vetor-wallet-cli pluggy:link <itemId> --remove
+
+# 2. Sincronizar TODOS os items do usuário — sempre com --dry-run primeiro
 pnpm --filter vetor-wallet-cli pluggy:sync --dry-run
 pnpm --filter vetor-wallet-cli pluggy:sync            # janela default: 30 dias
 pnpm --filter vetor-wallet-cli pluggy:sync 2026-07-01 # a partir desta data
 ```
+
+Rodar o `pluggy:link` de novo com o mesmo item é seguro: o upsert atualiza a
+linha existente (reconexão preserva o `itemId`). Item que já é de **outro**
+usuário é recusado com `ITEM_ALREADY_LINKED`, sem dizer de quem é.
+
+**Não há migração automática a partir do `.env`.** Vincular é ato explícito,
+feito uma vez — um job que criasse a linha sozinho a partir de env presente em
+runtime transformaria configuração de máquina em dado de usuário.
+
+**O `itemId` nunca é impresso inteiro** (`maskItemId`, 8 primeiros caracteres): é
+credencial portadora e saída de terminal acaba em print, issue e PR.
+
+Um usuário com N items sincroniza os N; falha em um item (ou em uma conta) **não
+aborta** os outros — o relatório mostra cada falha e o processo sai não-zero no
+final.
 
 `--dry-run` lista o que faria e **não grava nada** (a garantia vive em
 `importPluggyTransactions`, no `bank-import-core`, não num `if` daqui). Rodar de
@@ -67,8 +101,8 @@ Node no Windows (`UV_HANDLE_CLOSING`, exit 127 — visto de verdade em smoke tes
 | `BRAPI_TOKEN` | — | Não (limite maior com token) |
 | `PLUGGY_CLIENT_ID` | — | Só para `pluggy:sync` |
 | `PLUGGY_CLIENT_SECRET` | — | Só para `pluggy:sync` |
-| `PLUGGY_ITEM_ID` | — | Só para `pluggy:sync` |
-| `PLUGGY_USER_EMAIL` | `voce@exemplo.com` | Só para `pluggy:sync` |
+| `PLUGGY_ITEM_ID` | — | Não — só bootstrap do `pluggy:link` (T-089a) |
+| `PLUGGY_USER_EMAIL` | `voce@exemplo.com` | Default do `--email=` nos dois jobs Pluggy |
 | `PLUGGY_API_URL` | `https://api.pluggy.ai` | Não (default) |
 
 **Credenciais nunca entram no repositório**: no diff vai só o `.env.example` com
@@ -77,9 +111,17 @@ de `apiKey`/`clientSecret` em log ou mensagem de erro — ver
 `packages/pluggy-core/CLAUDE.md`.
 
 `PLUGGY_USER_EMAIL` existe porque toda tabela de dados filtra por `user_id` e um
-job não tem sessão HTTP: é o e-mail do usuário do app que **recebe** os
-lançamentos, resolvido em `users.id` via `findUserByEmail`. Sem default
-silencioso — env ausente ou e-mail inexistente faz o job falhar.
+job não tem sessão HTTP: é o e-mail do usuário do app sobre o qual o comando age,
+resolvido em `users.id` via `findUserByEmail`. Desde a T-089a ele é o **default
+do CLI** — `--email=` no comando ganha dele —, e não mais "o usuário dono de
+tudo": com items por usuário, quem manda é a linha em `pluggy_items`. A
+invariante que **não** mudou: **sem default silencioso** — sem `--email=` nem
+env, ou com e-mail inexistente, o comando falha; nunca escolhemos um usuário por
+conta própria.
+
+`PLUGGY_ITEM_ID` **não é lido pelo `pluggy:sync`** (T-089a). Sobrou como
+conveniência de bootstrap do `pluggy:link`, que o usa quando nenhum `itemId` vem
+por argumento.
 
 `DATABASE_URL` é relativo ao diretório onde o script roda (`packages/cli/`), então `../rest-api/data/wallet.db` aponta corretamente para o banco da API. Para Turso: `libsql://seu-db.turso.io?authToken=...`.
 
