@@ -33,22 +33,20 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Fases, em série**: ~~(a) tabela `pluggy_items` + job iterando os items ✅~~; **(b)** `POST /api/pluggy/connect-token` (mina no **servidor**) e `POST /api/pluggy/items`, atrás de `requireActiveSubscription`, mais o `DELETE /items/{id}` na Pluggy que a (a) deixou pendente; **(c)** botão + widget do `cdn.pluggy.ai`; **(d)** gatilho de sync — sem ele o usuário conecta, nada aparece e parece quebrado.
 - **Da fase (a), para não reabrir**: `item_id` tem unicidade **global** porque é credencial *portadora* — por usuário, B importaria o extrato de A.
 - **Gating binário** (decisão do humano): `plans` não tem coluna de capacidade, então todo pagante inclui a integração.
-- **BLOQUEIA A ENTREGA, não a construção**: conector 200 é gratuito só para uso **pessoal**; multi-CPF comercial exige contrato pago (`TODO-HUMANO.md`).
-- **Aceite**: dois usuários com items distintos, cada um só vê os seus; sem assinatura → 402; suítes verdes.
+- **Gate `ENVIRONMENT` (decisão do humano, 2026-08-12)**: env nova no `rest-api` — `Staging` **libera** a integração, `Production` **bloqueia**. **Fail closed**: ausente, vazia ou valor desconhecido = bloqueado, porque o desfecho de errar é violar os termos da Pluggy. O gate vive na **rota** (esconder o botão é UX, não bloqueio) e o web só **lê** o estado via API — nunca uma segunda cópia da flag em `VITE_*`.
+- **Aceite**: dois usuários com items distintos, cada um só vê os seus; sem assinatura → 402; `Production` bloqueia a rota; suítes verdes.
 
 ### T-090 — `pnpm discord:check`: guard do espelho do Discord
 - **Status**: EM_ANDAMENTO · **Complexidade**: média (executor Sonnet) · **Depende de**: —
 - **Objetivo**: a regra "espelhar é parte de concluir" nasceu em prosa e **falhou no mesmo dia** — mesma história do teto do backlog, que só valeu como script no CI. Reprovar quando o último commit que tocou `BACKLOG.md`/`TODO-HUMANO.md` for **mais novo** que o espelho registrado em `discord-state.json`.
-- **Arquivos-alvo**: `tools/`, teste no padrão do `backlog-guard`, script `discord:check` na raiz, step no `ci.yml`.
-- **Atenção**: sem rede nem token — compara data do git com o JSON. Falso positivo trava o CI de quem só mexeu em docs: justifique o que conta como "mexeu".
+- **Arquivos-alvo**: `tools/`, teste no padrão do `backlog-guard`, script na raiz, step no `ci.yml`.
 - **Aceite**: sujo reprova, limpo passa, teste dos dois; `lint`, `format:check`, `backlog:check` e `pnpm test` verdes.
 
 ### T-088 — Movimentação interna não pode virar despesa/renda
 - **Status**: PENDENTE · **Complexidade**: alta · **Depende de**: T-087 (concluída, #159)
-- **Objetivo**: o dry-run real mostrou que a importação crua confunde movimentação interna com gasto: **aplicação em reserva** entra como **despesa** (era a maior parte do débito do mês, que apareceria vários múltiplos acima do real), o **resgate** entra como **renda**, e o **pagamento de fatura** conta **duas vezes** (despesa na conta, renda no cartão). Valor real do humano **não entra em arquivo versionado** — repo público.
+- **Objetivo**: o dry-run real mostrou que a importação crua confunde **movimentação interna** com gasto: aplicação em reserva entra como **despesa** (a maior parte do débito do mês), o resgate como **renda**, e o pagamento de fatura conta **duas vezes**. Contexto completo no `TODO-HUMANO.md`; valor real do humano **não entra em arquivo versionado** (repo público).
 - **Sinal**: a `category` da Pluggy vem preenchida no plano grátis — `Investments`, `Same person transfer`, `Credit card payment`.
-- **Decisão parcial do humano (2026-08-12)**: `Investments` vai para o **layer de investimentos** (Candidatas), não para poupança. As outras duas escolhas seguem abertas no `TODO-HUMANO.md` — até lá, **proibido rodar sem `--dry-run`**.
-- **Vale também para o OFX** (T-085).
+- **Decisão parcial (2026-08-12)**: `Investments` vai para o **layer de investimentos** (Candidatas), não para poupança. As outras duas seguem abertas — até lá, **proibido rodar sem `--dry-run`**. Vale também para o OFX (T-085).
 - **Aceite**: com fixtures anonimizadas, nenhuma aplicação/resgate/fatura vira despesa ou renda; suítes verdes.
 
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
