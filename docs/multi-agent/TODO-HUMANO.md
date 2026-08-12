@@ -18,6 +18,13 @@
 
 ## Abertos
 
+### [2026-08-12] Contrato pago com a Pluggy — bloqueia ENTREGAR a T-089, não construí-la
+- **Origem**: orquestrador (levantado ao especificar a T-089, a pedido do humano por um botão de conexão no app)
+- **Bloqueia**: **ligar a T-089 para terceiros**. Não bloqueia escrever o código, nem o uso pessoal do humano.
+- **Pergunta/pendência**: o humano decidiu (via chat, 2026-08-12) que a integração é **produto multi-usuário** — cada usuário conecta o próprio banco por um botão, liberado pelo plano. O conflito: o **Meu Pluggy / conector 200 é gratuito só para uso pessoal**. A própria Pluggy é explícita — uso comercial, múltiplos CPFs ou "virar produto" exige plano pago. Isso já estava registrado no item de credenciais de 2026-08-02 ("não pode virar produto multi-CPF comercial") e foi reconfirmado na doc em 2026-08-12. Ou seja: **cobrar dos usuários por uma integração construída sobre o tier pessoal gratuito viola os termos da Pluggy** — e é justamente isso que "bloquear conforme o plano do usuário" implica. A T-089 foi especificada de modo a ser construída sem violar nada (modelo por usuário, rotas, UI, gating), com a ligação para terceiros dependendo deste item. **O que precisa do humano**: ver os planos em https://www.pluggy.ai/precos, decidir se o custo mensal se justifica antes de haver usuários pagantes, e fechar o contrato — ou manter a integração como uso pessoal e não vendê-la como feature de plano.
+- **Alternativa que não custa nada**: manter o botão atrás de flag desligada (ou visível só para a conta do humano) até haver contrato. O código fica pronto e legal; só não é oferecido.
+- **Resposta do humano**: _(preencher)_
+
 ### [2026-08-12] Como tratar movimentação interna na importação (T-088)?
 - **Origem**: orquestrador (medido no dry-run real da T-087, com os dados do humano)
 - **Bloqueia**: T-088 — e, na prática, **rodar a importação real da T-087 sem `--dry-run`**

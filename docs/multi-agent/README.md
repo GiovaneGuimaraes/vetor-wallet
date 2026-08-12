@@ -17,10 +17,39 @@ Este diretório define o fluxo de trabalho multi-agente em loop fechado do proje
 | Arquivo | Dono da escrita | Conteúdo |
 |---|---|---|
 | [`ORQUESTRADOR.md`](./ORQUESTRADOR.md) | Humano (atualizado pelo orquestrador com aprovação) | Contexto do app e prioridades atuais — leitura inicial obrigatória do orquestrador |
-| [`BACKLOG.md`](./BACKLOG.md) | Orquestrador | **Só trabalho vivo.** Tarefa concluída sai do arquivo — não migra para outro lugar do repo. Teto de 8 KB, verificado por `pnpm backlog:check` |
+| [`BACKLOG.md`](./BACKLOG.md) | Orquestrador | **Só trabalho vivo.** Tarefa concluída sai do arquivo — não migra para outro lugar do repo. Teto de 8 KB, verificado por `pnpm backlog:check`. Modelo de tarefa e rationale da higiene: abaixo |
 | [`CALIBRAGEM.md`](./CALIBRAGEM.md) | Orquestrador | Placar dos modelos e as causas das reprovações — o dado que calibra o roteamento abaixo |
 | [`TODO-HUMANO.md`](./TODO-HUMANO.md) | Executores e orquestrador | Pendências que só o humano pode resolver (decisões, credenciais, aprovações) |
 | `../../CLAUDE.md` | Humano | Arquitetura, comandos, convenções e política de testes — leitura obrigatória de todos |
+
+## Higiene do `BACKLOG.md` e modelo de tarefa
+
+O backlog é lido em **toda** sessão do orquestrador, então cada caractere ali é pago
+repetidamente — foi por isso que ele chegou a 78 KB com 77% de tarefas concluídas antes do
+guard existir (regra que depende de alguém lembrar já falhou). O arquivo tem o resumo
+operacional das quatro regras; o motivo de cada uma fica aqui:
+
+- **Tarefa concluída sai do backlog e não migra para outro arquivo do repo.** O registro do
+  que foi feito já existe em dois lugares melhores: as **PRs mergeadas** e o **histórico do
+  git**. Documentação de *como o app é hoje* pertence aos `CLAUDE.md` de cada package e a
+  `docs/decisions/` — nunca a um backlog, que por natureza descreve estados intermediários
+  já superados.
+- **Teto de 8 KB**, verificado por `pnpm backlog:check` (no CI desde 2026-08-10). Estourar é
+  sintoma, não o problema: significa tarefa concluída que não saiu, ou spec inflada.
+- **Tarefa viva cabe em ~700 caracteres**: objetivo, aceite, complexidade, arquivos-alvo. O
+  detalhamento de execução (fases, casos de borda, plano de arquivos) pertence ao **prompt do
+  executor**, não ao backlog. Post-mortem — resultado, achados do revisor, histórico de
+  reprovação — vai para o corpo da PR, e o que muda decisão futura de roteamento vai para
+  `CALIBRAGEM.md`.
+- **Pendência que depende do humano não é backlog** — vai para `TODO-HUMANO.md`.
+
+```markdown
+### T-000 — Título curto e imperativo
+- **Status**: PENDENTE · **Complexidade**: baixa | média | alta · **Depende de**: —
+- **Objetivo**: por que existe e o que fazer.
+- **Arquivos-alvo**: caminhos prováveis.
+- **Critério de aceite**: verificável + comando de teste.
+```
 
 ## Interface no Discord
 
