@@ -68,16 +68,22 @@ packages/
 │                     # snapshots + agendador (T-099c, Ciclo 19)
 ├── insights-core/    # @vetor-wallet/insights-core — benchmarks CDI/Ibovespa e
 │                     # job de insights horários (T-099c, Ciclo 19)
-├── bank-import-core/ # @vetor-wallet/bank-import-core — parser OFX e dedupe
-│                     # por external_id (T-099c, Ciclo 19)
+├── bank-import-core/ # @vetor-wallet/bank-import-core — parser OFX, dedupe
+│                     # por external_id (T-099c, Ciclo 19) e o mapeamento/
+│                     # gravação das transações da Pluggy (T-087, Ciclo 20)
+├── pluggy-core/      # @vetor-wallet/pluggy-core — client HTTP da Pluggy
+│                     # (Open Finance): apiKey de 2h em cache, contas por
+│                     # itemId, transações por cursor; NÃO toca o banco
+│                     # (T-087, Ciclo 20). Formato-alvo, runner Vitest
 ├── rest-api/ # Node + Express (CJS) — API REST; SÓ Express desde a T-099c
 │   └── src/  # (chamava-se `server` até a T-100)
 │       └── api/   # index.ts (entry), auth/{router,middleware}.ts, routes/,
 │                  # middleware/  — não há mais services/
 ├── web/      # Vite + React 18 (ESM) — páginas em src/routes/ com funções puras
 │             # testáveis ao lado (*.test.ts); estado global em App.tsx via props
-└── cli/      # jobs de coleta (tsx; consome @vetor-wallet/{db,insights-core,
-            #  auth-core,validation-core} — o alias para dentro da API saiu na T-099c)
+└── cli/      # jobs de coleta e sincronização (tsx; consome @vetor-wallet/{db,
+            #  insights-core,auth-core,validation-core,bank-import-core,
+            #  pluggy-core} — o alias para dentro da API saiu na T-099c)
 ```
 
 ## Comandos (sempre da raiz)
@@ -100,11 +106,13 @@ pnpm --filter @vetor-wallet/validation-core test   # Jest (validation-core)
 pnpm --filter @vetor-wallet/savings-core test      # Vitest (savings-core)
 pnpm --filter @vetor-wallet/expenses-core test     # Vitest (expenses-core)
 pnpm --filter @vetor-wallet/bank-import-core test  # Vitest (bank-import-core)
+pnpm --filter @vetor-wallet/pluggy-core test       # Vitest (pluggy-core)
 pnpm --filter @vetor-wallet/portfolio-core test    # Vitest (portfolio-core)
 pnpm --filter @vetor-wallet/insights-core test     # Vitest (insights-core)
 pnpm --filter @vetor-wallet/auth-core test         # Vitest (auth-core)
 pnpm --filter vetor-wallet-web test       # Vitest (web, funções puras)
 pnpm --filter vetor-wallet-cli insights:hourly [YYYY-MM-DD]
+pnpm --filter vetor-wallet-cli pluggy:sync [YYYY-MM-DD] [--dry-run]
 ```
 
 ## Ambiente
@@ -115,7 +123,7 @@ pnpm --filter vetor-wallet-cli insights:hourly [YYYY-MM-DD]
 |---|---|
 | rest-api | `PORT` (3001), `SESSION_SECRET`*, `ALLOWED_ORIGIN`*, `NODE_ENV`*, `BRAPI_TOKEN`, `DATABASE_URL` (default `process.cwd()/data/wallet.db`), `ABACATEPAY_API_KEY`, `ABACATEPAY_API_URL` (default `https://api.abacatepay.com/v2`), `ABACATEPAY_WEBHOOK_SECRET`, `BILLING_ENABLED` (default false; obrigatória true em prod com billing) — * obrigatórias em prod |
 | web | `VITE_API_URL` (http://localhost:3001) |
-| cli | `DATABASE_URL=file:../rest-api/data/wallet.db` (relativo a packages/cli/), `BRAPI_TOKEN` |
+| cli | `DATABASE_URL=file:../rest-api/data/wallet.db` (relativo a packages/cli/), `BRAPI_TOKEN`; para `pluggy:sync` (T-087): `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, `PLUGGY_ITEM_ID`, `PLUGGY_USER_EMAIL` (e-mail do usuário dono dos lançamentos — sem default silencioso), `PLUGGY_API_URL` (default `https://api.pluggy.ai`). **Valores só no `.env` local, nunca no repo.** |
 
 O SQLite (`packages/rest-api/data/wallet.db`) é criado no primeiro boot.
 
@@ -181,4 +189,5 @@ Leia o arquivo do domínio antes de mexer nele:
 - **snapshots-history.md** — stub: dividido entre `packages/portfolio-core/CLAUDE.md` (snapshots, T-058a/T-060/T-061/T-063) e `packages/insights-core/CLAUDE.md` (benchmarks T-068, insights horários) na T-099c.
 
 Domínios sem `docs/decisions/` próprio, documentados só no package:
-`packages/bank-import-core/CLAUDE.md` (OFX + dedupe por `external_id`, T-084/T-085/T-086).
+`packages/bank-import-core/CLAUDE.md` (OFX + dedupe por `external_id`, T-084/T-085/T-086, e o
+mapeamento da Pluggy, T-087) e `packages/pluggy-core/CLAUDE.md` (client Open Finance, T-087).

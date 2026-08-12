@@ -27,7 +27,7 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **subscription-core** | Core | Subscriptions | Datas, ativação idempotente, gating + provider AbacatePay | ✅ existe (T-103) |
 | **insights-core** | Core | Insights | Benchmarks CDI/Ibovespa, insights horários | ✅ existe (T-099c) |
 | **bank-import-core** | Core | BankImport | Parser OFX, dedupe por `external_id` | ✅ existe (T-099c) |
-| **pluggy-core** *(planejado)* | Integration | BankImport | Open Finance via Pluggy (Onda C) | – (código novo) |
+| **pluggy-core** | Integration | BankImport | Client HTTP da Pluggy (Open Finance): auth 2h, contas, transações por cursor | ✅ existe (T-087) |
 
 ## Categorias
 
@@ -54,6 +54,11 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 3. **Integração de um módulo só nasce como provider dentro do core dele**, em
    `src/providers/<nome>/`; vira package de Integração quando um segundo módulo passar a
    consumi-la.
+
+   > `pluggy-core` (T-087) é a exceção deliberada: nasceu package porque era a decisão
+   > registrada no roadmap do módulo BankImport, e porque há um segundo consumidor previsto
+   > (endpoint `investments`, para reconciliar posição B3 no Portfolio). Não use como
+   > precedente para integração nova de um módulo só.
 
    > `brapi-core` é package porque Portfolio **e** Insights o consomem. A AbacatePay virou
    > `subscription-core/src/providers/abacatepay/` (T-103) porque só existe por causa da
@@ -142,6 +147,7 @@ migrar. Package novo já nasce assim; os antigos migram um por vez, em tarefas p
 |---|---|---|
 | `subscription-core` | ✅ alvo | Jest + Stryker |
 | `validation-core` | ✅ alvo (T-104a) | Jest |
+| `pluggy-core` | ✅ alvo, exceto runner (T-087) | Vitest, teste ao lado (segue `brapi-core`) |
 | demais `*-core`, `db` | arquivo-balaio, `db` importado, teste em `src/**/*.test.ts` | Vitest |
 
 > `validation-core` foi o segundo package migrado e o **calibre** do formato:

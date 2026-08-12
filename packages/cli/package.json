@@ -5,6 +5,7 @@
   "type": "commonjs",
   "scripts": {
     "insights:hourly": "tsx src/hourlyInsights.ts",
+    "pluggy:sync": "tsx src/pluggySync.ts",
     "roles:grant-admin": "tsx src/grantAdmin.ts",
     "build": "tsc --build tsconfig.json"
   },
@@ -12,7 +13,9 @@
     "@libsql/client": "^0.14.0",
     "@vetor-wallet/db": "workspace:*",
     "@vetor-wallet/auth-core": "workspace:*",
+    "@vetor-wallet/bank-import-core": "workspace:*",
     "@vetor-wallet/insights-core": "workspace:*",
+    "@vetor-wallet/pluggy-core": "workspace:*",
     "@vetor-wallet/shared": "workspace:*",
     "@vetor-wallet/validation-core": "workspace:*",
     "dotenv": "^16.4.5"
