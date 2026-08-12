@@ -30,6 +30,13 @@ src/
 ├── pluggy.ts            # pluggyExternalId, parsePluggyDate,
 │                        # mapPluggyTransaction (sinal × type, PENDING, BRL),
 │                        # importPluggyTransactions (relatório + dry-run)
+├── PluggyItem.ts        # PluggyItem + toPluggyItem (T-089a)
+├── PluggyItemError.ts   # erro tipado (INVALID_ITEM_ID, ITEM_ALREADY_LINKED)
+├── linkPluggyItem.ts    # upsert idempotente de um item para um usuário
+├── listPluggyItems.ts   # os items de UM usuário (sempre filtrado)
+├── unlinkPluggyItem.ts  # remove o vínculo (false = não é seu / não existe)
+├── syncPluggyItems.ts   # itera os N items do usuário, isolando falhas;
+│                        # recebe o client da Pluggy INJETADO
 ├── __fixtures__/ofx.ts  # fixtures dos dois dialetos, compartilhadas com o
 │                        # teste de rota do server (não é `.test.ts` de propósito)
 └── index.ts             # barrel
@@ -164,14 +171,71 @@ Decisões travadas:
 - **O tipo de entrada é estrutural** (`RawPluggyTransaction`): este package **não**
   importa `pluggy-core`. O `PluggyTransaction` do client encaixa por forma, e o
   teste monta uma transação sem subir a integração.
-- **De quem são os lançamentos**: `PLUGGY_USER_EMAIL` no `.env` do `cli`,
-  resolvido em `users.id` pelo job. Sem "usuário default" silencioso — env
-  ausente ou e-mail inexistente faz o job falhar.
+- **De quem são os lançamentos**: o `userId` é entrada explícita da função. No
+  `cli` ele vem de `--email=` ou, na falta dele, de `PLUGGY_USER_EMAIL` (desde a
+  T-089a é **default do CLI**, não mais "o usuário dono de tudo"), resolvido em
+  `users.id`. Sem "usuário default" silencioso — sem nenhuma das duas fontes, ou
+  com e-mail inexistente, o comando falha.
 - **Fora de escopo (segue pendente)**: endpoint `investments`; UI; agendamento;
   caixa de entrada de revisão; e **transferência entre contas próprias**, que
   aqui importa como está (herda a pendência do OFX) — com o agravante de que
   importar cartão **e** conta faz a compra no cartão e o pagamento da fatura
   contarem duas vezes na despesa do mês.
+
+## Items da Pluggy por usuário (T-089a)
+
+A T-087 entregou o job funcionando com `PLUGGY_ITEM_ID` num `.env`: **uma
+instalação, um usuário**. A decisão do humano (2026-08-12) é que a integração
+vira produto multi-usuário, então a conexão (o "item" da Pluggy) passou a viver
+no banco, em `pluggy_items`, por usuário. Esta é a fase (a) da T-089 — as rotas,
+o botão e o gatilho de sync são fases seguintes e **não existem ainda**.
+
+**Por que aqui e não num core novo**: o item só existe para importar extrato, e
+o dono da política de importação (módulo BankImport) é este package, que já
+escreve no banco. Um `pluggy-items-core` seria um package com uma tabela e nenhum
+domínio próprio. E **não** em `pluggy-core`: aquele é Integração e nunca toca o
+banco (regra 2 de `docs/PACKAGES.md`).
+
+Decisões travadas:
+
+- **Unicidade GLOBAL de `item_id`**, não `(user_id, item_id)`. O `itemId` é
+  **credencial portadora**: quem o tem lê o extrato daquela conexão. Com
+  unicidade por usuário, B registraria o `itemId` de A e importaria o extrato de
+  A para dentro da própria conta — sem nenhuma constraint para segurar. Global
+  transforma isso em violação de unicidade. Rationale completo em
+  `docs/decisions/db-schema.md`.
+- **`linkPluggyItem` é idempotente pelo BANCO** (doutrina da T-084): um único
+  `INSERT … ON CONFLICT(item_id) DO UPDATE … WHERE pluggy_items.user_id =
+  excluded.user_id`. Reconexão do mesmo usuário atualiza a linha (o `itemId`
+  sobrevive à reautenticação); item de outro usuário não casa no `WHERE`, nada é
+  escrito, e o SELECT seguinte — filtrado por `user_id` — não acha linha, virando
+  `ITEM_ALREADY_LINKED`. **Sem SELECT-antes-do-INSERT** (TOCTOU).
+- **Item de outro usuário é invisível, nunca 403.** A mensagem de
+  `ITEM_ALREADY_LINKED` não diz de quem é o item (tem teste), e
+  `unlinkPluggyItem` devolve `false` tanto para item inexistente quanto para item
+  alheio — os dois casos são indistinguíveis de propósito.
+- **`unlinkPluggyItem` só apaga a linha nossa.** Revogar do lado da Pluggy
+  (`DELETE /items/{id}`) é chamada de Integração e cabe a quem orquestra (a rota
+  da fase (b)) — este core não fala com terceiro. **Segue pendente.**
+- **`syncPluggyItems` recebe o client da Pluggy INJETADO** (`deps.fetchAccounts`
+  / `deps.fetchTransactions`, formas estruturais como `RawPluggyTransaction`):
+  importar `pluggy-core` aqui inverteria Core → Integração e obrigaria a mockar
+  `fetch` para testar uma regra que não é de HTTP. O `cli` é quem liga os dois.
+- **Falha isolada por item E por conta.** Um item que falha (403, item sem conta)
+  não aborta os outros; uma conta que falha não aborta as demais do mesmo item.
+  Cada falha é linha do relatório e soma em `failures` — o job sai não-zero
+  **depois** de importar tudo que dava.
+- **`noItems` é desfecho próprio, não sucesso vazio.** Usuário sem nenhum item
+  não é "0 contas importadas, sucesso": é a falha silenciosa mais provável da
+  integração, e o CLI responde com a mensagem acionável (rode `pluggy:link`).
+  Mesma razão de item existente **sem nenhuma conta** contar como falha.
+- **`db` chega injetado** nas funções novas (`linkPluggyItem`, `listPluggyItems`,
+  `unlinkPluggyItem`, `syncPluggyItems`) — é o formato-alvo de
+  `docs/PACKAGES.md`. Divergência consciente: `importPluggyTransactions` e
+  `insertEntryWithExternalId` seguem usando o singleton, e trocar a assinatura
+  delas arrastaria as rotas de income/expense entries. Essa unificação é da
+  migração deste package (T-104), não desta tarefa. O runner segue Vitest com
+  teste ao lado, pela mesma razão.
 
 ## Convenções
 

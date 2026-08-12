@@ -58,8 +58,10 @@ Confirmado em https://docs.pluggy.ai (agosto/2026):
   `id`, `type`, `subtype` (`CHECKING_ACCOUNT`|`SAVINGS_ACCOUNT`|`CREDIT_CARD`),
   `number`, `name`, `marketingName`, `balance`, `currencyCode`, `itemId`.
 - **Não existe endpoint de listar items**: só `POST /items`, `GET /items/{id}`,
-  `PUT` e `DELETE`. Por isso o `itemId` é configuração (`PLUGGY_ITEM_ID`), não
-  algo descobrível — e um `itemId` errado é o erro mais provável da integração.
+  `PUT` e `DELETE`. Por isso o `itemId` tem de ser **guardado por nós** quando o
+  widget o entrega (tabela `pluggy_items`, T-089a; era `PLUGGY_ITEM_ID` até
+  então), não descoberto — e um `itemId` errado é o erro mais provável da
+  integração.
 - `GET /v2/transactions` com **paginação por cursor**: `accountId` (obrigatório),
   `dateFrom`/`dateTo` (`yyyy-mm-dd`), `after` (cursor), `ids`. Envelope
   `{ results, next }`, onde `next` é a querystring pronta do próximo passo e vem
@@ -163,9 +165,11 @@ convenção, não de capacidade.
 ## Variáveis de ambiente
 
 `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET` (obrigatórias),
-`PLUGGY_API_URL` (opcional, default `https://api.pluggy.ai`). O `PLUGGY_ITEM_ID`
-e o `PLUGGY_USER_EMAIL` são do **job**, não deste package — ver
-`packages/cli/.env.example`. Valores reais vivem só no `.env` local (git-ignored)
+`PLUGGY_API_URL` (opcional, default `https://api.pluggy.ai`). O `itemId` **não é
+mais env**: desde a T-089a ele vive em `pluggy_items`, por usuário, e chega a
+`fetchPluggyAccounts` como argumento (`PLUGGY_ITEM_ID` sobrou só como bootstrap
+do comando `pluggy:link`). O `PLUGGY_USER_EMAIL` é default do **CLI**, não deste
+package — ver `packages/cli/.env.example`. Valores reais vivem só no `.env` local (git-ignored)
 e são preenchidos pelo humano.
 
 ## Roadmap: webhooks (não implementado — depende de deploy)

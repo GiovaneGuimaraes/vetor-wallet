@@ -69,8 +69,10 @@ packages/
 ├── insights-core/    # @vetor-wallet/insights-core — benchmarks CDI/Ibovespa e
 │                     # job de insights horários (T-099c, Ciclo 19)
 ├── bank-import-core/ # @vetor-wallet/bank-import-core — parser OFX, dedupe
-│                     # por external_id (T-099c, Ciclo 19) e o mapeamento/
-│                     # gravação das transações da Pluggy (T-087, Ciclo 20)
+│                     # por external_id (T-099c, Ciclo 19), o mapeamento/
+│                     # gravação das transações da Pluggy (T-087, Ciclo 20) e
+│                     # os items da Pluggy por usuário + o job que itera os N
+│                     # items com o client injetado (T-089a, Ciclo 21)
 ├── pluggy-core/      # @vetor-wallet/pluggy-core — client HTTP da Pluggy
 │                     # (Open Finance): apiKey de 2h em cache, contas por
 │                     # itemId, transações por cursor; NÃO toca o banco
@@ -112,7 +114,8 @@ pnpm --filter @vetor-wallet/insights-core test     # Vitest (insights-core)
 pnpm --filter @vetor-wallet/auth-core test         # Vitest (auth-core)
 pnpm --filter vetor-wallet-web test       # Vitest (web, funções puras)
 pnpm --filter vetor-wallet-cli insights:hourly [YYYY-MM-DD]
-pnpm --filter vetor-wallet-cli pluggy:sync [YYYY-MM-DD] [--dry-run]
+pnpm --filter vetor-wallet-cli pluggy:link [itemId] [--email=] [--remove]
+pnpm --filter vetor-wallet-cli pluggy:sync [YYYY-MM-DD] [--dry-run] [--email=]
 ```
 
 ## Ambiente
@@ -123,7 +126,7 @@ pnpm --filter vetor-wallet-cli pluggy:sync [YYYY-MM-DD] [--dry-run]
 |---|---|
 | rest-api | `PORT` (3001), `SESSION_SECRET`*, `ALLOWED_ORIGIN`*, `NODE_ENV`*, `BRAPI_TOKEN`, `DATABASE_URL` (default `process.cwd()/data/wallet.db`), `ABACATEPAY_API_KEY`, `ABACATEPAY_API_URL` (default `https://api.abacatepay.com/v2`), `ABACATEPAY_WEBHOOK_SECRET`, `BILLING_ENABLED` (default false; obrigatória true em prod com billing) — * obrigatórias em prod |
 | web | `VITE_API_URL` (http://localhost:3001) |
-| cli | `DATABASE_URL=file:../rest-api/data/wallet.db` (relativo a packages/cli/), `BRAPI_TOKEN`; para `pluggy:sync` (T-087): `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, `PLUGGY_ITEM_ID`, `PLUGGY_USER_EMAIL` (e-mail do usuário dono dos lançamentos — sem default silencioso), `PLUGGY_API_URL` (default `https://api.pluggy.ai`). **Valores só no `.env` local, nunca no repo.** |
+| cli | `DATABASE_URL=file:../rest-api/data/wallet.db` (relativo a packages/cli/), `BRAPI_TOKEN`; para `pluggy:sync` (T-087): `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, `PLUGGY_USER_EMAIL` (default do `--email=`; sem default silencioso), `PLUGGY_API_URL` (default `https://api.pluggy.ai`). `PLUGGY_ITEM_ID` **saiu do `pluggy:sync`** na T-089a — os items vivem em `pluggy_items`, por usuário, e são registrados por `pluggy:link` (a variável sobrou só como bootstrap desse comando). **Valores só no `.env` local, nunca no repo.** |
 
 O SQLite (`packages/rest-api/data/wallet.db`) é criado no primeiro boot.
 

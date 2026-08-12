@@ -18,6 +18,12 @@
 
 ## Abertos
 
+### [2026-08-12] Rodar `pluggy:link` uma vez para seguir sincronizando (T-089a)
+- **Origem**: executor (T-089 fase (a))
+- **Bloqueia**: nada no código — mas **bloqueia a sua próxima sincronização** até você rodar um comando
+- **Pergunta/pendência**: a fase (a) tirou o `itemId` do `.env` e o pôs no banco (`pluggy_items`), por usuário. O `pluggy:sync` **não lê mais `PLUGGY_ITEM_ID`** — ele itera os items do usuário. Como o botão de conexão (fase (c)) ainda não existe, criar a linha é um comando de CLI: `pnpm --filter vetor-wallet-cli pluggy:link` (sem argumento, ele aproveita o `PLUGGY_ITEM_ID` que já está no seu `.env`) e, se quiser, `--connector-id=200 --connector-name=MeuPluggy`. Depois disso o `pluggy:sync --dry-run` volta a funcionar igual. Rodar de novo é seguro (upsert). **Nada foi migrado automaticamente de propósito**: um job que criasse a linha a partir de env presente em runtime transformaria configuração de máquina em dado de usuário. Lembrete que não mudou: a importação real segue **proibida sem `--dry-run`** enquanto a T-088 não decidir movimentação interna.
+- **Resposta do humano**: _(rodar o comando)_
+
 ### [2026-08-12] Contrato pago com a Pluggy — bloqueia ENTREGAR a T-089, não construí-la
 - **Origem**: orquestrador (levantado ao especificar a T-089, a pedido do humano por um botão de conexão no app)
 - **Bloqueia**: **ligar a T-089 para terceiros**. Não bloqueia escrever o código, nem o uso pessoal do humano.

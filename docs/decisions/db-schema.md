@@ -286,6 +286,38 @@ CREATE TABLE IF NOT EXISTS billing_webhook_events (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_webhook_events_event
   ON billing_webhook_events(event_id);
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- Open Finance / Pluggy (T-089a)
+-- ─────────────────────────────────────────────────────────────────────────
+-- Uma linha por CONEXÃO do usuário com uma instituição financeira (o "item" da
+-- Pluggy). Antes disto o itemId era PLUGGY_ITEM_ID no .env do cli — uma
+-- instalação, um usuário. `status` é o último estado conhecido na Pluggy
+-- ('UPDATED', 'LOGIN_ERROR', 'OUTDATED'…): cache informativo, não invariante —
+-- a Pluggy é a fonte da verdade.
+CREATE TABLE IF NOT EXISTS pluggy_items (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id        INTEGER NOT NULL REFERENCES users(id),
+  item_id        TEXT    NOT NULL,                     -- UUID da conexão na Pluggy
+  connector_id   INTEGER,                              -- instituição (200 = MeuPluggy)
+  connector_name TEXT,
+  status         TEXT    NOT NULL DEFAULT 'UNKNOWN',
+  created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+  updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+-- Unicidade GLOBAL de item_id, NÃO (user_id, item_id): o itemId é credencial
+-- PORTADORA (quem o tem lê o extrato daquela conexão), não um nome escolhido
+-- pelo usuário. Com unicidade por usuário, B poderia registrar o itemId de A e
+-- importar o extrato de A para a própria conta, sem nenhuma constraint para
+-- segurar — vazamento silencioso. Global transforma esse caso em violação de
+-- unicidade, traduzida em erro tipado (ITEM_ALREADY_LINKED) que NÃO revela de
+-- quem é o item. O caso legítimo de item repetido é a RECONEXÃO do mesmo
+-- usuário (o itemId sobrevive à reautenticação): aí o upsert por item_id
+-- atualiza a linha. Custo aceito: item que troca de dono só é religável depois
+-- que o dono antigo o remover.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pluggy_items_item ON pluggy_items(item_id);
+-- Leitura do job/rota: "os items deste usuário", em ordem estável.
+CREATE INDEX IF NOT EXISTS idx_pluggy_items_user ON pluggy_items(user_id, created_at);
 ```
 
 Driver: `@libsql/client` (libsql/SQLite). Sem ORM; queries são SQL puro.

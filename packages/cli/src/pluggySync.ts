@@ -1,54 +1,37 @@
 // Run from workspace root:
-//   pnpm --filter vetor-wallet-cli pluggy:sync [YYYY-MM-DD] [--dry-run]
+//   pnpm --filter vetor-wallet-cli pluggy:sync [YYYY-MM-DD] [--dry-run] [--email=...]
 //
 // Requer, em packages/cli/.env (ver .env.example): DATABASE_URL,
-// PLUGGY_CLIENT_ID, PLUGGY_CLIENT_SECRET, PLUGGY_ITEM_ID e PLUGGY_USER_EMAIL.
-// As credenciais são do humano e NUNCA entram no repositório.
+// PLUGGY_CLIENT_ID, PLUGGY_CLIENT_SECRET e o usuário (--email= ou
+// PLUGGY_USER_EMAIL). As credenciais são do humano e NUNCA entram no
+// repositório.
 //
-// Este arquivo só ORQUESTRA: lê env, chama o client
-// (@vetor-wallet/pluggy-core), chama o mapeamento/gravação
-// (@vetor-wallet/bank-import-core) e imprime o relatório. Nenhuma regra de
-// negócio aqui — ver packages/cli/CLAUDE.md.
+// **`PLUGGY_ITEM_ID` não é mais lido aqui** (T-089a): os items vivem em
+// `pluggy_items`, por usuário. Se o usuário não tem nenhum item, registre um com
+//   pnpm --filter vetor-wallet-cli pluggy:link <itemId>
+//
+// Este arquivo só ORQUESTRA A BORDA: lê argv/env, injeta o client
+// (@vetor-wallet/pluggy-core) no job do core (@vetor-wallet/bank-import-core) e
+// imprime o relatório. Quem itera items/contas e decide o que é falha é
+// `syncPluggyItems` — nenhuma regra de negócio aqui (ver packages/cli/CLAUDE.md).
 
 import 'dotenv/config';
-import { initDb } from '@vetor-wallet/db';
-import { findUserByEmail } from '@vetor-wallet/auth-core';
+import { db, initDb } from '@vetor-wallet/db';
 import { isValidIsoDate } from '@vetor-wallet/validation-core';
 import { fetchPluggyAccounts, fetchPluggyTransactions } from '@vetor-wallet/pluggy-core';
 import {
-  importPluggyTransactions,
-  type PluggyAccountKind,
+  syncPluggyItems,
   type PluggyImportResult,
+  type PluggySyncItemReport,
 } from '@vetor-wallet/bank-import-core';
+import { maskItemId, resolvePluggyUserId } from './pluggyCli';
 
 const DEFAULT_WINDOW_DAYS = 30;
-
-/**
- * De QUEM são estes lançamentos: toda tabela de dados filtra por `user_id`, e
- * um job sem sessão HTTP não tem usuário implícito. O e-mail vem do `.env`
- * (`PLUGGY_USER_EMAIL`) e é resolvido em `users.id` — **sem "usuário default"
- * silencioso**: se a env faltar ou o e-mail não existir, o job falha.
- */
-async function resolveUserId(): Promise<number> {
-  const email = (process.env.PLUGGY_USER_EMAIL ?? '').trim();
-  if (!email) {
-    throw new Error(
-      'PLUGGY_USER_EMAIL ausente: defina no .env do cli o e-mail do usuário dono dos lançamentos'
-    );
-  }
-  const user = await findUserByEmail(email);
-  if (!user) throw new Error(`Usuário não encontrado para PLUGGY_USER_EMAIL: ${email}`);
-  return user.id;
-}
 
 /** `dateFrom` default: hoje − 30 dias (UTC). Reimportar é idempotente (T-084). */
 function defaultDateFrom(): string {
   const from = new Date(Date.now() - DEFAULT_WINDOW_DAYS * 24 * 60 * 60 * 1000);
   return from.toISOString().slice(0, 10);
-}
-
-function accountKindOf(type: string | null): PluggyAccountKind {
-  return type?.toUpperCase() === 'CREDIT' ? 'CREDIT' : 'BANK';
 }
 
 function printLines(result: PluggyImportResult): void {
@@ -57,8 +40,31 @@ function printLines(result: PluggyImportResult): void {
     const label = line.description ?? line.transactionId ?? '(sem descrição)';
     const suffix = line.reason ? ` — ${line.reason}` : '';
     console.log(
-      `    [${line.status.toUpperCase()}] ${line.date ?? '----------'} ${money} ${label}${suffix}`
+      `      [${line.status.toUpperCase()}] ${line.date ?? '----------'} ${money} ${label}${suffix}`
     );
+  }
+}
+
+function printItem(item: PluggySyncItemReport): void {
+  const header = `  Item ${maskItemId(item.itemId)} (${item.connectorName ?? 'conector ?'})`;
+  if (item.error) {
+    console.error(`${header}\n    [FAIL] ${item.error}`);
+    return;
+  }
+  console.log(`${header} — ${item.accounts.length} conta(s)`);
+
+  for (const account of item.accounts) {
+    if (account.error || !account.result) {
+      console.error(`    [FAIL] ${account.label}: ${account.error ?? 'sem resultado'}`);
+      continue;
+    }
+    const r = account.result;
+    console.log(
+      `    [OK]   ${account.label}: ${account.fetched} transação(ões) — ` +
+        `${r.previewed} a importar, ${r.imported} importada(s), ${r.duplicated} duplicada(s), ` +
+        `${r.skipped} pulada(s), ${r.rejected} rejeitada(s)`
+    );
+    printLines(r);
   }
 }
 
@@ -83,80 +89,49 @@ async function main(): Promise<void> {
   }
   const dateFrom = dateArg ?? defaultDateFrom();
 
-  const itemId = (process.env.PLUGGY_ITEM_ID ?? '').trim();
-  if (!itemId) {
-    console.error('[pluggySync] PLUGGY_ITEM_ID ausente: defina no .env do cli');
-    process.exitCode = 1;
-    return;
-  }
-
   await initDb();
-  const userId = await resolveUserId();
+  const userId = await resolvePluggyUserId(args);
 
   console.log(
-    `[pluggySync] Sincronizando item ${itemId} desde ${dateFrom}` +
+    `[pluggySync] Sincronizando os items do usuário desde ${dateFrom}` +
       `${dryRun ? ' (DRY-RUN: nada será gravado)' : ''}...`
   );
 
-  const accounts = await fetchPluggyAccounts(itemId);
-  if (accounts.length === 0) {
+  const report = await syncPluggyItems({
+    db,
+    userId,
+    dateFrom,
+    dryRun,
+    deps: {
+      fetchAccounts: (itemId) => fetchPluggyAccounts(itemId),
+      fetchTransactions: ({ accountId, dateFrom: from }) =>
+        fetchPluggyTransactions({ accountId, dateFrom: from }),
+    },
+  });
+
+  if (report.noItems) {
     // Falha ALTA de propósito: "0 contas, sucesso" é a falha silenciosa mais
-    // provável desta integração (item sem ligação OAuth, item de outra app).
+    // provável desta integração. Sem item não há nada a sincronizar, e a saída
+    // tem de dizer o que fazer a respeito.
     console.error(
-      `[pluggySync] O item ${itemId} não tem nenhuma conta. Confira PLUGGY_ITEM_ID e se a ` +
-        'ligação com a instituição financeira foi concluída no Meu Pluggy.'
+      '[pluggySync] Este usuário não tem nenhuma conexão da Pluggy registrada.\n' +
+        '             Registre uma com:  pnpm --filter vetor-wallet-cli pluggy:link <itemId>\n' +
+        '             (como obter um itemId: packages/pluggy-core/CLAUDE.md)'
     );
     process.exitCode = 1;
     return;
   }
 
-  const totals = { imported: 0, duplicated: 0, rejected: 0, skipped: 0, previewed: 0 };
-  let failures = 0;
+  for (const item of report.items) printItem(item);
 
-  for (const account of accounts) {
-    const label = `${account.name ?? 'conta'} (${account.type ?? '?'}/${account.subtype ?? '?'})`;
-    if (!account.id) {
-      failures++;
-      console.error(`  [FAIL] ${label}: conta sem id no payload da Pluggy`);
-      continue;
-    }
-
-    try {
-      const transactions = await fetchPluggyTransactions({ accountId: account.id, dateFrom });
-      const result = await importPluggyTransactions({
-        userId,
-        transactions,
-        accountKind: accountKindOf(account.type),
-        dryRun,
-      });
-
-      totals.imported += result.imported;
-      totals.duplicated += result.duplicated;
-      totals.rejected += result.rejected;
-      totals.skipped += result.skipped;
-      totals.previewed += result.previewed;
-
-      console.log(
-        `  [OK]   ${label}: ${transactions.length} transação(ões) — ` +
-          `${result.previewed} a importar, ${result.imported} importada(s), ` +
-          `${result.duplicated} duplicada(s), ${result.skipped} pulada(s), ` +
-          `${result.rejected} rejeitada(s)`
-      );
-      printLines(result);
-    } catch (err) {
-      failures++;
-      console.error(`  [FAIL] ${label}: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-
+  const t = report.totals;
   console.log(
-    `\n[pluggySync] Resumo — ${accounts.length} conta(s), ${failures} com falha | ` +
-      `${totals.previewed} a importar, ${totals.imported} importada(s), ` +
-      `${totals.duplicated} duplicada(s), ${totals.skipped} pulada(s), ` +
-      `${totals.rejected} rejeitada(s)`
+    `\n[pluggySync] Resumo — ${report.items.length} item(ns), ${report.failures} falha(s) | ` +
+      `${t.previewed} a importar, ${t.imported} importada(s), ${t.duplicated} duplicada(s), ` +
+      `${t.skipped} pulada(s), ${t.rejected} rejeitada(s)`
   );
 
-  process.exitCode = failures > 0 ? 1 : 0;
+  process.exitCode = report.failures > 0 ? 1 : 0;
 }
 
 main().catch((err) => {

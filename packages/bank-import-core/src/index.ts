@@ -34,6 +34,26 @@ export {
   MAX_PLUGGY_DESCRIPTION_LENGTH,
   SUPPORTED_PLUGGY_CURRENCY,
 } from './pluggy';
+export { UNKNOWN_PLUGGY_ITEM_STATUS, toPluggyItem } from './PluggyItem';
+export type { PluggyItem } from './PluggyItem';
+export { PluggyItemError } from './PluggyItemError';
+export type { PluggyItemErrorCode } from './PluggyItemError';
+export { linkPluggyItem, MAX_PLUGGY_ITEM_ID_LENGTH } from './linkPluggyItem';
+export type { LinkPluggyItemParams } from './linkPluggyItem';
+export { listPluggyItems } from './listPluggyItems';
+export type { ListPluggyItemsParams } from './listPluggyItems';
+export { unlinkPluggyItem } from './unlinkPluggyItem';
+export type { UnlinkPluggyItemParams } from './unlinkPluggyItem';
+export { syncPluggyItems, pluggyAccountKindOf } from './syncPluggyItems';
+export type {
+  RawPluggyAccount,
+  PluggySyncDeps,
+  PluggySyncAccountReport,
+  PluggySyncItemReport,
+  PluggySyncTotals,
+  PluggySyncReport,
+  SyncPluggyItemsParams,
+} from './syncPluggyItems';
 export type {
   RawPluggyTransaction,
   PluggyAccountKind,
