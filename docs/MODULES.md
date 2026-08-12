@@ -163,16 +163,22 @@ hoje, Open Finance via Pluggy depois.
 
 Packages:
 
-- `packages/bank-import-core` *(Core, T-099c)* — parser de OFX 1.x SGML / 2.x XML e a política
-  de dedupe por `external_id` (T-084/T-085).
-- `packages/pluggy-core` *(planejado — Integração, Onda C)* — conexão Open Finance, sincronia
-  de transações. **Nasce direto como package**.
+- `packages/bank-import-core` *(Core, T-099c)* — parser de OFX 1.x SGML / 2.x XML, o
+  mapeamento das transações da Pluggy (T-087) e a política de dedupe por `external_id`
+  (T-084/T-085).
+- `packages/pluggy-core` *(Integração, T-087)* — client HTTP da Pluggy: `POST /auth` (apiKey
+  de 2h em cache), `GET /accounts?itemId=`, `GET /v2/transactions` seguindo o cursor `next`.
+  Não toca o banco.
 - `packages/rest-api` — `POST /api/import/ofx` (`express.raw`, 1 MB).
+- `packages/cli` — `pluggy:sync [YYYY-MM-DD] [--dry-run]`: orquestra client + mapeamento e
+  imprime o relatório. Usuário-alvo via `PLUGGY_USER_EMAIL` (sem default silencioso).
 
 Invariantes: crédito vira `income_entries`, débito vira `expense_entries`; `external_id` é
-`ofx:<FITID>`; a rota responde **sempre 200** com relatório por transação
+`ofx:<FITID>` ou `pluggy:<id>`; a rota responde **sempre 200** com relatório por transação
 (`imported`/`duplicated`/`rejected`) — 400 só quando o documento inteiro é inválido.
 Um `externalId` repetido no POST normal responde 409 `{ duplicate: true, entry }`.
+No caminho Pluggy o relatório tem dois desfechos extra: `skipped` (transação `PENDING`, que
+mudaria de valor ao efetivar) e `previewed` (só no `--dry-run`).
 
 ---
 

@@ -27,12 +27,17 @@ src/
 ├── ofx.ts               # decodeOfx (charset pelo header), parseOfx (scanner
 │                        # tag→valor dos dois dialetos), parseOfxDate/Amount,
 │                        # ofxExternalId, mapOfxTransaction
+├── pluggy.ts            # pluggyExternalId, parsePluggyDate,
+│                        # mapPluggyTransaction (sinal × type, PENDING, BRL),
+│                        # importPluggyTransactions (relatório + dry-run)
 ├── __fixtures__/ofx.ts  # fixtures dos dois dialetos, compartilhadas com o
 │                        # teste de rota do server (não é `.test.ts` de propósito)
 └── index.ts             # barrel
 ```
 
 Rota: `packages/rest-api/src/api/routes/importOfx.ts` (`express.raw`, 1 MB).
+Job: `packages/cli/src/pluggySync.ts` (`pluggy:sync`), com o client em
+`@vetor-wallet/pluggy-core`.
 Consumidores do dedupe unitário: `routes/incomeEntries.ts`, `routes/expenseEntries.ts`.
 Lógica pura do cliente: `packages/web/src/routes/ofxImportReport.ts`.
 
@@ -97,11 +102,76 @@ Seção recolhível "Importar extrato (OFX)" em `DespesasPage.tsx`, mesmo padrã
 - **Refetch pós-import segue o padrão de dedupe da T-049**: sucesso com `imported > 0` chama `refreshEntries(monthKey, { force: true })` (o `force` ignora o `MonthFetchGuard` — sem ele, um fetch do mês já em voo por outro motivo engoliria a reconciliação) e `refreshHistory()`, porque a importação pode ter escrito em qualquer mês do extrato, não só no exibido.
 - **Fora de escopo (segue pendente)**: UI para o CSV de operações de corretora (segue T-026) e uma caixa de entrada de revisão antes de gravar (candidata a tarefa futura — hoje a importação já grava direto, sem etapa de confirmação por transação).
 
-## Roadmap
+## Sincronização Open Finance via Pluggy (T-087)
 
-`packages/pluggy-core` (Integração, Onda C) traz Open Finance via Pluggy e
-**nasce direto como package**. O dedupe daqui já é o contrato dele:
-`external_id = pluggy:<id>` via `insertEntryWithExternalId`.
+`src/pluggy.ts` é a metade "nossa" da integração com a Pluggy: o **client HTTP**
+vive em `@vetor-wallet/pluggy-core` (Integração, não toca banco) e o job que
+orquestra os dois é `packages/cli/src/pluggySync.ts` (`pnpm --filter
+vetor-wallet-cli pluggy:sync [YYYY-MM-DD] [--dry-run]`).
+
+**Nada de idempotência nova**: `external_id = pluggy:<id da transação>` gravado
+por `insertEntryWithExternalId` — o mesmo INSERT-primeiro da T-084. O contrato dos
+importadores é a **função**, não a rota: o job não passa por Express nem pelo gate
+de assinatura (`requireActiveSubscription` protege a rota de OFX; um job local
+rodado pelo dono do banco não tem o que gatear).
+
+Decisões travadas:
+
+- **`type` decide income × expense** (`CREDIT` → `income_entries`, `DEBIT` →
+  `expense_entries`) e o valor gravado é o **absoluto**. Aqui o `type` é
+  confiável, ao contrário do `TRNTYPE` do OFX: é enum de duas opções normalizado
+  pelo agregador, não vocabulário livre de cada banco.
+- **`type` e o sinal de `amount` são fontes REDUNDANTES da direção; se
+  discordarem, a linha é rejeitada** — não escolhemos uma. Mesma doutrina do
+  `TRNAMT` com separador de milhar ambíguo (T-085): campo de dinheiro não se
+  adivinha. A convenção de sinal **depende do tipo de conta** e está na doc da
+  Pluggy: em conta (`BANK`) é natural (`CREDIT` positivo, `DEBIT` negativo); em
+  cartão (`CREDIT`) é **invertida** — compra nova (`DEBIT`) vem positiva porque
+  aumenta a fatura. Por isso `mapPluggyTransaction` recebe o
+  `PluggyAccountKind` (default `BANK`) e o job o deriva de `account.type`.
+- **`date` é timestamp ISO 8601: usamos os 10 primeiros caracteres, SEM converter
+  timezone**, e validamos com `isValidIsoDate`. Mesma invariante do `DTPOSTED`
+  (T-085): converter moveria um lançamento de 31/07 para 30/07 e jogaria o gasto
+  no mês errado, divergindo do app do banco.
+- **Só `POSTED` é importada; `PENDING` é PULADA** (`skipped`), não rejeitada nem
+  importada. É uma armadilha real de idempotência: a pendente muda de valor e
+  descrição ao efetivar, mas **mantém o `id`** — importá-la faria a segunda
+  passagem cair como *duplicata* e congelaria o valor provisório para sempre.
+  Pular agora e importar quando virar `POSTED` é o único desfecho que converge
+  (tem teste com as duas passagens).
+- **`currencyCode` diferente de `BRL` (ou ausente) é rejeitado.** O app é
+  BRL-only (`Intl.NumberFormat` pt-BR/BRL); somar dólar como real corromperia o
+  mês em silêncio. Ausente também rejeita — assumir BRL seria adivinhar a moeda.
+- **Transação sem `id` é rejeitada**, nunca importada com id inventado (sem chave
+  não há dedupe); e id que estoure 255 chars **com** o prefixo `pluggy:` também.
+- **Categoria**: `category` da Pluggy quando vier, senão a descrição normalizada,
+  senão `outros` — as três via `normalizeCategory` (T-028). A `category` vem do
+  enriquecimento (plano Pro) e é determinística por estabelecimento, então é
+  informação estritamente melhor que a descrição; sem ela (caso do Meu Pluggy
+  gratuito) degradamos exatamente para a regra do OFX. Consequência aceita: um
+  histórico que atravesse a mudança de plano pode ter os dois critérios.
+  Descrição = `description ?? descriptionRaw ?? 'Lançamento importado (Pluggy)'`,
+  truncada em 200 chars.
+- **Cinco desfechos no relatório**, não três: `imported`/`duplicated`/`rejected`
+  (mesmo vocabulário do OFX), `skipped` (pendente) e `previewed` (só no
+  `--dry-run` — é o que a linha *seria*). Chamar o dry-run de `imported` mentiria
+  no relatório; chamá-lo de `pending` colidiria com o `PENDING` da Pluggy.
+- **`dryRun` corta antes de qualquer chamada ao banco, dentro de
+  `importPluggyTransactions`** — a garantia do `--dry-run` vive num lugar só e
+  testável, não num `if` do CLI.
+- **INSERTs sequenciais, não `db.batch`** — mesma razão do OFX: o id repetido
+  dentro do próprio lote precisa cair como duplicata.
+- **O tipo de entrada é estrutural** (`RawPluggyTransaction`): este package **não**
+  importa `pluggy-core`. O `PluggyTransaction` do client encaixa por forma, e o
+  teste monta uma transação sem subir a integração.
+- **De quem são os lançamentos**: `PLUGGY_USER_EMAIL` no `.env` do `cli`,
+  resolvido em `users.id` pelo job. Sem "usuário default" silencioso — env
+  ausente ou e-mail inexistente faz o job falhar.
+- **Fora de escopo (segue pendente)**: endpoint `investments`; UI; agendamento;
+  caixa de entrada de revisão; e **transferência entre contas próprias**, que
+  aqui importa como está (herda a pendência do OFX) — com o agravante de que
+  importar cartão **e** conta faz a compra no cartão e o pagamento da fatura
+  contarem duas vezes na despesa do mês.
 
 ## Convenções
 

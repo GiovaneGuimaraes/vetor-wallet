@@ -15,6 +15,8 @@
       "@vetor-wallet/validation-core": ["../validation-core/src/index.ts"],
       "@vetor-wallet/auth-core": ["../auth-core/src/index.ts"],
       "@vetor-wallet/insights-core": ["../insights-core/src/index.ts"],
+      "@vetor-wallet/bank-import-core": ["../bank-import-core/src/index.ts"],
+      "@vetor-wallet/pluggy-core": ["../pluggy-core/src/index.ts"],
       // Transitivos (auth-core e insights-core importam estes). O `tsx` dos
       // jobs resolve por ESTES paths; sem eles cairia na resolução do Node e
       // exigiria o `dist` de portfolio-core/brapi-core já construído — um job
@@ -30,6 +32,8 @@
     { "path": "../validation-core" },
     { "path": "../auth-core" },
     { "path": "../insights-core" },
+    { "path": "../bank-import-core" },
+    { "path": "../pluggy-core" },
     { "path": "../portfolio-core" },
     { "path": "../brapi-core" }
   ]
