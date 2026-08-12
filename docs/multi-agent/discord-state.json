@@ -5,11 +5,17 @@
     "todoAi": "1536147994662011034",
     "todoHuman": "1536147998436888587"
   },
-  "backlog": { "messageId": "1536142925069557824" },
+  "backlog": { "messageId": "1536142925069557824", "atualizadoEm": "2026-08-12" },
   "docsApp": { "messageId": "1536196532053737605", "atualizadoEm": "2026-08-09" },
   "agenticSystem": { "messageId": "1536205023682232321", "atualizadoEm": "2026-08-10" },
   "tasks": {
-    "T-104b": { "canal": "todo-ai", "messageId": "1536143027494453331", "status": "PENDENTE" }
+    "T-104b": { "canal": "todo-ai", "messageId": "1536143027494453331", "status": "PENDENTE" },
+    "T-087": {
+      "canal": "todo-ai",
+      "messageId": "1537227482518921277",
+      "status": "CONCLUIDA",
+      "pr": 159
+    }
   },
   "humanTodos": {
     "T-021": {
@@ -22,12 +28,23 @@
       "canal": "todo-human",
       "messageId": "1536148001666633759",
       "modo": "emoji + resposta",
+      "status": "RESOLVIDO 2026-08-12 (credenciais validadas com a API real; T-087 mergeada em #159)",
       "opcoes": {
         "1️⃣": "tenho as credenciais",
         "2️⃣": "continua na fila sem previsao",
         "3️⃣": "cancelar a T-087"
       }
+    },
+    "T-088": {
+      "canal": "todo-human",
+      "messageId": "1537227360024403971",
+      "modo": "emoji + resposta",
+      "opcoes": {
+        "1️⃣": "Investments vira poupanca",
+        "2️⃣": "transferencia interna e fatura nao importam",
+        "3️⃣": "caixa de entrada de revisao"
+      }
     }
   },
-  "lastSeen": { "todoHuman": "1536148001666633759" }
+  "lastSeen": { "todoHuman": "1537227360024403971" }
 }

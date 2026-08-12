@@ -66,16 +66,30 @@ Confirmado em https://docs.pluggy.ai (agosto/2026):
   `null` na última página.
 - Transação: `id` (UUID), `date` (**timestamp** ISO 8601, UTC), `description`,
   `descriptionRaw`, `amount` (double, **com sinal**), `type` (`DEBIT`|`CREDIT`),
-  `category` (vem do enriquecimento, plano Pro), `currencyCode`, `status`
-  (`POSTED`|`PENDING`), `balance`, `paymentData`, `creditCardMetadata`.
-- **Sinal de `amount`**: em conta (`BANK`) é natural — entrada positiva, saída
-  negativa. **Em cartão (`CREDIT`) é invertido**: "positive amounts (+X) indicate
-  debits — new charges that increase the outstanding balance", negativos são
-  pagamentos/estornos. Essa inversão é o motivo de o mapeamento receber o tipo da
-  conta (ver `bank-import-core/CLAUDE.md`).
+  `category`, `currencyCode`, `status` (`POSTED`|`PENDING`), `balance`,
+  `paymentData`, `creditCardMetadata`.
+- **`category` vem preenchida no Meu Pluggy gratuito** (medido em 2026-08-12
+  contra a API real; a doc dá a entender que dependeria de plano pago). Os
+  valores que interessam ao mapeamento são `Investments`, `Same person transfer`,
+  `Credit card payment` e `Transfers`, entre dezenas de outros. Isso importa
+  além da categoria do lançamento: é o **único sinal limpo** para distinguir gasto
+  real de movimentação interna (aplicação em reserva, transferência para si mesmo,
+  pagamento de fatura), que é o objeto da T-088.
+- **Sinal de `amount` em cartão (`CREDIT`) é invertido**, e a doc é explícita:
+  "positive amounts (+X) indicate debits — new charges that increase the
+  outstanding balance"; negativos são pagamentos/estornos. Essa inversão é o
+  motivo de o mapeamento receber o tipo da conta (ver `bank-import-core/CLAUDE.md`).
+- **`POST /connect_token`** recebe `{ options: { clientUserId?, webhookUrl?,
+  oauthRedirectUri?, avoidDuplicates? } }` e responde `{ accessToken }` (JWT de
+  ~30 min). É o token que inicializa o widget — ver "Como obter um `itemId` novo".
 
 Assumido (não achamos na doc, e o código trata os dois lados):
 
+- Que em conta (`BANK`) o sinal é o **natural** — entrada positiva, saída
+  negativa. A doc **não** afirma isso textualmente (só afirma a inversão do
+  cartão): é convenção contábil padrão. Ressalva levantada pelo revisor da T-087
+  e **confirmada contra a API real** em 2026-08-12 — numa conta corrente ligada,
+  todos os débitos vieram negativos e todos os créditos positivos.
 - Que `results` sempre vem como array — o código **falha alto** quando não vem,
   em vez de tratar como lista vazia.
 - Que um `next` não-nulo sempre é querystring (`?...`) ou path (`/v2/...`);
@@ -115,6 +129,37 @@ Assumido (não achamos na doc, e o código trata os dois lados):
 - **Env lido dentro das funções**, nunca no top-level do módulo (mesmo motivo do
   `BRAPI_TOKEN` no `brapi-core`): permite trocar o env entre casos de teste.
 
+## Como obter um `itemId` novo (procedimento, feito em 2026-08-12)
+
+Não existe endpoint de listar items, então quando o humano conectar **outro banco**
+no Meu Pluggy será preciso capturar o `itemId` de novo. O caminho medido e que
+funcionou:
+
+1. **Minerar o `connect_token` no servidor** — `POST /connect_token` com a apiKey.
+   O `clientSecret` **nunca** vai para o browser; o widget recebe só o token de
+   ~30 min. A doc oficial mostra o mesmo padrão com o `pluggy-sdk`
+   (`pluggy.createConnectToken({ clientUserId })` numa route handler), e é a
+   regra que o humano reafirmou: **token se cria no servidor, nunca na web.**
+2. **Abrir o widget** com esse token:
+   `<script src="https://cdn.pluggy.ai/pluggy-connect/v2.7.0/pluggy-connect.js">`,
+   depois `new PluggyConnect({ connectToken, connectorIds: [200], onSuccess })`.
+   O `onSuccess` entrega o item — daí sai o `PLUGGY_ITEM_ID`.
+3. **Repetir uma vez por instituição**: o conector 200 (`MeuPluggy`, `oauth=true`)
+   cria **um item por banco** ligado na conta consumidor.
+
+Duas pedras no caminho, as duas medidas contra a API real:
+
+- **`options.oauthRedirectUri` recusa `localhost`** — exige HTTPS ou deep link
+  (400 `must be a valid HTTPS URL (not localhost)`). Sem callback local possível;
+  omita o campo e deixe o SDK conduzir o retorno do OAuth.
+- **`GET /items` responde 401**, não 404 — parece problema de credencial, mas o
+  endpoint simplesmente não existe.
+
+**Não usamos o `pluggy-sdk`** (nem aqui, nem no helper): a convenção do projeto é
+client à mão com `fetch` nativo e zero dependência, como no `brapi-core`. O SDK é
+uma alternativa legítima e a doc oficial o usa nos exemplos — a escolha é de
+convenção, não de capacidade.
+
 ## Variáveis de ambiente
 
 `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET` (obrigatórias),
@@ -122,6 +167,25 @@ Assumido (não achamos na doc, e o código trata os dois lados):
 e o `PLUGGY_USER_EMAIL` são do **job**, não deste package — ver
 `packages/cli/.env.example`. Valores reais vivem só no `.env` local (git-ignored)
 e são preenchidos pelo humano.
+
+## Roadmap: webhooks (não implementado — depende de deploy)
+
+A Pluggy notifica por webhook os eventos de item — `item/created`, `item/updated`,
+`item/error` — com `{ event, eventId, itemId, error? }`. Isso resolveria duas
+coisas que hoje são manuais: **descobrir o `itemId`** (chega no `item/created`, sem
+widget nem configuração) e **saber quando sincronizar** (hoje o job roda por
+janela de 30 dias, sem saber se há dado novo).
+
+Está fora de escopo por um bloqueio real, não por decisão: **não há deploy** (ver
+`TODO-HUMANO.md`) e webhook exige URL **HTTPS pública** — o mesmo motivo que
+impede o `oauthRedirectUri` local. Quando entrar:
+
+- **Responder 2XX em até 5 segundos** (exigência da Pluggy). Ou seja: enfileirar/
+  responder primeiro, processar depois — não sincronizar dentro do handler.
+- O precedente do repo é o **webhook da AbacatePay**: rota sem sessão, `express.raw`
+  montado **antes** do `express.json()` global, e verificação de assinatura. Confirmar
+  na doc como a Pluggy autentica a chamada — sem isso, qualquer um posta `item/created`.
+- `webhookUrl` pode ir por item, em `options` do `POST /connect_token`.
 
 ## Convenções
 

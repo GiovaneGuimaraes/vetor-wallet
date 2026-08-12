@@ -50,13 +50,13 @@ repetidamente. Ele contém **apenas trabalho vivo**.
 - **Atenção (achado da T-104a)**: separar funções que dividiam um arquivo expõe branches de parâmetro default antes cobertos por acidente. Rodar `--coverage` cedo, não só no fim.
 - **Critério de aceite**: `pnpm --filter @vetor-wallet/savings-core test` verde com cobertura 100%; `pnpm build`, `pnpm lint`, `pnpm format:check` e `pnpm test` da raiz verdes; contagem de testes do `rest-api` preservada ou maior.
 
-### T-087 — Job `pluggy:sync` no cli (Meu Pluggy / Conector 200) — DESBLOQUEADA 2026-08-12
-- **Status**: EM_ANDAMENTO · **Complexidade**: alta (executor Opus) · **Depende de**: T-084 (concluída)
-- **Objetivo**: automatizar por cima do pipeline que o OFX fundou. Meu Pluggy dá acesso gratuito às contas do próprio usuário via Open Finance — único caminho automático viável para PF.
-- **Arquitetura**: `packages/pluggy-core` (Integração) — `POST /auth` (`clientId`/`clientSecret` → apiKey de 2h, cache em memória), `GET /accounts?itemId=`, `GET /transactions?accountId=` paginado; **não toca o banco**. Mapeamento e gravação via `insertEntryWithExternalId` do `bank-import-core` (`external_id = pluggy:<id>`); crédito → income, débito → expense. Job `packages/cli/src/pluggySync.ts` (padrão `hourlyInsights`) só orquestra; flag `--dry-run`.
-- **Credenciais**: `PLUGGY_CLIENT_ID`/`PLUGGY_CLIENT_SECRET`/`PLUGGY_ITEM_ID` em `packages/cli/.env` (o humano já as tem). No diff só o `.env.example` — **nunca** o valor.
-- **Fora de escopo**: endpoint `investments`; UI; agendamento.
-- **Critério de aceite**: com fetch mockado, `--dry-run` lista sem gravar; 2ª rodada grava 0 (idempotente); testes do mapeamento e do dedupe; `pnpm build`, `lint`, `format:check` e suítes verdes.
+### T-088 — Movimentação interna não pode virar despesa/renda
+- **Status**: PENDENTE · **Complexidade**: alta · **Depende de**: T-087 (concluída, #159)
+- **Objetivo**: medido no dry-run real da T-087. Três defeitos de semântica, reproduzidos: (1) **aplicação em reserva** entra como **despesa** — era a maior parte do débito do mês, que apareceria vários múltiplos acima do gasto real; (2) o **resgate** dela entra como **renda**; (3) o **pagamento de fatura** entra duas vezes (despesa na conta, renda no cartão). O app não tem o conceito de movimentação interna. Valor real do humano **não entra em arquivo versionado** — repo público.
+- **Sinal disponível**: a `category` da Pluggy vem preenchida no Meu Pluggy grátis e já separa os casos — `Investments`, `Same person transfer`, `Credit card payment`, `Transfers`.
+- **A decidir com o humano antes de executar**: (a) `Investments` → poupança em vez de despesa; (b) transferência interna e pagamento de fatura → não importar; (c) caixa de entrada de revisão antes de gravar.
+- **Vale também para o OFX** — a T-085 registrou a mesma pendência.
+- **Critério de aceite**: com fixtures reais anonimizadas, nenhuma aplicação/resgate/fatura vira despesa ou renda; suítes verdes.
 
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 
@@ -67,7 +67,7 @@ repetidamente. Ele contém **apenas trabalho vivo**.
 - **Três origens de mascote no web** montam `/layers/<arquivo>` com mapas próprios (`mascots.ts`, `AuthPage.tsx`, `HomePage.tsx`); só a primeira foi unificada na T-020.
 - **Nenhum teste de render de componente existe no `web`** — funções puras provam a decisão, não que o componente a chama (sugestão repetida pelos revisores da T-076 e T-101).
 - **Backfill histórico de snapshots** via `hourly_quote_insights`; agendador do job de insights (Lambda/EventBridge — o da T-061 é in-process e morre com o processo).
-- **Caixa de entrada de revisão** para transações importadas (extratos reais têm estorno e transferência entre contas próprias); endpoint `investments` da Pluggy para reconciliar posição B3.
+- Endpoint `investments` da Pluggy p/ reconciliar posição B3; **webhook da Pluggy** (`item/*`) daria o `itemId` e o gatilho de sync, mas exige HTTPS público — depende de deploy (spec em `pluggy-core/CLAUDE.md`).
 - Casing da API inconsistente (`target_amount` × camelCase); default silencioso `type: 'OUTRO'` no POST /api/income; ampliar `/admin`; backend de cripto; redesign de Alertas/Import (sem UI desde a T-026).
 
 ## Ciclos concluídos
