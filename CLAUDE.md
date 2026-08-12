@@ -162,6 +162,13 @@ Schema completo do banco: `docs/decisions/db-schema.md` (fonte da verdade: `pack
 
 ## Convenções
 
+- **Dado financeiro real do humano nunca entra em arquivo versionado** (nem em corpo de PR,
+  mensagem de commit ou Discord): **o repo é público**. Isso cobre saldo, valor de lançamento,
+  nome de estabelecimento e id de conta/`itemId` — não só credencial. Achado que veio de dado
+  real se descreve de forma **relativa** ("a maior parte do débito do mês", "vários múltiplos
+  acima do gasto real"), que preserva a decisão sem expor a conta. Fixture usa valor inventado.
+  Credencial continua só no `.env` local (`.gitignore:6`). Regra criada em 2026-08-12, depois de
+  os valores reais de um dry-run da Pluggy irem para o `BACKLOG.md` e o `TODO-HUMANO.md`.
 - Locale pt-BR/BRL no frontend (`Intl.NumberFormat`); tema via CSS custom properties (`web/src/index.css`).
 - Sem gerenciador de estado externo no web — estado em `App.tsx`, via props.
 - Funções com lógica de negócio no web vivem em módulos puros em `src/routes/*.ts` com teste ao lado (componentes só renderizam).

@@ -65,8 +65,23 @@ pronto e a resposta é um clique; *começar* trabalho exige ida e volta, que uma
 
 Regras que valem sempre:
 
+- **REGRA DURA (2026-08-12): espelhar é parte de concluir, não um passo opcional no fim.**
+  Toda vez que o orquestrador **escreve no `BACKLOG.md` ou no `TODO-HUMANO.md`**, o espelho
+  correspondente vai junto — na **mesma resposta**, antes de reportar ao humano. Não existe
+  "atualizo o Discord depois": o humano acompanha o loop pelo celular, e markdown atualizado
+  com Discord parado é pior que Discord nenhum, porque ele confia no que está lendo lá.
+  Vale para: tarefa que muda de status, tarefa nova, pendência nova, decisão registrada,
+  tarefa concluída. Se o commit tocou um desses dois arquivos e nenhuma chamada ao
+  `bridge.mjs` aconteceu, o ciclo está incompleto.
+  *Origem*: em 2026-08-12 o humano cobrou — a T-088 foi espelhada, mas a T-089, o bloqueador
+  comercial da Pluggy e o incidente de privacidade ficaram só no git por três atualizações.
 - **Discord é interface, não fonte da verdade.** `BACKLOG.md` e `TODO-HUMANO.md` continuam
   sendo o estado real; as mensagens são espelhos editáveis. Divergiu? O markdown ganha.
+- **Dado sensível não atravessa a ponte.** Valor real de conta do humano, saldo, nome de
+  estabelecimento, id de conta/item, credencial: nada disso vai para o Discord (nem para
+  arquivo versionado — ver `CLAUDE.md` da raiz). Descreva relativo: "a maior parte do débito
+  do mês", nunca o número. Uma mensagem já postada com dado assim precisa de `edit`, e o
+  `edit` **não** notifica — então o vazamento fica silencioso se ninguém olhar.
 - **Só o orquestrador escreve no Discord e em `discord-state.json`** — mesma regra do
   `BACKLOG.md`, para não haver conflito de escrita entre worktrees. Executores seguem
   reportando ao orquestrador.
