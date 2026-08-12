@@ -6,18 +6,28 @@
     "todoAi": "1536147994662011034",
     "todoHuman": "1536147998436888587"
   },
-  "backlog": { "messageId": "1536142925069557824", "atualizadoEm": "2026-08-12T20:37:00-03:00" },
-  "docsApp": { "messageId": "1536196532053737605", "atualizadoEm": "2026-08-09T12:00:00-03:00" },
+  "backlog": {
+    "messageId": "1536142925069557824",
+    "atualizadoEm": "2026-08-12T20:46:00-03:00"
+  },
+  "docsApp": {
+    "messageId": "1536196532053737605",
+    "atualizadoEm": "2026-08-09T12:00:00-03:00"
+  },
   "agenticSystem": {
     "messageId": "1536205023682232321",
     "atualizadoEm": "2026-08-12T12:00:00-03:00"
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-08-12T20:37:00-03:00"
+    "atualizadoEm": "2026-08-12T20:46:00-03:00"
   },
   "tasks": {
-    "T-104b": { "canal": "todo-ai", "messageId": "1536143027494453331", "status": "PENDENTE" },
+    "T-104b": {
+      "canal": "todo-ai",
+      "messageId": "1536143027494453331",
+      "status": "PENDENTE"
+    },
     "T-087": {
       "canal": "todo-ai",
       "messageId": "1537227482518921277",
@@ -27,7 +37,14 @@
     "T-089": {
       "canal": "todo-ai",
       "messageId": "1537234415007047844",
-      "status": "EM_ANDAMENTO (fase a)"
+      "status": "fase (a) CONCLUIDA (#160); proxima: (b) rotas",
+      "pr": 160
+    },
+    "T-090": {
+      "canal": "todo-ai",
+      "messageId": "1537236493532266507",
+      "status": "CONCLUIDA",
+      "pr": 161
     }
   },
   "humanTodos": {
@@ -35,7 +52,10 @@
       "canal": "todo-human",
       "messageId": "1536142930925068369",
       "modo": "emoji + resposta",
-      "opcoes": { "✅": "entra na fila", "❌": "fica parada" }
+      "opcoes": {
+        "✅": "entra na fila",
+        "❌": "fica parada"
+      }
     },
     "T-087": {
       "canal": "todo-human",
@@ -67,8 +87,16 @@
         "1️⃣": "fecho contrato pago",
         "2️⃣": "mantem pessoal, flag desligada",
         "3️⃣": "decidir depois"
-      }
+      },
+      "status": "RESPONDIDO 2026-08-12: gate ENVIRONMENT (Staging libera, Production bloqueia). Volta a mesa no dia em que ele quiser liberar em producao."
+    },
+    "T-089a-pluggy-link": {
+      "canal": "todo-human",
+      "messageId": "1537242215678615746",
+      "modo": "so emoji"
     }
   },
-  "lastSeen": { "todoHuman": "1537234417947516929" }
+  "lastSeen": {
+    "todoHuman": "1537242215678615746"
+  }
 }

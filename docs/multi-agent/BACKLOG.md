@@ -36,12 +36,6 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Gate `ENVIRONMENT` (decisão do humano, 2026-08-12)**: env nova no `rest-api` — `Staging` **libera** a integração, `Production` **bloqueia**. **Fail closed**: ausente, vazia ou valor desconhecido = bloqueado, porque o desfecho de errar é violar os termos da Pluggy. O gate vive na **rota** (esconder o botão é UX, não bloqueio) e o web só **lê** o estado via API — nunca uma segunda cópia da flag em `VITE_*`.
 - **Aceite**: dois usuários com items distintos, cada um só vê os seus; sem assinatura → 402; `Production` bloqueia a rota; suítes verdes.
 
-### T-090 — `pnpm discord:check`: guard do espelho do Discord
-- **Status**: EM_ANDAMENTO · **Complexidade**: média (executor Sonnet) · **Depende de**: —
-- **Objetivo**: a regra "espelhar é parte de concluir" nasceu em prosa e **falhou no mesmo dia** — mesma história do teto do backlog, que só valeu como script no CI. Reprovar quando o último commit que tocou `BACKLOG.md`/`TODO-HUMANO.md` for **mais novo** que o espelho registrado em `discord-state.json`.
-- **Arquivos-alvo**: `tools/`, teste no padrão do `backlog-guard`, script na raiz, step no `ci.yml`.
-- **Aceite**: sujo reprova, limpo passa, teste dos dois; `lint`, `format:check`, `backlog:check` e `pnpm test` verdes.
-
 ### T-088 — Movimentação interna não pode virar despesa/renda
 - **Status**: PENDENTE · **Complexidade**: alta · **Depende de**: T-087 (concluída, #159)
 - **Objetivo**: o dry-run real mostrou que a importação crua confunde **movimentação interna** com gasto: aplicação em reserva entra como **despesa** (a maior parte do débito do mês), o resgate como **renda**, e o pagamento de fatura conta **duas vezes**. Contexto completo no `TODO-HUMANO.md`; valor real do humano **não entra em arquivo versionado** (repo público).
