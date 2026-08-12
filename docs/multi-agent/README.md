@@ -169,6 +169,24 @@ Regras complementares:
 - **O orquestrador é o único que escreve no `BACKLOG.md`** — executores reportam; orquestrador atualiza status. Evita conflito de escrita entre worktrees.
 - Toda mudança de produto segue a **política de testes do CLAUDE.md**: teste automatizado ou justificativa explícita.
 
+## Ciclos concluídos
+
+Movida do `BACKLOG.md` em 2026-08-12: pela própria regra de higiene, trabalho concluído não
+ocupa o backlog — e o arquivo estava a 147 bytes do teto. Detalhe de cada tarefa vive nas PRs
+e no `git log`; calibragem de modelos, em `CALIBRAGEM.md`.
+
+| Ciclo | Tema | PRs |
+| --- | --- | --- |
+| 1–4 | Paleta, responsividade, refactor v4 multi-layer, robustez, P&L diário | #44–#62 |
+| 5–8 | Layers básicos, edição inline, renda variável, simulador, transferência poupança→meta | #63–#83 |
+| 9–12 | Endurecimento (datas, transação, sessões, `user_id`), carteira única, rigor monetário, dash de ações | #84–#106 |
+| 13–15 | Agendador de snapshots, benchmarks CDI/IBOV, monetização (AbacatePay/Pix, planos, gating) | #107–#119 |
+| 16 | Modo consulta nos layers + achados da revisão + importação OFX | #120–#132 |
+| 17–18 | Ajustes de UX, redesign de planos, página `/conta` (perfil + troca de senha) | #134–#141 |
+| 19 | **Arquitetura em módulos**: `packages/*-core`, config única de lint, Prettier no CI | #142–#150 |
+| 20 | Formato-alvo dos cores (`subscription-core`, `validation-core`), rename `rest-api`, logo da marca | #151–#152 |
+| 21 | Open Finance via Pluggy (`pluggy-core` + job `pluggy:sync`) | #159 |
+
 ## Estados de uma tarefa
 
 `PENDENTE` → `EM_ANDAMENTO` → (`BLOQUEADA` ⇄) → `EM_REVISAO` → `CONCLUIDA` | `CANCELADA`

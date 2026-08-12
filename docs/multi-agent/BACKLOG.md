@@ -35,6 +35,13 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **BLOQUEIA A ENTREGA, não a construção**: conector 200 é gratuito só para uso **pessoal**; multi-CPF comercial exige contrato pago (`TODO-HUMANO.md`).
 - **Aceite**: dois usuários com items distintos, cada um só vê os seus; sem assinatura → 402; suítes verdes.
 
+### T-090 — `pnpm discord:check`: guard do espelho do Discord
+- **Status**: EM_ANDAMENTO · **Complexidade**: média (executor Sonnet) · **Depende de**: —
+- **Objetivo**: a regra "espelhar é parte de concluir" nasceu em prosa e **falhou no mesmo dia** — mesma história do teto do backlog, que só valeu quando virou script no CI (*"regra que depende de alguém lembrar já falhou"*, cabeçalho do `backlog-guard.mjs`). Reprovar quando o último commit que tocou `BACKLOG.md`/`TODO-HUMANO.md` for **mais novo** que o espelho registrado em `discord-state.json`.
+- **Arquivos-alvo**: `tools/`, teste no padrão do `backlog-guard`, script `discord:check` na raiz, step no `ci.yml`.
+- **Atenção**: sem rede nem token — compara data do git com o JSON. Falso positivo trava o CI de quem só mexeu em docs: justifique o que conta como "mexeu".
+- **Aceite**: sujo reprova, limpo passa, teste dos dois; `lint`, `format:check`, `backlog:check` e `pnpm test` verdes.
+
 ### T-088 — Movimentação interna não pode virar despesa/renda
 - **Status**: PENDENTE · **Complexidade**: alta · **Depende de**: T-087 (concluída, #159)
 - **Objetivo**: o dry-run real mostrou que a importação crua confunde movimentação interna com gasto: **aplicação em reserva** entra como **despesa** (era a maior parte do débito do mês, que apareceria vários múltiplos acima do real), o **resgate** entra como **renda**, e o **pagamento de fatura** conta **duas vezes** (despesa na conta, renda no cartão). Valor real do humano **não entra em arquivo versionado** — repo público.
@@ -57,17 +64,7 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - Endpoint `investments` da Pluggy p/ reconciliar posição B3; **webhook da Pluggy** (`item/*`) daria o `itemId` e o gatilho de sync, mas exige HTTPS público — depende de deploy (spec em `pluggy-core/CLAUDE.md`).
 - Casing da API inconsistente (`target_amount` × camelCase); default silencioso `type: 'OUTRO'` no POST /api/income; ampliar `/admin`; backend de cripto; redesign de Alertas/Import (sem UI desde a T-026).
 
-## Ciclos concluídos
+## Histórico
 
-Detalhe de cada tarefa: PRs no GitHub e `git log`. Calibragem de modelos: `CALIBRAGEM.md`.
-
-| Ciclo | Tema | PRs |
-|---|---|---|
-| 1–4 | Paleta, responsividade, refactor v4 multi-layer, robustez, P&L diário | #44–#62 |
-| 5–8 | Layers básicos, edição inline, renda variável, simulador, transferência poupança→meta | #63–#83 |
-| 9–12 | Endurecimento (datas, transação, sessões, `user_id`), carteira única, rigor monetário, dash de ações | #84–#106 |
-| 13–15 | Agendador de snapshots, benchmarks CDI/IBOV, monetização (AbacatePay/Pix, planos, gating) | #107–#119 |
-| 16 | Modo consulta nos layers + achados da revisão + importação OFX | #120–#132 |
-| 17–18 | Ajustes de UX, redesign de planos, página `/conta` (perfil + troca de senha) | #134–#141 |
-| 19 | **Arquitetura em módulos**: `packages/*-core`, config única de lint, Prettier no CI | #142–#150 |
-| 20 | Formato-alvo dos cores (`subscription-core`, `validation-core`), rename `rest-api`, logo da marca | #151–#152 |
+Ciclos concluídos: tabela em [`README.md`](./README.md) § "Ciclos concluídos". Detalhe de cada
+tarefa: PRs no GitHub e `git log`. Calibragem de modelos: `CALIBRAGEM.md`.
