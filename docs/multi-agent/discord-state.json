@@ -1,13 +1,21 @@
 {
   "_comment": "Mapa de mensagens fixas do Discord. Escrito SO pelo orquestrador. Os arquivos markdown continuam sendo a fonte da verdade; isto guarda apenas onde cada espelho mora no Discord.",
+  "_atualizadoEm_contrato": "Todo campo 'atualizadoEm' e ISO 8601 completo (data+hora+offset), lido do RELOGIO LOCAL de quem edita este JSON — NUNCA do 'editedAt' que a resposta do bridge.mjs devolve. O relogio do servidor do Discord e o relogio local medem instantes diferentes (divergencia medida: ~4 minutos); copiar o editedAt faz o discord-guard (tools/discord-guard.mjs) reprovar com o espelho em dia. O guard tem uma folga de 5 minutos para a corrida natural editar-Discord -> editar-JSON -> commitar, mas isso nao cobre erro de relogio.",
   "instrucoes": {
     "backlog": "1536147991306698855",
     "todoAi": "1536147994662011034",
     "todoHuman": "1536147998436888587"
   },
-  "backlog": { "messageId": "1536142925069557824", "atualizadoEm": "2026-08-12" },
-  "docsApp": { "messageId": "1536196532053737605", "atualizadoEm": "2026-08-09" },
-  "agenticSystem": { "messageId": "1536205023682232321", "atualizadoEm": "2026-08-12" },
+  "backlog": { "messageId": "1536142925069557824", "atualizadoEm": "2026-08-12T20:37:00-03:00" },
+  "docsApp": { "messageId": "1536196532053737605", "atualizadoEm": "2026-08-09T12:00:00-03:00" },
+  "agenticSystem": {
+    "messageId": "1536205023682232321",
+    "atualizadoEm": "2026-08-12T12:00:00-03:00"
+  },
+  "todoHumano": {
+    "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
+    "atualizadoEm": "2026-08-12T20:37:00-03:00"
+  },
   "tasks": {
     "T-104b": { "canal": "todo-ai", "messageId": "1536143027494453331", "status": "PENDENTE" },
     "T-087": {
