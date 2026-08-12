@@ -42,6 +42,30 @@
 // Isso deixa passar, de proposito, edicao de prosa que nao muda o que o
 // espelho promete mostrar.
 //
+// CONTRATO DO RELOGIO (achado do revisor, 2026-08-12): "atualizadoEm" e
+// sempre lido do RELOGIO LOCAL — o mesmo relogio que carimba os commits (via
+// `git log`/`new Date()`/`date -u`). NUNCA copie o `editedAt` que o
+// `bridge.mjs` devolve na resposta do Discord: e o relogio do SERVIDOR do
+// Discord, e ele mediu, na pratica, ~4 minutos MAIS ANTIGO que o relogio
+// local no mesmo instante. Se "atualizadoEm" nascer do `editedAt`, o espelho
+// vai parecer atrasado mesmo quando foi editado DEPOIS do commit — falso
+// positivo sistematico, que e pior que a prosa: treina todo mundo a ignorar
+// a trava. Quem for preencher este campo usa a hora da propria maquina/CI no
+// momento em que edita o JSON, nunca o timestamp devolvido pela API.
+//
+// TOLERANCIA (mesmo achado): mesmo com o relogio certo, o fluxo correto tem
+// uma ordem natural — editar a mensagem no Discord, depois editar o JSON,
+// depois commitar — e cada passo leva alguns segundos. Sem folga, o PROPRIO
+// fluxo correto reprovaria (commit sempre alguns segundos depois do
+// timestamp que foi escrito antes dele terminar). TOLERANCE_MS absorve essa
+// corrida: commit até essa folga depois do espelho ainda conta como "em
+// dia". Isso deixa passar, de proposito, um commit até 5 minutos depois do
+// timestamp do espelho — nao e sinal de drift real, e o preco operacional do
+// fluxo em 3 passos. Drift real (minutos de relogio errado, ou espelho que
+// realmente nao foi atualizado) tende a ser MAIOR que essa janela; se nao
+// for, o pior caso e o mesmo falso negativo documentado acima para o
+// fallback de data-only — aceito pela mesma razao.
+//
 // Uso: pnpm discord:check
 // Overrides (so para o teste deste guard): argv[2]=discord-state.json,
 // argv[3]=BACKLOG.md, argv[4]=TODO-HUMANO.md. `git` roda sempre a partir do
@@ -53,6 +77,10 @@ import { execFileSync } from 'node:child_process';
 const STATE_FILE = process.argv[2] ?? 'docs/multi-agent/discord-state.json';
 const BACKLOG_FILE = process.argv[3] ?? 'docs/multi-agent/BACKLOG.md';
 const TODO_HUMANO_FILE = process.argv[4] ?? 'docs/multi-agent/TODO-HUMANO.md';
+
+// Folga para a corrida natural do fluxo (editar Discord -> editar JSON -> commitar).
+// Ver "TOLERANCIA" no cabeçalho. Overridable só para o teste deste guard.
+const TOLERANCE_MS = Number(process.argv[5] ?? 5 * 60 * 1000);
 
 // Linha ADICIONADA ou REMOVIDA que conta como mudanca estrutural (nao prosa).
 const STRUCTURAL_PATTERNS = {
@@ -163,7 +191,7 @@ for (const file of [BACKLOG_FILE, TODO_HUMANO_FILE]) {
   }
 
   const commitAt = new Date(commitIso);
-  if (commitAt <= mirrorAt) continue; // espelho em dia (ou mais novo) — ok.
+  if (commitAt.getTime() - mirrorAt.getTime() <= TOLERANCE_MS) continue; // em dia, dentro da folga.
 
   if (!hasStructuralChangeSince(file, mirror.atualizadoEm, STRUCTURAL_PATTERNS[file])) {
     // Arquivo tem commit mais novo, mas nenhum deles alterou bloco de tarefa/
@@ -173,9 +201,11 @@ for (const file of [BACKLOG_FILE, TODO_HUMANO_FILE]) {
 
   problems.push(
     `${file}: commit mais novo (${commitIso}) que o espelho "${mirrorKey}" ` +
-      `(${mirror.atualizadoEm}), com mudanca estrutural (tarefa/pendencia ou status ` +
-      `adicionado/alterado). Edite a mensagem correspondente no Discord e atualize ` +
-      `"${mirrorKey}.atualizadoEm" em ${STATE_FILE} antes de reportar a tarefa como concluida.`,
+      `(${mirror.atualizadoEm}), fora da folga de ${Math.round(TOLERANCE_MS / 1000)}s, com ` +
+      `mudanca estrutural (tarefa/pendencia ou status adicionado/alterado). Edite a mensagem ` +
+      `correspondente no Discord e atualize "${mirrorKey}.atualizadoEm" em ${STATE_FILE} — ` +
+      `com a hora do RELOGIO LOCAL de quem edita o JSON, nunca com o "editedAt" que a API do ` +
+      `Discord devolve (relogios divergem em minutos) — antes de reportar a tarefa como concluida.`,
   );
 }
 
