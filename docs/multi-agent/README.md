@@ -73,6 +73,15 @@ Regras que valem sempre:
   Vale para: tarefa que muda de status, tarefa nova, pendência nova, decisão registrada,
   tarefa concluída. Se o commit tocou um desses dois arquivos e nenhuma chamada ao
   `bridge.mjs` aconteceu, o ciclo está incompleto.
+- **Tarefa concluída mexe em DOIS canais, não um** (regra dura, 2026-08-12 — pedido explícito
+  do humano). Ao concluir, faça os três passos como um bloco só:
+  1. o bloco da tarefa **sai** do `BACKLOG.md` (higiene);
+  2. a mensagem dela no **`#todo-ai`** é editada para `CONCLUIDA` **com o link da PR**;
+  3. o espelho do **`#backlog`** é editado — a tarefa sai da fila e entra na lista
+     "Concluídas desde o último espelho", e as tarefas que mudaram de posição refletem isso.
+  O passo 3 é o mais esquecido justamente por ser o que não tem mensagem própria: o `#backlog`
+  é **uma** mensagem editada, então quem só mexe no `#todo-ai` deixa a fila mentindo — mostrando
+  como pendente algo que já foi mergeado. É a visão que o humano abre primeiro.
   *Origem*: em 2026-08-12 o humano cobrou — a T-088 foi espelhada, mas a T-089, o bloqueador
   comercial da Pluggy e o incidente de privacidade ficaram só no git por três atualizações.
 - **Discord é interface, não fonte da verdade.** `BACKLOG.md` e `TODO-HUMANO.md` continuam

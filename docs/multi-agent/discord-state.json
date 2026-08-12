@@ -7,7 +7,7 @@
   },
   "backlog": { "messageId": "1536142925069557824", "atualizadoEm": "2026-08-12" },
   "docsApp": { "messageId": "1536196532053737605", "atualizadoEm": "2026-08-09" },
-  "agenticSystem": { "messageId": "1536205023682232321", "atualizadoEm": "2026-08-10" },
+  "agenticSystem": { "messageId": "1536205023682232321", "atualizadoEm": "2026-08-12" },
   "tasks": {
     "T-104b": { "canal": "todo-ai", "messageId": "1536143027494453331", "status": "PENDENTE" },
     "T-087": {
@@ -15,6 +15,11 @@
       "messageId": "1537227482518921277",
       "status": "CONCLUIDA",
       "pr": 159
+    },
+    "T-089": {
+      "canal": "todo-ai",
+      "messageId": "1537234415007047844",
+      "status": "EM_ANDAMENTO (fase a)"
     }
   },
   "humanTodos": {
@@ -39,12 +44,23 @@
       "canal": "todo-human",
       "messageId": "1537227360024403971",
       "modo": "emoji + resposta",
+      "status": "1 respondida (Investments vai para o layer de investimentos); 2 e 3 abertas",
       "opcoes": {
         "1️⃣": "Investments vira poupanca",
         "2️⃣": "transferencia interna e fatura nao importam",
         "3️⃣": "caixa de entrada de revisao"
       }
+    },
+    "T-089-contrato-pluggy": {
+      "canal": "todo-human",
+      "messageId": "1537234417947516929",
+      "modo": "emoji + resposta",
+      "opcoes": {
+        "1️⃣": "fecho contrato pago",
+        "2️⃣": "mantem pessoal, flag desligada",
+        "3️⃣": "decidir depois"
+      }
     }
   },
-  "lastSeen": { "todoHuman": "1537227360024403971" }
+  "lastSeen": { "todoHuman": "1537234417947516929" }
 }

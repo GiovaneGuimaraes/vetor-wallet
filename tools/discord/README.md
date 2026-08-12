@@ -64,7 +64,7 @@ Cinco canais, **todos escritos pelo orquestrador**. O humano só responde no `#t
 
 | Canal | Escreve | Como funciona |
 |---|---|---|
-| `#backlog` | orquestrador | **uma** mensagem-embed editada a cada ciclo, espelho da fila do `BACKLOG.md` |
+| `#backlog` | orquestrador | **uma** mensagem-embed editada a cada ciclo, espelho da fila do `BACKLOG.md`. **Editar também ao CONCLUIR tarefa** (regra dura, 2026-08-12): ela sai da fila e entra em "Concluídas desde o último espelho". É o passo mais esquecido, porque não tem mensagem própria — e sem ele a fila mostra como pendente algo já mergeado, que é a primeira coisa que o humano abre |
 | `#todo-ai` | orquestrador | uma mensagem por tarefa, editada nas transições de status; link do PR ao fim |
 | `#todo-human` | orquestrador pergunta, humano responde | uma mensagem por pendência aberta do `TODO-HUMANO.md` |
 | `#docs-app` | orquestrador | **uma** mensagem-embed com o resumo legível do app, **editada ao fim de cada onda de tarefas**. É vista derivada, não fonte: o estado real são os `CLAUDE.md` de package e `docs/decisions/`. Nunca vira um quarto lugar onde "o que o app é" está escrito — se divergir do repo, o repo ganha |
