@@ -332,6 +332,53 @@ export async function initDb() {
      ON billing_webhook_events(event_id)`
   );
 
+  // ── Open Finance / Pluggy (T-089a) ────────────────────────────────────────
+  //
+  // Uma linha por CONEXÃO do usuário com uma instituição financeira (o "item"
+  // da Pluggy). Antes desta tabela o `itemId` vivia em `PLUGGY_ITEM_ID` no
+  // `.env` do `cli` — ou seja, uma instalação, um usuário. Aqui ele passa a ser
+  // dado por usuário, que é o que permite o botão de conexão no app.
+  //
+  // `status` é o último estado conhecido do item na Pluggy (`UPDATED`,
+  // `LOGIN_ERROR`, `OUTDATED`…). É cache informativo, não invariante: a Pluggy é
+  // a fonte da verdade e quem sincroniza pode encontrar qualquer estado.
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS pluggy_items (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id        INTEGER NOT NULL REFERENCES users(id),
+      item_id        TEXT    NOT NULL,
+      connector_id   INTEGER,
+      connector_name TEXT,
+      status         TEXT    NOT NULL DEFAULT 'UNKNOWN',
+      created_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  // Unicidade GLOBAL de `item_id`, não `(user_id, item_id)`.
+  //
+  // O `itemId` é uma credencial portadora (quem o tem lê o extrato daquela
+  // conexão), não um nome escolhido pelo usuário. Com unicidade por usuário, o
+  // usuário B poderia registrar o `itemId` de A e passar a importar o extrato
+  // bancário de A para dentro da própria conta — vazamento silencioso, sem
+  // nenhuma violação de constraint para segurá-lo. Global torna esse caso um
+  // erro de unicidade, que a camada de domínio traduz em erro tipado sem
+  // revelar de quem é o item.
+  //
+  // O caso legítimo de "o mesmo item reaparece" é a RECONEXÃO do MESMO usuário:
+  // aí o upsert por `item_id` atualiza conector/status da linha existente, e é
+  // por isso que `linkPluggyItem` é idempotente sem SELECT prévio (TOCTOU).
+  // Custo aceito: item que troca de dono só pode ser religado depois que o dono
+  // antigo o remover.
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_pluggy_items_item ON pluggy_items(item_id)`
+  );
+
+  // Leitura do job/rota: "os items deste usuário" (ordem estável por criação).
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_pluggy_items_user ON pluggy_items(user_id, created_at)`
+  );
+
   // Add user_id column to existing tables (idempotent — ignored if already present)
   for (const sql of [
     'ALTER TABLE operations ADD COLUMN user_id INTEGER REFERENCES users(id)',

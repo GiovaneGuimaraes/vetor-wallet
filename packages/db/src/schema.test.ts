@@ -137,3 +137,104 @@ describe('initDb — external_id em income_entries/expense_entries (T-084)', () 
     expect(Number(count.rows[0].cnt)).toBe(3);
   });
 });
+
+/**
+ * T-089a: `pluggy_items` — a conexão Open Finance passa a viver no banco, por
+ * usuário, em vez de `PLUGGY_ITEM_ID` no `.env` do cli.
+ */
+describe('initDb — pluggy_items (T-089a)', () => {
+  let db: Db;
+
+  beforeAll(async () => {
+    const mod = await import('./index');
+    db = mod.db;
+    await mod.initDb();
+  });
+
+  it('cria a tabela com as colunas do domínio', async () => {
+    const res = await db.execute('PRAGMA table_info(pluggy_items)');
+    const byName = new Map(res.rows.map((row) => [String(row.name), row]));
+
+    for (const column of [
+      'id',
+      'user_id',
+      'item_id',
+      'connector_id',
+      'connector_name',
+      'status',
+      'created_at',
+      'updated_at',
+    ]) {
+      expect(byName.has(column)).toBe(true);
+    }
+    // user_id/item_id/status são obrigatórios; conector é opcional.
+    expect(Number(byName.get('user_id')?.notnull)).toBe(1);
+    expect(Number(byName.get('item_id')?.notnull)).toBe(1);
+    expect(Number(byName.get('status')?.notnull)).toBe(1);
+    expect(Number(byName.get('connector_id')?.notnull)).toBe(0);
+    expect(Number(byName.get('connector_name')?.notnull)).toBe(0);
+  });
+
+  it('a unicidade de item_id é GLOBAL, não por (user_id, item_id)', async () => {
+    const res = await db.execute({
+      sql: `SELECT name, tbl_name, sql FROM sqlite_master WHERE type = 'index' AND name = ?`,
+      args: ['idx_pluggy_items_item'],
+    });
+
+    expect(res.rows).toHaveLength(1);
+    expect(res.rows[0].tbl_name).toBe('pluggy_items');
+    const sql = String(res.rows[0].sql);
+    expect(sql).toContain('UNIQUE');
+    expect(sql).toContain('item_id');
+    // Se `user_id` entrasse no índice, dois usuários poderiam registrar o mesmo
+    // item — e o `itemId` é credencial portadora, não um nome escolhido.
+    expect(sql).not.toContain('user_id');
+  });
+
+  it('cria o índice de leitura por usuário', async () => {
+    const res = await db.execute({
+      sql: `SELECT name, tbl_name, sql FROM sqlite_master WHERE type = 'index' AND name = ?`,
+      args: ['idx_pluggy_items_user'],
+    });
+    expect(res.rows).toHaveLength(1);
+    expect(String(res.rows[0].sql)).toContain('user_id');
+  });
+
+  it('o UNIQUE global recusa o mesmo item_id em dois usuários', async () => {
+    const first = await db.execute({
+      sql: 'INSERT INTO users (email, password_hash) VALUES (?, ?)',
+      args: ['pluggy-items-schema-a@test.com', 'hash'],
+    });
+    const second = await db.execute({
+      sql: 'INSERT INTO users (email, password_hash) VALUES (?, ?)',
+      args: ['pluggy-items-schema-b@test.com', 'hash'],
+    });
+
+    // UUID INVENTADO — nenhum itemId real entra em arquivo versionado.
+    const itemId = '6e3a1f7c-0000-4000-8000-cccccccccccc';
+    await db.execute({
+      sql: 'INSERT INTO pluggy_items (user_id, item_id) VALUES (?, ?)',
+      args: [Number(first.lastInsertRowid ?? 0), itemId],
+    });
+
+    await expect(
+      db.execute({
+        sql: 'INSERT INTO pluggy_items (user_id, item_id) VALUES (?, ?)',
+        args: [Number(second.lastInsertRowid ?? 0), itemId],
+      })
+    ).rejects.toThrow(/UNIQUE/i);
+  });
+
+  it('roda de novo sem erro (CREATE TABLE/INDEX IF NOT EXISTS)', async () => {
+    const mod = await import('./index');
+    await mod.initDb();
+    await mod.initDb();
+
+    const res = await db.execute({
+      sql: `SELECT COUNT(*) as cnt FROM sqlite_master
+            WHERE name IN (?, ?, ?)`,
+      args: ['pluggy_items', 'idx_pluggy_items_item', 'idx_pluggy_items_user'],
+    });
+    expect(Number(res.rows[0].cnt)).toBe(3);
+  });
+});
