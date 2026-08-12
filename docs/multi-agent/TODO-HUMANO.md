@@ -22,7 +22,7 @@
 - **Origem**: orquestrador (a tarefa estava parada no `BACKLOG.md` como "aguarda decisão", que não é lugar de backlog)
 - **Bloqueia**: nada — a fila segue com a T-104b
 - **Pergunta/pendência**: o bug é real e está **reproduzido com as funções reais do `portfolio-core`**: com 100 PETR4 compradas em 2026-08-01, uma venda de 100 datada em 2026-01-15 (antes da compra) é **aceita** e a posição continua 100 ações. Vende e continua com tudo; a operação aparece na lista e não faz nada. Causa: a rota valida contra a posição de **hoje** (`operations.ts:74-84`), e o recálculo cronológico trunca com `Math.max(0, …)` (`portfolio.ts:20-21`) — dois comportamentos corretos isolados que juntos abrem o buraco. Correção provável: validar a posição acumulada **até a data da venda**. O risco que antes exigia spike foi **medido e descartado** (banco local real: 6 operações, 0 vendas, 0 rejeições — não há dado legado a migrar). Complexidade caiu para **média**, executor Sonnet, sem spike. **Pergunta**: entra na fila depois da T-104b, ou fica parada?
-- **Resposta do humano**: _(preencher)_
+- **Resposta do humano**: (via chat, 2026-08-12) **fica parada** — sem decisão agora. O item segue aberto e o orquestrador **não replaneja em torno dela**; não entra na fila do ciclo 21.
 
 ### [2026-08-09] ~~Liberar os 4 canais do Discord~~ — RESOLVIDO no mesmo dia, com uma sobra
 - **Origem**: orquestrador (pedido do humano via chat)
@@ -43,7 +43,9 @@
 
 ### [2026-08-02] Credenciais do Meu Pluggy para o job `pluggy:sync` (T-087)
 - **Origem**: sessão de revisão com o Claude (planejamento do ciclo 16)
-- **Bloqueia**: T-087 (o resto da Onda C — T-084/T-085/T-086 — não depende disso)
+- **Bloqueia**: ~~T-087~~ — **desenvolvimento desbloqueado em 2026-08-12** (executor trabalha com fetch mockado). Falta só a **validação real**: as chaves em `packages/cli/.env`.
+- **Atualização (2026-08-12)**: o humano informou que **tem conta e já tem `client_id`/`client_secret`**, e quer "bater os dados". T-087 saiu de BLOQUEADA para EM_ANDAMENTO. Mapa das duas contas, confirmado na doc da Pluggy nesta data — **são contas separadas** e isso não estava registrado aqui antes: (1) `meu.pluggy.ai` é a conta de **consumidor**, onde os bancos são conectados via Open Finance e onde os dados ficam com backup; (2) `dashboard.pluggy.ai` é o portal de **desenvolvedor**, onde o MeuPluggy é adicionado à lista de conectores da aplicação e onde nasce a **Development Application** com `client_id`/`client_secret`; (3) falta o passo que ninguém adivinha: uma **autorização OAuth ligando a conta consumidor à aplicação de desenvolvedor, repetida uma vez por banco conectado** — é ela que produz o `itemId` que o job consulta. Sem o (3), credencial válida devolve zero contas.
+- **O que ainda falta do humano**: gravar `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET` e `PLUGGY_ITEM_ID` em `packages/cli/.env` (não versionado — `.gitignore:6`). Valor **nunca** neste arquivo, nem em corpo de PR ou log.
 - **Pergunta/pendência**: criar conta em https://meu.pluggy.ai, conectar as contas bancárias/corretoras via Open Finance (Conector 200), gerar `CLIENT_ID`/`CLIENT_SECRET` no painel e colocar em `packages/cli/.env` (`PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`). Sem custo — o Meu Pluggy é gratuito para uso pessoal (não pode virar produto multi-CPF comercial). Enquanto isso, o executor da T-087 pode trabalhar com mocks, mas a validação final precisa das credenciais reais.
 - **Resposta do humano**: (via chat, 2026-08-08) **conta ainda não criada, "talvez demore um pouco"** — item segue ABERTO e a T-087 segue BLOQUEADA, sem previsão. Não é prioridade; não replanejar em torno dela.
 

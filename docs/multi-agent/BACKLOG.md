@@ -36,10 +36,10 @@ repetidamente. Ele contém **apenas trabalho vivo**.
 
 ### T-104 — Migrar os `*-core` restantes para o formato-alvo
 - **Status**: PENDENTE (guarda-chuva) · **Complexidade**: alta · **Depende de**: T-103 (piloto, concluída)
-- **Objetivo**: os cores restantes seguem no formato antigo (arquivo-balaio, `db` importado do singleton, teste em `src/**/*.test.ts`). O alvo — provado no `subscription-core` e generalizado no `validation-core` — é **1 função por arquivo**, **`db` injetado**, testes em `tests/unit/tests/`, **cobertura 100%**, Jest.
+- **Objetivo**: os cores restantes seguem no formato antigo (arquivo-balaio, `db` do singleton, teste em `src/**/*.test.ts`). O alvo — provado no `subscription-core`, generalizado no `validation-core` — é **1 função por arquivo**, **`db` injetado**, testes em `tests/unit/tests/`, **cobertura 100%**, Jest.
 - **Ordem (uma tarefa/PR por package, em série)**: ~~`validation-core` (T-104a ✅)~~ → **`savings-core`** → `expenses-core` → `bank-import-core` → `auth-core` → `insights-core` → `portfolio-core`.
-- **Por que em série**: cada package arrasta call sites do `rest-api`/`cli` e mexe nos mesmos arquivos de config; worktrees paralelos conflitam.
-- **Fonte da verdade de quem já migrou**: tabela em `docs/PACKAGES.md` § "Estado da migração de formato".
+- **Por que em série**: cada package arrasta call sites e mexe nos mesmos arquivos de config; worktrees paralelos conflitam.
+- **Quem já migrou**: tabela em `docs/PACKAGES.md` § "Estado da migração de formato".
 - **Fora de escopo**: mudar regra de negócio; desfazer os acoplamentos core→core pré-existentes (ver Candidatas).
 
 ### T-104b — `savings-core` no formato-alvo — PRÓXIMA DA FILA
@@ -50,12 +50,13 @@ repetidamente. Ele contém **apenas trabalho vivo**.
 - **Atenção (achado da T-104a)**: separar funções que dividiam um arquivo expõe branches de parâmetro default antes cobertos por acidente. Rodar `--coverage` cedo, não só no fim.
 - **Critério de aceite**: `pnpm --filter @vetor-wallet/savings-core test` verde com cobertura 100%; `pnpm build`, `pnpm lint`, `pnpm format:check` e `pnpm test` da raiz verdes; contagem de testes do `rest-api` preservada ou maior.
 
-### T-087 — Job `pluggy:sync` no cli (Meu Pluggy / Conector 200)
-- **Status**: **BLOQUEADA** — credenciais do humano (`TODO-HUMANO.md`) · **Complexidade**: alta · **Depende de**: T-084 (concluída)
+### T-087 — Job `pluggy:sync` no cli (Meu Pluggy / Conector 200) — DESBLOQUEADA 2026-08-12
+- **Status**: EM_ANDAMENTO · **Complexidade**: alta (executor Opus) · **Depende de**: T-084 (concluída)
 - **Objetivo**: automatizar por cima do pipeline que o OFX fundou. Meu Pluggy dá acesso gratuito às contas do próprio usuário via Open Finance — único caminho automático viável para PF.
-- **Arquitetura**: client em `packages/pluggy-core` (Integração) — busca transações, **sem tocar o banco**; mapeamento e gravação no `bank-import-core`; job no `cli` (padrão `insights:hourly`) só orquestra. `external_id` = id da transação (dedupe da T-084); crédito → income, débito → expense. Flag `--dry-run`.
-- **Fora de escopo**: endpoint `investments` (candidata); UI; agendamento.
-- **Critério de aceite**: com mocks, `pluggy:sync -- --dry-run` lista sem gravar; execução real idempotente; testes do mapeamento; suítes verdes.
+- **Arquitetura**: `packages/pluggy-core` (Integração) — `POST /auth` (`clientId`/`clientSecret` → apiKey de 2h, cache em memória), `GET /accounts?itemId=`, `GET /transactions?accountId=` paginado; **não toca o banco**. Mapeamento e gravação via `insertEntryWithExternalId` do `bank-import-core` (`external_id = pluggy:<id>`); crédito → income, débito → expense. Job `packages/cli/src/pluggySync.ts` (padrão `hourlyInsights`) só orquestra; flag `--dry-run`.
+- **Credenciais**: `PLUGGY_CLIENT_ID`/`PLUGGY_CLIENT_SECRET`/`PLUGGY_ITEM_ID` em `packages/cli/.env` (o humano já as tem). No diff só o `.env.example` — **nunca** o valor.
+- **Fora de escopo**: endpoint `investments`; UI; agendamento.
+- **Critério de aceite**: com fetch mockado, `--dry-run` lista sem gravar; 2ª rodada grava 0 (idempotente); testes do mapeamento e do dedupe; `pnpm build`, `lint`, `format:check` e suítes verdes.
 
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 
