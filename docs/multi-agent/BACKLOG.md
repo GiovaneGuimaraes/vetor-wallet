@@ -21,7 +21,7 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 ## Fila
 
 ### T-091 — Metas sai, Investimentos entra como árvore (guarda-chuva) ⭐ PRÓXIMA
-- **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: nada
+- **Status**: EM_ANDAMENTO (fase **a**, 2026-08-13; b/c/d seguem PENDENTE) · **Complexidade**: alta (executor Opus) · **Depende de**: nada
 - **Objetivo**: decisão do humano (2026-08-13) — **remover o layer de Metas** e criar **Investimentos** como pai de **Ações**, **Cripto** e **Renda Fixa**. Hoje Ações assume ticker da B3 + preço médio + cotação da brapi, e "Aplicação RDB"/caixinha não tem nenhum dos três.
 - **Caixinhas são Renda Fixa, IRMÃS de Ações — não dentro dela.** Proposto contra o pedido original ("dentro de Ações") e **aprovado pelo humano em 2026-08-13 — não reabrir**. A proximidade visual é mantida (irmãs no mesmo pai), mas renda fixa *dentro* de Ações recriaria o acoplamento que esta tarefa desfaz. Caixinha não é apelido de poupança: no Nubank é lastreada em RDB e rende % do CDI, e o padrão não é exclusivo dele (cofrinho no PicPay/Inter, objetivos no C6).
 - **Fases, em série**: **(a)** árvore + navegação, sem dado novo (Cripto já existe como "em breve"); **(b)** remover Metas — ver abaixo; **(c)** posição sem ticker (renda fixa/caixinha manual: valor aplicado, vencimento, taxa); **(d)** endpoint `/investments` da Pluggy para preencher.
