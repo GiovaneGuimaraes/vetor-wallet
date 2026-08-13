@@ -18,6 +18,13 @@
 
 ## Abertos
 
+### [2026-08-12] O modo "substituir tudo" apaga mais do que repõe — leia antes de usar (T-089)
+- **Origem**: executor (T-089 fases (b)(c)(d))
+- **Bloqueia**: nada — o botão está pronto. É **aviso**, não pendência de decisão.
+- **Pendência**: você escolheu (via chat, 2026-08-12) a opção mais destrutiva de `replace`: apagar `income_entries`, `expense_entries` **e** `savings_entries` inteiras antes de importar. Implementado exatamente assim. Duas consequências que só ficaram claras ao construir, e que a tela agora diz antes de confirmar: (1) **a poupança não volta** — a importação da Pluggy grava renda e despesa e **nunca** poupança (movimentação interna nem é importada, T-088), então apagá-la é perda líquida, sem nada no lote de entrada que a recomponha; (2) a Pluggy devolve só a **janela sincronizada** (padrão 30 dias) e apenas das contas conectadas, então histórico mais antigo que isso some e não é reposto. Meta sobrevive, mas progresso derivado de aportes vinculados zera. **Não há desfazer.** Para reduzir o risco de clique acidental, o modal exige digitar `APAGAR` — foi decisão de implementação, não mudança do que você pediu.
+- **Se quiser mudar de ideia**: o modo mais estreito (apagar só as linhas `pluggy:*` da janela, preservando manuais) continua sendo uma troca de uma função — diga e eu ajusto.
+- **Resposta do humano**: _(nada a fazer; ciente)_
+
 ### [2026-08-12] Rodar `pluggy:link` uma vez para seguir sincronizando (T-089a)
 - **Origem**: executor (T-089 fase (a))
 - **Bloqueia**: nada no código — mas **bloqueia a sua próxima sincronização** até você rodar um comando

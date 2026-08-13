@@ -301,6 +301,31 @@ Decisões travadas:
   livre, e adivinhar por descrição é exatamente o que a T-085 recusa a fazer com
   campo de dinheiro. A pendência da T-085 continua aberta para o caminho OFX.
 
+## Modo `replace` da importação (T-089b)
+
+`wipeUserFinancialEntries` apaga **todas** as linhas de `income_entries`,
+`expense_entries` e `savings_entries` de um usuário — manuais, de OFX e da
+Pluggy, de qualquer data — para o modo `replace` do botão de importar. Decisão do
+humano (2026-08-12), tomada com o risco apresentado e depois de as alternativas
+mais estreitas (só as linhas `pluggy:*`; só a janela sincronizada) terem sido
+recusadas explicitamente.
+
+- **Os três DELETEs vão num `db.batch` só.** Meio caminho — despesas apagadas e
+  rendas não — inventaria um mês negativo, e não há desfazer.
+- **A poupança não volta**: a importação escreve renda e despesa, nunca
+  `savings_entries` (e movimentação interna nem é importada — T-088). Apagá-la é
+  perda líquida, e a UI é obrigada a dizer isso antes de confirmar
+  (`replaceWarnings` em `packages/web/src/routes/pluggyImport.ts`).
+- **Meta sobrevive, progresso derivado zera** — `savings_entries.goal_id` é o
+  vínculo (T-024); a linha em `goals` fica, os aportes somem.
+- O par atômico de transferência poupança → meta (T-041) some inteiro: as duas
+  pontas são linhas de `savings_entries`, então nunca sobra meia transferência.
+- **Por que aqui, e não no `savings-core`**: a função toca território daquele
+  package, mas a alternativa — a rota chamar dois cores em sequência — quebraria
+  a atomicidade, que é a propriedade que importa numa operação sem volta. Fica
+  junto do resto da política de importação, com a dependência declarada em vez
+  de escondida.
+
 ## Convenções
 
 - Teste ao lado do código (`src/**/*.test.ts`), Vitest. Teste que toca banco

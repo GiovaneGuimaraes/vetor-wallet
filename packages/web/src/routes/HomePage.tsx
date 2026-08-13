@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type {
   ExpenseEntry,
@@ -6,6 +6,7 @@ import type {
   Goal,
   IncomeEntry,
   IncomeSource,
+  PluggyItemView,
   SavingsSummary,
 } from '@vetor-wallet/shared';
 import { useShellContext } from '../layout/ShellContext';
@@ -15,8 +16,10 @@ import {
   getGoals,
   getIncomeEntries,
   getIncomeSources,
+  getPluggyStatus,
   getSavings,
 } from '../api';
+import { PluggyImportModal } from '../components/PluggyImportModal';
 import {
   computeGoalsSummary,
   computeMonthCashFlow,
@@ -121,6 +124,29 @@ export function HomePage() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // T-089c — o botão de importar só aparece quando o SERVER diz que a integração
+  // está ligada (gate `ENVIRONMENT`). O web nunca lê uma cópia da flag em
+  // `VITE_*`: duas cópias divergem e a do cliente é burlável.
+  const [pluggyEnabled, setPluggyEnabled] = useState(false);
+  const [pluggyItems, setPluggyItems] = useState<PluggyItemView[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const refreshPluggy = useCallback(async () => {
+    try {
+      const status = await getPluggyStatus();
+      setPluggyEnabled(status.enabled);
+      setPluggyItems(status.items);
+    } catch {
+      // Integração indisponível não é erro da Home: o botão simplesmente não
+      // aparece, e os cards seguem funcionando.
+      setPluggyEnabled(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshPluggy();
+  }, [refreshPluggy]);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,7 +193,10 @@ export function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+    // `reloadKey` muda depois de uma importação da Pluggy (T-089c): ela pode ter
+    // escrito em qualquer mês e, no modo replace, apagado tudo — os totais da
+    // Home precisam ser buscados de novo, não remendados no cliente.
+  }, [reloadKey]);
 
   // T-050b: `computeStockTotals` continua recebendo uma lista (assinatura
   // inalterada) — só que agora ela tem no máximo um summary, o consolidado do
@@ -274,6 +303,14 @@ export function HomePage() {
             )}
           </div>
         </div>
+        {/* T-089c — o botão fica no card do patrimônio porque a importação
+            alimenta justamente os números daqui, e não de um layer só. Só
+            aparece com a integração ligada no server. */}
+        {pluggyEnabled && (
+          <button type="button" className="vw-home-import-btn" onClick={() => setImportOpen(true)}>
+            {pluggyItems.length > 0 ? 'Importar do banco' : 'Conectar meu banco e importar'}
+          </button>
+        )}
         {loading && <p className="vw-home-status">Carregando dados dos seus layers…</p>}
         {error && !loading && (
           <p className="vw-home-status vw-home-status--error">
@@ -310,6 +347,15 @@ export function HomePage() {
           </button>
         ))}
       </div>
+
+      {importOpen && (
+        <PluggyImportModal
+          items={pluggyItems}
+          onClose={() => setImportOpen(false)}
+          onImported={() => setReloadKey((k) => k + 1)}
+          onItemsChanged={refreshPluggy}
+        />
+      )}
     </div>
   );
 }

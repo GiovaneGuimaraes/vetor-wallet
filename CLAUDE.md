@@ -124,8 +124,8 @@ pnpm --filter vetor-wallet-cli pluggy:sync [YYYY-MM-DD] [--dry-run] [--email=]
 
 | Pacote | Principais variáveis |
 |---|---|
-| rest-api | `PORT` (3001), `SESSION_SECRET`*, `ALLOWED_ORIGIN`*, `NODE_ENV`*, `BRAPI_TOKEN`, `DATABASE_URL` (default `process.cwd()/data/wallet.db`), `ABACATEPAY_API_KEY`, `ABACATEPAY_API_URL` (default `https://api.abacatepay.com/v2`), `ABACATEPAY_WEBHOOK_SECRET`, `BILLING_ENABLED` (default false; obrigatória true em prod com billing) — * obrigatórias em prod |
-| web | `VITE_API_URL` (http://localhost:3001) |
+| rest-api | `PORT` (3001), `SESSION_SECRET`*, `ALLOWED_ORIGIN`*, `NODE_ENV`*, `BRAPI_TOKEN`, `DATABASE_URL` (default `process.cwd()/data/wallet.db`), `ABACATEPAY_API_KEY`, `ABACATEPAY_API_URL` (default `https://api.abacatepay.com/v2`), `ABACATEPAY_WEBHOOK_SECRET`, `BILLING_ENABLED` (default false; obrigatória true em prod com billing); **Pluggy (T-089b)**: `ENVIRONMENT` (só `Staging` libera `/api/pluggy/*`; ausente/vazia/desconhecida = bloqueado), `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, `PLUGGY_API_URL` — * obrigatórias em prod |
+| web | `VITE_API_URL` (http://localhost:3001). **A flag da Pluggy NÃO vive aqui** — o web lê o estado por `GET /api/pluggy/status`; cópia em `VITE_*` divergiria e seria burlável (T-089b) |
 | cli | `DATABASE_URL=file:../rest-api/data/wallet.db` (relativo a packages/cli/), `BRAPI_TOKEN`; para `pluggy:sync` (T-087): `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, `PLUGGY_USER_EMAIL` (default do `--email=`; sem default silencioso), `PLUGGY_API_URL` (default `https://api.pluggy.ai`). `PLUGGY_ITEM_ID` **saiu do `pluggy:sync`** na T-089a — os items vivem em `pluggy_items`, por usuário, e são registrados por `pluggy:link` (a variável sobrou só como bootstrap desse comando). **Valores só no `.env` local, nunca no repo.** |
 
 O SQLite (`packages/rest-api/data/wallet.db`) é criado no primeiro boot.
@@ -157,6 +157,7 @@ O SQLite (`packages/rest-api/data/wallet.db`) é criado no primeiro boot.
 | subscriptions | POST /api/subscriptions, GET /api/subscriptions/me | assina (cria/reaproveita cobrança Pix) e lê estado de billing (T-070) |
 | pix-charges | GET /api/pix-charges/:id | polling do pagamento (id LOCAL); falha do provedor → 200 + `providerUnavailable` |
 | billing (dev) | POST /api/billing/simulate/:chargeId | simula pagamento; 404 em `NODE_ENV=production` |
+| pluggy | GET /api/pluggy/status, POST /connect-token·items·sync, DELETE /items/:itemId | Open Finance no app (T-089b). Gate `ENVIRONMENT` (`Staging` libera, resto bloqueia, **fail closed**) + `requireActiveSubscription`. `GET /status` é a ÚNICA sem o gate de ambiente — é ela que conta ao web se a integração está ligada. `POST /sync` aceita `mode: 'append' \| 'replace'`; **`replace` apaga TODAS as rendas, despesas e poupanças do usuário** antes de importar. Erro da Pluggy → 502 |
 | webhooks | POST /api/webhooks/abacatepay | SEM sessão; `express.raw` + HMAC; montado ANTES do `express.json()` |
 
 PATCHes são parciais: campo a campo com a mesma validação da criação; corpo vazio → 400; registro de outro usuário → 404. Toda rota de dados filtra por `user_id`.

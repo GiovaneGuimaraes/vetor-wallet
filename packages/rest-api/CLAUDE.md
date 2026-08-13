@@ -12,7 +12,8 @@ src/
     ├── auth/         # middleware (requireAuth → res.locals.userId) e
     │                 # router (/api/auth/*) — o SERVICE saiu na T-099c
     ├── routes/       # 1 arquivo por recurso REST (ver tabela no CLAUDE.md raiz)
-    └── middleware/   # asyncHandler, errorHandler, requireActiveSubscription
+    └── middleware/   # asyncHandler, errorHandler, requireActiveSubscription,
+                      # requirePluggyEnabled (gate ENVIRONMENT, T-089b)
 ```
 
 **Não há mais `src/api/services/`** — desde a T-099c toda a lógica de domínio
@@ -68,6 +69,19 @@ Na T-099c (Ciclo 19) saiu o resto, esvaziando `services/`:
   também ficaram.
 
 Cada um tem seu `CLAUDE.md` com as invariantes do domínio — leia antes de mexer.
+
+Na T-089b entrou `@vetor-wallet/pluggy-core` (Integração) como dependência deste
+package, por causa de `routes/pluggy.ts`. **É a rota que cruza os dois módulos**
+(regra de `docs/PACKAGES.md`): `bank-import-core` fala com o banco,
+`pluggy-core` fala com a Pluggy, e nenhum dos dois se importa. Três coisas que
+moram só ali e não devem migrar para os cores:
+
+- **A ordem dos gates**: `requireAuth` → `requirePluggyEnabled` → `requireActiveSubscription`.
+- **`GET /api/pluggy/status` é a única rota SEM o gate de ambiente** — é ela que
+  informa `enabled` ao web. Gateá-la obrigaria o cliente a ter uma cópia da flag
+  em `VITE_*`, a duplicação que a decisão do humano proíbe.
+- **`PluggyApiError` vira 502**, não 500: a falha é de terceiro e a mensagem do
+  package já é acionável e livre de credencial.
 
 Entry compilado: `dist/api/index.js` (`pnpm --filter vetor-wallet-rest-api start`). Rodar `node dist/api/index.js` de fora de `packages/rest-api/` sem `DATABASE_URL` cria um banco novo no cwd errado.
 

@@ -66,3 +66,8 @@ export type {
   PluggyImportResult,
   ImportPluggyTransactionsParams,
 } from './pluggy';
+export { wipeUserFinancialEntries } from './wipeUserFinancialEntries';
+export type {
+  WipeUserFinancialEntriesParams,
+  WipeUserFinancialEntriesResult,
+} from './wipeUserFinancialEntries';

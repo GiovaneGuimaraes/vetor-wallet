@@ -41,6 +41,11 @@ import type {
   CreateSubscriptionResponse,
   PixCharge,
   OfxImportResult,
+  PluggyStatusResponse,
+  PluggyItemView,
+  PluggyConnectTokenResponse,
+  PluggyImportMode,
+  PluggySyncResponse,
 } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
@@ -725,6 +730,81 @@ export async function simulatePixPayment(chargeId: number): Promise<PixCharge> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
     throw new Error(err.error ?? 'Falha ao simular pagamento');
+  }
+  return res.json();
+}
+
+// ── Pluggy / Open Finance (T-089b/c) ─────────────────────────────────────────
+
+/**
+ * Estado da integração. É a ÚNICA fonte do `enabled` no cliente — não existe
+ * cópia da flag em `VITE_*` de propósito: duas cópias divergem e a do cliente é
+ * burlável (quem bloqueia é a rota).
+ */
+export async function getPluggyStatus(): Promise<PluggyStatusResponse> {
+  const res = await apiFetch('/api/pluggy/status');
+  if (!res.ok) throw new Error('Falha ao consultar a integração bancária');
+  return res.json();
+}
+
+export async function createPluggyConnectToken(itemId?: string): Promise<string> {
+  const res = await apiFetch('/api/pluggy/connect-token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(itemId ? { itemId } : {}),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao iniciar a conexão com o banco');
+  }
+  const body: PluggyConnectTokenResponse = await res.json();
+  return body.accessToken;
+}
+
+export async function linkPluggyItem(params: {
+  itemId: string;
+  connectorId?: number | null;
+  connectorName?: string | null;
+  status?: string | null;
+}): Promise<PluggyItemView> {
+  const res = await apiFetch('/api/pluggy/items', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao registrar a conexão');
+  }
+  return res.json();
+}
+
+export async function unlinkPluggyItem(itemId: string): Promise<void> {
+  const res = await apiFetch(`/api/pluggy/items/${encodeURIComponent(itemId)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao desconectar o banco');
+  }
+}
+
+/**
+ * Dispara a importação. `mode: 'replace'` APAGA todos os lançamentos do usuário
+ * antes de importar (ver `replaceWarnings` em `routes/pluggyImport.ts`).
+ */
+export async function syncPluggy(params: {
+  mode: PluggyImportMode;
+  dateFrom?: string;
+}): Promise<PluggySyncResponse> {
+  const res = await apiFetch('/api/pluggy/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao importar os dados do banco');
   }
   return res.json();
 }

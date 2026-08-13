@@ -638,3 +638,79 @@ export interface CreateSubscriptionResponse {
   subscription: Subscription;
   charge: PixCharge;
 }
+
+// ── Integração Pluggy no app (T-089b/c) ──────────────────────────────────────
+
+/** Uma conexão bancária do usuário, como a UI a exibe. */
+export interface PluggyItemView {
+  itemId: string;
+  connectorId: number | null;
+  connectorName: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Estado da integração para o usuário logado.
+ *
+ * `enabled` reflete o gate `ENVIRONMENT` do server (T-089b) e é a ÚNICA fonte
+ * do estado no cliente: o web nunca lê uma cópia da flag em `VITE_*`. Flag
+ * duplicada em dois `.env` diverge, e a cópia do cliente é trivialmente
+ * burlável — quem bloqueia de verdade é a rota.
+ */
+export interface PluggyStatusResponse {
+  enabled: boolean;
+  items: PluggyItemView[];
+}
+
+export interface PluggyConnectTokenResponse {
+  accessToken: string;
+}
+
+/**
+ * `append` grava por cima do que existe, deduplicando por `external_id` (T-084).
+ * `replace` APAGA todos os lançamentos do usuário — renda, despesa e poupança,
+ * manuais inclusive — antes de importar. Ver `wipeUserFinancialEntries`.
+ */
+export type PluggyImportMode = 'append' | 'replace';
+
+/** Uma linha do relatório de importação, no vocabulário do bank-import-core. */
+export interface PluggySyncLine {
+  status: 'imported' | 'duplicated' | 'rejected' | 'skipped' | 'internal' | 'previewed';
+  transactionId?: string;
+  date?: string;
+  amount?: number;
+  description?: string;
+  entryType?: 'income' | 'expense';
+  reason?: string;
+  entryId?: number;
+}
+
+export interface PluggySyncTotalsView {
+  imported: number;
+  duplicated: number;
+  rejected: number;
+  skipped: number;
+  internal: number;
+  previewed: number;
+}
+
+/** O que foi apagado no modo `replace`; ausente no `append`. */
+export interface PluggyWipeReport {
+  incomeEntries: number;
+  expenseEntries: number;
+  savingsEntries: number;
+}
+
+export interface PluggySyncResponse {
+  mode: PluggyImportMode;
+  dateFrom: string;
+  totals: PluggySyncTotalsView;
+  /** Falhas por item/conta — a sincronização não aborta, reporta. */
+  failures: number;
+  /** Mensagens das falhas, para a UI não dizer só "1 falha". */
+  errors: string[];
+  transactions: PluggySyncLine[];
+  wiped?: PluggyWipeReport;
+}

@@ -20,7 +20,8 @@
       "@vetor-wallet/bank-import-core": ["../bank-import-core/src/index.ts"],
       "@vetor-wallet/portfolio-core": ["../portfolio-core/src/index.ts"],
       "@vetor-wallet/insights-core": ["../insights-core/src/index.ts"],
-      "@vetor-wallet/auth-core": ["../auth-core/src/index.ts"]
+      "@vetor-wallet/auth-core": ["../auth-core/src/index.ts"],
+      "@vetor-wallet/pluggy-core": ["../pluggy-core/src/index.ts"]
     }
   },
   "include": ["src"],
@@ -36,6 +37,7 @@
     { "path": "../bank-import-core" },
     { "path": "../portfolio-core" },
     { "path": "../insights-core" },
-    { "path": "../auth-core" }
+    { "path": "../auth-core" },
+    { "path": "../pluggy-core" }
   ]
 }
