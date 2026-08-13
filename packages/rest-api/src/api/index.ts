@@ -27,6 +27,7 @@ import subscriptionsRouter from './routes/subscriptions';
 import pixChargesRouter from './routes/pixCharges';
 import billingSimulateRouter from './routes/billingSimulate';
 import webhooksRouter from './routes/webhooks';
+import pluggyRouter from './routes/pluggy';
 import { errorHandler } from './middleware/errorHandler';
 import { catchUpIfNeeded, startSnapshotScheduler } from '@vetor-wallet/portfolio-core';
 
@@ -88,6 +89,7 @@ app.use('/api/plans', plansRouter);
 app.use('/api/subscriptions', subscriptionsRouter);
 app.use('/api/pix-charges', pixChargesRouter);
 app.use('/api/billing', billingSimulateRouter);
+app.use('/api/pluggy', pluggyRouter);
 
 app.use(errorHandler);
 

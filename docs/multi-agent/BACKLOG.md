@@ -28,25 +28,23 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Critério de aceite (por package)**: suíte do package verde com cobertura 100%; `pnpm build`, `lint`, `format:check` e `pnpm test` da raiz verdes; contagem de testes do `rest-api` preservada ou maior.
 
 ### T-089 — Conectar a Pluggy pelo app (botão + itemId por usuário)
-- **Status**: fase (a) **CONCLUIDA** (#160) · próxima: **(b) rotas** · **Complexidade**: alta
+- **Status**: (a)(b)(c)(d) **CONCLUIDAS** — (a) #160, (b)(c)(d) **EM_REVISAO** (implementadas 2026-08-12, aguardando PR) · **Complexidade**: alta
 - **Objetivo**: decisão de 2026-08-12 — **produto multi-usuário**, cada um conecta o próprio banco por um botão. Antes da fase (a) a integração era job de terminal com o `itemId` num `.env`: uma instalação, um usuário.
-- **Fases, em série**: ~~(a) tabela `pluggy_items` + job iterando os items ✅~~; **(b)** `POST /api/pluggy/connect-token` (mina no **servidor**) e `POST /api/pluggy/items`, atrás de `requireActiveSubscription`, mais o `DELETE /items/{id}` na Pluggy que a (a) deixou pendente; **(c)** botão + widget do `cdn.pluggy.ai`; **(d)** gatilho de sync — sem ele o usuário conecta, nada aparece e parece quebrado.
+- **Entregue**: `/api/pluggy/{status,connect-token,items,sync}` + `DELETE /items/:itemId` (revoga na Pluggy **antes** de apagar a linha — ao contrário, falha deixaria item órfão sem saída pela UI); botão no card de patrimônio da Home; modal com escolha append × replace; gatilho de sync na própria rota.
 - **Da fase (a), para não reabrir**: `item_id` tem unicidade **global** porque é credencial *portadora* — por usuário, B importaria o extrato de A.
-- **Gating binário** (decisão do humano): `plans` não tem coluna de capacidade, então todo pagante inclui a integração.
-- **Gate `ENVIRONMENT` (decisão do humano, 2026-08-12)**: env nova no `rest-api` — `Staging` **libera** a integração, `Production` **bloqueia**. **Fail closed**: ausente, vazia ou valor desconhecido = bloqueado, porque o desfecho de errar é violar os termos da Pluggy. O gate vive na **rota** (esconder o botão é UX, não bloqueio) e o web só **lê** o estado via API — nunca uma segunda cópia da flag em `VITE_*`.
-- **Aceite**: dois usuários com items distintos, cada um só vê os seus; sem assinatura → 402; `Production` bloqueia a rota; suítes verdes.
+- **Gate `ENVIRONMENT`**: só `Staging` libera, **fail closed**; vive na **rota**, e `GET /status` é a única SEM ele — é ela que conta ao web se está ligada (gateá-la obrigaria a cópia em `VITE_*` que a decisão proíbe).
+- **`replace` apaga TUDO** (renda, despesa, poupança, manuais inclusive) — decisão do humano com o risco apresentado. A poupança **não volta** (a Pluggy não a escreve); a UI exige digitar `APAGAR`.
+- **Aceite**: ✅ dois usuários isolados; `Production` bloqueia (verificado no servidor real, não só em teste); 21 testes de rota; suítes verdes.
 
-### T-088 — Movimentação interna não pode virar despesa/renda
-- **Status**: **EM_REVISAO** (implementada 2026-08-12, aguardando PR) · **Complexidade**: alta · **Depende de**: T-087 (concluída, #159)
-- **Objetivo**: o dry-run real mostrou que a importação crua confunde **movimentação interna** com gasto: aplicação em reserva entra como **despesa** (a maior parte do débito do mês), o resgate como **renda**, e o pagamento de fatura conta **duas vezes**. Contexto completo no `TODO-HUMANO.md`; valor real do humano **não entra em arquivo versionado** (repo público).
-- **Decisão do humano (2026-08-12)**: opção "não importar" — usar a `category` da Pluggy para pular, sem UI nova. Caixa de entrada de revisão foi considerada e **não** escolhida (segue em Candidatas).
-- **Entregue**: desfecho `internal` no relatório (≠ `rejected`, ≠ `skipped`); lista fechada em `internalMovement.ts` (`Same person transfer`, `Credit card payment`, `Investments`); `Transfers` fora da lista de propósito (transferência a terceiros é dinheiro real); fail **open** em categoria desconhecida; checagem antes da validação de status/sinal. Rationale completo em `packages/bank-import-core/CLAUDE.md` § T-088.
-- **Consequência**: a proibição de rodar sem `--dry-run` **cai para a Pluggy**. Segue valendo para o **OFX** (T-085), que não tem campo de categoria.
-- **Aceite**: ✅ fixtures anonimizadas provam que nenhuma aplicação/resgate/fatura vira despesa ou renda; 111 testes no package, suíte do monorepo verde.
+### T-089e — Patrimônio total com saldo das contas da Pluggy
+- **Status**: PENDENTE · **Complexidade**: média · **Depende de**: T-089 (b)(c)(d)
+- **Objetivo**: pedido do humano (2026-08-12) — o card de patrimônio da Home deve somar o dinheiro que está **na conta** e na poupança do banco. Hoje ele é `ações + poupança do app`.
+- **A decisão que falta**: saldo é **posição** (foto de agora), não lançamento — o app modela poupança como série de aportes. Gravar saldo como lançamento faria a poupança contar duas vezes (o aporte já registrado + o saldo que o inclui). Provável saída: exibir como posição lida da Pluggy, sem gravar.
+- **`toPluggyAccount` descarta `balance` hoje** (T-087, deliberado) — precisa voltar a trazê-lo.
 
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 
-- **Layer de Ações → Investimentos** (decisão do humano, 2026-08-12): generalizar para abrigar renda fixa, que não tem ticker da B3 nem cotação da brapi. É o destino do caso `Investments` da T-088 — refatoração de modelo, não ajuste de importador.
+- **Layer de Ações → Investimentos, como ÁRVORE** (decisão do humano, 2026-08-12): generalizar para abrigar renda fixa, que não tem ticker da B3 nem cotação da brapi, com **sub-layers** — um de Cripto e outro de Ações/outros investimentos. É o destino do caso `Investments` da T-088. Refatoração de modelo, não ajuste de importador. **Nota da T-089**: preencher isso com dado da Pluggy exige o endpoint `/investments` (devolve **posição**); a `category` das transações só marca movimento de caixa (aplicação/resgate) e não constrói carteira.
 
 - **Acoplamentos core→core** (violam a regra 6 do `PACKAGES.md`; pré-existentes, tornados visíveis pela extração): `auth-core → portfolio-core` e `insights-core → portfolio-core` — a saída é a **rota** orquestrar os dois módulos. E `portfolio-core/snapshots.ts` tem um **segundo client da brapi** (`fetchQuotesStrict`, que lança) paralelo ao `brapi-core.fetchQuotes` (que degrada em silêncio) — unificar no `brapi-core`.
 - **Limpar backend de budgets** (rotas + tabela `category_budgets` + tipo no shared): a UI saiu na T-089 e nada mais consome.

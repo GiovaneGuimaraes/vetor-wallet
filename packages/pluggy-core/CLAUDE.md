@@ -28,6 +28,10 @@ src/
 ├── resolvePluggyApiUrl.ts     # PLUGGY_API_URL ?? https://api.pluggy.ai
 ├── getPluggyApiKey.ts         # POST /auth + cache 2h com margem; _resetPluggyApiKeyCache
 ├── pluggyGet.ts               # GET autenticado (header X-API-KEY)
+├── pluggySend.ts              # POST/DELETE autenticado; 204 → null (T-089b)
+├── createPluggyConnectToken.ts# POST /connect_token p/ o widget (T-089b)
+├── deletePluggyItem.ts        # DELETE /items/{id}; 404 = sucesso (T-089b)
+├── isPluggyIntegrationEnabled.ts # gate ENVIRONMENT, fail closed (T-089b)
 ├── fetchPluggyAccounts.ts     # GET /accounts?itemId=
 ├── toPluggyAccount.ts         # payload de conta → PluggyAccount
 ├── fetchPluggyTransactions.ts # GET /v2/transactions, seguindo o cursor `next`
@@ -190,6 +194,41 @@ impede o `oauthRedirectUri` local. Quando entrar:
   montado **antes** do `express.json()` global, e verificação de assinatura. Confirmar
   na doc como a Pluggy autentica a chamada — sem isso, qualquer um posta `item/created`.
 - `webhookUrl` pode ir por item, em `options` do `POST /connect_token`.
+
+## Escrita na Pluggy e o gate de ambiente (T-089b)
+
+Até a T-089a este package só **lia**. A integração dentro do app precisou de três
+peças novas:
+
+- **`pluggySend`** — `POST`/`DELETE` autenticado, irmão separado do `pluggyGet`
+  de propósito: leitura é idempotente e pode ser repetida, escrita não. Os dois
+  no mesmo lugar convidariam um retry de leitura a escorregar para cima de um
+  `POST /items` e criar uma segunda conexão bancária. `204` devolve `null` (é a
+  resposta normal do `DELETE`, e `res.json()` num corpo vazio explodiria).
+- **`createPluggyConnectToken`** — o `clientSecret` **nunca** vai para o browser:
+  ele lê o extrato de *todos* os items da aplicação. O servidor o troca por um
+  token de ~30 min e é o token que desce. **A forma do corpo é `{ itemId?,
+  options: { clientUserId } }`** — `clientUserId` na raiz não dá erro, a Pluggy
+  ignora o campo desconhecido e emite um token sem dono (falha silenciosa: o
+  widget funciona e o item só não aparece atribuído no painel). Com `itemId` o
+  widget abre em **reautenticação** daquela conexão; sem ele, cria uma nova — e
+  sem essa distinção, renovar senha viraria um segundo item para o mesmo banco,
+  que reimportaria tudo.
+- **`deletePluggyItem`** — fecha a pendência da T-089a (lá só apagávamos a nossa
+  linha). **404 conta como sucesso**: o item já não existe lá, o desfecho pedido
+  está satisfeito, e virar erro deixaria a linha órfã no nosso banco sem saída
+  pela UI. Mesma doutrina do dedupe da T-084 — o que importa é o estado final.
+
+**`isPluggyIntegrationEnabled`** é o gate `ENVIRONMENT` (decisão do humano,
+2026-08-12): só `Staging` libera, **fail closed** em ausente/vazia/desconhecida.
+É o oposto deliberado do fail *open* da T-088: lá errar fechado sumiria com
+despesa real, aqui errar aberto oferece a integração a terceiros sem contrato com
+a Pluggy — custo jurídico que não aparece em tela nenhuma. `ENVIRONMENT` é a
+**única autoridade** para este gate e pode divergir de `NODE_ENV`, de propósito
+(o staging do dono do app roda com `NODE_ENV=production`).
+
+Quem traduz isso em HTTP é `packages/rest-api/src/api/middleware/requirePluggyEnabled.ts`
+— mesmo arranjo de `isBillingEnabled()` × `requireActiveSubscription`.
 
 ## Convenções
 

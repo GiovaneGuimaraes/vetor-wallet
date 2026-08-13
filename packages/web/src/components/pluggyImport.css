@@ -1,0 +1,261 @@
+/* Modal de importação do Open Finance (T-089c).
+ *
+ * Consome os tokens globais de web/src/index.css (--color-*, --radius-*) — sem
+ * cor literal, como o resto do app. A única classe de botão nova é
+ * .vw-btn-danger: .vw-btn-primary e .vw-btn-ghost já existem no index.css e são
+ * reaproveitadas como estão.
+ */
+
+.vw-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 55%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 100;
+}
+
+.vw-modal {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-card);
+  width: min(640px, 100%);
+  max-height: min(90vh, 900px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 35%);
+}
+
+.vw-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-edge);
+}
+
+.vw-modal-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.vw-modal-close {
+  background: none;
+  border: none;
+  color: var(--color-dim);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+
+.vw-modal-close:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.vw-modal-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+}
+
+.vw-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.vw-pluggy-section {
+  margin-bottom: 1.5rem;
+}
+
+.vw-pluggy-section h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-dim);
+  margin: 0 0 0.75rem;
+}
+
+.vw-pluggy-items {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+}
+
+.vw-pluggy-items li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-edge);
+}
+
+.vw-pluggy-item-status {
+  font-size: 0.75rem;
+  color: var(--color-dim);
+  margin-left: auto;
+}
+
+.vw-pluggy-empty,
+.vw-pluggy-note,
+.vw-pluggy-wiped {
+  color: var(--color-dim);
+  font-size: 0.875rem;
+  margin: 0 0 0.75rem;
+}
+
+.vw-pluggy-mode {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.75rem;
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-input);
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+}
+
+.vw-pluggy-mode small {
+  display: block;
+  color: var(--color-dim);
+  font-size: 0.8rem;
+  margin-top: 0.2rem;
+}
+
+.vw-pluggy-mode--danger {
+  border-color: var(--color-down);
+}
+
+.vw-pluggy-danger {
+  border: 1px solid var(--color-down);
+  border-radius: var(--radius-input);
+  padding: 0.75rem 1rem;
+  margin-top: 0.75rem;
+}
+
+.vw-pluggy-danger ul {
+  margin: 0 0 0.75rem;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+}
+
+.vw-pluggy-danger li {
+  margin-bottom: 0.35rem;
+}
+
+.vw-pluggy-confirm {
+  display: block;
+  font-size: 0.85rem;
+}
+
+.vw-pluggy-confirm input {
+  display: block;
+  margin-top: 0.4rem;
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-input);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+.vw-pluggy-error {
+  color: var(--color-down);
+  font-size: 0.875rem;
+  margin: 0.5rem 0 0;
+}
+
+.vw-pluggy-errors {
+  color: var(--color-down);
+  font-size: 0.85rem;
+  padding-left: 1.1rem;
+}
+
+.vw-pluggy-summary {
+  font-size: 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.vw-pluggy-group {
+  border-top: 1px solid var(--color-edge);
+  padding: 0.5rem 0;
+}
+
+.vw-pluggy-group summary {
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.vw-pluggy-group ul {
+  list-style: none;
+  padding: 0.5rem 0 0;
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.vw-pluggy-group li {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.2rem 0;
+}
+
+.vw-pluggy-line-date {
+  color: var(--color-dim);
+  white-space: nowrap;
+}
+
+.vw-pluggy-line-desc {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vw-pluggy-line-reason {
+  color: var(--color-dim);
+  font-style: italic;
+}
+
+/* Único botão novo: o destrutivo. Usa --color-down, o mesmo vermelho de queda
+   da carteira, para não introduzir uma segunda noção de "vermelho" no tema. */
+.vw-btn-danger {
+  background: var(--color-down);
+  color: var(--btn-ink);
+  border: 0;
+  border-radius: var(--radius-pill);
+  transition:
+    filter 0.15s ease,
+    transform 0.15s ease;
+}
+
+.vw-btn-danger:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.vw-btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Botão de importar na Home, dentro do card-herói do patrimônio. */
+.vw-home-import-btn {
+  margin-top: 1rem;
+  background: rgba(var(--raised-rgb), 0.6);
+  border: 1px solid var(--color-edge);
+  border-radius: var(--radius-pill);
+  color: var(--color-ink);
+  padding: 0.45rem 1rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.vw-home-import-btn:hover {
+  border-color: var(--color-ink);
+}
