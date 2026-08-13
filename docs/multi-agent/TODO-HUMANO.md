@@ -29,7 +29,8 @@
 - **Origem**: executor (T-089 fase (a))
 - **Bloqueia**: nada no código — mas **bloqueia a sua próxima sincronização** até você rodar um comando
 - **Pergunta/pendência**: a fase (a) tirou o `itemId` do `.env` e o pôs no banco (`pluggy_items`), por usuário. O `pluggy:sync` **não lê mais `PLUGGY_ITEM_ID`** — ele itera os items do usuário. Como o botão de conexão (fase (c)) ainda não existe, criar a linha é um comando de CLI: `pnpm --filter vetor-wallet-cli pluggy:link` (sem argumento, ele aproveita o `PLUGGY_ITEM_ID` que já está no seu `.env`) e, se quiser, `--connector-id=200 --connector-name=MeuPluggy`. Depois disso o `pluggy:sync --dry-run` volta a funcionar igual. Rodar de novo é seguro (upsert). **Nada foi migrado automaticamente de propósito**: um job que criasse a linha a partir de env presente em runtime transformaria configuração de máquina em dado de usuário. Lembrete que não mudou: a importação real segue **proibida sem `--dry-run`** enquanto a T-088 não decidir movimentação interna.
-- **Resposta do humano**: _(rodar o comando)_
+- **Atualização (2026-08-12, T-089 b/c/d mergeada em #163)**: **o comando deixou de ser o único caminho.** Com o botão na Home, conectar o banco pelo app cria a linha em `pluggy_items` sozinho — é o que a fase (c) resolveu. O `pluggy:link` continua existindo e válido (útil sem subir o app, ou para reaproveitar o `PLUGGY_ITEM_ID` que já está no seu `.env`), mas não é mais obrigatório. Para o botão aparecer, o `packages/rest-api/.env` precisa de `ENVIRONMENT=Staging`, `PLUGGY_CLIENT_ID` e `PLUGGY_CLIENT_SECRET`.
+- **Resposta do humano**: _(rodar o comando OU conectar pelo botão)_
 
 ### [2026-08-12] Contrato pago com a Pluggy — bloqueia ENTREGAR a T-089, não construí-la
 - **Origem**: orquestrador (levantado ao especificar a T-089, a pedido do humano por um botão de conexão no app)
