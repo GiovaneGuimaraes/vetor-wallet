@@ -34,6 +34,8 @@ export {
   MAX_PLUGGY_DESCRIPTION_LENGTH,
   SUPPORTED_PLUGGY_CURRENCY,
 } from './pluggy';
+export { INTERNAL_MOVEMENT_CATEGORIES, classifyInternalMovement } from './internalMovement';
+export type { InternalMovementReason } from './internalMovement';
 export { UNKNOWN_PLUGGY_ITEM_STATUS, toPluggyItem } from './PluggyItem';
 export type { PluggyItem } from './PluggyItem';
 export { PluggyItemError } from './PluggyItemError';

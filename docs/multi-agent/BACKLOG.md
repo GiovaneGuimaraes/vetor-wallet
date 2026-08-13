@@ -37,11 +37,12 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Aceite**: dois usuários com items distintos, cada um só vê os seus; sem assinatura → 402; `Production` bloqueia a rota; suítes verdes.
 
 ### T-088 — Movimentação interna não pode virar despesa/renda
-- **Status**: PENDENTE · **Complexidade**: alta · **Depende de**: T-087 (concluída, #159)
+- **Status**: **EM_REVISAO** (implementada 2026-08-12, aguardando PR) · **Complexidade**: alta · **Depende de**: T-087 (concluída, #159)
 - **Objetivo**: o dry-run real mostrou que a importação crua confunde **movimentação interna** com gasto: aplicação em reserva entra como **despesa** (a maior parte do débito do mês), o resgate como **renda**, e o pagamento de fatura conta **duas vezes**. Contexto completo no `TODO-HUMANO.md`; valor real do humano **não entra em arquivo versionado** (repo público).
-- **Sinal**: a `category` da Pluggy vem preenchida no plano grátis — `Investments`, `Same person transfer`, `Credit card payment`.
-- **Decisão parcial (2026-08-12)**: `Investments` vai para o **layer de investimentos** (Candidatas), não para poupança. As outras duas seguem abertas — até lá, **proibido rodar sem `--dry-run`**. Vale também para o OFX (T-085).
-- **Aceite**: com fixtures anonimizadas, nenhuma aplicação/resgate/fatura vira despesa ou renda; suítes verdes.
+- **Decisão do humano (2026-08-12)**: opção "não importar" — usar a `category` da Pluggy para pular, sem UI nova. Caixa de entrada de revisão foi considerada e **não** escolhida (segue em Candidatas).
+- **Entregue**: desfecho `internal` no relatório (≠ `rejected`, ≠ `skipped`); lista fechada em `internalMovement.ts` (`Same person transfer`, `Credit card payment`, `Investments`); `Transfers` fora da lista de propósito (transferência a terceiros é dinheiro real); fail **open** em categoria desconhecida; checagem antes da validação de status/sinal. Rationale completo em `packages/bank-import-core/CLAUDE.md` § T-088.
+- **Consequência**: a proibição de rodar sem `--dry-run` **cai para a Pluggy**. Segue valendo para o **OFX** (T-085), que não tem campo de categoria.
+- **Aceite**: ✅ fixtures anonimizadas provam que nenhuma aplicação/resgate/fatura vira despesa ou renda; 111 testes no package, suíte do monorepo verde.
 
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 

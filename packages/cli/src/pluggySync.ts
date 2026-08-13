@@ -62,7 +62,7 @@ function printItem(item: PluggySyncItemReport): void {
     console.log(
       `    [OK]   ${account.label}: ${account.fetched} transação(ões) — ` +
         `${r.previewed} a importar, ${r.imported} importada(s), ${r.duplicated} duplicada(s), ` +
-        `${r.skipped} pulada(s), ${r.rejected} rejeitada(s)`
+        `${r.internal} interna(s), ${r.skipped} pulada(s), ${r.rejected} rejeitada(s)`
     );
     printLines(r);
   }
@@ -128,8 +128,16 @@ async function main(): Promise<void> {
   console.log(
     `\n[pluggySync] Resumo — ${report.items.length} item(ns), ${report.failures} falha(s) | ` +
       `${t.previewed} a importar, ${t.imported} importada(s), ${t.duplicated} duplicada(s), ` +
-      `${t.skipped} pulada(s), ${t.rejected} rejeitada(s)`
+      `${t.internal} interna(s), ${t.skipped} pulada(s), ${t.rejected} rejeitada(s)`
   );
+  if (t.internal > 0) {
+    // Sem esta linha, "interna(s)" no resumo parece transação sumida (T-088).
+    console.log(
+      `             As ${t.internal} interna(s) são transferência entre contas suas, ` +
+        'pagamento de fatura ou aplicação/resgate — não são despesa nem renda e ' +
+        'por isso não entram no mês.'
+    );
+  }
 
   process.exitCode = report.failures > 0 ? 1 : 0;
 }
