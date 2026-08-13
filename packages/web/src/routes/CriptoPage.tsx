@@ -1,7 +1,9 @@
 import { BackToHomeLink } from '../components/BackToHomeLink';
 
 /**
- * Rota `/cripto` (T-004): tela mock, sem funcionalidade — mascote 130px
+ * Rota `/investimentos/cripto` (T-004; era `/cripto` até a T-091a, que a
+ * moveu para baixo do guarda-chuva de Investimentos — o path antigo redireciona
+ * para cá): tela mock, sem funcionalidade — mascote 130px
  * centralizado + texto explicativo + botão de voltar, conforme
  * design_handoff README seção "Screens / Views > Cripto (mock)".
  */

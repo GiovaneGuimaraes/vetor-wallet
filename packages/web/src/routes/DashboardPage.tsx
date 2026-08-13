@@ -40,8 +40,15 @@ import './layers-savings.css';
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
 /**
- * Rota `/dash` (T-004/T-013; sem `:id` desde a T-050b): dashboard de ações do
- * usuário.
+ * Rota `/investimentos/acoes` (T-004/T-013; sem `:id` desde a T-050b).
+ * Dashboard de ações do usuário.
+ *
+ * T-091a: o path era `/dash` — a página virou filha do guarda-chuva
+ * Investimentos (irmã de Cripto e Renda Fixa). Só a string da rota mudou
+ * (`App.tsx` + `routes/investmentsTree.ts`): este componente não lê a URL
+ * (sem `useParams` desde a T-050b), então nenhuma linha de lógica, chamada de
+ * API ou número da carteira B3 muda com isso. `/dash` e `/dash/:id`
+ * redirecionam para o path novo.
  *
  * T-050b — carteira única: não há mais `useParams`, `walletId` nas chamadas de
  * API nem seleção de carteira. O escopo das operações/portfolio é o USUÁRIO

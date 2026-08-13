@@ -34,6 +34,7 @@ import {
   isGoalsLayerEmpty,
 } from './homeMetrics';
 import { currentMonthKey } from './expenseMonth';
+import { INVESTMENTS_ROOT } from './investmentsTree';
 import './home.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -70,16 +71,16 @@ const LAYER_CARDS: LayerCardConfig[] = [
     name: 'Poupança',
     desc: 'Saldo, aportes e rendimento',
   },
-  // T-050b: carteira única — o card vai direto ao dashboard, sem passar por
-  // uma tela de seleção (`/carteiras` deixou de existir).
-  { key: 'acoes', path: '/dash', mascot: 'acoes-t.png', name: 'Ações', desc: 'Sua carteira da B3' },
+  // T-091a: os cards "Ações" e "Criptomoedas" fundiram-se neste — Investimentos
+  // é o guarda-chuva (Ações, Cripto e Renda Fixa vivem no hub `/investimentos`).
+  // O VALOR continua sendo o da carteira B3 (`stockTotals.current`), o mesmo de
+  // antes: cripto e renda fixa ainda não têm dado nenhum para somar.
   {
-    key: 'cripto',
-    path: '/cripto',
-    mascot: 'cripto-t.png',
-    name: 'Criptomoedas',
-    desc: 'Em breve',
-    chip: 'em breve',
+    key: 'investimentos',
+    path: INVESTMENTS_ROOT,
+    mascot: 'acoes-t.png',
+    name: 'Investimentos',
+    desc: 'Ações, cripto e renda fixa',
   },
   {
     key: 'metas',
@@ -92,13 +93,15 @@ const LAYER_CARDS: LayerCardConfig[] = [
 
 // T-080: CTA curto exibido no lugar do valor quando o layer ainda não tem
 // nenhum registro (não apenas soma zero — ver predicados em homeMetrics.ts).
-// Cripto fica de fora: segue sempre "em breve" via `chip`. Estático — vive
-// fora do componente para não ser recriado a cada render.
+// Estático — vive fora do componente para não ser recriado a cada render.
+// T-091a: as chaves aqui, em `isLayerEmpty` e em `cardValue` são as MESMAS de
+// `LAYER_CARDS`; renomear um card sem atualizar os três faz o cartão cair no
+// `default` e mostrar "—" para sempre, com build, lint e suíte verdes.
 const CTA_BY_KEY: Record<string, string> = {
   renda: 'Cadastre sua renda →',
   despesas: 'Registre um gasto →',
   poupanca: 'Faça seu primeiro aporte →',
-  acoes: 'Registre uma operação →',
+  investimentos: 'Registre uma operação →',
   metas: 'Crie uma meta →',
 };
 
@@ -106,7 +109,9 @@ const CTA_BY_KEY: Record<string, string> = {
  * Rota `/home` (T-008, evoluindo o shell entregue pela T-004): hero de
  * patrimônio (ações via ShellContext + saldo de poupança) com renda/despesas/
  * sobra do mês, e grid de cards de layer com o valor real de cada um
- * (renda, despesas, poupança, ações, metas — cripto segue mock "em breve").
+ * (renda, despesas, poupança, investimentos, metas). T-091a: "Ações" e
+ * "Criptomoedas" saíram daqui e viraram filhos do card "Investimentos", que
+ * leva ao hub `/investimentos`.
  * Agregações não triviais vivem em `homeMetrics.ts` (função pura, testável
  * quando o web tiver runner — issue #6).
  */
@@ -228,7 +233,7 @@ export function HomePage() {
         return isExpensesLayerEmpty(expenses, variableEntries);
       case 'poupanca':
         return isSavingsLayerEmpty(savingsSummary);
-      case 'acoes':
+      case 'investimentos':
         return isStocksLayerEmpty(walletSummary, walletLoaded, walletLoadError);
       case 'metas':
         return isGoalsLayerEmpty(goals);
@@ -245,7 +250,7 @@ export function HomePage() {
         return fmtCur.format(cashFlow.expensesTotal);
       case 'poupanca':
         return fmtCur.format(savingsBalance);
-      case 'acoes':
+      case 'investimentos':
         return fmtCur.format(stockTotals.current);
       case 'metas':
         return goalsSummary.count === 0

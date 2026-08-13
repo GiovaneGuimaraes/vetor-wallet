@@ -15,6 +15,11 @@ export const MASCOT_FILE_BY_LAYER: Record<string, string> = {
   cripto: 'cripto-t.png',
   carteiras: 'acoes-t.png',
   dash: 'acoes-t.png',
+  // T-091a — árvore de Investimentos. O hub reusa o mascote de ações (é o
+  // único filho com dado real hoje) e Renda Fixa reusa o da poupança, de
+  // propósito e temporariamente: a fase (a) não cria asset PNG novo.
+  investimentos: 'acoes-t.png',
+  'renda-fixa': 'poupanca-t.png',
 };
 
 export const DEFAULT_MASCOT_LAYER = 'home';
