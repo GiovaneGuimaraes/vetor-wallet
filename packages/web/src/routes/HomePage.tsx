@@ -20,6 +20,8 @@ import {
   getSavings,
 } from '../api';
 import { PluggyImportModal } from '../components/PluggyImportModal';
+import { PLUGGY_BRAND, connectionSummary } from './pluggyImport';
+import '../components/pluggyImport.css';
 import {
   computeGoalsSummary,
   computeMonthCashFlow,
@@ -305,10 +307,32 @@ export function HomePage() {
         </div>
         {/* T-089c — o botão fica no card do patrimônio porque a importação
             alimenta justamente os números daqui, e não de um layer só. Só
-            aparece com a integração ligada no server. */}
+            aparece com a integração ligada no server.
+            T-089f — deixou de ser uma pílula anônima: mostra de quem é a
+            tecnologia (pedido do humano) e o que vai acontecer. Um widget de
+            banco abrindo sem contexto nenhum é o que treina o usuário a não
+            desconfiar de tela alguma. */}
         {pluggyEnabled && (
-          <button type="button" className="vw-home-import-btn" onClick={() => setImportOpen(true)}>
-            {pluggyItems.length > 0 ? 'Importar do banco' : 'Conectar meu banco e importar'}
+          <button type="button" className="vw-home-import" onClick={() => setImportOpen(true)}>
+            <span
+              className="vw-pluggy-badge"
+              style={{ width: 32, height: 32, background: PLUGGY_BRAND.logoBackdrop }}
+            >
+              <img src={PLUGGY_BRAND.logo} alt="" width={32} height={32} />
+            </span>
+            <span className="vw-home-import-text">
+              <span className="vw-home-import-title">
+                {pluggyItems.length > 0 ? 'Importar do banco' : 'Conectar meu banco'}
+              </span>
+              <span className="vw-home-import-sub">
+                {pluggyItems.length > 0
+                  ? `${connectionSummary(pluggyItems.length)} · Open Finance via ${PLUGGY_BRAND.name}`
+                  : `Traga seus lançamentos automaticamente via ${PLUGGY_BRAND.name}`}
+              </span>
+            </span>
+            <span className="vw-home-import-chevron" aria-hidden="true">
+              ›
+            </span>
           </button>
         )}
         {loading && <p className="vw-home-status">Carregando dados dos seus layers…</p>}

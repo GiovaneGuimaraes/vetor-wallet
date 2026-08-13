@@ -13,6 +13,70 @@ import type { PluggyImportMode, PluggySyncResponse } from '@vetor-wallet/shared'
 export const PLUGGY_CONNECT_SCRIPT =
   'https://cdn.pluggy.ai/pluggy-connect/v2.7.0/pluggy-connect.js';
 
+/**
+ * Identidade da Pluggy exibida na UI (T-089f).
+ *
+ * O humano pediu para **não esconder** a integração: dizer de quem é a
+ * tecnologia é bom para o projeto e, mais que isso, é o que faz o usuário
+ * entender por que uma tela de banco vai se abrir por cima do app. Um widget de
+ * instituição financeira aparecendo sem contexto é exatamente o que treina
+ * alguém a desconfiar — e, no limite, a cair em phishing de verdade.
+ *
+ * O arquivo é a marca da Pluggy, servida de `public/`. **Não** vai para o
+ * `<img>` esticado: o JPG tem fundo escuro chapado e margem interna própria,
+ * então vive dentro de um selo arredondado da mesma cor, onde a margem vira
+ * respiro em vez de moldura torta.
+ */
+export const PLUGGY_BRAND = {
+  name: 'Pluggy',
+  logo: '/logo-my-pluggy.jpg',
+  /** Fundo do JPG — o selo usa a MESMA cor, senão aparece costura no tema claro. */
+  logoBackdrop: '#150a35',
+  site: 'https://pluggy.ai',
+} as const;
+
+/**
+ * Frase de contexto e de segurança do fluxo de conexão.
+ *
+ * Precisa ser **verdadeira ao pé da letra**, não tranquilizadora: quem digita a
+ * senha do banco merece saber exatamente para onde ela vai. O app de fato nunca
+ * recebe credencial — o widget é da Pluggy e o que volta para nós é só o
+ * `itemId` da conexão (ver `packages/pluggy-core/CLAUDE.md`).
+ */
+export function pluggySecurityNotes(): string[] {
+  return [
+    `A conexão é feita pela ${PLUGGY_BRAND.name}, provedora de Open Finance regulada pelo Banco Central.`,
+    'Suas credenciais do banco são digitadas na tela da Pluggy — o Vetor Wallet nunca as recebe nem as guarda.',
+    'O acesso é somente de leitura: dá para ver seus lançamentos, nunca movimentar dinheiro.',
+    'Você pode desconectar quando quiser, e a conexão é revogada também do lado da Pluggy.',
+  ];
+}
+
+/** Resumo curto do estado das conexões, para o cabeçalho da seção. */
+export function connectionSummary(count: number): string {
+  if (count === 0) return 'Nenhum banco conectado';
+  return count === 1 ? '1 banco conectado' : `${count} bancos conectados`;
+}
+
+/**
+ * Por que o botão de importar está travado — ou `null` quando está liberado.
+ *
+ * Existe porque um botão `disabled` **sem explicação** é um beco sem saída: o
+ * usuário vê a ação que quer, não consegue clicar e não tem como descobrir o
+ * que falta. Era o estado real de quem abria o modal sem banco conectado.
+ */
+export function importDisabledReason(params: {
+  hasItems: boolean;
+  mode: PluggyImportMode;
+  confirmText: string;
+}): string | null {
+  if (!params.hasItems) return 'Conecte um banco para liberar a importação.';
+  if (params.mode === 'replace' && !canConfirmReplace(params.confirmText)) {
+    return `Digite ${REPLACE_CONFIRM_WORD} acima para confirmar que quer apagar tudo.`;
+  }
+  return null;
+}
+
 /** Conector `MeuPluggy` — o único que a integração usa hoje (T-087). */
 export const PLUGGY_CONNECTOR_IDS = [200];
 
@@ -55,7 +119,7 @@ export function replaceWarnings(): string[] {
 }
 
 /** Rótulo em pt-BR de cada desfecho do relatório. */
-const STATUS_LABEL: Record<PluggySyncResponse['transactions'][number]['status'], string> = {
+const STATUS_LABEL: Record<PluggyLineStatus, string> = {
   imported: 'importada',
   duplicated: 'duplicada',
   rejected: 'rejeitada',
@@ -102,14 +166,17 @@ export function internalMovementNote(totals: PluggySyncResponse['totals']): stri
   );
 }
 
+/** Desfecho de uma linha do relatório — o mesmo vocabulário do core. */
+export type PluggyLineStatus = PluggySyncResponse['transactions'][number]['status'];
+
 /** Agrupa as linhas por desfecho, preservando a ordem original dentro de cada grupo. */
 export function groupPluggyTransactions(
   transactions: PluggySyncResponse['transactions']
-): Array<{ status: string; label: string; lines: PluggySyncResponse['transactions'] }> {
+): Array<{ status: PluggyLineStatus; label: string; lines: PluggySyncResponse['transactions'] }> {
   // Ordem de exibição: o que entrou primeiro, o que precisa de atenção por
   // último — relatório de reimportação (quase todo duplicado) não deve abrir
   // com uma parede de linhas irrelevantes.
-  const order: Array<PluggySyncResponse['transactions'][number]['status']> = [
+  const order: PluggyLineStatus[] = [
     'imported',
     'previewed',
     'internal',
@@ -130,4 +197,19 @@ export function groupPluggyTransactions(
 /** Rótulo do botão de ação, por modo — some a ambiguidade de "Importar". */
 export function importButtonLabel(mode: PluggyImportMode): string {
   return mode === 'replace' ? 'Apagar tudo e importar' : 'Importar e somar aos meus dados';
+}
+
+/**
+ * Tom visual de cada desfecho do relatório.
+ *
+ * Só **três** tons para seis desfechos, de propósito: `warn` fica reservado ao
+ * que pede ação do usuário (`rejected`), e tudo que é rotina — duplicada,
+ * interna, pendente — cai em `muted`. Pintar movimentação interna de amarelo
+ * faria um relatório saudável parecer cheio de problema, que é a mesma razão de
+ * `internal` não ser `rejected` no core (T-088).
+ */
+export function statusTone(status: PluggyLineStatus): 'good' | 'warn' | 'muted' {
+  if (status === 'imported' || status === 'previewed') return 'good';
+  if (status === 'rejected') return 'warn';
+  return 'muted';
 }
