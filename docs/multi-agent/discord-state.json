@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-08-12T20:46:00-03:00"
+    "atualizadoEm": "2026-08-12T23:00:37-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-08-12T20:46:00-03:00"
+    "atualizadoEm": "2026-08-12T23:00:37-03:00"
   },
   "tasks": {
     "T-104b": {
@@ -45,6 +45,11 @@
       "messageId": "1537236493532266507",
       "status": "CONCLUIDA",
       "pr": 161
+    },
+    "T-088": {
+      "canal": "todo-ai",
+      "messageId": "1537278397414248542",
+      "status": "EM_REVISAO (implementada 2026-08-12, aguardando PR)"
     }
   },
   "humanTodos": {
@@ -72,7 +77,7 @@
       "canal": "todo-human",
       "messageId": "1537227360024403971",
       "modo": "emoji + resposta",
-      "status": "1 respondida (Investments vai para o layer de investimentos); 2 e 3 abertas",
+      "status": "RESOLVIDO 2026-08-12: opcao 2 escolhida (transferencia propria e fatura nao importam). Implementado na T-088.",
       "opcoes": {
         "1️⃣": "Investments vira poupanca",
         "2️⃣": "transferencia interna e fatura nao importam",

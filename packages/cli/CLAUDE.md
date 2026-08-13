@@ -82,6 +82,12 @@ Um usuário com N items sincroniza os N; falha em um item (ou em uma conta) **n�
 aborta** os outros — o relatório mostra cada falha e o processo sai não-zero no
 final.
 
+O relatório conta `interna(s)` desde a T-088: transferência entre contas suas,
+pagamento de fatura e aplicação/resgate **não** viram despesa nem renda. Não é
+erro nem transação sumida — o resumo explica a contagem quando ela é maior que
+zero, porque uma linha que o humano VÊ no extrato e não acha no app é
+exatamente o tipo de silêncio que ele não teria como conferir.
+
 `--dry-run` lista o que faria e **não grava nada** (a garantia vive em
 `importPluggyTransactions`, no `bank-import-core`, não num `if` daqui). Rodar de
 novo é seguro: o dedupe por `external_id` (T-084) faz a segunda passagem reportar

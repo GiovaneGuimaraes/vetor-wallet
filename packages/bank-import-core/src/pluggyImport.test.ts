@@ -194,6 +194,133 @@ describe('importPluggyTransactions — gravação (T-087)', () => {
   });
 });
 
+describe('importPluggyTransactions — movimentação interna (T-088)', () => {
+  /**
+   * Reprodução do mês que o dry-run real produzia, com valores INVENTADOS (o
+   * repo é público — dado financeiro real nunca entra em arquivo versionado).
+   *
+   * O extrato tem UM gasto real e quatro linhas de movimentação interna: a
+   * aplicação em reserva (que era a maior parte do volume de débito), o resgate
+   * dela, e as duas pontas do pagamento da fatura — o débito na conta e o
+   * crédito no cartão, que faziam a fatura contar duas vezes.
+   */
+  const mesRealista: RawPluggyTransaction[] = [
+    raw({ id: 'tx-mercado', amount: -237.8, description: 'Mercado', category: 'Supermarket' }),
+    raw({
+      id: 'tx-aplicacao',
+      amount: -5000,
+      description: 'Aplicação RDB',
+      category: 'Investments',
+    }),
+    raw({
+      id: 'tx-resgate',
+      type: 'CREDIT',
+      amount: 5000,
+      description: 'Resgate RDB',
+      category: 'Investments',
+    }),
+    raw({
+      id: 'tx-fatura-conta',
+      amount: -1280.44,
+      description: 'Pagamento de fatura',
+      category: 'Credit card payment',
+    }),
+    raw({
+      id: 'tx-fatura-cartao',
+      type: 'CREDIT',
+      amount: 1280.44,
+      description: 'Pagamento recebido',
+      category: 'Credit card payment',
+    }),
+  ];
+
+  it('o mês importado tem SÓ o gasto real — aplicação, resgate e fatura não entram', async () => {
+    const result = await pluggy.importPluggyTransactions({
+      userId,
+      transactions: mesRealista,
+    });
+
+    expect(result).toMatchObject({ imported: 1, internal: 4, rejected: 0, skipped: 0 });
+    expect(await countEntries()).toEqual({ income: 0, expense: 1 });
+
+    // A despesa do mês é o gasto real, não o volume da aplicação.
+    const expense = await db.execute('SELECT * FROM expense_entries');
+    expect(expense.rows).toHaveLength(1);
+    expect(expense.rows[0]).toMatchObject({ external_id: 'pluggy:tx-mercado', amount: 237.8 });
+
+    // E nenhuma renda foi inventada a partir do resgate ou da fatura.
+    const income = await db.execute('SELECT * FROM income_entries');
+    expect(income.rows).toHaveLength(0);
+  });
+
+  it('cada linha interna vem com o motivo no relatório, e nunca como `rejected`', async () => {
+    const result = await pluggy.importPluggyTransactions({
+      userId,
+      transactions: mesRealista,
+    });
+
+    const internas = result.transactions.filter((t) => t.status === 'internal');
+    expect(internas).toHaveLength(4);
+    expect(internas.every((t) => Boolean(t.reason))).toBe(true);
+    expect(result.transactions.some((t) => t.status === 'rejected')).toBe(false);
+
+    // A linha continua identificável no relatório (id, data e valor crus).
+    expect(internas[0]).toMatchObject({
+      transactionId: 'tx-aplicacao',
+      date: '2026-08-11',
+      amount: 5000,
+    });
+  });
+
+  it('transferência a TERCEIROS (`Transfers`) segue sendo lançamento real', async () => {
+    const result = await pluggy.importPluggyTransactions({
+      userId,
+      transactions: [
+        raw({ id: 'tx-pix-amigo', amount: -80, description: 'Pix enviado', category: 'Transfers' }),
+        raw({
+          id: 'tx-pix-recebido',
+          type: 'CREDIT',
+          amount: 150,
+          description: 'Pix recebido',
+          category: 'Transfers',
+        }),
+      ],
+    });
+
+    expect(result).toMatchObject({ imported: 2, internal: 0 });
+    expect(await countEntries()).toEqual({ income: 1, expense: 1 });
+  });
+
+  it('interna NÃO consome a chave: quando o layer de investimentos existir, reimportar funciona', async () => {
+    const aplicacao = raw({ id: 'tx-aplicacao', amount: -5000, category: 'Investments' });
+
+    const primeira = await pluggy.importPluggyTransactions({
+      userId,
+      transactions: [aplicacao],
+    });
+    expect(primeira).toMatchObject({ internal: 1, imported: 0 });
+
+    // Mesma transação, agora sem a categoria que a marcava como interna —
+    // prova que o `external_id` seguiu livre (nada foi gravado no banco).
+    const segunda = await pluggy.importPluggyTransactions({
+      userId,
+      transactions: [{ ...aplicacao, category: null }],
+    });
+    expect(segunda).toMatchObject({ imported: 1, duplicated: 0 });
+  });
+
+  it('interna é interna também no dry-run — o desfecho não muda entre as modalidades', async () => {
+    const result = await pluggy.importPluggyTransactions({
+      userId,
+      dryRun: true,
+      transactions: mesRealista,
+    });
+
+    expect(result).toMatchObject({ previewed: 1, internal: 4, imported: 0 });
+    expect(await countEntries()).toEqual({ income: 0, expense: 0 });
+  });
+});
+
 describe('importPluggyTransactions — dry-run (T-087)', () => {
   it('não grava NADA e marca as linhas mapeadas como `previewed`', async () => {
     const result = await pluggy.importPluggyTransactions({

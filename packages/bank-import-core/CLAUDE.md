@@ -30,6 +30,8 @@ src/
 ├── pluggy.ts            # pluggyExternalId, parsePluggyDate,
 │                        # mapPluggyTransaction (sinal × type, PENDING, BRL),
 │                        # importPluggyTransactions (relatório + dry-run)
+├── internalMovement.ts  # classifyInternalMovement — a lista fechada de
+│                        # categorias da Pluggy que NÃO viram lançamento (T-088)
 ├── PluggyItem.ts        # PluggyItem + toPluggyItem (T-089a)
 ├── PluggyItemError.ts   # erro tipado (INVALID_ITEM_ID, ITEM_ALREADY_LINKED)
 ├── linkPluggyItem.ts    # upsert idempotente de um item para um usuário
@@ -66,6 +68,8 @@ resolveria para `.../src/index.ts/fixtures`. As fixtures ficam fora do build
   violação de unicidade. Um SELECT-antes-do-INSERT é TOCTOU.
 - **Duplicata unitária é `409`; duplicata em lote é linha de relatório com `200`.**
 - **Sem FITID a transação é rejeitada** — nunca importada com id inventado.
+- **Movimentação interna não é despesa nem renda** (T-088) — e `Transfers`, a
+  guarda-chuva, **não** é movimentação interna.
 - **O sinal de `TRNAMT` decide income × expense**; `TRNTYPE` é ignorado.
 - **`DTPOSTED` mantém a data LOCAL do extrato** — o offset é ignorado.
 - **É o header OFX que decide o charset**, não o conteúdo.
@@ -177,10 +181,8 @@ Decisões travadas:
   `users.id`. Sem "usuário default" silencioso — sem nenhuma das duas fontes, ou
   com e-mail inexistente, o comando falha.
 - **Fora de escopo (segue pendente)**: endpoint `investments`; UI; agendamento;
-  caixa de entrada de revisão; e **transferência entre contas próprias**, que
-  aqui importa como está (herda a pendência do OFX) — com o agravante de que
-  importar cartão **e** conta faz a compra no cartão e o pagamento da fatura
-  contarem duas vezes na despesa do mês.
+  caixa de entrada de revisão. **Transferência entre contas próprias e pagamento
+  de fatura saíram desta lista na T-088** (seção abaixo).
 
 ## Items da Pluggy por usuário (T-089a)
 
@@ -236,6 +238,68 @@ Decisões travadas:
   delas arrastaria as rotas de income/expense entries. Essa unificação é da
   migração deste package (T-104), não desta tarefa. O runner segue Vitest com
   teste ao lado, pela mesma razão.
+
+## Movimentação interna não vira lançamento (T-088)
+
+O dry-run real da T-087 provou que o pipeline funcionava e mesmo assim produzia
+um **mês irreconhecível**. Não era bug do importador: é o app não ter o conceito
+de **movimentação interna** — dinheiro que sai de um bolso do humano para outro
+bolso dele não é despesa nem renda. Três defeitos medidos: aplicação em reserva
+virava despesa (era a maior parte do volume de débito do mês), o resgate virava
+renda, e o pagamento de fatura contava **duas vezes** (despesa na conta, renda no
+cartão). Enquanto isso não foi corrigido, a importação real ficou proibida sem
+`--dry-run`.
+
+A decisão do humano (2026-08-12, via chat) foi a opção "não importar": usar a
+`category` da Pluggy para pular, sem UI nova. A caixa de entrada de revisão
+(aprovar transação por transação) foi considerada e **não** escolhida — segue
+como candidata.
+
+Decisões travadas:
+
+- **`internal` é um desfecho próprio no relatório**, ao lado de
+  `imported`/`duplicated`/`rejected`/`skipped`/`previewed`. Não é `rejected`
+  (que significa "não sei importar e não vai melhorar", a única linha que pede
+  atenção de quem lê) nem `skipped` (que significa "importo na próxima
+  passagem"). Movimentação interna é a linha mais comum de um extrato real:
+  contá-la como rejeição faria todo relatório parecer cheio de erro e treinaria
+  o humano a ignorar a contagem que importa.
+- **A lista é fechada e vive em `internalMovement.ts`**: `Same person transfer`,
+  `Credit card payment`, `Investments`. Comparação por **igualdade normalizada**
+  (trim + minúsculas + espaços colapsados), nunca `includes`.
+- **`Transfers` está deliberadamente FORA da lista.** É a guarda-chuva da Pluggy
+  e cobre transferência para **terceiros** — um PIX pago a alguém é despesa real,
+  um PIX recebido é renda real. Pulá-la sumiria com dinheiro de verdade em
+  silêncio, que é o oposto do defeito consertado aqui. `includes('transfer')`
+  cairia exatamente nessa armadilha; tem teste fixando os dois lados.
+- **`Investments` também não é importado**, com motivo próprio. A decisão do
+  humano é que ele pertence ao **layer de investimentos** (que ainda não existe —
+  generalizar o layer de Ações é tarefa própria, nas Candidatas do backlog).
+  Importar como despesa até lá manteria o defeito de maior volume. Como nada é
+  gravado, o `external_id` segue **livre**: quando o layer existir, uma nova
+  sincronização da mesma janela importa essas linhas sem esbarrar no dedupe
+  (tem teste).
+- **A checagem vem ANTES da validação de status/moeda/sinal.** Decidido que a
+  linha não é dinheiro do mês, validar o resto é moot — e reportá-la como
+  `rejected` por sinal incoerente pediria atenção para uma linha correta.
+  Consequência deliberada: o desfecho é o **mesmo** com a transação pendente ou
+  efetivada, em vez de mudar de `skipped` para `internal` entre duas passagens.
+  A transação **sem `id`** continua `rejected` mesmo sendo interna: sem id não há
+  linha identificável no relatório, e o defeito de dados vem primeiro.
+- **Categoria desconhecida ou ausente é lançamento normal — fail OPEN**, ao
+  contrário do gate de assinatura e do `ENVIRONMENT` da Pluggy, que falham
+  fechado. A assimetria é deliberada: errar para o lado fechado seria **não
+  importar despesa real**, e ausência é invisível para quem confere. Errar para o
+  lado aberto importa uma movimentação interna que aparece no relatório e pode
+  ser apagada. Consequência aceita: se a Pluggy renomear um rótulo, o defeito
+  volta até alguém atualizar a lista.
+- **Não usa `normalizeCategory`** (T-028) para casar: aquela função é de
+  apresentação e pode mudar por motivo de UI. Amarrar "isto é dinheiro do mês ou
+  não" à normalização de exibição faria um ajuste de UI mudar, em silêncio,
+  quanto o humano gastou.
+- **O OFX segue sem isto** — não tem campo de categoria, só `MEMO` de texto
+  livre, e adivinhar por descrição é exatamente o que a T-085 recusa a fazer com
+  campo de dinheiro. A pendência da T-085 continua aberta para o caminho OFX.
 
 ## Convenções
 

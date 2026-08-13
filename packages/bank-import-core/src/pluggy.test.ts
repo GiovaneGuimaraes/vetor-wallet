@@ -216,3 +216,57 @@ describe('mapPluggyTransaction — descrição e categoria (T-087)', () => {
     expect(res.transaction.category).toHaveLength(MAX_PLUGGY_DESCRIPTION_LENGTH);
   });
 });
+
+describe('mapPluggyTransaction — movimentação interna (T-088)', () => {
+  it.each([
+    ['Same person transfer', /próprio titular/],
+    ['Credit card payment', /fatura/],
+    ['Investments', /investimento/],
+  ])('categoria %s sai como `internal`, com motivo', (category, motivo) => {
+    const res = mapPluggyTransaction(raw({ category }));
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.outcome).toBe('internal');
+    expect(res.reason).toMatch(motivo);
+  });
+
+  it('vale para as duas direções — o resgate não vira renda', () => {
+    const res = mapPluggyTransaction(raw({ category: 'Investments', type: 'CREDIT', amount: 900 }));
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.outcome).toBe('internal');
+  });
+
+  it('a decisão vem ANTES do status: pendente e efetivada dão o mesmo desfecho', () => {
+    const pendente = mapPluggyTransaction(raw({ category: 'Investments', status: 'PENDING' }));
+    const efetivada = mapPluggyTransaction(raw({ category: 'Investments', status: 'POSTED' }));
+    expect(pendente.ok).toBe(false);
+    expect(efetivada.ok).toBe(false);
+    if (pendente.ok || efetivada.ok) return;
+    // Sem isso a mesma transação seria `skipped` numa passagem e `internal` na
+    // seguinte — relatório instável para uma linha que nunca vai ser importada.
+    expect(pendente.outcome).toBe('internal');
+    expect(efetivada.outcome).toBe('internal');
+  });
+
+  it('interna com sinal incoerente não vira `rejected` — não pede atenção à toa', () => {
+    // DEBIT positivo em conta BANK seria rejeitado se a checagem viesse depois.
+    const res = mapPluggyTransaction(raw({ category: 'Credit card payment', amount: 500 }));
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.outcome).toBe('internal');
+  });
+
+  it('mas a transação SEM id continua rejeitada, mesmo sendo interna', () => {
+    // Sem id não há linha identificável no relatório; o defeito de dados vem primeiro.
+    const res = mapPluggyTransaction(raw({ id: null, category: 'Investments' }));
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.outcome).toBe('rejected');
+  });
+
+  it('categoria de gasto comum segue virando lançamento', () => {
+    const res = mapPluggyTransaction(raw({ category: 'Supermarket' }));
+    expect(res.ok).toBe(true);
+  });
+});

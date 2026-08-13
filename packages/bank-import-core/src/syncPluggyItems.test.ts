@@ -292,6 +292,39 @@ describe('syncPluggyItems (T-089a)', () => {
     const rows = await db.execute('SELECT COUNT(*) AS c FROM expense_entries');
     expect(Number(rows.rows[0].c)).toBe(1);
   });
+
+  it('soma a movimentação interna das DUAS pontas da fatura (T-088)', async () => {
+    // O caso que contava a fatura duas vezes: conta e cartão são items/contas
+    // diferentes, então o total só fecha se `internal` agregar como os demais.
+    await link.linkPluggyItem({ db, userId, itemId: ITEM_A, connectorName: 'Conta' });
+    await link.linkPluggyItem({ db, userId, itemId: ITEM_B, connectorName: 'Cartão' });
+
+    const report = await sync.syncPluggyItems({
+      db,
+      userId,
+      dateFrom: '2026-08-01',
+      deps: deps({
+        accounts: {
+          [ITEM_A]: [account({ id: 'acc-conta' })],
+          [ITEM_B]: [account({ id: 'acc-cartao', type: 'CREDIT' })],
+        },
+        transactions: {
+          'acc-conta': [
+            tx({ id: 'tx-mercado', amount: -60 }),
+            tx({ id: 'tx-fatura-debito', amount: -430.19, category: 'Credit card payment' }),
+          ],
+          'acc-cartao': [
+            tx({ id: 'tx-fatura-credito', amount: -430.19, category: 'Credit card payment' }),
+          ],
+        },
+      }),
+    });
+
+    expect(report.totals).toMatchObject({ imported: 1, internal: 2, rejected: 0 });
+    expect(report.failures).toBe(0);
+    const rows = await db.execute('SELECT COUNT(*) AS c FROM expense_entries');
+    expect(Number(rows.rows[0].c)).toBe(1);
+  });
 });
 
 describe('pluggyAccountKindOf', () => {

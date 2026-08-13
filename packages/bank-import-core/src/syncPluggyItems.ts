@@ -68,6 +68,8 @@ export interface PluggySyncTotals {
   duplicated: number;
   rejected: number;
   skipped: number;
+  /** Movimentação interna não importada (T-088). */
+  internal: number;
   previewed: number;
 }
 
@@ -127,6 +129,7 @@ export async function syncPluggyItems(params: SyncPluggyItemsParams): Promise<Pl
     duplicated: 0,
     rejected: 0,
     skipped: 0,
+    internal: 0,
     previewed: 0,
   };
 
@@ -196,6 +199,7 @@ export async function syncPluggyItems(params: SyncPluggyItemsParams): Promise<Pl
         totals.duplicated += result.duplicated;
         totals.rejected += result.rejected;
         totals.skipped += result.skipped;
+        totals.internal += result.internal;
         totals.previewed += result.previewed;
       } catch (err) {
         accountReport.error = errorMessage(err);

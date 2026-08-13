@@ -4,6 +4,7 @@ import {
   normalizeCategory,
 } from '@vetor-wallet/validation-core';
 import { MAX_EXTERNAL_ID_LENGTH, insertEntryWithExternalId } from './externalId';
+import { classifyInternalMovement } from './internalMovement';
 
 /**
  * Mapeamento e gravação das transações do Open Finance via Pluggy (T-087).
@@ -71,14 +72,22 @@ export interface MappedPluggyTransaction {
 }
 
 /**
- * `skipped` ≠ `rejected`: **pulada** é uma transação legítima que ainda não
- * pode ser importada (pendente) e vai entrar numa passagem futura; **rejeitada**
- * é uma transação que este app não sabe importar (sem id, moeda estrangeira,
- * sinal incoerente) e não vai melhorar sozinha.
+ * Três maneiras de uma transação não virar lançamento, e elas **não** são
+ * intercambiáveis:
+ *
+ * - **`skipped`** — legítima, mas ainda não pode ser importada (pendente); vai
+ *   entrar numa passagem futura sozinha.
+ * - **`rejected`** — este app não sabe importar (sem id, moeda estrangeira,
+ *   sinal incoerente) e não vai melhorar sozinha. É o único desfecho que pede
+ *   atenção de quem lê o relatório.
+ * - **`internal`** — movimentação interna (T-088): decidimos não importar e
+ *   está tudo certo. Separada de `rejected` de propósito — são as linhas mais
+ *   comuns de um extrato real, e contá-las como rejeição faria todo relatório
+ *   parecer cheio de erro.
  */
 export type PluggyMapResult =
   | { ok: true; transaction: MappedPluggyTransaction }
-  | { ok: false; outcome: 'skipped' | 'rejected'; reason: string };
+  | { ok: false; outcome: 'skipped' | 'rejected' | 'internal'; reason: string };
 
 /**
  * `date` da Pluggy → `YYYY-MM-DD`.
@@ -126,6 +135,15 @@ export function parsePluggyDate(raw: string | null): string | null {
  *   `DEBIT` → `expense_entries`) e o valor gravado é o **absoluto** (T-084).
  *   Aqui, ao contrário do OFX, o `type` é confiável: é enum de duas opções
  *   normalizado pelo agregador, não o vocabulário livre do `TRNTYPE`.
+ * - **Movimentação interna não vira lançamento** (T-088): `Same person
+ *   transfer`, `Credit card payment` e `Investments` saem como `internal`, com
+ *   motivo. A checagem vem **antes** da validação de status/moeda/sinal de
+ *   propósito: uma vez decidido que a linha não é dinheiro do mês, validar o
+ *   resto é moot, e reportá-la como `rejected` por um sinal incoerente pediria
+ *   atenção do humano para uma linha que está correta. Consequência: o desfecho
+ *   é o **mesmo** com a transação pendente ou efetivada — não muda de `skipped`
+ *   para `internal` entre duas passagens. Lista e rationale em
+ *   `internalMovement.ts`.
  * - **Categoria**: `category` da Pluggy quando vier, senão a descrição
  *   normalizada, senão `outros` — as três passando por `normalizeCategory`
  *   (T-028). A `category` da Pluggy vem do enriquecimento (plano Pro) e é
@@ -146,6 +164,13 @@ export function mapPluggyTransaction(
   const externalId = pluggyExternalId(transactionId);
   if (externalId.length > MAX_EXTERNAL_ID_LENGTH) {
     return reject('id da transação excede o tamanho máximo suportado');
+  }
+
+  // T-088 — antes de qualquer outra validação: se não é dinheiro do mês, o
+  // resto dos campos não importa (ver o bloco de decisões acima).
+  const internalReason = classifyInternalMovement(raw.category);
+  if (internalReason) {
+    return { ok: false, outcome: 'internal', reason: internalReason };
   }
 
   const status = raw.status?.trim().toUpperCase() ?? null;
@@ -224,9 +249,12 @@ export function mapPluggyTransaction(
  * OFX (T-085). `skipped` é a transação pendente (ver `mapPluggyTransaction`), e
  * `previewed` só existe no `--dry-run` — é o que a linha SERIA se o job
  * gravasse. Chamar de `imported` no dry-run seria mentir no relatório, e chamar
- * de `pending` colidiria com o `PENDING` da Pluggy.
+ * de `pending` colidiria com o `PENDING` da Pluggy. `internal` é a movimentação
+ * interna da T-088 — o mesmo status nas duas modalidades, porque a linha não é
+ * gravada nem com `dryRun: false`.
  */
-export type PluggyImportStatus = 'imported' | 'duplicated' | 'rejected' | 'skipped' | 'previewed';
+export type PluggyImportStatus =
+  'imported' | 'duplicated' | 'rejected' | 'skipped' | 'internal' | 'previewed';
 
 export interface PluggyImportLine {
   status: PluggyImportStatus;
@@ -247,6 +275,8 @@ export interface PluggyImportResult {
   duplicated: number;
   rejected: number;
   skipped: number;
+  /** Movimentação interna não importada (T-088). */
+  internal: number;
   previewed: number;
   transactions: PluggyImportLine[];
 }
@@ -271,6 +301,11 @@ export interface ImportPluggyTransactionsParams {
  *   `--dry-run` do job promete, e ela vive aqui (num lugar só, testável) em vez
  *   de num `if` do CLI.
  * - Duplicata **não é erro**: é linha do relatório (T-084, convenção de lote).
+ * - **Movimentação interna nunca chega ao banco** (T-088), com ou sem
+ *   `dryRun` — ela é cortada no mapeamento, então o `external_id` daquela
+ *   transação segue **livre**. Isso é o que permite que, quando o layer de
+ *   investimentos existir, uma nova sincronização da mesma janela importe as
+ *   linhas `Investments` sem esbarrar no dedupe.
  */
 export async function importPluggyTransactions(
   params: ImportPluggyTransactionsParams
@@ -282,6 +317,7 @@ export async function importPluggyTransactions(
   let duplicated = 0;
   let rejected = 0;
   let skipped = 0;
+  let internal = 0;
   let previewed = 0;
 
   for (const raw of transactions) {
@@ -289,6 +325,7 @@ export async function importPluggyTransactions(
 
     if (!mapped.ok) {
       if (mapped.outcome === 'skipped') skipped++;
+      else if (mapped.outcome === 'internal') internal++;
       else rejected++;
       // Campos crus quando legíveis: identificam a linha no relatório mesmo
       // quando foi outro campo que derrubou a transação (padrão do OFX).
@@ -347,5 +384,5 @@ export async function importPluggyTransactions(
     });
   }
 
-  return { imported, duplicated, rejected, skipped, previewed, transactions: lines };
+  return { imported, duplicated, rejected, skipped, internal, previewed, transactions: lines };
 }
