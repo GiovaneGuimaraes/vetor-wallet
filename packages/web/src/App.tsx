@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { getMe, logout, getPortfolio, getWallets, createWallet } from './api';
 import { ProtectedShell } from './layout/ProtectedShell';
@@ -11,10 +11,13 @@ import { PoupancaPage } from './routes/PoupancaPage';
 import { MetasPage } from './routes/MetasPage';
 import { CriptoPage } from './routes/CriptoPage';
 import { DashboardPage } from './routes/DashboardPage';
+import { InvestimentosPage } from './routes/InvestimentosPage';
+import { RendaFixaPage } from './routes/RendaFixaPage';
 import { PlanosPage } from './routes/PlanosPage';
 import { ContaPage } from './routes/ContaPage';
 import { AdminRoute } from './routes/AdminRoute';
 import { decideWalletFlow, resolvePrimaryWallet } from './routes/walletFlow';
+import { INVESTMENT_NODES, LEGACY_INVESTMENT_REDIRECTS } from './routes/investmentsTree';
 import { shouldNavigateToPlans } from './routes/billingNavigation';
 import type { User, Wallet, PortfolioSummary } from '@vetor-wallet/shared';
 import { getStoredTheme, setTheme as applyAndPersistTheme, type Theme } from './theme';
@@ -30,6 +33,18 @@ import { getStoredTheme, setTheme as applyAndPersistTheme, type Theme } from './
  * `/` (ver `ProtectedShell`); logado em `/` → redireciona para `/home`
  * (ver `LandingRoute`).
  */
+/**
+ * T-091a — página de cada filho de Investimentos. Os PATHS vivem só em
+ * `routes/investmentsTree.ts`; aqui fica apenas o casamento key → elemento,
+ * para que um typo de path não possa existir em dois lugares. Nó sem
+ * elemento simplesmente não vira rota (cai no catch-all).
+ */
+const INVESTMENT_ELEMENTS: Record<string, ReactElement> = {
+  acoes: <DashboardPage />,
+  cripto: <CriptoPage />,
+  'renda-fixa': <RendaFixaPage />,
+};
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -217,15 +232,28 @@ export default function App() {
         <Route path="/despesas" element={<DespesasPage />} />
         <Route path="/poupanca" element={<PoupancaPage />} />
         <Route path="/metas" element={<MetasPage />} />
-        <Route path="/cripto" element={<CriptoPage />} />
-        <Route path="/dash" element={<DashboardPage />} />
+        {/* T-091a: Investimentos é o guarda-chuva de Ações, Cripto e Renda
+            Fixa. As rotas dos filhos são declaradas IRMÃS do hub (planas),
+            não aninhadas sob `/investimentos` com um layout próprio: uma
+            `<Route>` pai com filhos exigiria um `<Outlet/>` dentro da
+            `InvestimentosPage`, e `useOutletContext` passaria a ler o Outlet
+            mais próximo — o `ShellContext` deixaria de chegar na
+            `DashboardPage`, quebrando em runtime com build e lint verdes. */}
+        <Route path="/investimentos" element={<InvestimentosPage />} />
+        {INVESTMENT_NODES.map((node) => {
+          const element = INVESTMENT_ELEMENTS[node.key];
+          return element ? <Route key={node.key} path={node.path} element={element} /> : null;
+        })}
         <Route path="/planos" element={<PlanosPage />} />
         <Route path="/conta" element={<ContaPage />} />
-        {/* T-050b: bookmarks antigos do fluxo multi-carteira. `/carteiras` e
-            `/dash/:id` não existem mais — a carteira é única e o dashboard não
-            recebe id. Redirect em vez de 404 para não quebrar link salvo. */}
-        <Route path="/dash/:id" element={<Navigate to="/dash" replace />} />
-        <Route path="/carteiras" element={<Navigate to="/dash" replace />} />
+        {/* Bookmarks antigos: `/carteiras` e `/dash/:id` do fluxo
+            multi-carteira (T-050b) e `/dash`/`/cripto` de quando os layers
+            eram planos (T-091a). Redirect em vez de 404 para não quebrar link
+            salvo; `replace` em todos, senão o Voltar do navegador entra em
+            loop. Destinos em `routes/investmentsTree.ts`. */}
+        {Object.entries(LEGACY_INVESTMENT_REDIRECTS).map(([from, to]) => (
+          <Route key={from} path={from} element={<Navigate to={to} replace />} />
+        ))}
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
