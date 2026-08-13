@@ -20,17 +20,16 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
-### T-091 — Metas sai, Investimentos entra como árvore (guarda-chuva) ⭐ PRÓXIMA
-- **Status**: EM_ANDAMENTO (fase **a**, 2026-08-13; b/c/d seguem PENDENTE) · **Complexidade**: alta (executor Opus) · **Depende de**: nada
-- **Objetivo**: decisão do humano (2026-08-13) — **remover o layer de Metas** e criar **Investimentos** como pai de **Ações**, **Cripto** e **Renda Fixa**. Hoje Ações assume ticker da B3 + preço médio + cotação da brapi, e "Aplicação RDB"/caixinha não tem nenhum dos três.
-- **Caixinhas são Renda Fixa, IRMÃS de Ações — não dentro dela.** Proposto contra o pedido original ("dentro de Ações") e **aprovado pelo humano em 2026-08-13 — não reabrir**. A proximidade visual é mantida (irmãs no mesmo pai), mas renda fixa *dentro* de Ações recriaria o acoplamento que esta tarefa desfaz. Caixinha não é apelido de poupança: no Nubank é lastreada em RDB e rende % do CDI, e o padrão não é exclusivo dele (cofrinho no PicPay/Inter, objetivos no C6).
-- **Fases, em série**: **(a)** árvore + navegação, sem dado novo (Cripto já existe como "em breve"); **(b)** remover Metas — ver abaixo; **(c)** posição sem ticker (renda fixa/caixinha manual: valor aplicado, vencimento, taxa); **(d)** endpoint `/investments` da Pluggy para preencher.
-- **Remover Metas é migração destrutiva, não deleção de UI**: arrasta `goals`, `savings_entries.goal_id`, o **par atômico** de transferência poupança → meta (T-041), `CRUD /api/goals`, `POST /savings/transfer-to-goal`, card da Home e `computeGoalsSummary`. Fazer em duas etapas — sumir da UI primeiro, dropar dado depois, com o humano confirmando entre elas. Na T-089g o layer já saiu **só da vitrine** (landing), sem tocar dado.
-- **Caixinha como sucessora de Metas**: pendência do humano, em `TODO-HUMANO.md` — decide o desenho da fase (b).
+### T-091 — Metas sai, Investimentos entra como árvore (guarda-chuva)
+- **Status**: fase (a) CONCLUIDA (#165); **(b) BLOQUEADA** no humano; (c)/(d) PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: nada
+- **Feito na (a)**: árvore `/investimentos` com Ações, Cripto e Renda Fixa; paths antigos viram redirect; Home funde os dois cards. Rationale da decisão "caixinha é Renda Fixa, irmã de Ações — **não reabrir**": corpo da PR #165.
+- **Fases restantes, em série**: **(b)** remover Metas; **(c)** posição sem ticker (valor aplicado, vencimento, taxa); **(d)** endpoint `/investments` da Pluggy para preencher.
+- **Remover Metas é migração destrutiva, não deleção de UI**: arrasta `goals`, `savings_entries.goal_id`, o **par atômico** de transferência poupança → meta (T-041), `CRUD /api/goals`, `POST /savings/transfer-to-goal`, card da Home e `computeGoalsSummary`. Duas etapas — sumir da UI primeiro, dropar dado depois, com o humano confirmando entre elas. Desenho da sucessão (caixinha herda o papel?) é pendência em `TODO-HUMANO.md`.
 - **Risco de dupla contagem com a T-089e**: o dinheiro na caixinha **saiu** da conta corrente, então saldo de conta + posição de caixinha não se sobrepõem — mas se a Pluggy devolver a caixinha *também* como conta, soma duas vezes. Conferir contra o payload real antes de somar.
+- **Herdado da (a)**, para a (c)/(d): o hub usa o total da carteira B3 como valor de qualquer nó não-"em breve" — quando Renda Fixa ganhar dado real, mapear valor por `node.key`.
 - **Aceite (por fase)**: carteira B3 segue intacta e com os mesmos números; nada de Metas é apagado sem confirmação explícita; suítes verdes.
 
-### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva)
+### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva) ⭐ PRÓXIMA
 - **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-103
 - **Objetivo**: o alvo (provado no `subscription-core`, generalizado no `validation-core`) é **1 função por arquivo**, **`db` injetado**, testes em `tests/unit/tests/`, **cobertura 100%**, Jest. Uma tarefa/PR por package, **em série** — cada um arrasta call sites e mexe nos mesmos arquivos de config. Ordem e quem já migrou: tabela no `docs/PACKAGES.md`. Próxima: **`savings-core`**, o primeiro core **com `db`**.
 - **Atenção na `savings-core`**: invariantes intocáveis — par atômico da transferência poupança → meta (T-041) e saldo livre em centavos inteiros (T-052). **Conflita com a T-091(b)**, que remove Metas e mexe nas mesmas funções: fazer as duas em série, nunca em paralelo. Achado da T-104a: separar funções expõe branches de default antes cobertos por acidente — rodar `--coverage` cedo.
