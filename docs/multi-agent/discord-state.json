@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-08-13T00:26:18-03:00"
+    "atualizadoEm": "2026-08-13T00:30:17-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-08-13T00:17:32-03:00"
+    "atualizadoEm": "2026-08-13T00:30:17-03:00"
   },
   "tasks": {
     "T-104b": {
@@ -112,6 +112,17 @@
       "messageId": "1537297812356866129",
       "modo": "so aviso",
       "status": "ABERTO 2026-08-13: decidir junto do primeiro deploy (endpoint publico de enabled ou contrato com a Pluggy)"
+    },
+    "T-091b-metas-caixinha": {
+      "canal": "todo-human",
+      "messageId": "1537300921661259818",
+      "modo": "emoji + resposta",
+      "opcoes": {
+        "1️⃣": "caixinha herda o papel de Metas",
+        "2️⃣": "Metas some sem substituto",
+        "3️⃣": "caixinha e Metas convivem"
+      },
+      "status": "ABERTO 2026-08-13: bloqueia a fase (b) da T-091"
     }
   },
   "lastSeen": {

@@ -18,6 +18,15 @@
 
 ## Abertos
 
+### [2026-08-13] Caixinha herda o papel de Metas, ou Metas some sem substituto? (T-091b)
+- **Origem**: orquestrador (levantado ao especificar a T-091, e o humano gostou da leitura)
+- **Bloqueia**: a **fase (b)** da T-091 (remover Metas). As fases (a), (c) e (d) seguem sem isso.
+- **Contexto**: você decidiu remover o layer de Metas e criar Renda Fixa (com caixinhas) dentro de Investimentos. Só que as duas coisas fazem quase a **mesma** função: uma meta é dinheiro carimbado para um objetivo, com progresso manual ou derivado de aportes vinculados (T-024); uma caixinha é dinheiro carimbado para um objetivo, com **saldo real, rendendo, e chegando sozinho do banco**. Ou seja: caixinha é a versão da meta com dinheiro de verdade.
+- **A pergunta, três caminhos**: (a) **caixinha herda** — a caixinha ganha um campo de objetivo/nome e passa a ser "a meta"; quem usava metas migra para caixinhas e o conceito não se perde; (b) **Metas some limpo** — o app deixa de ter objetivos, e caixinha é só posição de renda fixa; (c) **convivem** — caixinha é investimento e Metas continua existindo para objetivos sem dinheiro separado (juntar dinheiro que ainda está na conta). A (c) contradiz a remoção que você pediu, mas é a única que preserva meta sem caixinha correspondente.
+- **O que muda na prática**: a (a) exige decidir o que fazer com as metas **já existentes** no seu banco (migrar para caixinha? só arquivar?) e com o par atômico de transferência poupança → meta (T-041). A (b) é a mais simples e a mais destrutiva. A (c) é a menor mudança e deixa a árvore com dois lugares parecidos.
+- **Independente disto**, e já decidido: remover Metas vai em **duas etapas** — sumir da UI primeiro, dropar dado depois, com você confirmando entre elas. Nada de `goals` é apagado sem confirmação explícita.
+- **Resposta do humano**: _(a definir antes da fase (b))_
+
 ### [2026-08-13] A landing anuncia a Pluggy, mas `Production` bloqueia a integração (T-089g)
 - **Origem**: executor (T-089g), levantado ao publicar o bloco na página de login
 - **Bloqueia**: nada hoje — **vira problema no dia do primeiro deploy**
