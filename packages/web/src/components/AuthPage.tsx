@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { login, register } from '../api';
 import type { User } from '@vetor-wallet/shared';
 import { ThemeToggleButton } from './ThemeToggleButton';
+import { PLUGGY_BRAND, pluggySecurityNotes } from '../routes/pluggyImport';
+import './pluggyImport.css';
 
 interface Props {
   onAuth: (user: User) => void;
@@ -41,12 +43,10 @@ const FEATURES: FeatureConfig[] = [
     title: 'Ações',
     desc: 'Carteiras da B3 com cotações em tempo real',
   },
-  {
-    key: 'metas',
-    mascot: 'metas-t.png',
-    title: 'Metas',
-    desc: 'Defina objetivos e acompanhe o progresso',
-  },
+  // Metas saiu desta lista (T-089g, pedido do humano): o layer segue existindo
+  // no app inteiro — rota, card da Home, backend —, mas não é mais anunciado
+  // aqui, porque o humano estuda descontinuá-lo e o espaço foi para a
+  // integração bancária. Só a vitrine mudou; nada de dado foi tocado.
 ];
 
 const labelClass = 'block text-xs font-medium text-dim uppercase tracking-wide mb-1.5';
@@ -113,8 +113,8 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
 
           <h1 className="vw-landing-title">Sua vida financeira, organizada em camadas.</h1>
           <p className="vw-landing-desc">
-            Renda, despesas, poupança, ações e metas — tudo em um só lugar, com cotações em tempo
-            real da B3.
+            Renda, despesas, poupança e ações — tudo em um só lugar, com cotações em tempo real da
+            B3 e lançamentos que chegam direto do seu banco.
           </p>
 
           <ul className="vw-landing-features">
@@ -128,6 +128,37 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
               </li>
             ))}
           </ul>
+
+          {/* T-089g — a integração bancária é o diferencial mais concreto do
+              app e estava invisível para quem ainda não tem conta. As frases
+              de segurança são as MESMAS do modal (`pluggySecurityNotes`), de
+              propósito: promessa feita antes do cadastro e explicação dada na
+              hora de conectar não podem divergir com o tempo. */}
+          <section className="vw-landing-pluggy">
+            <div className="vw-landing-pluggy-head">
+              <span
+                className="vw-pluggy-badge"
+                style={{ width: 28, height: 28, background: PLUGGY_BRAND.logoBackdrop }}
+              >
+                <img src={PLUGGY_BRAND.logo} alt="" width={28} height={28} />
+              </span>
+              <div>
+                <p className="vw-landing-feature-title">Conecte seu banco</p>
+                <p className="vw-landing-feature-desc">
+                  Open Finance via <strong>{PLUGGY_BRAND.name}</strong>
+                </p>
+              </div>
+            </div>
+            <p className="vw-landing-pluggy-desc">
+              Seus lançamentos entram sozinhos, sem digitar nada — e transferências entre suas
+              contas, pagamento de fatura e aplicações não viram despesa.
+            </p>
+            <ul className="vw-landing-pluggy-notes">
+              {pluggySecurityNotes().map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </section>
         </div>
 
         {/* Card direito: login/cadastro */}
@@ -229,7 +260,8 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
       </div>
 
       <p className="vw-landing-footer">
-        Cotações via brapi.dev · senhas com bcrypt · seus dados ficam no seu servidor
+        Cotações via brapi.dev · Open Finance via Pluggy · senhas com bcrypt · seus dados ficam no
+        seu servidor
       </p>
     </div>
   );

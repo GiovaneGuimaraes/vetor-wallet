@@ -1,212 +1,508 @@
-/* Modal de importação do Open Finance (T-089c).
+/* Modal de importação do Open Finance (T-089c; UX refeita na T-089f).
  *
- * Consome os tokens globais de web/src/index.css (--color-*, --radius-*) — sem
- * cor literal, como o resto do app. A única classe de botão nova é
- * .vw-btn-danger: .vw-btn-primary e .vw-btn-ghost já existem no index.css e são
- * reaproveitadas como estão.
+ * Segue a linguagem visual já estabelecida em App.css/index.css: raio 16px nos
+ * blocos, labels de 11px uppercase com letter-spacing .08em, `tabular-nums` em
+ * número, e cor SEMPRE via token (--color-*, --radius-*, --btn-*). A única
+ * classe de botão nova é .vw-btn-danger — .vw-btn-primary e .vw-btn-ghost já
+ * existem e são reaproveitadas.
  */
+
+/* ── Casca ───────────────────────────────────────────────────────────────── */
 
 .vw-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgb(0 0 0 / 55%);
+  /* Sem `backdrop-filter`: além de custar composição, ele criava artefato de
+     renderização por cima do próprio cabeçalho do modal. O escurecimento
+     sozinho já separa o modal do fundo. */
+  background: rgb(8 6 20 / 62%);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: 20px;
   z-index: 100;
+  animation: vw-pluggy-fade 0.16s ease;
 }
 
 .vw-modal {
-  background: var(--color-surface);
+  background: linear-gradient(180deg, var(--card-1), var(--card-2));
   color: var(--color-ink);
   border: 1px solid var(--color-edge);
-  border-radius: var(--radius-card);
-  width: min(640px, 100%);
-  max-height: min(90vh, 900px);
+  border-radius: 16px;
+  width: min(620px, 100%);
+  max-height: min(88vh, 880px);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 12px 40px rgb(0 0 0 / 35%);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 42%);
+  animation: vw-pluggy-rise 0.2s ease;
 }
+
+@keyframes vw-pluggy-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes vw-pluggy-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vw-modal-backdrop,
+  .vw-modal {
+    animation: none;
+  }
+}
+
+/* ── Cabeçalho, com a marca da Pluggy ────────────────────────────────────── */
 
 .vw-modal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
+  gap: 16px;
+  padding: 20px 24px;
   border-bottom: 1px solid var(--color-edge);
+}
+
+.vw-modal-head-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
 }
 
 .vw-modal-head h2 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.vw-modal-head-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--color-dim);
+}
+
+/* O JPG da marca tem fundo escuro próprio: o selo usa a MESMA cor (inline, do
+   token da marca) e recorta — sem isso, aparece uma costura no tema claro. */
+.vw-pluggy-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  overflow: hidden;
+  flex: none;
+}
+
+.vw-pluggy-badge img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .vw-modal-close {
   background: none;
   border: none;
   color: var(--color-dim);
-  font-size: 1.5rem;
+  font-size: 24px;
   line-height: 1;
   cursor: pointer;
-  padding: 0 0.25rem;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  transition: color 0.15s ease;
+}
+
+.vw-modal-close:hover:not(:disabled) {
+  color: var(--color-ink);
 }
 
 .vw-modal-close:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
+/* ── Corpo e rodapé ──────────────────────────────────────────────────────── */
+
 .vw-modal-body {
-  padding: 1.25rem;
+  padding: 24px;
   overflow-y: auto;
+  flex: 1;
+  /* Sem `min-height: 0` o corpo NÃO encolhe abaixo do próprio conteúdo (o
+     default de um item flex é `min-height: auto`), o `max-height` do modal é
+     ignorado e o cabeçalho é empurrado para fora do topo da tela. */
+  min-height: 0;
 }
 
-.vw-modal-actions {
+/* Rodapé em duas faixas: o motivo do bloqueio ocupa a linha inteira e os botões
+   ficam sempre alinhados à direita. Com tudo na mesma linha, uma frase um pouco
+   mais longa quebrava o rodapé e desalinhava os botões. */
+.vw-modal-foot {
   display: flex;
-  gap: 0.75rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-edge);
+}
+
+.vw-modal-foot-actions {
+  display: flex;
   justify-content: flex-end;
-  margin-top: 1.5rem;
+  gap: 12px;
 }
 
-.vw-pluggy-section {
-  margin-bottom: 1.5rem;
-}
-
-.vw-pluggy-section h3 {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.vw-pluggy-blocked {
+  font-size: 12px;
+  line-height: 1.45;
   color: var(--color-dim);
-  margin: 0 0 0.75rem;
 }
+
+.vw-btn {
+  padding: 9px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vw-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.vw-btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+/* ── Seções ──────────────────────────────────────────────────────────────── */
+
+.vw-pluggy-section + .vw-pluggy-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-edge);
+}
+
+.vw-pluggy-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.vw-pluggy-section-head h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-dim);
+}
+
+.vw-pluggy-count {
+  font-size: 12px;
+  color: var(--color-dim);
+}
+
+/* ── Conexões ────────────────────────────────────────────────────────────── */
 
 .vw-pluggy-items {
   list-style: none;
   padding: 0;
-  margin: 0 0 0.75rem;
+  margin: 0 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .vw-pluggy-items li {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--color-edge);
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-edge);
+  border-radius: 12px;
+  background: rgba(var(--raised-rgb), 0.45);
+}
+
+.vw-pluggy-item-name {
+  font-weight: 600;
+  font-size: 14px;
 }
 
 .vw-pluggy-item-status {
-  font-size: 0.75rem;
+  font-size: 11px;
+  letter-spacing: 0.06em;
   color: var(--color-dim);
   margin-left: auto;
 }
 
-.vw-pluggy-empty,
-.vw-pluggy-note,
-.vw-pluggy-wiped {
+/* Estado vazio: é aqui que a integração se apresenta, em vez de um "nada". */
+.vw-pluggy-empty {
+  border: 1px solid var(--color-edge);
+  border-radius: 12px;
+  padding: 18px;
+  background: rgba(var(--raised-rgb), 0.35);
+  margin-bottom: 14px;
+}
+
+.vw-pluggy-empty-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.vw-pluggy-security {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vw-pluggy-security li {
+  position: relative;
+  padding-left: 22px;
+  font-size: 13px;
+  line-height: 1.45;
   color: var(--color-dim);
-  font-size: 0.875rem;
-  margin: 0 0 0.75rem;
+}
+
+.vw-pluggy-security li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--color-up);
+  font-weight: 700;
+}
+
+.vw-pluggy-connect {
+  width: 100%;
+}
+
+/* ── Escolha de modo ─────────────────────────────────────────────────────── */
+
+.vw-pluggy-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .vw-pluggy-mode {
   display: flex;
-  gap: 0.6rem;
+  gap: 12px;
   align-items: flex-start;
-  padding: 0.75rem;
+  padding: 14px 16px;
   border: 1px solid var(--color-edge);
-  border-radius: var(--radius-input);
-  margin-bottom: 0.5rem;
+  border-radius: 12px;
   cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
 }
 
-.vw-pluggy-mode small {
+.vw-pluggy-mode:hover {
+  border-color: var(--color-mid);
+}
+
+.vw-pluggy-mode.is-selected {
+  border-color: var(--color-accent);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
+.vw-pluggy-mode input {
+  margin-top: 2px;
+  accent-color: var(--color-accent);
+  flex: none;
+}
+
+.vw-pluggy-mode-text strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.vw-pluggy-mode-text small {
   display: block;
   color: var(--color-dim);
-  font-size: 0.8rem;
-  margin-top: 0.2rem;
+  font-size: 12.5px;
+  line-height: 1.45;
+  margin-top: 3px;
 }
 
-.vw-pluggy-mode--danger {
+.vw-pluggy-mode--danger.is-selected {
   border-color: var(--color-down);
+  background: rgba(var(--down-rgb), 0.08);
 }
+
+.vw-pluggy-mode--danger.is-selected input {
+  accent-color: var(--color-down);
+}
+
+/* ── Zona destrutiva ─────────────────────────────────────────────────────── */
 
 .vw-pluggy-danger {
   border: 1px solid var(--color-down);
-  border-radius: var(--radius-input);
-  padding: 0.75rem 1rem;
-  margin-top: 0.75rem;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-top: 12px;
+  background: rgba(var(--down-rgb), 0.06);
 }
 
+.vw-pluggy-danger-title {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-down);
+}
+
+/* `list-style: disc` explícito: o reset global zera os marcadores, e cinco
+   avisos empilhados sem bullet viram um bloco de texto que ninguém lê — que é
+   justamente o que não pode acontecer antes de uma ação sem volta.
+   `display: list-item` porque o flex do container removeria o marcador. */
 .vw-pluggy-danger ul {
-  margin: 0 0 0.75rem;
-  padding-left: 1.1rem;
-  font-size: 0.85rem;
+  margin: 0 0 16px;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.5;
+  list-style: disc outside;
 }
 
 .vw-pluggy-danger li {
-  margin-bottom: 0.35rem;
+  display: list-item;
+  margin-bottom: 6px;
 }
 
 .vw-pluggy-confirm {
   display: block;
-  font-size: 0.85rem;
+  font-size: 13px;
 }
 
 .vw-pluggy-confirm input {
   display: block;
-  margin-top: 0.4rem;
+  margin-top: 8px;
   width: 100%;
-  padding: 0.5rem;
+  padding: 10px 12px;
   border: 1px solid var(--color-edge);
   border-radius: var(--radius-input);
   background: var(--color-canvas);
   color: var(--color-ink);
+  font-size: 14px;
+  letter-spacing: 0.06em;
 }
+
+.vw-pluggy-confirm input:focus {
+  outline: none;
+  border-color: var(--color-down);
+  box-shadow: 0 0 0 3px rgba(var(--down-rgb), 0.18);
+}
+
+/* ── Erros ───────────────────────────────────────────────────────────────── */
 
 .vw-pluggy-error {
   color: var(--color-down);
-  font-size: 0.875rem;
-  margin: 0.5rem 0 0;
+  font-size: 13px;
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  border: 1px solid var(--color-down);
+  border-radius: 10px;
+  background: rgba(var(--down-rgb), 0.07);
 }
 
 .vw-pluggy-errors {
   color: var(--color-down);
-  font-size: 0.85rem;
-  padding-left: 1.1rem;
+  font-size: 13px;
+  margin: 0 0 16px;
+  padding: 12px 14px 12px 32px;
+  border: 1px solid var(--color-down);
+  border-radius: 10px;
+  background: rgba(var(--down-rgb), 0.07);
+}
+
+/* ── Relatório ───────────────────────────────────────────────────────────── */
+
+.vw-pluggy-result {
+  border: 1px solid var(--color-edge);
+  border-radius: 12px;
+  padding: 18px;
+  background: rgba(var(--raised-rgb), 0.4);
+  margin-bottom: 18px;
 }
 
 .vw-pluggy-summary {
-  font-size: 1rem;
-  margin: 0 0 0.75rem;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.vw-pluggy-note,
+.vw-pluggy-wiped {
+  color: var(--color-dim);
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin: 10px 0 0;
 }
 
 .vw-pluggy-group {
   border-top: 1px solid var(--color-edge);
-  padding: 0.5rem 0;
+  padding: 10px 0;
 }
 
 .vw-pluggy-group summary {
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style-position: inside;
+}
+
+.vw-pluggy-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--color-dim);
+}
+
+.vw-pluggy-dot--good {
+  background: var(--color-up);
+}
+
+.vw-pluggy-dot--warn {
+  background: var(--color-warn);
 }
 
 .vw-pluggy-group ul {
   list-style: none;
-  padding: 0.5rem 0 0;
+  padding: 10px 0 0;
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 12.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .vw-pluggy-group li {
   display: flex;
-  gap: 0.6rem;
-  padding: 0.2rem 0;
+  gap: 12px;
+  align-items: baseline;
 }
 
 .vw-pluggy-line-date {
   color: var(--color-dim);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .vw-pluggy-line-desc {
@@ -216,16 +512,24 @@
   white-space: nowrap;
 }
 
-.vw-pluggy-line-reason {
+.vw-pluggy-line-amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: var(--color-dim);
-  font-style: italic;
 }
 
-/* Único botão novo: o destrutivo. Usa --color-down, o mesmo vermelho de queda
-   da carteira, para não introduzir uma segunda noção de "vermelho" no tema. */
+.vw-pluggy-group-reason {
+  margin: 10px 0 0;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--color-dim);
+}
+
+/* ── Botão destrutivo (único botão novo) ─────────────────────────────────── */
+
 .vw-btn-danger {
   background: var(--color-down);
-  color: var(--btn-ink);
+  color: #fff;
   border: 0;
   border-radius: var(--radius-pill);
   transition:
@@ -238,24 +542,113 @@
   transform: translateY(-1px);
 }
 
-.vw-btn-danger:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* ── Entrada na Home, no rodapé do card de patrimônio ────────────────────── */
 
-/* Botão de importar na Home, dentro do card-herói do patrimônio. */
-.vw-home-import-btn {
-  margin-top: 1rem;
-  background: rgba(var(--raised-rgb), 0.6);
+.vw-home-import {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 20px;
+  padding: 14px 16px;
   border: 1px solid var(--color-edge);
-  border-radius: var(--radius-pill);
+  border-radius: 12px;
+  background: rgba(var(--raised-rgb), 0.4);
   color: var(--color-ink);
-  padding: 0.45rem 1rem;
-  font-size: 0.85rem;
   cursor: pointer;
-  transition: border-color 0.15s ease;
+  text-align: left;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 
-.vw-home-import-btn:hover {
-  border-color: var(--color-ink);
+.vw-home-import:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+.vw-home-import-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.vw-home-import-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.vw-home-import-sub {
+  font-size: 12px;
+  color: var(--color-dim);
+  margin-top: 2px;
+}
+
+.vw-home-import-chevron {
+  margin-left: auto;
+  color: var(--color-dim);
+  font-size: 18px;
+  line-height: 1;
+  flex: none;
+}
+
+@media (max-width: 520px) {
+  .vw-modal-body,
+  .vw-modal-head,
+  .vw-modal-foot {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .vw-pluggy-blocked {
+    max-width: 100%;
+    margin-bottom: 4px;
+  }
+}
+
+/* ── Bloco da integração na landing / login (T-089g) ─────────────────────── */
+
+.vw-landing-pluggy {
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid var(--color-edge);
+}
+
+.vw-landing-pluggy-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.vw-landing-pluggy-desc {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-mid);
+}
+
+.vw-landing-pluggy-notes {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.vw-landing-pluggy-notes li {
+  position: relative;
+  padding-left: 20px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-dim);
+}
+
+.vw-landing-pluggy-notes li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--color-up);
+  font-weight: 700;
 }

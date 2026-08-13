@@ -1,28 +1,34 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { PluggyImportMode, PluggyItemView, PluggySyncResponse } from '@vetor-wallet/shared';
 import { createPluggyConnectToken, linkPluggyItem, syncPluggy, unlinkPluggyItem } from '../api';
 import {
+  PLUGGY_BRAND,
   PLUGGY_CONNECTOR_IDS,
   PLUGGY_CONNECT_SCRIPT,
   REPLACE_CONFIRM_WORD,
-  canConfirmReplace,
+  connectionSummary,
   formatPluggyCounts,
   groupPluggyTransactions,
   importButtonLabel,
+  importDisabledReason,
   internalMovementNote,
+  pluggySecurityNotes,
   replaceWarnings,
+  statusTone,
 } from '../routes/pluggyImport';
 import './pluggyImport.css';
 
 /**
- * Modal de importação do Open Finance (T-089c).
+ * Modal de importação do Open Finance (T-089c, UX refeita na T-089f).
  *
  * O componente **renderiza e orquestra chamadas**; toda decisão testável (texto
- * de aviso, regra de confirmação, agrupamento e contagem do relatório) vive em
- * `routes/pluggyImport.ts`, conforme a convenção do projeto.
+ * de aviso, regra de confirmação, motivo do botão travado, agrupamento e
+ * contagem do relatório) vive em `routes/pluggyImport.ts`, conforme a convenção
+ * do projeto.
  *
  * Fluxo: conectar banco (widget da Pluggy) → escolher modo → importar → ler o
- * relatório. Um usuário que já tem conexão cai direto na escolha de modo.
+ * relatório. Quem já tem conexão cai direto na escolha de modo.
  */
 
 interface PluggyConnectInstance {
@@ -40,9 +46,9 @@ declare global {
  * Carrega o script do widget uma única vez por sessão de página.
  *
  * O `<script>` fica fora do bundle de propósito: é código de terceiro que a
- * Pluggy versiona por conta própria, e embuti-lo congelaria a versão do widget
- * num deploy nosso. A promessa é memoizada para que abrir o modal duas vezes não
- * injete duas tags.
+ * Pluggy versiona por conta própria, e embuti-lo congelaria a versão num deploy
+ * nosso. A promessa é memoizada para que abrir o modal duas vezes não injete
+ * duas tags.
  */
 let scriptPromise: Promise<void> | null = null;
 
@@ -66,10 +72,23 @@ function loadPluggyScript(): Promise<void> {
   return scriptPromise;
 }
 
+/** Selo da marca da Pluggy — o JPG tem fundo escuro próprio, então o selo usa
+ *  a mesma cor e `overflow:hidden`: sem costura visível no tema claro. */
+function PluggyBadge({ size = 28 }: { size?: number }) {
+  return (
+    <span
+      className="vw-pluggy-badge"
+      style={{ width: size, height: size, background: PLUGGY_BRAND.logoBackdrop }}
+    >
+      <img src={PLUGGY_BRAND.logo} alt="" width={size} height={size} />
+    </span>
+  );
+}
+
 interface Props {
   items: PluggyItemView[];
   onClose: () => void;
-  /** Chamado após uma importação que gravou algo — a Home recarrega os totais. */
+  /** Chamado após uma importação que gravou (ou apagou) algo. */
   onImported: () => void;
   /** Chamado quando a lista de conexões muda (conectou/desconectou). */
   onItemsChanged: () => void;
@@ -83,6 +102,7 @@ export function PluggyImportModal({ items, onClose, onImported, onItemsChanged }
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<PluggySyncResponse | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   // Esc fecha — menos durante uma importação, que não dá para cancelar pela
@@ -105,6 +125,9 @@ export function PluggyImportModal({ items, onClose, onImported, onItemsChanged }
   useEffect(() => {
     setConfirmText('');
   }, [mode]);
+
+  const hasItems = items.length > 0;
+  const blockedReason = importDisabledReason({ hasItems, mode, confirmText });
 
   async function handleConnect() {
     setError(null);
@@ -156,16 +179,19 @@ export function PluggyImportModal({ items, onClose, onImported, onItemsChanged }
 
   async function handleDisconnect(itemId: string) {
     setError(null);
+    setRemoving(itemId);
     try {
       await unlinkPluggyItem(itemId);
       onItemsChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Falha ao desconectar');
+    } finally {
+      setRemoving(null);
     }
   }
 
   async function handleImport() {
-    if (mode === 'replace' && !canConfirmReplace(confirmText)) return;
+    if (blockedReason) return;
     setError(null);
     setPhase('importing');
     try {
@@ -179,11 +205,26 @@ export function PluggyImportModal({ items, onClose, onImported, onItemsChanged }
     }
   }
 
-  const hasItems = items.length > 0;
-  const replaceBlocked = mode === 'replace' && !canConfirmReplace(confirmText);
-
-  return (
-    <div className="vw-modal-backdrop" onClick={() => phase !== 'importing' && onClose()}>
+  /**
+   * **Portal para o `body`, e isso não é preferência de estilo.**
+   *
+   * O modal é filho de `.vw-main`, que carrega `transform` da animação de
+   * entrada (`vw-rise`). Um `transform` cria containing block **e** stacking
+   * context: dentro dele, `position: fixed` passa a se ancorar em `.vw-main` em
+   * vez da viewport, e o `z-index: 100` do backdrop só compete lá dentro — de
+   * modo que o header sticky do app (`z-index: 40`, no contexto raiz) pintava
+   * por cima do cabeçalho do modal. Foi visto na tela, não deduzido.
+   *
+   * Portal tira o modal da árvore transformada e devolve os dois
+   * comportamentos. Qualquer modal futuro precisa do mesmo tratamento enquanto
+   * `.vw-main` tiver transform.
+   */
+  return createPortal(
+    <div
+      className="vw-modal-backdrop"
+      onClick={() => phase !== 'importing' && onClose()}
+      role="presentation"
+    >
       <div
         className="vw-modal"
         role="dialog"
@@ -193,8 +234,16 @@ export function PluggyImportModal({ items, onClose, onImported, onItemsChanged }
         ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="vw-modal-head">
-          <h2 id="vw-pluggy-title">Importar do banco</h2>
+        <header className="vw-modal-head">
+          <div className="vw-modal-head-main">
+            <PluggyBadge size={36} />
+            <div>
+              <h2 id="vw-pluggy-title">Importar do banco</h2>
+              <p className="vw-modal-head-sub">
+                Open Finance via <strong>{PLUGGY_BRAND.name}</strong>
+              </p>
+            </div>
+          </div>
           <button
             type="button"
             className="vw-modal-close"
@@ -204,164 +253,222 @@ export function PluggyImportModal({ items, onClose, onImported, onItemsChanged }
           >
             ×
           </button>
-        </div>
+        </header>
 
         {report ? (
-          <div className="vw-modal-body">
-            <p className="vw-pluggy-summary">{formatPluggyCounts(report.totals)}</p>
-            {report.wiped && (
-              <p className="vw-pluggy-wiped">
-                Apagados antes de importar: {report.wiped.incomeEntries} de renda,{' '}
-                {report.wiped.expenseEntries} de despesa e {report.wiped.savingsEntries} de
-                poupança.
-              </p>
-            )}
-            {internalMovementNote(report.totals) && (
-              <p className="vw-pluggy-note">{internalMovementNote(report.totals)}</p>
-            )}
-            {report.errors.length > 0 && (
-              <ul className="vw-pluggy-errors">
-                {report.errors.map((e, i) => (
-                  <li key={i}>{e}</li>
-                ))}
-              </ul>
-            )}
-            {groupPluggyTransactions(report.transactions).map((group) => (
-              <details key={group.status} className="vw-pluggy-group">
-                <summary>
-                  {group.lines.length} {group.label}
-                  {group.lines.length === 1 ? '' : 's'}
-                </summary>
-                <ul>
-                  {group.lines.map((line, i) => (
-                    <li key={`${line.transactionId ?? i}`}>
-                      <span className="vw-pluggy-line-date">{line.date ?? '—'}</span>
-                      <span className="vw-pluggy-line-desc">
-                        {line.description ?? line.transactionId ?? '(sem descrição)'}
-                      </span>
-                      {line.reason && <span className="vw-pluggy-line-reason">{line.reason}</span>}
-                    </li>
+          <>
+            <div className="vw-modal-body">
+              <div className="vw-pluggy-result">
+                <p className="vw-pluggy-summary">{formatPluggyCounts(report.totals)}</p>
+                {report.wiped && (
+                  <p className="vw-pluggy-wiped">
+                    Apagados antes de importar: {report.wiped.incomeEntries} de renda,{' '}
+                    {report.wiped.expenseEntries} de despesa e {report.wiped.savingsEntries} de
+                    poupança.
+                  </p>
+                )}
+                {internalMovementNote(report.totals) && (
+                  <p className="vw-pluggy-note">{internalMovementNote(report.totals)}</p>
+                )}
+              </div>
+
+              {report.errors.length > 0 && (
+                <ul className="vw-pluggy-errors">
+                  {report.errors.map((e, i) => (
+                    <li key={i}>{e}</li>
                   ))}
                 </ul>
-              </details>
-            ))}
-            <div className="vw-modal-actions">
-              <button type="button" className="vw-btn-primary" onClick={onClose}>
-                Concluir
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="vw-modal-body">
-            <section className="vw-pluggy-section">
-              <h3>Bancos conectados</h3>
-              {hasItems ? (
-                <ul className="vw-pluggy-items">
-                  {items.map((item) => (
-                    <li key={item.itemId}>
-                      <span>{item.connectorName ?? 'Instituição'}</span>
-                      <span className="vw-pluggy-item-status">{item.status}</span>
-                      <button
-                        type="button"
-                        className="vw-btn-ghost"
-                        onClick={() => handleDisconnect(item.itemId)}
-                        disabled={phase === 'importing'}
-                      >
-                        Desconectar
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="vw-pluggy-empty">
-                  Nenhum banco conectado ainda. Conecte para trazer seus lançamentos
-                  automaticamente.
-                </p>
               )}
-              <button
-                type="button"
-                className="vw-btn-ghost"
-                onClick={handleConnect}
-                disabled={phase !== 'idle'}
-              >
-                {phase === 'connecting' ? 'Abrindo…' : '+ Conectar banco'}
-              </button>
-            </section>
 
-            <section className="vw-pluggy-section">
-              <h3>Como importar</h3>
-              <label className="vw-pluggy-mode">
-                <input
-                  type="radio"
-                  name="pluggy-mode"
-                  checked={mode === 'append'}
-                  onChange={() => setMode('append')}
-                />
-                <span>
-                  <strong>Somar aos meus dados</strong>
-                  <small>
-                    Mantém tudo o que já existe e acrescenta o que for novo. Transação já importada
-                    não duplica.
-                  </small>
-                </span>
-              </label>
-              <label className="vw-pluggy-mode vw-pluggy-mode--danger">
-                <input
-                  type="radio"
-                  name="pluggy-mode"
-                  checked={mode === 'replace'}
-                  onChange={() => setMode('replace')}
-                />
-                <span>
-                  <strong>Substituir tudo pelos dados do banco</strong>
-                  <small>Apaga o que existe antes de importar. Não tem volta.</small>
-                </span>
-              </label>
-
-              {mode === 'replace' && (
-                <div className="vw-pluggy-danger" role="alert">
+              {groupPluggyTransactions(report.transactions).map((group) => (
+                <details key={group.status} className="vw-pluggy-group">
+                  <summary>
+                    <span className={`vw-pluggy-dot vw-pluggy-dot--${statusTone(group.status)}`} />
+                    {group.lines.length} {group.label}
+                    {group.lines.length === 1 ? '' : 's'}
+                  </summary>
                   <ul>
-                    {replaceWarnings().map((w) => (
-                      <li key={w}>{w}</li>
+                    {group.lines.map((line, i) => (
+                      <li key={`${line.transactionId ?? i}`}>
+                        <span className="vw-pluggy-line-date">{line.date ?? '—'}</span>
+                        <span className="vw-pluggy-line-desc">
+                          {line.description ?? line.transactionId ?? '(sem descrição)'}
+                        </span>
+                        {line.amount !== undefined && (
+                          <span className="vw-pluggy-line-amount">
+                            {line.amount.toLocaleString('pt-BR', {
+                              style: 'currency',
+                              currency: 'BRL',
+                            })}
+                          </span>
+                        )}
+                      </li>
                     ))}
                   </ul>
-                  <label className="vw-pluggy-confirm">
-                    Para confirmar, digite <strong>{REPLACE_CONFIRM_WORD}</strong>:
+                  {group.lines.some((l) => l.reason) && (
+                    <p className="vw-pluggy-group-reason">
+                      {group.lines.find((l) => l.reason)?.reason}
+                    </p>
+                  )}
+                </details>
+              ))}
+            </div>
+            <footer className="vw-modal-foot">
+              <div className="vw-modal-foot-actions">
+                <button type="button" className="vw-btn vw-btn-primary" onClick={onClose}>
+                  Concluir
+                </button>
+              </div>
+            </footer>
+          </>
+        ) : (
+          <>
+            <div className="vw-modal-body">
+              <section className="vw-pluggy-section">
+                <div className="vw-pluggy-section-head">
+                  <h3>Bancos conectados</h3>
+                  <span className="vw-pluggy-count">{connectionSummary(items.length)}</span>
+                </div>
+
+                {hasItems ? (
+                  <ul className="vw-pluggy-items">
+                    {items.map((item) => (
+                      <li key={item.itemId}>
+                        <PluggyBadge size={24} />
+                        <span className="vw-pluggy-item-name">
+                          {item.connectorName ?? 'Instituição'}
+                        </span>
+                        <span className="vw-pluggy-item-status">{item.status}</span>
+                        <button
+                          type="button"
+                          className="vw-btn vw-btn-ghost vw-btn-sm"
+                          onClick={() => handleDisconnect(item.itemId)}
+                          disabled={phase === 'importing' || removing === item.itemId}
+                        >
+                          {removing === item.itemId ? 'Removendo…' : 'Desconectar'}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="vw-pluggy-empty">
+                    <p className="vw-pluggy-empty-title">Traga seus lançamentos direto do banco</p>
+                    <ul className="vw-pluggy-security">
+                      {pluggySecurityNotes().map((note) => (
+                        <li key={note}>{note}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="vw-btn vw-btn-ghost vw-pluggy-connect"
+                  onClick={handleConnect}
+                  disabled={phase !== 'idle'}
+                >
+                  {phase === 'connecting' ? 'Abrindo a Pluggy…' : '+ Conectar banco'}
+                </button>
+              </section>
+
+              <section className="vw-pluggy-section">
+                <div className="vw-pluggy-section-head">
+                  <h3>Como importar</h3>
+                </div>
+
+                <div className="vw-pluggy-modes">
+                  <label className={`vw-pluggy-mode${mode === 'append' ? ' is-selected' : ''}`}>
                     <input
-                      type="text"
-                      value={confirmText}
-                      onChange={(e) => setConfirmText(e.target.value)}
-                      autoComplete="off"
-                      aria-label={`Digite ${REPLACE_CONFIRM_WORD} para confirmar`}
+                      type="radio"
+                      name="pluggy-mode"
+                      checked={mode === 'append'}
+                      onChange={() => setMode('append')}
                     />
+                    <span className="vw-pluggy-mode-text">
+                      <strong>Somar aos meus dados</strong>
+                      <small>
+                        Mantém tudo o que já existe e acrescenta o que for novo. Transação já
+                        importada não duplica.
+                      </small>
+                    </span>
+                  </label>
+
+                  <label
+                    className={`vw-pluggy-mode vw-pluggy-mode--danger${
+                      mode === 'replace' ? ' is-selected' : ''
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="pluggy-mode"
+                      checked={mode === 'replace'}
+                      onChange={() => setMode('replace')}
+                    />
+                    <span className="vw-pluggy-mode-text">
+                      <strong>Substituir tudo pelos dados do banco</strong>
+                      <small>Apaga o que existe antes de importar. Não tem volta.</small>
+                    </span>
                   </label>
                 </div>
+
+                {mode === 'replace' && (
+                  <div className="vw-pluggy-danger" role="alert">
+                    <p className="vw-pluggy-danger-title">Antes de confirmar, leia:</p>
+                    <ul>
+                      {replaceWarnings().map((w) => (
+                        <li key={w}>{w}</li>
+                      ))}
+                    </ul>
+                    <label className="vw-pluggy-confirm">
+                      <span>
+                        Digite <strong>{REPLACE_CONFIRM_WORD}</strong> para confirmar
+                      </span>
+                      <input
+                        type="text"
+                        value={confirmText}
+                        onChange={(e) => setConfirmText(e.target.value)}
+                        autoComplete="off"
+                        placeholder={REPLACE_CONFIRM_WORD}
+                        aria-label={`Digite ${REPLACE_CONFIRM_WORD} para confirmar`}
+                      />
+                    </label>
+                  </div>
+                )}
+              </section>
+
+              {error && (
+                <p className="vw-pluggy-error" role="alert">
+                  {error}
+                </p>
               )}
-            </section>
-
-            {error && <p className="vw-pluggy-error">{error}</p>}
-
-            <div className="vw-modal-actions">
-              <button
-                type="button"
-                className="vw-btn-ghost"
-                onClick={onClose}
-                disabled={phase === 'importing'}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className={mode === 'replace' ? 'vw-btn-danger' : 'vw-btn-primary'}
-                onClick={handleImport}
-                disabled={!hasItems || phase === 'importing' || replaceBlocked}
-              >
-                {phase === 'importing' ? 'Importando…' : importButtonLabel(mode)}
-              </button>
             </div>
-          </div>
+
+            <footer className="vw-modal-foot">
+              {/* Botão travado SEMPRE diz por quê — `disabled` mudo é beco sem saída. */}
+              {blockedReason && <span className="vw-pluggy-blocked">{blockedReason}</span>}
+              <div className="vw-modal-foot-actions">
+                <button
+                  type="button"
+                  className="vw-btn vw-btn-ghost"
+                  onClick={onClose}
+                  disabled={phase === 'importing'}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className={`vw-btn ${mode === 'replace' ? 'vw-btn-danger' : 'vw-btn-primary'}`}
+                  onClick={handleImport}
+                  disabled={phase === 'importing' || blockedReason !== null}
+                >
+                  {phase === 'importing' ? 'Importando…' : importButtonLabel(mode)}
+                </button>
+              </div>
+            </footer>
+          </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
