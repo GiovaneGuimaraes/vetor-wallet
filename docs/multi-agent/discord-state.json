@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-08-12T23:44:04-03:00"
+    "atualizadoEm": "2026-08-13T00:17:32-03:00"
   },
   "tasks": {
     "T-104b": {
@@ -106,6 +106,12 @@
       "messageId": "1537287777308377159",
       "modo": "so aviso",
       "status": "AVISO 2026-08-12: modo replace apaga renda/despesa/poupanca; poupanca nao volta"
+    },
+    "T-089g-landing-producao": {
+      "canal": "todo-human",
+      "messageId": "1537297812356866129",
+      "modo": "so aviso",
+      "status": "ABERTO 2026-08-13: decidir junto do primeiro deploy (endpoint publico de enabled ou contrato com a Pluggy)"
     }
   },
   "lastSeen": {

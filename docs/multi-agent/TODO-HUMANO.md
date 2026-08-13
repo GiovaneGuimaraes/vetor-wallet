@@ -18,6 +18,14 @@
 
 ## Abertos
 
+### [2026-08-13] A landing anuncia a Pluggy, mas `Production` bloqueia a integração (T-089g)
+- **Origem**: executor (T-089g), levantado ao publicar o bloco na página de login
+- **Bloqueia**: nada hoje — **vira problema no dia do primeiro deploy**
+- **Pendência**: a landing (e a página de Planos, desde antes) anuncia a importação bancária para **qualquer visitante**, inclusive quem ainda não tem conta. Só que o gate `ENVIRONMENT` bloqueia `/api/pluggy/*` fora de `Staging`. Enquanto não há deploy (ver `packages/rest-api/CLAUDE.md` § "Deploy: não existe"), ninguém além de você vê essa página e nada é prometido a terceiro. **No primeiro deploy em produção isso inverte**: a vitrine promete uma feature que a API recusa com 403, e o usuário que se cadastrar por causa dela não vai achar o botão — ele nem aparece, porque a Home lê `enabled` do server.
+- **Duas saídas, quando o dia chegar**: (a) expor o `enabled` num endpoint **público** (o `GET /api/pluggy/status` de hoje exige sessão, porque também lista os items do usuário) e a landing condicionar o bloco a ele — o texto some sozinho onde a integração está desligada; (b) tratar isto junto do contrato pago com a Pluggy, que é o que destrava `Production` de verdade (ver o item de 2026-08-12 sobre o contrato). A (b) resolve a causa; a (a) evita a promessa falsa enquanto a causa não é resolvida — e as duas podem coexistir.
+- **Por que não foi resolvido agora**: adicionar rota pública só para uma linha de marketing, num app sem deploy e sem visitante, seria construir para um problema que ainda não existe. O registro serve para que a decisão não seja tomada por esquecimento.
+- **Resposta do humano**: _(a decidir junto do deploy)_
+
 ### [2026-08-12] O modo "substituir tudo" apaga mais do que repõe — leia antes de usar (T-089)
 - **Origem**: executor (T-089 fases (b)(c)(d))
 - **Bloqueia**: nada — o botão está pronto. É **aviso**, não pendência de decisão.
