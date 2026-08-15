@@ -263,7 +263,7 @@ um único `router.use(...)` logo depois do `router.use(requireAuth)`.
   `{ error, code: 'SUBSCRIPTION_REQUIRED' }`. Erro de banco → `next(err)`, nunca
   liberação "por precaução".
 - **Onde está**: operations, import, income, income-entries, expenses,
-  expense-entries, recurring-expenses, savings, goals, budgets.
+  expense-entries, recurring-expenses, savings, budgets.
 - **Onde NÃO está** (de propósito): auth, plans, subscriptions, pix-charges,
   billing/simulate, webhooks (senão o usuário não conseguiria comprar), leitura
   (portfolio, benchmarks, snapshots, tickers), admin e **wallets** — o `POST`

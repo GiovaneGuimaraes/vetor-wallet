@@ -1,47 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import {
-  computeBalance,
-  computeFreeBalance,
-  computeReservedTotal,
-  pickTransferLegs,
-  sumReservedByGoal,
-  toCents,
-  type SavingsBalanceEntry,
-} from './savings';
+import { computeBalance, toCents, type SavingsBalanceEntry } from './savings';
 
-function entry(
-  type: SavingsBalanceEntry['type'],
-  amount: number,
-  goal_id: number | null = null
-): SavingsBalanceEntry {
-  return { type, amount, goal_id };
+function entry(type: SavingsBalanceEntry['type'], amount: number): SavingsBalanceEntry {
+  return { type, amount };
 }
-
-describe('pickTransferLegs (T-052)', () => {
-  it('returns the withdraw/deposit rows when both are present', () => {
-    const rows = [
-      { id: 1, type: 'WITHDRAW' },
-      { id: 2, type: 'DEPOSIT' },
-    ];
-    const { withdraw, deposit } = pickTransferLegs(rows, 1, 2);
-    expect(withdraw).toEqual({ id: 1, type: 'WITHDRAW' });
-    expect(deposit).toEqual({ id: 2, type: 'DEPOSIT' });
-  });
-
-  it('throws when the withdraw leg is missing', () => {
-    const rows = [{ id: 2, type: 'DEPOSIT' }];
-    expect(() => pickTransferLegs(rows, 1, 2)).toThrow('transferência gravada sem as duas pernas');
-  });
-
-  it('throws when the deposit leg is missing', () => {
-    const rows = [{ id: 1, type: 'WITHDRAW' }];
-    expect(() => pickTransferLegs(rows, 1, 2)).toThrow('transferência gravada sem as duas pernas');
-  });
-
-  it('throws when both legs are missing', () => {
-    expect(() => pickTransferLegs([], 1, 2)).toThrow('transferência gravada sem as duas pernas');
-  });
-});
 
 describe('toCents', () => {
   it('converts reais to integer cents', () => {
@@ -71,105 +33,52 @@ describe('computeBalance', () => {
   });
 });
 
-describe('sumReservedByGoal', () => {
-  it('returns an empty map for an empty ledger', () => {
-    expect(sumReservedByGoal([]).size).toBe(0);
+/**
+ * T-091b1: Metas foi removida e o saldo livre passou a ser o saldo inteiro.
+ * A etapa 2 (T-091b2) ainda não apagou `savings_entries.goal_id`, então bases
+ * reais seguem tendo lançamentos com vínculo gravado — eles NÃO podem mais ser
+ * descontados de nada.
+ */
+describe('saldo livre = saldo, com dado legado de meta (T-091b1)', () => {
+  it('counts entries carrying a legacy goal_id at full value', () => {
+    // O campo nem faz parte de `SavingsBalanceEntry` desde a T-091b1; a linha
+    // vinda do banco ainda o traz, e precisa ser somada como qualquer outra.
+    const ledger = [
+      { type: 'DEPOSIT', amount: 100, goal_id: 7 },
+      { type: 'DEPOSIT', amount: 900, goal_id: null },
+      { type: 'WITHDRAW', amount: 300, goal_id: 7 },
+      { type: 'YIELD', amount: 25 },
+    ] as unknown as SavingsBalanceEntry[];
+    // Antes da T-091b1 o "livre" aqui seria 725 (100 − 300 com piso 0 na meta 7
+    // não reservava nada) contra um saldo de 725 — coincidência do exemplo;
+    // o que importa é que hoje só existe UM número: o saldo.
+    expect(computeBalance(ledger)).toBe(725);
   });
 
-  it('ignores entries without a goal link', () => {
-    expect(sumReservedByGoal([entry('DEPOSIT', 500)]).size).toBe(0);
+  it('does not discount a fully linked ledger', () => {
+    const ledger = [
+      { type: 'DEPOSIT', amount: 500, goal_id: 1 },
+      { type: 'DEPOSIT', amount: 500, goal_id: 2 },
+    ] as unknown as SavingsBalanceEntry[];
+    expect(computeBalance(ledger)).toBe(1000);
   });
 
-  it('nets DEPOSIT minus WITHDRAW per goal', () => {
-    const reserved = sumReservedByGoal([
-      entry('DEPOSIT', 300, 1),
-      entry('WITHDRAW', 100, 1),
-      entry('DEPOSIT', 50, 2),
-    ]);
-    expect(reserved.get(1)).toBe(200);
-    expect(reserved.get(2)).toBe(50);
+  it('stays exact in cents with linked entries (0,10 + 0,20 = 0,30)', () => {
+    const ledger = [
+      { type: 'DEPOSIT', amount: 0.1, goal_id: 3 },
+      { type: 'DEPOSIT', amount: 0.2, goal_id: 3 },
+    ] as unknown as SavingsBalanceEntry[];
+    expect(toCents(computeBalance(ledger))).toBe(30);
   });
 
-  it('floors each goal at 0 instead of leaking a negative reserve', () => {
-    const reserved = sumReservedByGoal([
-      entry('DEPOSIT', 100, 1),
-      entry('WITHDRAW', 400, 1),
-      entry('DEPOSIT', 80, 2),
-    ]);
-    expect(reserved.get(1)).toBe(0);
-    expect(reserved.get(2)).toBe(80);
-  });
-
-  it('leaves YIELD out of the reserved amount (it cannot be linked — T-024)', () => {
-    // Um YIELD com goal_id não deveria existir (o server rejeita), mas se um
-    // dado legado tiver, ele não vira reserva.
-    const reserved = sumReservedByGoal([entry('YIELD', 90, 1), entry('DEPOSIT', 10, 1)]);
-    expect(reserved.get(1)).toBe(10);
-  });
-
-  it('nets in cents (0.1 + 0.2 does not become 0.30000000000000004)', () => {
-    const reserved = sumReservedByGoal([entry('DEPOSIT', 0.1, 7), entry('DEPOSIT', 0.2, 7)]);
-    expect(reserved.get(7)).toBe(0.3);
-  });
-});
-
-describe('computeReservedTotal', () => {
-  it('is 0 without linked entries', () => {
-    expect(computeReservedTotal([entry('DEPOSIT', 1000), entry('YIELD', 5)])).toBe(0);
-  });
-
-  it('sums the floored reserve of every goal', () => {
-    expect(
-      computeReservedTotal([
-        entry('DEPOSIT', 300, 1),
-        entry('WITHDRAW', 500, 1), // meta 1 no piso 0, não -200
-        entry('DEPOSIT', 120, 2),
-      ])
-    ).toBe(120);
-  });
-});
-
-describe('computeFreeBalance', () => {
-  it('equals the balance when nothing is reserved', () => {
-    expect(computeFreeBalance([entry('DEPOSIT', 1000), entry('YIELD', 50)])).toBe(1050);
-  });
-
-  it('subtracts the reserve of every goal', () => {
-    // 1000 no saldo, 900 reservados na meta A → 100 livres.
-    expect(computeFreeBalance([entry('DEPOSIT', 100), entry('DEPOSIT', 900, 1)])).toBe(100);
-  });
-
-  it('counts YIELD as free money', () => {
-    expect(computeFreeBalance([entry('DEPOSIT', 500, 1), entry('YIELD', 25)])).toBe(25);
-  });
-
-  it('handles a transfer pair as net zero on the balance and -X on the free balance', () => {
-    const before = [entry('DEPOSIT', 1000)];
-    const after = [...before, entry('WITHDRAW', 400), entry('DEPOSIT', 400, 1)];
-    expect(computeBalance(after)).toBe(computeBalance(before));
-    expect(computeFreeBalance(after)).toBe(600);
-  });
-
-  it('can be negative on legacy ledgers (caller applies max(0, …))', () => {
-    // Aporte vinculado antes da T-041 + retirada avulsa: reserva > saldo.
-    expect(computeFreeBalance([entry('DEPOSIT', 100, 1), entry('WITHDRAW', 60)])).toBe(-60);
-  });
-
-  it('is exact in cents so transferring the whole free balance is allowed', () => {
-    const entries = [entry('DEPOSIT', 0.1), entry('DEPOSIT', 0.2)];
-    const free = computeFreeBalance(entries);
-    expect(toCents(free)).toBe(30);
-    expect(toCents(0.3) <= toCents(free)).toBe(true);
-  });
-
-  it('spreads across multiple goals', () => {
-    expect(
-      computeFreeBalance([
-        entry('DEPOSIT', 1000),
-        entry('DEPOSIT', 200, 1),
-        entry('DEPOSIT', 300, 2),
-        entry('WITHDRAW', 500),
-      ])
-    ).toBe(500);
+  it('keeps a legacy transfer pair net zero on the balance', () => {
+    // Par da T-041 (WITHDRAW sem vínculo + DEPOSIT vinculado): sem Metas ele é
+    // só um par de lançamentos comuns que se anulam.
+    const ledger = [
+      { type: 'DEPOSIT', amount: 1000 },
+      { type: 'WITHDRAW', amount: 400 },
+      { type: 'DEPOSIT', amount: 400, goal_id: 5 },
+    ] as unknown as SavingsBalanceEntry[];
+    expect(computeBalance(ledger)).toBe(1000);
   });
 });

@@ -2,14 +2,12 @@ import { describe, it, expect } from 'vitest';
 import type {
   ExpenseEntry,
   FixedExpense,
-  Goal,
   IncomeEntry,
   IncomeSource,
   PortfolioSummary,
   SavingsSummary,
 } from '@vetor-wallet/shared';
 import {
-  computeGoalsSummary,
   computeMonthCashFlow,
   computeStockTotals,
   sumAmounts,
@@ -17,7 +15,6 @@ import {
   isExpensesLayerEmpty,
   isSavingsLayerEmpty,
   isStocksLayerEmpty,
-  isGoalsLayerEmpty,
 } from './homeMetrics';
 
 function makeEntry(overrides: Partial<ExpenseEntry> = {}): ExpenseEntry {
@@ -58,18 +55,6 @@ function makeSummary(overrides: Partial<PortfolioSummary> = {}): PortfolioSummar
   };
 }
 
-function makeGoal(overrides: Partial<Goal> = {}): Goal {
-  return {
-    id: 1,
-    user_id: 1,
-    name: 'Meta',
-    target_amount: 0,
-    current_amount: 0,
-    created_at: '2026-01-01',
-    ...overrides,
-  };
-}
-
 describe('computeStockTotals', () => {
   it('retorna zeros e sem flag para lista vazia', () => {
     expect(computeStockTotals([])).toEqual({ invested: 0, current: 0, hasMissingQuote: false });
@@ -106,40 +91,6 @@ describe('sumAmounts', () => {
 
   it('soma os valores de amount normalmente', () => {
     expect(sumAmounts([{ amount: 100 }, { amount: 250.5 }, { amount: 10 }])).toBeCloseTo(360.5);
-  });
-});
-
-describe('computeGoalsSummary', () => {
-  it('retorna aggregatePct null e count 0 para array vazio', () => {
-    expect(computeGoalsSummary([])).toEqual({
-      count: 0,
-      totalTarget: 0,
-      totalCurrent: 0,
-      aggregatePct: null,
-    });
-  });
-
-  it('não divide por zero quando o alvo agregado é 0 (metas sem target) — aggregatePct fica null', () => {
-    const result = computeGoalsSummary([makeGoal({ target_amount: 0, current_amount: 50 })]);
-    expect(result.totalTarget).toBe(0);
-    expect(result.aggregatePct).toBeNull();
-    expect(result.count).toBe(1);
-  });
-
-  it('calcula o percentual agregado corretamente com múltiplas metas', () => {
-    const result = computeGoalsSummary([
-      makeGoal({ target_amount: 1000, current_amount: 500 }),
-      makeGoal({ target_amount: 1000, current_amount: 250 }),
-    ]);
-    expect(result.totalTarget).toBe(2000);
-    expect(result.totalCurrent).toBe(750);
-    expect(result.aggregatePct).toBeCloseTo(37.5);
-    expect(result.count).toBe(2);
-  });
-
-  it('permite current_amount > target_amount e reporta percentual acima de 100', () => {
-    const result = computeGoalsSummary([makeGoal({ target_amount: 100, current_amount: 150 })]);
-    expect(result.aggregatePct).toBeCloseTo(150);
   });
 });
 
@@ -387,15 +338,5 @@ describe('isStocksLayerEmpty', () => {
   it('NÃO mostra CTA quando a busca da carteira falhou (walletLoadError=true), mesmo com summary null — evita esconder posições reais atrás de uma falha de rede/brapi', () => {
     expect(isStocksLayerEmpty(null, true, true)).toBe(false);
     expect(isStocksLayerEmpty(makeSummary({ positions: [] }), true, true)).toBe(false);
-  });
-});
-
-describe('isGoalsLayerEmpty', () => {
-  it('é vazio quando não há metas', () => {
-    expect(isGoalsLayerEmpty([])).toBe(true);
-  });
-
-  it('não é vazio quando há ao menos uma meta, mesmo com target/current zerados', () => {
-    expect(isGoalsLayerEmpty([makeGoal({ target_amount: 0, current_amount: 0 })])).toBe(false);
   });
 });

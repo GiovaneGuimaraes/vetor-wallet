@@ -1,84 +1,56 @@
 # CLAUDE.md — @vetor-wallet/savings-core
 
-Regras de poupança/reserva e metas do Vetor Wallet. Extraído de
-`packages/rest-api/src/api/services/{savings,goals}.ts` na T-099b (Ciclo 19 —
+Regras de poupança/reserva do Vetor Wallet. Extraído de
+`packages/rest-api/src/api/services/savings.ts` na T-099b (Ciclo 19 —
 arquitetura em módulos). Categoria **Core**, módulo **Savings** (ver
-`docs/MODULES.md`/`docs/PACKAGES.md`). É dono das tabelas `savings_entries` e
-`goals`, e por isso `goals.ts` importa `@vetor-wallet/db` — "Core" é *dono das
-regras/dados do domínio*, não *nunca faz I/O*. `savings.ts` é puro (só
-aritmética de centavos), sem banco.
+`docs/MODULES.md`/`docs/PACKAGES.md`). É dono da tabela `savings_entries`.
+Hoje o package é **100% puro** (só aritmética de centavos): a metade que falava
+com o banco era `goals.ts`, que saiu com Metas na T-091b1.
 
 Este arquivo substitui `docs/decisions/savings-goals.md` (hoje um stub apontando
-para cá) e cobre o módulo Savings inteiro, incluindo o que vive nas rotas do
-`server` e nas telas do `web`.
+para cá — e o registro da remoção de Metas) e cobre o módulo Savings inteiro,
+incluindo o que vive nas rotas do `rest-api` e nas telas do `web`.
+
+## Metas foi removida do app (T-091b1, 2026-08-14)
+
+Decisão do humano: **Metas some sem substituto** — nem caixinha de Renda Fixa,
+nem migração de dado, nem tela nova. Saíram deste package `goals.ts` (progresso
+manual × derivado, T-024) e toda a aritmética de reserva/transferência
+(`sumReservedByGoal`, `computeReservedTotal`, `computeFreeBalance`,
+`pickTransferLegs`, T-041/T-052).
+
+**Esta é a etapa 1 de 2, e nada foi apagado do banco.** A tabela `goals`, a
+coluna `savings_entries.goal_id` e o índice `idx_savings_entries_goal` continuam
+no schema até a **T-091b2**, que só roda depois de o humano abrir o app sem
+Metas e confirmar. Consequência prática ao mexer aqui: linhas legadas com
+`goal_id` preenchido **existem** e são lançamentos comuns.
 
 ## Estrutura
 
 ```
 src/
-├── savings.ts  # PURO: toCents, computeBalance, sumReservedByGoal,
-│               # computeReservedTotal, computeFreeBalance, pickTransferLegs
-├── goals.ts    # COM BANCO: fetchGoalLinkAggregates, resolveGoalProgress (pura),
-│               # listGoalsWithProgress, getGoalWithProgress, getGoalLinkAggregate
+├── savings.ts  # PURO: toCents, computeBalance
 └── index.ts    # barrel
 ```
 
-Rotas: `packages/rest-api/src/api/routes/{savings,goals}.ts`. Telas e lógica pura
-do cliente: `packages/web/src/routes/{savingsTransfer,savingsProjection,savingsWithdraw}.ts`.
+Rota: `packages/rest-api/src/api/routes/savings.ts`. Telas e lógica pura
+do cliente: `packages/web/src/routes/{savingsProjection,savingsWithdraw}.ts`
+(e `savingsTransfer.ts`, hoje só o selo de procedência do dado legado).
 
 ## Invariantes (não quebrar)
 
-- **Progresso de meta é derivado na LEITURA, nunca materializado** (T-024) — ver
-  seção abaixo.
-- **A transferência poupança → meta é um par atômico** WITHDRAW + DEPOSIT no
-  mesmo `db.batch(..., 'write')`, e a perna de WITHDRAW **não pode ter
-  `goal_id`** (T-041) — ver seção abaixo.
-- **Toda comparação de dinheiro aqui é em centavos inteiros** (`toCents` =
-  `Math.round(v * 100)`): comparar floats direto reprovaria uma transferência de
-  exatamente o saldo livre quando ele veio de somas como 0,10 + 0,20.
-- **Piso 0 por meta** em `sumReservedByGoal` espelha `resolveGoalProgress`: uma
-  meta cujas retiradas vinculadas superam os aportes não devolve "reserva
-  negativa" para inflar o saldo livre das outras.
-- **`computeFreeBalance` pode devolver negativo** em bases legadas; o valor sai
-  como está e quem exibe aplica `max(0, …)`.
-- **Não importa `express`** nem nada de `server`/`web` (regra 1 de
+- **Saldo livre = saldo.** Não existe mais reserva: `computeBalance` é o único
+  número, e quem precisa dele no cliente lê `summary.balance` do server em vez de
+  derivar. A função `computeFreeBalance` foi **removida** em vez de virar
+  identidade — um segundo nome para o mesmo valor convida a divergência.
+- **Lançamento com `goal_id` legado conta INTEGRAL no saldo.** Nada é descontado
+  por causa do vínculo órfão (tem teste, aqui e na rota) — é o caso que mais
+  provavelmente quebraria numa base real antes da T-091b2.
+- **Toda soma de dinheiro aqui é em centavos inteiros** (`toCents` =
+  `Math.round(v * 100)`): somar floats direto faz `0,10 + 0,20` virar
+  `0.30000000000000004` e diverge um centavo do `summary` em razões grandes.
+- **Não importa `express`** nem nada de `rest-api`/`web` (regra 1 de
   `docs/PACKAGES.md`).
-- **A cópia em `packages/web/src/routes/savingsTransfer.ts` FICA e é esperada**
-  (`shared/` é types-only; o navegador não consome package de backend). **As
-  duas cópias mudam juntas**, cada uma com teste próprio.
-
-## Progresso de metas: manual ou derivado dos aportes vinculados (T-024)
-
-Uma meta tem **duas origens possíveis** de `current_amount`, sinalizadas pelo campo `progress_source` (`'MANUAL' | 'LINKED_SAVINGS'`) que a API devolve junto de `linked_entries_count`:
-
-- **`MANUAL`** — nenhum `savings_entries.goal_id` aponta para a meta. `current_amount` é a coluna da tabela `goals`, editável via `PATCH /api/goals/:id`. É o comportamento pré-T-024 e continua valendo para todas as metas históricas (retrocompatibilidade: nenhuma migração de dados foi feita).
-- **`LINKED_SAVINGS`** — existe ao menos um lançamento vinculado. `current_amount` é **derivado** (`SUM(DEPOSIT) − SUM(WITHDRAW)` dos lançamentos vinculados, piso 0, arredondado em centavos) e o `PATCH` de `current_amount` responde `400` explicativo — evita duas fontes de verdade. `name`/`target_amount` continuam editáveis.
-
-Pontos de projeto:
-
-- O valor derivado **não é materializado** em `goals.current_amount`: é calculado a cada leitura em `goals.ts` deste package. Consequência desejada: `DELETE /api/savings/:id` de um lançamento vinculado já reflete no progresso, sem job de recálculo.
-- `listGoalsWithProgress` faz **duas queries** (metas + `GROUP BY goal_id` agregando os lançamentos do usuário) — nada de N+1 por meta.
-- **`YIELD` não pode ser vinculado**: `POST /api/savings` com `goalId` num lançamento de rendimento responde `400`. Rateio de rendimento entre metas está fora de escopo, então "lançamento vinculado" ≡ `DEPOSIT`/`WITHDRAW` e a semântica de "meta derivada" não fica ambígua.
-- `goalId` de meta de outro usuário → `404` (mesmo padrão das outras rotas isoladas por `user_id`).
-- `savings_entries.goal_id` é **FOREIGN KEY e o libsql aplica a constraint**: `DELETE /api/goals/:id` precisa desvincular (`SET goal_id = NULL`) antes de apagar a meta — na ordem inversa o delete falha com `SQLITE_CONSTRAINT_FOREIGNKEY`. Os lançamentos sobrevivem (o saldo da poupança não muda), só perdem o vínculo.
-- O saldo da poupança (`SavingsSummary`) **ignora** o vínculo: um aporte vinculado a meta continua somando no saldo/total de aportes. Meta é uma *visão* sobre os lançamentos, não um cofre separado.
-
-## Transferência da poupança para uma meta (T-041)
-
-`POST /api/savings/transfer-to-goal` reserva para uma meta dinheiro que **já está** na poupança, em vez de exigir um aporte novo. O modelo é um **par atômico** de lançamentos comuns gravado no mesmo `db.batch(..., 'write')`: um `WITHDRAW` sem vínculo e um `DEPOSIT` vinculado à meta, com o mesmo `amount`/`date` e um `transfer_group` (uuid) comum.
-
-- **O saldo não muda** (−X +X). Isso é o ponto, não um efeito colateral: a invariante `saldo = DEPOSIT + YIELD − WITHDRAW` continua valendo e o dinheiro segue na poupança rendendo — ele só passa a estar *reservado* para a meta, coerente com "meta é uma visão sobre os lançamentos, não um cofre separado". Nenhum tipo novo de lançamento e nenhuma coluna de saldo foram criados.
-- **A perna de WITHDRAW não pode ter `goal_id`** — invariante nº 1. Com as duas pernas vinculadas, `fetchGoalLinkAggregates` (`goals.ts` deste package) somaria +X −X = 0 e o progresso da meta não andaria. Só o DEPOSIT é vinculado, então o progresso sobe exatamente X.
-- **Saldo livre** é o conceito complementar **obrigatório**: como o card "Saldo" não muda, sem ele a transferência não teria feedback nenhum. `saldo livre = saldo − Σ max(0, net vinculado por meta)`, **derivado na leitura** (nada persistido, nada materializado — mesma filosofia do progresso de metas da T-024). O piso 0 por meta espelha `resolveGoalProgress`: uma meta cujas retiradas vinculadas superam os aportes não "empresta" reserva negativa para inflar o livre das outras. `YIELD` conta no saldo e nunca na reserva (não pode ser vinculado), logo rendimento é sempre dinheiro livre.
-- **A validação é contra o saldo livre, não o total**, e a comparação é em **centavos inteiros** (`Math.round(v * 100)`): em float, transferir exatamente um saldo livre somado de 0,10 + 0,20 seria rejeitado por ruído. Transferir exatamente o saldo livre é caso de sucesso (coberto por teste).
-- **Custo aceito e documentado**: `totalDeposits` e `totalWithdrawals` do `summary` sobem X cada. Preferiu-se isso a inventar um terceiro tipo de lançamento ou uma coluna `source` que todo consumidor precisaria conhecer. O `SavingsSummary` ficou **inalterado** (vários testes comparam o objeto inteiro com `toEqual`); o saldo livre é calculado por quem exibe.
-- **Duplicação intencional server/web**: `savings.ts` deste package (`sumReservedByGoal`, `computeFreeBalance`, `toCents`) e `packages/web/src/routes/savingsTransfer.ts` (as mesmas + `validateTransfer`, `isTransferLeg`), cada uma com teste próprio — mesmo motivo de `normalizeCategory` (T-028): `shared/` é types-only por construção. **As duas cópias devem mudar juntas.** No web, o `balance` vem do `summary` do server (fonte única do saldo) e só a parcela reservada é derivada dos `entries`.
-- **`pickTransferLegs` (T-052)** é o guard explícito do 201: as duas pernas foram gravadas no mesmo batch logo antes do re-SELECT, então na prática ambas existem — mas o `.find(...) as SavingsEntry` de antes mascararia um `undefined` atrás de um 201 com uma perna faltando. Lançar aqui deixa o `errorHandler` converter em 500, visível e diagnosticável.
-- **`transfer_group` é procedência, não invariante**: serve ao selo `⇄ transferência` que a lista mostra nas duas pernas (espírito do `↻ recorrente` da T-035). O `PATCH /api/savings/:id` **não** aceita o campo e nada é validado entre as pernas — **cada perna é editável e excluível sozinha**, sem cascata e sem "desfazer". Consequências aceitas (cobertas por teste): apagar só o WITHDRAW faz o dinheiro "voltar" ao saldo e a meta continua com o progresso; apagar só o DEPOSIT derruba o saldo e o progresso. Apagar a **meta** desvincula as duas pernas (o `DELETE /api/goals/:id` já fazia isso) e o saldo fica intacto.
-- **Corrida aceita e documentada**: duas transferências simultâneas podem, em teoria, furar o saldo livre (a leitura do razão e o batch não são um só lock). É um app single-user; nenhum lock foi adicionado.
-- Na UI de `/poupanca`: 4º card de resumo "Saldo livre" (com sublabel "R$ Y reservados em metas", exibindo `max(0, livre)` — bases legadas podem ter livre negativo e a tela nunca deve mostrar `NaN` nem `-R$`), e um **card dedicado** "Transferir para uma meta" (não um checkbox no form de novo lançamento: a operação grava duas pernas e tem validações próprias), desabilitado com hint quando não há meta cadastrada ou o saldo livre é ≤ 0. Se a meta escolhida ainda é `MANUAL` com `current_amount > 0`, o card **avisa** que a primeira transferência a converte para `LINKED_SAVINGS` e o valor manual passa a ser ignorado (a regra do server não muda). O card de meta em `/metas` tem o atalho `⇄ Aportar da poupança` → `/poupanca?meta=<id>`, lido por `useSearchParams` para pré-selecionar a meta.
-- **Data futura é aceita** (nenhuma regra nova foi inventada, como em todo o resto do app).
-- **Fora de escopo (segue pendente)**: desfazer/cascata do par, transferir de volta da meta para a poupança, rateio de rendimento entre metas e materializar o progresso.
 
 ## Previsão de rendimento da poupança é client-side (T-040)
 
@@ -99,7 +71,7 @@ O card "Previsão de rendimento" em `/poupanca` simula quanto o dinheiro rende n
 O server aceita `WITHDRAW` acima do saldo da poupança — permissividade intencional, sem regra de negócio que proíba (fora de escopo mudar). Antes da T-079 a UI ficava muda: um erro de digitação (ex.: saque de R$ 99.999 com saldo de R$ 5.042) passava sem qualquer aviso e deixava o saldo negativo em silêncio.
 
 - `wouldOverdrawBalance(amount, balance)` em `packages/web/src/routes/savingsWithdraw.ts` (com teste ao lado) só responde **se avisa** — comparação em centavos inteiros (padrão T-041/T-052); sacar exatamente o saldo **não** é excedente e não pede confirmação.
-- Passo de confirmação **inline no form** de "Novo lançamento" (`PoupancaPage.tsx`), não `window.confirm`: a página ainda não tinha um padrão de confirmação próprio, e um passo inline é mais fácil de testar e mais consistente com o resto do form. Ao detectar overdraw num WITHDRAW, o primeiro submit não envia o POST — só marca `overdrawConfirmPending`, troca o texto do botão para "Confirmar retirada" e mostra um aviso; o segundo submit (com o mesmo valor) segue para a API. Qualquer edição no form depois do aviso (tipo, valor, data, nota, meta) derruba a confirmação pendente — ela vale só para os dados exatos que o usuário viu.
+- Passo de confirmação **inline no form** de "Novo lançamento" (`PoupancaPage.tsx`), não `window.confirm`: a página ainda não tinha um padrão de confirmação próprio, e um passo inline é mais fácil de testar e mais consistente com o resto do form. Ao detectar overdraw num WITHDRAW, o primeiro submit não envia o POST — só marca `overdrawConfirmPending`, troca o texto do botão para "Confirmar retirada" e mostra um aviso; o segundo submit (com o mesmo valor) segue para a API. Qualquer edição no form depois do aviso (tipo, valor, data, nota) derruba a confirmação pendente — ela vale só para os dados exatos que o usuário viu.
 - **Não-bloqueante de verdade**: nenhuma validação nova impede o envio, o aviso só atrasa por um clique extra. O server continua sendo a única autoridade sobre se o saque é aceito.
 
 ## CTA de onboarding no card "Poupança" da Home (T-080)

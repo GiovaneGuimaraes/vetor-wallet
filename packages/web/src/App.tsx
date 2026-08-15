@@ -8,7 +8,6 @@ import { HomePage } from './routes/HomePage';
 import { RendaPage } from './routes/RendaPage';
 import { DespesasPage } from './routes/DespesasPage';
 import { PoupancaPage } from './routes/PoupancaPage';
-import { MetasPage } from './routes/MetasPage';
 import { CriptoPage } from './routes/CriptoPage';
 import { DashboardPage } from './routes/DashboardPage';
 import { InvestimentosPage } from './routes/InvestimentosPage';
@@ -231,7 +230,6 @@ export default function App() {
         <Route path="/renda" element={<RendaPage />} />
         <Route path="/despesas" element={<DespesasPage />} />
         <Route path="/poupanca" element={<PoupancaPage />} />
-        <Route path="/metas" element={<MetasPage />} />
         {/* T-091a: Investimentos é o guarda-chuva de Ações, Cripto e Renda
             Fixa. As rotas dos filhos são declaradas IRMÃS do hub (planas),
             não aninhadas sob `/investimentos` com um layout próprio: uma

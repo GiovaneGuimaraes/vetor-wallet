@@ -15,20 +15,18 @@ import type { Db } from '@vetor-wallet/db';
  * Em seguida a importação grava de volta apenas o que a Pluggy devolve, que é
  * uma janela (default 30 dias) e só das contas conectadas.
  *
- * Duas consequências que a UI é obrigada a dizer antes de confirmar, porque não
- * são dedutíveis do nome "replace":
+ * A consequência que a UI é obrigada a dizer antes de confirmar, porque não é
+ * dedutível do nome "replace": **a poupança não volta.** A importação da Pluggy
+ * escreve em `income_entries`/`expense_entries` e **nunca** em `savings_entries`
+ * (movimentação interna, aliás, nem é importada — T-088). Apagar poupança aqui é
+ * perda líquida: não existe nada no lote de entrada que a recomponha.
  *
- * 1. **A poupança não volta.** A importação da Pluggy escreve em
- *    `income_entries`/`expense_entries` e **nunca** em `savings_entries`
- *    (movimentação interna, aliás, nem é importada — T-088). Apagar poupança
- *    aqui é perda líquida: não existe nada no lote de entrada que a recomponha.
- * 2. **Meta com progresso derivado zera.** `savings_entries.goal_id` é o que
- *    liga aporte a meta (T-024); a linha da meta em `goals` sobrevive, mas o
- *    progresso calculado a partir dos aportes vinculados vai a zero.
- *
- * O par atômico de transferência poupança → meta (T-041, `transfer_group`) some
- * inteiro — as duas pontas são linhas de `savings_entries` —, então esse
- * invariante não é violado: nunca sobra meia transferência.
+ * **Nada é apagado fora dessas três tabelas.** As tabelas legadas de Metas
+ * (`goals` e a coluna `savings_entries.goal_id`) continuam no schema até a
+ * T-091b2 e **não** são tocadas aqui: a linha em `goals` sobrevive ao replace,
+ * só os lançamentos somem. Vale o mesmo para o `transfer_group` da T-041 — as
+ * duas pontas de um par legado são linhas de `savings_entries`, então o par some
+ * inteiro e nunca sobra meia transferência.
  *
  * ## Atomicidade
  *

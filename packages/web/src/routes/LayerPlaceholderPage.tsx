@@ -4,8 +4,8 @@ interface Props {
 }
 
 /**
- * Placeholder mínimo para as rotas de layer (Renda, Despesas, Poupança,
- * Metas) — T-004 entrega só a rota/navegação; o conteúdo real de cada tela
+ * Placeholder mínimo para as rotas de layer (Renda, Despesas, Poupança)
+ * — T-004 entrega só a rota/navegação; o conteúdo real de cada tela
  * é escopo das tarefas seguintes (T-008..T-013, ver BACKLOG.md).
  */
 export function LayerPlaceholderPage({ title, subtitle }: Props) {

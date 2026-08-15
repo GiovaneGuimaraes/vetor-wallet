@@ -1,10 +1,10 @@
 /* ------------------------------------------------------------------ */
-/* Layers Poupança (/poupanca) e Metas (/metas) — T-010                */
+/* Layer Poupança (/poupanca) — T-010; o layer Metas saiu na T-091b1   */
 /*                                                                      */
 /* Reaproveita tokens/classes base de App.css (.vw-card, .vw-input,     */
 /* .vw-btn-primary, .vw-btn-ghost, .vw-page-header, .vw-hero-card etc.) */
 /* sem alterá-las. Este arquivo só acrescenta classes novas, escopadas  */
-/* com o prefixo `vw-savings-*` / `vw-goal-*` para evitar colisão com   */
+/* com o prefixo `vw-savings-*` para evitar colisão com                */
 /* outras tarefas em paralelo (T-008/T-009/T-011).                     */
 /* ------------------------------------------------------------------ */
 
@@ -46,7 +46,7 @@
   }
 }
 
-/* Sublabel do card "Saldo livre" (T-041): quanto está reservado em metas. */
+/* Sublabel de um card de resumo (ex.: aportes incluídos na projeção). */
 .vw-savings-summary-sub {
   margin: 6px 0 0;
   font-size: 11px;
@@ -103,7 +103,7 @@
   color: var(--color-ink);
 }
 
-/* ── Formulários (Poupança / Metas) ─────────────────────────────────── */
+/* ── Formulários (Poupança) ─────────────────────────────────────────── */
 .vw-form-card {
   border-radius: var(--radius-card, 16px);
   border: 1px solid var(--color-edge);
@@ -324,113 +324,6 @@
   font-size: 12px;
 }
 
-/* ── Metas ───────────────────────────────────────────────────────────── */
-.vw-goals-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 14px;
-}
-
-.vw-goal-card {
-  border-radius: var(--radius-card, 16px);
-  border: 1px solid var(--color-edge);
-  background: linear-gradient(180deg, var(--card-1), var(--card-2));
-  padding: 18px 20px;
-}
-
-.vw-goal-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.vw-goal-name {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-ink);
-}
-
-.vw-goal-amounts {
-  margin: 0 0 10px;
-  font-size: 13px;
-  color: var(--color-dim);
-  font-variant-numeric: tabular-nums;
-}
-
-.vw-goal-amounts strong {
-  color: var(--color-ink);
-  font-weight: 600;
-}
-
-.vw-goal-progress-track {
-  height: 6px;
-  border-radius: 99px;
-  background: var(--color-edge);
-  overflow: hidden;
-  margin-bottom: 6px;
-}
-
-.vw-goal-progress-fill {
-  height: 100%;
-  border-radius: 99px;
-  background: var(--color-accent);
-  transition: width 0.3s ease;
-}
-
-.vw-goal-progress-fill.vw-goal-complete {
-  background: var(--color-up);
-}
-
-.vw-goal-progress-pct {
-  margin: 0 0 14px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-dim);
-  font-variant-numeric: tabular-nums;
-}
-
-.vw-goal-update-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.vw-goal-update-row input {
-  flex: 1;
-  height: 34px;
-  padding: 0 10px;
-  font-size: 13px;
-  min-width: 0;
-}
-
-.vw-goal-update-row button {
-  flex-shrink: 0;
-  height: 34px;
-  padding: 0 14px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-/* T-041: atalho do card de meta para o form de transferência em /poupanca. */
-.vw-goal-transfer-link {
-  display: inline-block;
-  margin-top: 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-accent);
-  text-decoration: none;
-}
-
-.vw-goal-transfer-link:hover {
-  text-decoration: underline;
-}
-
-/* ── T-024: vínculo entre lançamentos de poupança e metas ───────────────── */
-
 .vw-field-hint {
   display: block;
   margin-top: 4px;
@@ -439,42 +332,15 @@
   color: var(--color-dim);
 }
 
-/* T-030: aviso de degradação parcial quando só a busca de metas falha. */
+/* T-030: aviso de degradação parcial de uma busca acessória. */
 .vw-field-hint--warn {
   color: var(--color-warn);
 }
 
-.vw-savings-entry-goal {
-  margin-left: 8px;
-  font-size: 11px;
-  color: var(--color-dim);
-}
-
-/* T-041: selo nas duas pernas de uma transferência poupança → meta. */
+/* T-041: selo nas duas pernas de uma transferência legada da poupança
+   (T-091b1: Metas saiu; nada novo nasce com `transfer_group`). */
 .vw-savings-entry-transfer {
   margin-left: 8px;
   font-size: 11px;
   color: var(--color-accent);
-}
-
-.vw-goal-source {
-  margin: 0 0 12px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-dim);
-}
-
-.vw-goal-source.vw-goal-source-auto {
-  color: var(--color-up);
-}
-
-.vw-goal-source-hint {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--color-dim);
-}
-
-.vw-goal-source-hint code {
-  font-size: 10px;
 }

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import type {
   ExpenseEntry,
   FixedExpense,
-  Goal,
   IncomeEntry,
   IncomeSource,
   PluggyItemView,
@@ -13,7 +12,6 @@ import { useShellContext } from '../layout/ShellContext';
 import {
   getExpenseEntries,
   getFixedExpenses,
-  getGoals,
   getIncomeEntries,
   getIncomeSources,
   getPluggyStatus,
@@ -23,7 +21,6 @@ import { PluggyImportModal } from '../components/PluggyImportModal';
 import { PLUGGY_BRAND, connectionSummary } from './pluggyImport';
 import '../components/pluggyImport.css';
 import {
-  computeGoalsSummary,
   computeMonthCashFlow,
   computeStockTotals,
   sumAmounts,
@@ -31,14 +28,12 @@ import {
   isExpensesLayerEmpty,
   isSavingsLayerEmpty,
   isStocksLayerEmpty,
-  isGoalsLayerEmpty,
 } from './homeMetrics';
 import { currentMonthKey } from './expenseMonth';
 import { INVESTMENTS_ROOT } from './investmentsTree';
 import './home.css';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-const fmtPct = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
 
 interface LayerCardConfig {
   key: string;
@@ -82,13 +77,6 @@ const LAYER_CARDS: LayerCardConfig[] = [
     name: 'Investimentos',
     desc: 'Ações, cripto e renda fixa',
   },
-  {
-    key: 'metas',
-    path: '/metas',
-    mascot: 'metas-t.png',
-    name: 'Metas',
-    desc: 'Progresso dos seus objetivos',
-  },
 ];
 
 // T-080: CTA curto exibido no lugar do valor quando o layer ainda não tem
@@ -102,16 +90,16 @@ const CTA_BY_KEY: Record<string, string> = {
   despesas: 'Registre um gasto →',
   poupanca: 'Faça seu primeiro aporte →',
   investimentos: 'Registre uma operação →',
-  metas: 'Crie uma meta →',
 };
 
 /**
  * Rota `/home` (T-008, evoluindo o shell entregue pela T-004): hero de
  * patrimônio (ações via ShellContext + saldo de poupança) com renda/despesas/
  * sobra do mês, e grid de cards de layer com o valor real de cada um
- * (renda, despesas, poupança, investimentos, metas). T-091a: "Ações" e
+ * (renda, despesas, poupança, investimentos). T-091a: "Ações" e
  * "Criptomoedas" saíram daqui e viraram filhos do card "Investimentos", que
- * leva ao hub `/investimentos`.
+ * leva ao hub `/investimentos`. T-091b1: o card "Metas" saiu — o conceito de
+ * meta deixou de existir no app (decisão do humano).
  * Agregações não triviais vivem em `homeMetrics.ts` (função pura, testável
  * quando o web tiver runner — issue #6).
  */
@@ -128,7 +116,6 @@ export function HomePage() {
   // acima — computeMonthCashFlow soma 0 e sinaliza incomeEntriesLoaded=false.
   const [variableIncomeEntries, setVariableIncomeEntries] = useState<IncomeEntry[] | null>(null);
   const [savingsSummary, setSavingsSummary] = useState<SavingsSummary | null>(null);
-  const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // T-089c — o botão de importar só aparece quando o SERVER diz que a integração
@@ -162,14 +149,13 @@ export function HomePage() {
       // Promise.allSettled (em vez de Promise.all): se uma das chamadas
       // falhar, as demais ainda populam seus cards — só o card cuja fonte
       // falhou fica com o valor anterior (0/—) e um aviso genérico aparece.
-      const [incomeRes, incomeEntriesRes, expensesRes, entriesRes, savingsRes, goalsRes] =
+      const [incomeRes, incomeEntriesRes, expensesRes, entriesRes, savingsRes] =
         await Promise.allSettled([
           getIncomeSources(),
           getIncomeEntries(currentMonthKey()),
           getFixedExpenses(),
           getExpenseEntries(currentMonthKey()),
           getSavings(),
-          getGoals(),
         ]);
       if (cancelled) return;
 
@@ -179,16 +165,10 @@ export function HomePage() {
       if (expensesRes.status === 'fulfilled') setExpenses(expensesRes.value);
       if (entriesRes.status === 'fulfilled') setVariableEntries(entriesRes.value.entries);
       if (savingsRes.status === 'fulfilled') setSavingsSummary(savingsRes.value.summary);
-      if (goalsRes.status === 'fulfilled') setGoals(goalsRes.value);
 
-      const failures = [
-        incomeRes,
-        incomeEntriesRes,
-        expensesRes,
-        entriesRes,
-        savingsRes,
-        goalsRes,
-      ].filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+      const failures = [incomeRes, incomeEntriesRes, expensesRes, entriesRes, savingsRes].filter(
+        (r): r is PromiseRejectedResult => r.status === 'rejected'
+      );
       if (failures.length > 0) {
         const first = failures[0].reason;
         setError(first instanceof Error ? first.message : 'Falha ao carregar alguns dados da home');
@@ -220,7 +200,6 @@ export function HomePage() {
   // Renda do mês exibida nos cards = fixas + variáveis do mês (T-036).
   const incomeTotal = cashFlow.incomeTotal;
   const savingsBalance = savingsSummary?.balance ?? 0;
-  const goalsSummary = computeGoalsSummary(goals);
   const patrimonioTotal = stockTotals.current + savingsBalance;
 
   const dash = '—';
@@ -235,8 +214,6 @@ export function HomePage() {
         return isSavingsLayerEmpty(savingsSummary);
       case 'investimentos':
         return isStocksLayerEmpty(walletSummary, walletLoaded, walletLoadError);
-      case 'metas':
-        return isGoalsLayerEmpty(goals);
       default:
         return false;
     }
@@ -252,12 +229,6 @@ export function HomePage() {
         return fmtCur.format(savingsBalance);
       case 'investimentos':
         return fmtCur.format(stockTotals.current);
-      case 'metas':
-        return goalsSummary.count === 0
-          ? dash
-          : goalsSummary.aggregatePct !== null
-            ? `${fmtPct.format(goalsSummary.aggregatePct)}%`
-            : `${goalsSummary.count}`;
       default:
         return dash;
     }

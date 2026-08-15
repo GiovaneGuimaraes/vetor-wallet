@@ -1,6 +1,6 @@
 # Vetor Wallet
 
-Carteira financeira pessoal organizada em layers — Renda mensal, Despesas (fixas + variáveis com recorrência e orçamento), Poupança/Reserva, Metas e Ações da B3 (cadastro manual de operações, posição consolidada por preço médio ponderado e cotações em tempo real).
+Carteira financeira pessoal organizada em layers — Renda mensal, Despesas (fixas + variáveis com recorrência e orçamento), Poupança/Reserva e Ações da B3 (cadastro manual de operações, posição consolidada por preço médio ponderado e cotações em tempo real).
 
 > Para detalhes de arquitetura, comandos e pontos de atenção, veja [CLAUDE.md](./CLAUDE.md).
 
@@ -12,8 +12,8 @@ Carteira financeira pessoal organizada em layers — Renda mensal, Despesas (fix
 
 ## Como funciona
 
-1. A Home mostra os layers financeiros: renda, despesas, poupança, metas e ações
-2. Renda e despesas combinam itens fixos mensais com lançamentos datados (com recorrência, categorias e histórico); a poupança é um livro de lançamentos com metas alimentadas por aportes vinculados
+1. A Home mostra os layers financeiros: renda, despesas, poupança e ações
+2. Renda e despesas combinam itens fixos mensais com lançamentos datados (com recorrência, categorias e histórico); a poupança é um livro de lançamentos (aportes, retiradas e rendimento)
 3. No layer de ações, cadastre operações de compra/venda manualmente (ticker, tipo, quantidade, preço, data) — o servidor calcula a posição consolidada por preço médio ponderado e busca cotações na brapi.dev em tempo real
 4. O dashboard exibe: investido, valor atual, resultado absoluto e percentual por ativo e no total
 
