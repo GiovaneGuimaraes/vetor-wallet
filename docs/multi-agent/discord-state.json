@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-08-14T22:36:36-03:00"
+    "atualizadoEm": "2026-08-14T23:07:30-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -20,13 +20,14 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-08-14T22:36:36-03:00"
+    "atualizadoEm": "2026-08-14T23:07:30-03:00"
   },
   "tasks": {
     "T-091b1": {
       "canal": "todo-ai",
       "messageId": "1537997149575577702",
-      "status": "EM_ANDAMENTO"
+      "status": "CONCLUIDA",
+      "pr": 166
     },
     "T-091a": {
       "canal": "todo-ai",
@@ -134,6 +135,17 @@
         "3️⃣": "caixinha e Metas convivem"
       },
       "status": "RESPONDIDO 2026-08-14: reacao 2 (Metas some sem substituto). Etapa 1 (T-091b1) em andamento; o DROP do dado (T-091b2) espera confirmacao explicita do humano."
+    },
+    "T-091b2-drop-goals": {
+      "canal": "todo-human",
+      "messageId": "1538004884832522374",
+      "modo": "emoji + resposta",
+      "opcoes": {
+        "1️⃣": "apagar agora",
+        "2️⃣": "deixar dormindo",
+        "3️⃣": "exportar antes, depois apagar"
+      },
+      "status": "ABERTO 2026-08-14: bloqueia a T-091b2 (DROP de goals e goal_id). Sem backup do wallet.db."
     }
   },
   "lastSeen": {
