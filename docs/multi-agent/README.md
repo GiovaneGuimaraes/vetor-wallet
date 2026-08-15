@@ -84,6 +84,23 @@ Regras que valem sempre:
   como pendente algo que já foi mergeado. É a visão que o humano abre primeiro.
   *Origem*: em 2026-08-12 o humano cobrou — a T-088 foi espelhada, mas a T-089, o bloqueador
   comercial da Pluggy e o incidente de privacidade ficaram só no git por três atualizações.
+- **REGRA DURA (2026-08-15): colher resposta é o passo 0, não um favor do humano.** O loop
+  escrevia no `#todo-human` e nunca voltava para ler. A pendência da T-091b (remover Metas)
+  ficou **dois dias** com a resposta dada — reação 2️⃣ na mensagem — e só foi vista porque o
+  humano abriu a sessão dizendo "veja a resposta no Discord". Enquanto isso a tarefa constava
+  BLOQUEADA e o orquestrador replanejava em torno de uma pergunta já respondida. O campo
+  `lastSeen.todoHuman` do `discord-state.json` existe para isso e estava parado.
+  Toda sessão do orquestrador começa por: `reactions` em cada pendência ABERTA (o campo
+  `doHumano` é o único que vale como decisão — o 👀 do próprio bot não conta) e
+  `read todo-human --after <lastSeen.todoHuman>` para resposta em texto. Achou? Transcreve
+  para o campo "Resposta do humano" do `TODO-HUMANO.md` **antes** de escolher a próxima
+  tarefa, e atualiza o `lastSeen`.
+- **Migração destrutiva vai em duas etapas, com o humano confirmando entre elas** (regra
+  criada na T-091b, 2026-08-14): a etapa 1 tira o recurso da **UI e da API** sem apagar uma
+  linha; a etapa 2 dropa o dado, e **só roda com confirmação explícita** depois de o humano
+  ver o app sem o recurso. Entre as duas, desfazer é reverter código; depois da segunda, não
+  há desfazer — não existe backup do `wallet.db`. A etapa 2 leva **dump para fora do repo**
+  (que é público) como passo da tarefa, salvo recusa explícita do humano.
 - **Discord é interface, não fonte da verdade.** `BACKLOG.md` e `TODO-HUMANO.md` continuam
   sendo o estado real; as mensagens são espelhos editáveis. Divergiu? O markdown ganha.
 - **Dado sensível não atravessa a ponte.** Valor real de conta do humano, saldo, nome de
@@ -105,6 +122,13 @@ Regras que valem sempre:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
+│ 0. COLHER RESPOSTAS (orquestrador) — antes de planejar   │
+│    `bridge.mjs reactions` nas pendências ABERTAS do      │
+│    TODO-HUMANO.md + `read --after lastSeen.todoHuman`.   │
+│    Resposta encontrada → transcreve para o markdown e    │
+│    a tarefa BLOQUEADA volta à fila. Sem este passo o     │
+│    humano precisa avisar que respondeu (ver abaixo).     │
+│                        │                                 │
 │ 1. PLANEJAR (orquestrador / Fable)                       │
 │    Lê ORQUESTRADOR.md + CLAUDE.md + BACKLOG.md           │
 │    Cria/atualiza TODOs no BACKLOG.md com prioridade      │
