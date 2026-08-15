@@ -1,6 +1,6 @@
 # CLAUDE.md — Vetor Wallet
 
-Carteira financeira pessoal: layers de Renda, Despesas, Poupança/Reserva, Metas e Ações da B3 (operações manuais, posição por preço médio ponderado, cotações via [brapi.dev](https://brapi.dev)).
+Carteira financeira pessoal: layers de Renda, Despesas, Poupança/Reserva e Investimentos (Ações da B3 com operações manuais, posição por preço médio ponderado e cotações via [brapi.dev](https://brapi.dev); Cripto e Renda Fixa). **O layer Metas foi removido na T-091b1** (decisão do humano, 2026-08-14) — não existe mais o conceito de objetivo no app.
 
 **Detalhes por domínio vivem em `docs/decisions/` — leia só o(s) arquivo(s) do domínio que a tarefa toca (índice no fim deste arquivo).**
 
@@ -57,8 +57,9 @@ packages/
 │                     # abacatepay-core, T-103, Ciclo 20). PILOTO do formato
 │                     # novo: 1 função por arquivo, `db` injetado, Jest com
 │                     # testes em tests/unit/tests/ e cobertura 100%
-├── savings-core/     # @vetor-wallet/savings-core — saldo livre, transferência
-│                     # poupança → meta, progresso de meta (T-099b, Ciclo 19)
+├── savings-core/     # @vetor-wallet/savings-core — saldo da poupança em
+│                     # centavos inteiros (T-099b, Ciclo 19); metas saíram na
+│                     # T-091b1 e o saldo livre virou o próprio saldo
 ├── expenses-core/    # @vetor-wallet/expenses-core — recorrência lazy e
 │                     # idempotente (T-099b, Ciclo 19)
 ├── auth-core/        # @vetor-wallet/auth-core — credenciais, bcrypt, perfil,
@@ -150,8 +151,7 @@ O SQLite (`packages/rest-api/data/wallet.db`) é criado no primeiro boot.
 | expenses | CRUD /api/expenses[/:id] | fixas; categoria normalizada (T-028) |
 | expense-entries | CRUD /api/expense-entries[/:id]?month=, GET /summary?months=&endMonth= | variáveis datadas; `recurring: true` cria recorrência (T-035); POST aceita `externalId` opcional — repetido responde 409 `{ duplicate: true, entry }`; junto de `recurring` → 400 (T-084) |
 | recurring-expenses | GET, PATCH (`{active:false}`), DELETE /api/recurring-expenses[/:id] | só encerrar (soft); criação nasce no POST de expense-entries |
-| savings | CRUD /api/savings[/:id], POST /savings/transfer-to-goal | DEPOSIT/WITHDRAW/YIELD + summary; transferência = par atômico (T-041) |
-| goals | CRUD /api/goals[/:id] | progresso manual OU derivado de aportes vinculados (T-024) |
+| savings | CRUD /api/savings[/:id] | DEPOSIT/WITHDRAW/YIELD + summary; o saldo é também o saldo livre (não há mais reserva — T-091b1) |
 | budgets | GET, POST (upsert), DELETE /api/budgets[/:id] | teto por categoria, sem vínculo com mês |
 | plans | GET /api/plans | catálogo global de planos (`active = 1`); ÚNICA rota de dados sem filtro por `user_id` |
 | subscriptions | POST /api/subscriptions, GET /api/subscriptions/me | assina (cria/reaproveita cobrança Pix) e lê estado de billing (T-070) |
@@ -190,7 +190,8 @@ Leia o arquivo do domínio antes de mexer nele:
 
 - **db-schema.md** — schema SQL completo, ALTERs idempotentes, índices.
 - **wallets-portfolio.md** — stub: migrado para `packages/portfolio-core/CLAUDE.md` (T-099c).
-- **savings-goals.md** — stub: migrado para `packages/savings-core/CLAUDE.md` (T-099b).
+- **savings-goals.md** — stub: migrado para `packages/savings-core/CLAUDE.md` (T-099b);
+  registra também a remoção de Metas (T-091b1) e a etapa 2 pendente (T-091b2).
 - **expenses-budgets.md** — stub: migrado para `packages/expenses-core/CLAUDE.md` (T-099b).
 - **income.md** — renda fixa × variável (T-036), sobra do mês real na Home (T-025).
 - **validation-money-dates.md** — data de calendário real (T-043), máx. 2 casas decimais (T-052).

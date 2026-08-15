@@ -209,8 +209,8 @@ export function PlanosPage() {
       <div className="vw-page-header">
         <h1 className="vw-page-title">Planos</h1>
         <p className="vw-page-subtitle">
-          O Vetor Wallet é gratuito para renda, despesas, poupança e metas. Assine o Pro para
-          desbloquear Ações da B3, Criptomoedas e importação automática via Pluggy.
+          O Vetor Wallet é gratuito para renda, despesas e poupança. Assine o Pro para desbloquear
+          Ações da B3, Criptomoedas e importação automática via Pluggy.
         </p>
       </div>
 

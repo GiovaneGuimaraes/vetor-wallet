@@ -31,11 +31,6 @@ import type {
   NewSavingsEntry,
   SavingsEntryUpdate,
   SavingsSummary,
-  SavingsTransferRequest,
-  SavingsTransferResult,
-  Goal,
-  NewGoal,
-  GoalUpdate,
   Plan,
   MySubscriptionResponse,
   CreateSubscriptionResponse,
@@ -595,11 +590,7 @@ export async function createSavingsEntry(entry: NewSavingsEntry): Promise<Saving
   return res.json();
 }
 
-/**
- * Edição parcial (T-031). `goalId` ausente preserva o vínculo com a meta,
- * `null` desvincula e um id revincula. Mudar o tipo para `YIELD` num lançamento
- * vinculado é rejeitado com 400 pelo server (T-024).
- */
+/** Edição parcial de um lançamento de poupança (T-031). */
 export async function updateSavingsEntry(
   id: number,
   update: SavingsEntryUpdate
@@ -616,68 +607,9 @@ export async function updateSavingsEntry(
   return res.json();
 }
 
-/**
- * Transfere para uma meta dinheiro que já está na poupança (T-041). O server
- * grava um par WITHDRAW + DEPOSIT atômico: o saldo não muda, o *saldo livre* cai
- * e o progresso da meta sobe. Responde 400 quando o valor excede o saldo livre.
- */
-export async function transferSavingsToGoal(
-  transfer: SavingsTransferRequest
-): Promise<SavingsTransferResult> {
-  const res = await apiFetch('/api/savings/transfer-to-goal', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(transfer),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(err.error ?? 'Falha ao transferir para a meta');
-  }
-  return res.json();
-}
-
 export async function deleteSavingsEntry(id: number): Promise<void> {
   const res = await apiFetch(`/api/savings/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Falha ao remover lançamento de poupança');
-}
-
-// ── Metas ─────────────────────────────────────────────────────────────────────
-
-export async function getGoals(): Promise<Goal[]> {
-  const res = await apiFetch('/api/goals');
-  if (!res.ok) throw new Error('Falha ao buscar metas');
-  return res.json();
-}
-
-export async function createGoal(goal: NewGoal): Promise<Goal> {
-  const res = await apiFetch('/api/goals', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(goal),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(err.error ?? 'Falha ao criar meta');
-  }
-  return res.json();
-}
-
-export async function updateGoal(id: number, update: GoalUpdate): Promise<Goal> {
-  const res = await apiFetch(`/api/goals/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(update),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(err.error ?? 'Falha ao atualizar meta');
-  }
-  return res.json();
-}
-
-export async function deleteGoal(id: number): Promise<void> {
-  const res = await apiFetch(`/api/goals/${id}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error('Falha ao remover meta');
 }
 
 // ── Billing / assinatura Pix (T-072) ─────────────────────────────────────────

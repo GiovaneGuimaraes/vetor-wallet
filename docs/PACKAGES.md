@@ -23,7 +23,7 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **portfolio-core** | Core | Portfolio | Posição, preço médio, histórico, snapshots, agendador | ✅ existe (T-099c) |
 | **brapi-core** | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | ✅ existe (T-098) |
 | **expenses-core** | Core | Expenses | Recorrência lazy (categoria normalizada saiu para `validation-core`, T-099a) | ✅ existe (T-099b) |
-| **savings-core** | Core | Savings | Saldo livre, progresso de meta, transferência | ✅ existe (T-099b) |
+| **savings-core** | Core | Savings | Saldo da poupança em centavos (metas saíram na T-091b1) | ✅ existe (T-099b) |
 | **subscription-core** | Core | Subscriptions | Datas, ativação idempotente, gating + provider AbacatePay | ✅ existe (T-103) |
 | **insights-core** | Core | Insights | Benchmarks CDI/Ibovespa, insights horários | ✅ existe (T-099c) |
 | **bank-import-core** | Core | BankImport | Parser OFX, dedupe por `external_id` | ✅ existe (T-099c) |

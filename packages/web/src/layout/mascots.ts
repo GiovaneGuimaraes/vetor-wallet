@@ -3,15 +3,17 @@
  *
  * T-020: o header deixou de trocar de logo por layer (agora é `/logo.png`
  * fixo, ver `AppShell.tsx`) — este mapa hoje serve as pages de layer
- * (Renda, Despesas, Poupança, Metas, Dashboard, Cripto), cada uma exibindo
+ * (Renda, Despesas, Poupança, Dashboard, Cripto), cada uma exibindo
  * o próprio mascote via `mascotSrcForLayer`.
+ *
+ * T-091b1: a entrada `metas` saiu junto com o layer. O PNG
+ * `public/layers/metas-t.png` **fica** — nenhum asset foi apagado.
  */
 export const MASCOT_FILE_BY_LAYER: Record<string, string> = {
   home: 'receitas-t.png',
   renda: 'receitas-t.png',
   despesas: 'despesas-t.png',
   poupanca: 'poupanca-t.png',
-  metas: 'metas-t.png',
   cripto: 'cripto-t.png',
   carteiras: 'acoes-t.png',
   dash: 'acoes-t.png',

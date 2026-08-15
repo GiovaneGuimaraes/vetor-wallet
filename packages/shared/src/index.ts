@@ -432,18 +432,13 @@ export interface SavingsEntry {
   note: string;
   created_at: string;
   /**
-   * Meta financeira à qual o aporte/retirada está vinculado (T-024).
-   * `null`/ausente = lançamento sem vínculo. Apenas `DEPOSIT` e `WITHDRAW`
-   * podem ser vinculados — `YIELD` fica fora do progresso de metas.
-   */
-  goal_id?: number | null;
-  /**
-   * Etiqueta que amarra as duas pernas de uma transferência poupança → meta
-   * (T-041): o `WITHDRAW` sem vínculo e o `DEPOSIT` vinculado gravados no mesmo
-   * batch compartilham este uuid. `null`/ausente = lançamento normal.
+   * Etiqueta que amarrava as duas pernas de uma transferência poupança → meta
+   * (T-041). Metas foi removida na T-091b1 e a transferência deixou de existir:
+   * o campo sobrevive só como **procedência de dado legado** (nada novo é
+   * gravado com ele). `null`/ausente = lançamento normal.
    *
-   * É **procedência, não invariante**: nada é validado entre as pernas, o PATCH
-   * não aceita o campo e cada perna pode ser editada/excluída sozinha.
+   * Nunca foi invariante: nada é validado entre as pernas, o PATCH não aceita o
+   * campo e cada perna sempre pôde ser editada/excluída sozinha.
    */
   transfer_group?: string | null;
 }
@@ -453,21 +448,13 @@ export interface NewSavingsEntry {
   amount: number;
   date: string;
   note?: string;
-  /** Id da meta a vincular (opcional). Rejeitado para lançamentos `YIELD`. */
-  goalId?: number | null;
 }
 
 /**
  * Payload parcial de `PATCH /api/savings/:id` (T-031).
  *
- * Semântica do vínculo com meta:
- * - `goalId` ausente → o vínculo atual é preservado.
- * - `goalId: null` → **desvincula** o lançamento.
- * - `goalId: <id>` → revincula (404 se a meta for de outro usuário).
- *
- * A regra "YIELD não pode ser vinculado" (T-024) é avaliada sobre o estado
- * **resultante**: mudar o `type` para `YIELD` num lançamento vinculado responde
- * 400, a menos que o mesmo PATCH desvincule (`goalId: null`) no mesmo request.
+ * O vínculo com meta saiu na T-091b1 (Metas foi removida do app): campo
+ * desconhecido no corpo é ignorado, como no resto da API.
  */
 export interface SavingsEntryUpdate {
   type?: SavingsEntryType;
@@ -475,7 +462,6 @@ export interface SavingsEntryUpdate {
   /** YYYY-MM-DD */
   date?: string;
   note?: string;
-  goalId?: number | null;
 }
 
 export interface SavingsSummary {
@@ -483,65 +469,6 @@ export interface SavingsSummary {
   totalDeposits: number;
   totalYield: number;
   totalWithdrawals: number;
-}
-
-/**
- * Corpo de `POST /api/savings/transfer-to-goal` (T-041): reserva para uma meta
- * dinheiro que já está na poupança.
- *
- * O server grava um par atômico WITHDRAW (sem vínculo) + DEPOSIT (vinculado à
- * meta) com o mesmo `amount`/`date` e um `transfer_group` comum. O saldo da
- * poupança **não muda** (−X +X): o que cai é o *saldo livre*
- * (`saldo − reservado em metas`), calculado na leitura.
- */
-export interface SavingsTransferRequest {
-  goalId: number;
-  amount: number;
-  /** YYYY-MM-DD */
-  date: string;
-  note?: string;
-}
-
-/** As duas pernas criadas pela transferência, na ordem em que foram gravadas. */
-export interface SavingsTransferResult {
-  withdraw: SavingsEntry;
-  deposit: SavingsEntry;
-}
-
-/**
- * Origem do progresso de uma meta (T-024):
- * - `MANUAL`: `current_amount` é o valor gravado na tabela `goals`, editável
- *   via `PATCH /api/goals/:id`.
- * - `LINKED_SAVINGS`: a meta tem lançamentos de poupança vinculados, então
- *   `current_amount` é **derivado** (DEPOSIT − WITHDRAW vinculados) e o PATCH
- *   de `current_amount` é rejeitado com 400.
- */
-export type GoalProgressSource = 'MANUAL' | 'LINKED_SAVINGS';
-
-export interface Goal {
-  id: number;
-  user_id: number;
-  name: string;
-  target_amount: number;
-  /** Manual ou derivado dos lançamentos vinculados — ver `progress_source`. */
-  current_amount: number;
-  created_at: string;
-  /** Opcional para compatibilidade com serializações antigas. */
-  progress_source?: GoalProgressSource;
-  /** Quantidade de lançamentos de poupança vinculados a esta meta. */
-  linked_entries_count?: number;
-}
-
-export interface NewGoal {
-  name: string;
-  target_amount: number;
-  current_amount?: number;
-}
-
-export interface GoalUpdate {
-  name?: string;
-  target_amount?: number;
-  current_amount?: number;
 }
 
 /**
