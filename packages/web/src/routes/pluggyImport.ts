@@ -113,7 +113,6 @@ export function replaceWarnings(): string[] {
     'Apaga TODAS as suas rendas, despesas e lançamentos de poupança — inclusive os que você digitou à mão e os importados de OFX, de qualquer data.',
     'A poupança não volta: a importação da Pluggy grava renda e despesa, nunca poupança.',
     'A Pluggy devolve só a janela sincronizada (padrão: 30 dias) e apenas das contas conectadas — o que for mais antigo que isso não é reposto.',
-    'Metas continuam existindo, mas o progresso calculado a partir de aportes vinculados volta a zero.',
     'Não há como desfazer.',
   ];
 }

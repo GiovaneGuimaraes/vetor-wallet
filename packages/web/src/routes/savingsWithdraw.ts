@@ -2,7 +2,7 @@
  * Aviso não-bloqueante de saque acima do saldo da poupança (T-079).
  *
  * O server aceita `WITHDRAW` acima do saldo por decisão documentada
- * (`docs/decisions/savings-goals.md`) — a permissividade é intencional e
+ * (`packages/savings-core/CLAUDE.md`) — a permissividade é intencional e
  * fora de escopo mudar. Mas a UI ficava muda diante de um erro de digitação
  * (ex.: saque de R$ 99.999 com saldo de R$ 5.042 passava sem qualquer
  * aviso), gerando saldo negativo em silêncio. Este módulo só decide **se

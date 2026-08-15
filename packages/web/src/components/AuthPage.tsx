@@ -43,10 +43,8 @@ const FEATURES: FeatureConfig[] = [
     title: 'Ações',
     desc: 'Carteiras da B3 com cotações em tempo real',
   },
-  // Metas saiu desta lista (T-089g, pedido do humano): o layer segue existindo
-  // no app inteiro — rota, card da Home, backend —, mas não é mais anunciado
-  // aqui, porque o humano estuda descontinuá-lo e o espaço foi para a
-  // integração bancária. Só a vitrine mudou; nada de dado foi tocado.
+  // Metas saiu desta lista na T-089g (pedido do humano) e, na T-091b1, do app
+  // inteiro — rota, card da Home e backend. Nada a reanunciar aqui.
 ];
 
 const labelClass = 'block text-xs font-medium text-dim uppercase tracking-wide mb-1.5';

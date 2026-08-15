@@ -43,8 +43,9 @@ middleware daqui:
   importa do package. Atenção: as funções com banco deste package recebem `db`
   **injetado** (`getSubscriptionRow({ db, userId })`) — quem passa o client é a
   rota/middleware.
-- `@vetor-wallet/savings-core` (de `services/savings.ts` e `goals.ts`) — saldo
-  livre, transferência poupança → meta, progresso de meta.
+- `@vetor-wallet/savings-core` (de `services/savings.ts`) — saldo da poupança em
+  centavos inteiros. O que era de metas (`goals.ts`, transferência, progresso)
+  saiu na T-091b1, junto com `routes/goals.ts` e `POST /api/savings/transfer-to-goal`.
 - `@vetor-wallet/expenses-core` (de `services/recurringExpenses.ts`) —
   materialização lazy e idempotente de recorrências.
 

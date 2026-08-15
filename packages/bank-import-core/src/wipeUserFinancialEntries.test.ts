@@ -112,7 +112,9 @@ describe('wipeUserFinancialEntries (T-089b — modo replace)', () => {
     expect((await counts(userId)).expense_entries).toBe(0);
   });
 
-  it('a meta sobrevive, mas o aporte vinculado a ela some (progresso derivado zera)', async () => {
+  // T-091b1: Metas saiu do app, mas a tabela `goals` só é apagada na T-091b2 —
+  // até lá o replace não pode encostar nela, só nos lançamentos.
+  it('não apaga linhas de `goals`, só o lançamento (legado) que apontava para ela', async () => {
     const goal = await db.execute({
       sql: 'INSERT INTO goals (user_id, name, target_amount) VALUES (?, ?, ?)',
       args: [userId, 'Viagem', 5000],
@@ -133,7 +135,7 @@ describe('wipeUserFinancialEntries (T-089b — modo replace)', () => {
     expect((await counts(userId)).savings_entries).toBe(0);
   });
 
-  it('a transferência poupança → meta some INTEIRA — nunca sobra meia ponta (T-041)', async () => {
+  it('o par legado de transferência some INTEIRO — nunca sobra meia ponta (T-041)', async () => {
     for (const type of ['WITHDRAW', 'DEPOSIT']) {
       await db.execute({
         sql: 'INSERT INTO savings_entries (user_id, type, amount, date, transfer_group) VALUES (?, ?, ?, ?, ?)',

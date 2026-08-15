@@ -1,105 +1,21 @@
 /**
- * Helpers puros da transferência poupança → meta (T-041).
+ * Procedência das pernas de transferência da poupança (T-041).
  *
- * O server é a autoridade sobre o saldo livre (`server/src/services/savings.ts`),
- * mas o cliente precisa do mesmo número para exibir o card "Saldo livre" e para
- * barrar o valor antes de gastar um request. A duplicação é intencional e segue
- * o padrão já adotado em `normalizeCategory` (T-028): `shared/` é types-only por
- * construção, então função de runtime não pode morar lá — **as duas cópias devem
- * mudar juntas**.
+ * A T-041 criava um par WITHDRAW + DEPOSIT com um `transfer_group` comum para
+ * reservar dinheiro numa meta. **Metas foi removida na T-091b1** (decisão do
+ * humano) e a transferência deixou de existir: nada novo é gravado com
+ * `transfer_group`, e todo o cálculo de "saldo livre"/"reservado em metas" que
+ * morava aqui saiu junto — **o saldo livre é o saldo**, e a tela lê
+ * `summary.balance` direto (fonte única do server), sem derivar nada.
  *
- * Toda comparação de dinheiro é em centavos inteiros: um saldo livre somado de
- * 0,10 + 0,20 vale 0,30, e comparar floats rejeitaria transferir exatamente ele.
+ * O que sobrou é só a leitura do dado legado: pares gravados antes da remoção
+ * continuam no banco e a lista os identifica com o selo `⇄`, no espírito do
+ * `↻ recorrente` da T-035. Cada perna sempre foi editável/excluível sozinha.
  */
 
 import type { SavingsEntry } from '@vetor-wallet/shared';
-import { parseMoneyInput } from './inlineEdit';
 
-/** Converte reais em centavos inteiros, para comparação exata de dinheiro. */
-function toCents(value: number): number {
-  return Math.round(value * 100);
-}
-
-/**
- * Reservado por meta: DEPOSIT − WITHDRAW dos lançamentos vinculados, com piso 0
- * por meta (espelha `resolveGoalProgress` no server — uma meta "no negativo" não
- * empresta reserva para as outras). `YIELD` nunca entra: não pode ser vinculado
- * (T-024) e, portanto, rendimento é sempre dinheiro livre.
- */
-export function computeReservedByGoal(entries: SavingsEntry[]): Map<number, number> {
-  const cents = new Map<number, number>();
-  for (const entry of entries) {
-    if (entry.goal_id == null) continue;
-    if (entry.type !== 'DEPOSIT' && entry.type !== 'WITHDRAW') continue;
-    const delta = entry.type === 'DEPOSIT' ? toCents(entry.amount) : -toCents(entry.amount);
-    cents.set(entry.goal_id, (cents.get(entry.goal_id) ?? 0) + delta);
-  }
-
-  const reserved = new Map<number, number>();
-  for (const [goalId, value] of cents) reserved.set(goalId, Math.max(0, value) / 100);
-  return reserved;
-}
-
-/** Total reservado em metas — soma de `computeReservedByGoal`. */
-export function computeReservedTotal(entries: SavingsEntry[]): number {
-  let cents = 0;
-  for (const value of computeReservedByGoal(entries).values()) cents += toCents(value);
-  return cents / 100;
-}
-
-/**
- * Saldo livre = saldo − reservado em metas.
- *
- * O `balance` vem do `summary` do server (fonte única do saldo); só a parcela
- * reservada é derivada dos `entries` que a tela já tem. Pode ser **negativo** em
- * bases legadas (aportes vinculados anteriores à T-041 somando mais que o saldo)
- * — quem exibe aplica `max(0, …)`, e `validateTransfer` rejeita tudo nesse caso.
- */
-export function computeFreeBalance(balance: number, entries: SavingsEntry[]): number {
-  return (toCents(balance) - toCents(computeReservedTotal(entries))) / 100;
-}
-
-/**
- * Resultado de `validateTransfer`: ou um erro em pt-BR (`amount: null`), ou o
- * valor já parseado (`error: null`) — o chamador não precisa reconverter o
- * texto do input, que já foi validado aqui.
- */
-export type TransferValidation = { error: string; amount: null } | { error: null; amount: number };
-
-/**
- * Valida o form de transferência antes do request e devolve o valor já
- * parseado em caso de sucesso, para `PoupancaPage.handleSubmit` não converter
- * o texto do input uma segunda vez.
- *
- * `amountRaw` é o texto do input (aceita vírgula decimal, via `parseMoneyInput`
- * — mesma regra dos demais forms de dinheiro); `goalIdRaw` é o valor do
- * `<select>` (`''` = nenhuma meta escolhida).
- */
-export function validateTransfer(
-  amountRaw: string,
-  goalIdRaw: string,
-  freeBalance: number
-): TransferValidation {
-  if (!goalIdRaw) return { error: 'Escolha a meta que vai receber o valor.', amount: null };
-
-  const amount = parseMoneyInput(amountRaw);
-  if (amount === null) {
-    return { error: 'Informe um valor válido, maior que zero.', amount: null };
-  }
-
-  if (toCents(amount) > toCents(freeBalance)) {
-    return {
-      error: 'Valor acima do saldo livre da poupança (o restante já está reservado em metas).',
-      amount: null,
-    };
-  }
-  return { error: null, amount };
-}
-
-/**
- * `true` quando o lançamento é uma das pernas de uma transferência (T-041) —
- * usado só para o selo `⇄` na lista, no espírito do `↻ recorrente` da T-035.
- */
+/** `true` quando o lançamento é uma das pernas de uma transferência legada. */
 export function isTransferLeg(entry: SavingsEntry): boolean {
   return typeof entry.transfer_group === 'string' && entry.transfer_group.length > 0;
 }

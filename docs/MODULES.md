@@ -96,22 +96,22 @@ nota em `PACKAGES.md`.
 
 ---
 
-## 5. Poupança & Metas
+## 5. Poupança
 
 **id**: `Savings`
-**Responsabilidade**: reserva financeira (depósito/saque/rendimento) e metas com progresso
-manual ou derivado de aportes vinculados.
+**Responsabilidade**: reserva financeira (depósito/saque/rendimento).
 
 Packages:
 
-- `packages/savings-core` *(Core, T-099b)* — saldo livre, resumo, progresso de meta manual ×
-  derivado (T-024) e a transferência poupança → meta como par atômico (T-041).
-  Hoje: `services/savings.ts`, `goals.ts`.
-- `packages/rest-api` — `/api/savings` (+ `/transfer-to-goal`), `/api/goals`.
-- `packages/web/src/routes` — páginas de poupança e metas, previsão de rendimento client-side (T-040).
+- `packages/savings-core` *(Core, T-099b)* — saldo da poupança em centavos inteiros.
+- `packages/rest-api` — `/api/savings`.
+- `packages/web/src/routes` — página de poupança, previsão de rendimento client-side (T-040).
 
-Invariante: o cálculo de saldo livre também está duplicado entre server e web — mesma regra
-de "as duas cópias mudam juntas".
+**Metas saiu do módulo na T-091b1** (decisão do humano, 2026-08-14): com ela foram
+`/api/goals`, `POST /api/savings/transfer-to-goal` (T-041), o progresso de meta
+(T-024) e a página `/metas`. O **saldo livre virou o próprio saldo** — não há mais
+reserva a descontar nem cópia duplicada da regra entre server e web. A limpeza do
+banco (`goals`, `savings_entries.goal_id`) é a T-091b2, ainda pendente.
 
 ---
 

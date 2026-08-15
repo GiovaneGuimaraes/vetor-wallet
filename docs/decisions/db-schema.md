@@ -179,18 +179,21 @@ CREATE TABLE IF NOT EXISTS savings_entries (
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
 -- ALTER idempotente: goal_id INTEGER REFERENCES goals(id)
---   vínculo opcional com uma meta (T-024). NULL = sem vínculo. Apenas
---   DEPOSIT/WITHDRAW podem ser vinculados.
--- INDEX idx_savings_entries_goal (user_id, goal_id)
+--   LEGADO. Vínculo com uma meta (T-024). Metas foi removida do app na T-091b1
+--   e NADA novo é gravado aqui: a coluna e as linhas antigas continuam apenas
+--   porque o DROP é a T-091b2, pendente de confirmação do humano. Lançamento
+--   com goal_id é um lançamento COMUM — conta integral no saldo.
+-- INDEX idx_savings_entries_goal (user_id, goal_id)  -- idem: legado
 -- ALTER idempotente: transfer_group TEXT
---   uuid comum às duas pernas de uma transferência poupança → meta (T-041).
---   NULL = lançamento normal. É etiqueta de PROCEDÊNCIA, não invariante: nada é
---   validado entre as pernas e o PATCH não aceita o campo.
+--   uuid comum às duas pernas de uma transferência poupança → meta (T-041,
+--   também removida na T-091b1). NULL = lançamento normal. É etiqueta de
+--   PROCEDÊNCIA, não invariante: nada é validado entre as pernas e o PATCH não
+--   aceita o campo.
 
--- Metas financeiras. `current_amount` é o valor MANUAL de fallback: quando a
--- meta tem lançamentos de poupança vinculados (savings_entries.goal_id), o
--- valor exposto pela API é DERIVADO desses lançamentos e esta coluna deixa de
--- ser lida (nem é materializada — ver "Progresso de metas").
+-- Metas financeiras. LEGADO desde a T-091b1: a API de metas não existe mais e
+-- nenhuma linha nova é criada. A tabela segue aqui até a T-091b2 apagá-la —
+-- `current_amount` era o valor MANUAL de fallback, sobreposto pelo progresso
+-- DERIVADO dos lançamentos vinculados quando havia algum.
 CREATE TABLE IF NOT EXISTS goals (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id        INTEGER NOT NULL REFERENCES users(id),

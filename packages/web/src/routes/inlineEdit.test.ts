@@ -74,10 +74,10 @@ describe('diffEditableFields', () => {
     expect(diff).toEqual({ category: '' });
   });
 
-  it('detects a null↔value change, used for unlinking a savings goal', () => {
-    expect(diffEditableFields({ goalId: '3' }, { goalId: '' })).toEqual({ goalId: '' });
-    expect(diffEditableFields({ goalId: '' }, { goalId: '3' })).toEqual({ goalId: '3' });
-    expect(diffEditableFields({ goalId: '3' }, { goalId: '3' })).toEqual({});
+  it('detects a value↔empty change in both directions', () => {
+    expect(diffEditableFields({ note: '3' }, { note: '' })).toEqual({ note: '' });
+    expect(diffEditableFields({ note: '' }, { note: '3' })).toEqual({ note: '3' });
+    expect(diffEditableFields({ note: '3' }, { note: '3' })).toEqual({});
   });
 
   it('compares strictly — "10" and 10 are different representations', () => {

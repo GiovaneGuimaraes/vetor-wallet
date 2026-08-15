@@ -316,10 +316,11 @@ recusadas explicitamente.
   `savings_entries` (e movimentação interna nem é importada — T-088). Apagá-la é
   perda líquida, e a UI é obrigada a dizer isso antes de confirmar
   (`replaceWarnings` em `packages/web/src/routes/pluggyImport.ts`).
-- **Meta sobrevive, progresso derivado zera** — `savings_entries.goal_id` é o
-  vínculo (T-024); a linha em `goals` fica, os aportes somem.
-- O par atômico de transferência poupança → meta (T-041) some inteiro: as duas
-  pontas são linhas de `savings_entries`, então nunca sobra meia transferência.
+- **Nada é apagado fora dessas três tabelas.** As tabelas legadas de Metas
+  (`goals`, `savings_entries.goal_id`) sobrevivem no schema até a T-091b2 e o
+  replace **não** as toca — a linha em `goals` fica, só os lançamentos somem
+  (tem teste). O par legado de transferência (T-041, `transfer_group`) some
+  inteiro: as duas pontas são linhas de `savings_entries`.
 - **Por que aqui, e não no `savings-core`**: a função toca território daquele
   package, mas a alternativa — a rota chamar dois cores em sequência — quebraria
   a atomicidade, que é a propriedade que importa numa operação sem volta. Fica
