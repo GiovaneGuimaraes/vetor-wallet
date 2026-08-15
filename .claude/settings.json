@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "Hooks do fluxo multi-agente. Regra do repo (docs/multi-agent/README.md): regra de processo violada duas vezes vira trava executavel, nao mais um paragrafo. As duas primeiras viraram step de CI (backlog:check, discord:check); esta vive aqui porque acontece DENTRO da sessao, antes de existir commit para o CI olhar.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "_comment": "Passo 0 do loop: le as reacoes/respostas do humano no #todo-human e injeta no contexto. Sem isto o passo 0 depende de o orquestrador lembrar — e ja falhou (resposta da T-091b parada dois dias). Degrada com aviso, nunca trava a sessao.",
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/tools/colher-respostas.mjs\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
