@@ -18,14 +18,16 @@
 
 ## Abertos
 
-### [2026-08-14] Confirmar o `DROP` do dado de Metas (T-091b2)
+### [2026-08-14] ~~Confirmar o `DROP` do dado de Metas~~ — AUTORIZADO em 2026-08-15 (T-091b2)
 - **Origem**: orquestrador (etapa 2 da remoção decidida em 2026-08-14)
 - **Bloqueia**: T-091b2 — e **só ela**. A fila segue com a T-104b, que não depende disto.
 - **Pendência**: a T-091b1 (#166) tirou Metas da UI e da API **sem apagar nada**. A tabela `goals` e a coluna `savings_entries.goal_id` continuam no seu banco, com as suas metas e os vínculos dos aportes intactos. Enquanto isso valer, desfazer a remoção é reverter código. Depois do `DROP`, **não há como recuperar** — não existe backup do `wallet.db`.
 - **O que fazer antes de responder**: rode `pnpm dev`, abra a Home e a Poupança e confira que nada de que você precisa sumiu junto. Um ponto específico para olhar: **o saldo livre da poupança agora é o saldo inteiro** — o dinheiro que estava reservado em metas volta a aparecer como disponível. Se isso não for o que você espera ver, o momento de dizer é **antes** do `DROP`.
 - **A pergunta**: apagar `goals` e `goal_id` agora, ou deixar o dado dormindo no banco por enquanto? Deixar não custa nada além de duas colunas mortas — a etapa 2 pode esperar semanas sem prejuízo.
 - **Terceira saída, se você quiser guardar**: exportar as metas para um arquivo antes do `DROP` (um `SELECT` para CSV, fora do repo). Diga e eu faço junto da tarefa.
-- **Resposta do humano**: _(a definir)_
+- **Resposta do humano**: (via chat, 2026-08-15) **"adicione nas próximas tarefas esse clear no banco de dados para as metas"** — ou seja, a opção 1️⃣: apagar. A T-091b2 entrou na fila do `BACKLOG.md`, à frente da T-104b.
+- **Decisão do orquestrador sobre a 3️⃣ (dump antes do `DROP`)**: ele não escolheu entre 1️⃣ e 3️⃣, então o dump entra **por default**, como passo da tarefa. Custa uma query, o arquivo vai para **fora do repo** (que é público) e devolve a reversibilidade que a decisão custou — sem ele, "apagar agora" é irreversível de verdade, num banco sem backup. Se ele disser que não quer o arquivo, o passo cai.
+- **O que ele NÃO confirmou, e por isso fica registrado**: a pendência pedia que ele abrisse o app sem Metas antes de decidir (em especial o saldo livre da poupança, que passou a mostrar como disponível o dinheiro antes reservado). Ele autorizou sem dizer se olhou. O dump cobre o dado; se a **UI** estiver errada, o conserto é código, e nenhuma das duas coisas depende de `goals` existir no banco.
 
 ### [2026-08-13] ~~Caixinha herda o papel de Metas, ou Metas some sem substituto?~~ — RESPONDIDO em 2026-08-14 (T-091b)
 - **Origem**: orquestrador (levantado ao especificar a T-091, e o humano gostou da leitura)

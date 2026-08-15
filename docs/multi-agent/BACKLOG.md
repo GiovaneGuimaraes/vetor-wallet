@@ -20,19 +20,26 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
-### T-091 — Metas sai, Investimentos entra como árvore (guarda-chuva)
-- **Status**: (a) CONCLUIDA (#165); (b1) CONCLUIDA (#166); **(b2) BLOQUEADA** no humano; (c)/(d) PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: nada
-- **Feito**: (a) árvore `/investimentos` com Ações, Cripto e Renda Fixa (rationale de "caixinha é Renda Fixa, irmã de Ações — **não reabrir**": PR #165). (b1) Metas saiu da UI e da API por decisão do humano (2️⃣ — some sem substituto), sem apagar dado; saldo livre da poupança virou o próprio saldo (PR #166).
-- **(b2) — a migração destrutiva, e só ela.** `DROP TABLE goals`, `DROP INDEX idx_savings_entries_goal` e remoção de `savings_entries.goal_id` — que no SQLite exige **rebuild da tabela**, por causa da FK. `schema.test.ts` tem asserções sobre `goals`. Em aberto: se `transfer_group` sai junto (hoje fica, sustentando o selo `⇄` de dado legado). **Não roda sem confirmação explícita do humano** — item em `TODO-HUMANO.md`. Não há backup.
-- **Fases restantes depois**: **(c)** posição sem ticker (valor aplicado, vencimento, taxa); **(d)** endpoint `/investments` da Pluggy para preencher.
-- **Risco de dupla contagem com a T-089e**: o dinheiro na caixinha **saiu** da conta corrente, então saldo de conta + posição de caixinha não se sobrepõem — mas se a Pluggy devolver a caixinha *também* como conta, soma duas vezes. Conferir contra o payload real antes de somar.
-- **Herdado da (a)**, para a (c)/(d): o hub usa o total da carteira B3 como valor de qualquer nó não-"em breve" — quando Renda Fixa ganhar dado real, mapear valor por `node.key`.
-- **Aceite (por fase)**: carteira B3 e poupança seguem com os mesmos números; nenhuma linha de `goals` apagada na (b1); suítes verdes.
+### T-091b2 — Apagar o dado de Metas do banco ⭐ PRÓXIMA
+- **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-091b1 (#166, concluída)
+- **Autorizado pelo humano em 2026-08-15** (chat): a etapa 2 entra na fila. É a **migração destrutiva** que a T-091b1 deixou de propósito para depois — e **não há backup do `wallet.db`**.
+- **Escopo**: `DROP TABLE goals`, `DROP INDEX idx_savings_entries_goal` e remoção de `savings_entries.goal_id` — no SQLite isso exige **rebuild da tabela** (FK), feito dentro de transação. `schema.test.ts` tem asserções sobre `goals`. Os ALTERs de `schema.ts` são idempotentes e rodam a cada boot: o que sai tem que sair **de vez**, senão o próximo boot recria a coluna.
+- **Dump antes do DROP, obrigatório**: gravar `goals` e os `savings_entries.goal_id` em arquivo **fora do repo** (é público) antes de apagar. Custa uma query e devolve a reversibilidade que a decisão custou.
+- **`transfer_group` NÃO sai** — sustenta o selo `⇄` de par legado na Poupança, que sobreviveu à T-091b1 de propósito.
+- **Antes da T-104b**: as duas mexem no `savings-core`, e migrar o package carregando `goal_id` morto é retrabalho garantido.
+- **Aceite**: coluna e tabela somem e **não voltam** após reiniciar o server; saldo da poupança com os mesmos números de antes; dump conferido antes do DROP; suítes verdes.
 
-### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva) ⭐ PRÓXIMA
-- **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-103
+### T-091c/d — Renda Fixa com dado real
+- **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-091a (#165) e b1 (#166), concluídas
+- **Objetivo**: **(c)** posição sem ticker (valor aplicado, vencimento, taxa) — o layer hoje assume ticker da B3 + preço médio + cotação da brapi, e caixinha não tem nenhum dos três; **(d)** endpoint `/investments` da Pluggy para preencher. Em série. "Caixinha é Renda Fixa, irmã de Ações" está decidido — **não reabrir** (PR #165).
+- **Risco de dupla contagem com a T-089e**: o dinheiro na caixinha **saiu** da conta corrente, então saldo de conta + posição de caixinha não se sobrepõem — mas se a Pluggy devolver a caixinha *também* como conta, soma duas vezes. Conferir contra o payload real antes de somar.
+- **Herdado da (a)**: o hub usa o total da carteira B3 como valor de qualquer nó não-"em breve" — quando Renda Fixa ganhar dado real, mapear valor por `node.key`.
+- **Aceite**: carteira B3 segue com os mesmos números; suítes verdes.
+
+### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva)
+- **Status**: PENDENTE (atrás da T-091b2) · **Complexidade**: alta (executor Opus) · **Depende de**: T-103
 - **Objetivo**: o alvo (provado no `subscription-core`, generalizado no `validation-core`) é **1 função por arquivo**, **`db` injetado**, testes em `tests/unit/tests/`, **cobertura 100%**, Jest. Uma tarefa/PR por package, **em série** — cada um arrasta call sites e mexe nos mesmos arquivos de config. Ordem e quem já migrou: tabela no `docs/PACKAGES.md`. Próxima: **`savings-core`**, o primeiro core **com `db`**.
-- **Atenção na `savings-core`**: o package **encolheu** na T-091b1 (#166) — o par atômico da T-041 e a agregação por meta não existem mais, e o conflito com a T-091 está resolvido. Invariante que sobra e é intocável: **saldo em centavos inteiros** (T-052), com `goal_id` legado contando integral. Achado da T-104a: separar funções expõe branches de default antes cobertos por acidente — rodar `--coverage` cedo.
+- **Atenção na `savings-core`**: o package **encolheu** na T-091b1 (#166) — o par atômico da T-041 e a agregação por meta não existem mais. Invariante que sobra e é intocável: **saldo em centavos inteiros** (T-052). Achado da T-104a: separar funções expõe branches de default antes cobertos por acidente — rodar `--coverage` cedo.
 - **Fora de escopo**: mudar regra de negócio; desfazer acoplamentos core→core (ver Candidatas).
 - **Aceite (por package)**: suíte do package verde com cobertura 100%; `build`, `lint`, `format:check` e `pnpm test` da raiz verdes; contagem de testes do `rest-api` preservada ou maior.
 
