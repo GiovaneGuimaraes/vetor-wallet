@@ -16,11 +16,11 @@
   },
   "agenticSystem": {
     "messageId": "1536205023682232321",
-    "atualizadoEm": "2026-08-15T02:12:57-03:00"
+    "atualizadoEm": "2026-08-15T13:39:30-03:00"
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-08-15T02:08:30-03:00"
+    "atualizadoEm": "2026-08-15T13:39:30-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -75,6 +75,7 @@
       "canal": "todo-human",
       "messageId": "1536142930925068369",
       "modo": "emoji + resposta",
+      "status": "RESPONDIDO 2026-08-15: reacao ❌ (fica parada), confirmando a decisao via chat de 2026-08-12. Volta a mesa se ele mudar a prioridade.",
       "opcoes": {
         "✅": "entra na fila",
         "❌": "fica parada"
@@ -116,7 +117,8 @@
     "T-089a-pluggy-link": {
       "canal": "todo-human",
       "messageId": "1537242215678615746",
-      "modo": "so emoji"
+      "modo": "so emoji",
+      "status": "RESOLVIDO 2026-08-15: reacao ✅ (rodou). Primeiro achado do hook de passo 0."
     },
     "T-089-replace": {
       "canal": "todo-human",

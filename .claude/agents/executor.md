@@ -16,7 +16,7 @@ Você é um agente executor do sistema multi-agente do Vetor Wallet. Você receb
 ## Durante a execução
 
 - Implemente **somente** o que está no escopo da tarefa. Encontrou um problema fora do escopo? Anote no relatório final; não conserte.
-- Siga a política de testes do `CLAUDE.md`: toda mudança de produto vem com teste automatizado ou justificativa explícita. Há **duas suítes** — `pnpm --filter vetor-wallet-rest-api test` e `pnpm --filter vetor-wallet-web test`; rode a(s) do(s) pacote(s) que você alterou antes de finalizar e inclua o resultado real no relatório.
+- Siga a política de testes do `CLAUDE.md`: toda mudança de produto vem com teste automatizado ou justificativa explícita. Rode a suíte do(s) pacote(s) que você alterou antes de finalizar (a lista de filtros está em `CLAUDE.md` § Comandos) e **cole no relatório a saída real, não um resumo dela** — o que decide se a tarefa fecha é evidência, e um relatório que afirma o resultado sem mostrá-lo já custou um ciclo aqui (T-095).
 - Commits pequenos e descritivos na branch do seu worktree. Nunca faça push nem abra PR — isso é decisão do orquestrador/humano.
 
 ## Se bloquear em algo que só o humano decide
@@ -26,7 +26,7 @@ Você é um agente executor do sistema multi-agente do Vetor Wallet. Você receb
 1. Adicione um item em `docs/multi-agent/TODO-HUMANO.md` seguindo o modelo do arquivo.
 2. Pare o trabalho na parte bloqueada (conclua o que for independente) e devolva status `BLOQUEADA`.
 
-**Nunca** pergunte ao humano diretamente e **nunca** escreva em `docs/multi-agent/BACKLOG.md` — quem atualiza o backlog é o orquestrador.
+**Nunca** pergunte ao humano diretamente e **nunca** escreva em `docs/multi-agent/BACKLOG.md` nem no Discord (`tools/discord/bridge.mjs`) — quem atualiza a fila e o espelho é o orquestrador. Duas escritas vindas de worktrees diferentes corrompem os dois, e o estrago só aparece depois do merge. O que você precisaria escrever lá vai no seu **relatório final**; `TODO-HUMANO.md` é a exceção e continua sendo seu para registrar bloqueio.
 
 ## Relatório final (seu retorno ao orquestrador)
 

@@ -90,11 +90,15 @@ Regras que valem sempre:
   humano abriu a sessão dizendo "veja a resposta no Discord". Enquanto isso a tarefa constava
   BLOQUEADA e o orquestrador replanejava em torno de uma pergunta já respondida. O campo
   `lastSeen.todoHuman` do `discord-state.json` existe para isso e estava parado.
-  Toda sessão do orquestrador começa por: `reactions` em cada pendência ABERTA (o campo
-  `doHumano` é o único que vale como decisão — o 👀 do próprio bot não conta) e
-  `read todo-human --after <lastSeen.todoHuman>` para resposta em texto. Achou? Transcreve
-  para o campo "Resposta do humano" do `TODO-HUMANO.md` **antes** de escolher a próxima
-  tarefa, e atualiza o `lastSeen`.
+  **Desde 2026-08-15 isso não depende mais de memória**: o hook `SessionStart` roda
+  `tools/colher-respostas.mjs`, que varre as pendências ABERTAS do `discord-state.json`
+  (aberta = sem `status` RESOLVIDO/RESPONDIDO/AUTORIZADO e `modo` diferente de "so aviso"),
+  lê as reações do humano — só o `doHumano` conta, o 👀 do próprio bot é ack — e as mensagens
+  novas depois do `lastSeen.todoHuman`. O resultado chega no contexto no início da sessão.
+  O que continua sendo trabalho do orquestrador: **transcrever** para o campo "Resposta do
+  humano" do `TODO-HUMANO.md` antes de escolher a próxima tarefa, e atualizar o `lastSeen`.
+  Se a linha disser "não consegui ler o Discord", colha à mão com `bridge.mjs reactions` —
+  o script degrada de propósito em vez de travar a sessão, e silêncio dele não é "sem resposta".
 - **Migração destrutiva vai em duas etapas, com o humano confirmando entre elas** (regra
   criada na T-091b, 2026-08-14): a etapa 1 tira o recurso da **UI e da API** sem apagar uma
   linha; a etapa 2 dropa o dado, e **só roda com confirmação explícita** depois de o humano
@@ -110,7 +114,8 @@ Regras que valem sempre:
   `edit` **não** notifica — então o vazamento fica silencioso se ninguém olhar.
 - **Só o orquestrador escreve no Discord e em `discord-state.json`** — mesma regra do
   `BACKLOG.md`, para não haver conflito de escrita entre worktrees. Executores seguem
-  reportando ao orquestrador.
+  reportando ao orquestrador. Continua sendo regra de prompt, não trava — nunca foi violada
+  (ver "Travas executáveis" sobre o hook que foi criado para isto e removido no mesmo dia).
 - O humano confirma por reação (✅ aprova · ❌ recusa · 🔁 refaz) ou por resposta em texto;
   o orquestrador transcreve a resposta para o campo "Resposta do humano" do `TODO-HUMANO.md`,
   que segue sendo o registro permanente da decisão.
@@ -122,12 +127,12 @@ Regras que valem sempre:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ 0. COLHER RESPOSTAS (orquestrador) — antes de planejar   │
-│    `bridge.mjs reactions` nas pendências ABERTAS do      │
-│    TODO-HUMANO.md + `read --after lastSeen.todoHuman`.   │
-│    Resposta encontrada → transcreve para o markdown e    │
-│    a tarefa BLOQUEADA volta à fila. Sem este passo o     │
-│    humano precisa avisar que respondeu (ver abaixo).     │
+│ 0. COLHER RESPOSTAS — automático desde 2026-08-15        │
+│    O hook SessionStart roda tools/colher-respostas.mjs   │
+│    e injeta reações/respostas novas no contexto.         │
+│    Achou? transcreve para o markdown, atualiza o         │
+│    lastSeen e a tarefa BLOQUEADA volta à fila.           │
+│    Degradou ("não consegui ler")? colha à mão.           │
 │                        │                                 │
 │ 1. PLANEJAR (orquestrador / Fable)                       │
 │    Lê ORQUESTRADOR.md + CLAUDE.md + BACKLOG.md           │
@@ -146,17 +151,56 @@ Regras que valem sempre:
 │ 4. REVISAR (revisor / Sonnet, spawn do orquestrador)     │
 │    Revisa o diff: corretude, testes, convenções do       │
 │    CLAUDE.md. Reprovou? → volta ao passo 3 com feedback. │
+│    3ª REPROVADA encerra: BLOQUEADA + TODO-HUMANO.md.     │
 │                        │                                 │
 │ 5. INTEGRAR (orquestrador)                               │
 │    Atualiza status no BACKLOG.md, consolida resultados,  │
 │    reporta ao humano, abre PR e faz merge (modo auto —   │
 │    autorização permanente do humano, 2026-07-24).        │
+│    O gate é o CHECK VERDE do CI, nunca o relatório.      │
 │                        │                                 │
 │ 6. FECHAR O LOOP                                         │
 │    Orquestrador reavalia prioridades com o que aprendeu  │
 │    e volta ao passo 1.                                   │
 └─────────────────────────────────────────────────────────┘
 ```
+
+## Travas executáveis — e a regra que as cria
+
+> **Regra em prosa violada duas vezes não vira parágrafo novo: vira trava executável.**
+> (2026-08-15) Já aconteceu três vezes aqui, e nas três a segunda tentativa em prosa também
+> falhou: o backlog chegou a 78 KB com a regra de higiene escrita desde o ciclo 1; o espelho do
+> Discord ficou parado no mesmo dia em que a regra de espelhar foi escrita; a resposta da T-091b
+> ficou dois dias parada com o passo 0 já documentado. Prosa é instrução **soft** — esperada, não
+> forçada. Quando a mesma regra falha duas vezes, o problema não é redação, é camada: ela precisa
+> descer para o CI (se houver commit a inspecionar) ou para um hook (se o dano acontece dentro da
+> sessão, antes de existir commit).
+
+| Trava | Onde roda | O que impede |
+|---|---|---|
+| `pnpm backlog:check` | CI | backlog acima de 8 KB ou tarefa CONCLUIDA parada nele |
+| `pnpm discord:check` | CI | commit em `BACKLOG.md`/`TODO-HUMANO.md` mais novo que o espelho |
+| `tools/colher-respostas.mjs` | hook `SessionStart` | o passo 0 depender de o orquestrador lembrar |
+| ruleset "main protegida" | GitHub | `non_fast_forward` e `deletion` na `main` |
+
+O hook vive em [`.claude/settings.json`](../../.claude/settings.json) e **vale automaticamente** —
+settings de projeto são carregados sob o *workspace trust* da pasta, e edição direta no arquivo é
+pega pelo file watcher na sessão em curso, sem reiniciar. Não há passo de aceite: `/hooks` é um
+**navegador read-only** (mostra evento, matcher, comando e de qual settings veio) e serve para
+auditar, não para aprovar. Ele **falha aberto**: erro próprio libera e imprime que degradou. Um
+guard de higiene que trava a sessão por bug próprio custa mais que a regra que ele protege. (Quem
+falha *fechado* é o gate `ENVIRONMENT` da Pluggy — lá o desfecho de um typo seria violar
+contrato, não perder higiene.)
+
+**O critério tem lado negativo, e ele foi exercido no mesmo dia.** Junto com o hook do passo 0
+nasceu um segundo, `PreToolUse`, que bloqueava worktree de escrever em `BACKLOG.md`,
+`discord-state.json` e no Discord. Foi **removido horas depois**, a pedido do humano, por não
+passar no próprio critério: essa regra nunca foi violada — nenhuma vez, muito menos duas. Era
+trava para falha hipotética, exatamente o "existir prematuramente" que o custo de um graph
+prematuro cobra. E o preço era real: `PreToolUse` em `Write|Edit|Bash` paga **~264 ms de startup
+do Node por chamada** (Windows), em toda edição de toda sessão. A regra voltou para onde já
+funcionava, o prompt do executor. Se um dia um executor de fato escrever no backlog de dentro de
+um worktree, ela cumpre o critério e a trava volta — aí com o custo justificado.
 
 ## Roteamento de modelos (quem roda em quê)
 
@@ -175,10 +219,21 @@ Regras complementares:
 
 - **Revisor é sempre Sonnet por decisão de custo do humano (2026-07-25)** — o Opus na revisão encareceu demais o loop. Exceções pontuais só com pedido explícito do humano. Se um revisor Sonnet se declarar inseguro num ponto de dinheiro/auth, o orquestrador pode verificar aquele ponto específico ele mesmo em vez de escalar o modelo.
 - **Escalonamento automático**: 2 vereditos REPROVADA seguidos na mesma tarefa → o orquestrador re-delega o próximo ciclo com executor `opus`, incluindo no prompt o histórico dos achados das reprovações.
+- **Teto de 3 ciclos por tarefa** (2026-08-15). A 3ª REPROVADA **encerra a tentativa**: a tarefa vira `BLOQUEADA`, vai para o `TODO-HUMANO.md` com os achados das três revisões, e o orquestrador segue para a próxima da fila. Não existe 4ª delegação automática. Motivo: o par executor↔revisor era a única alça do loop **sem condição de parada** — 3 reprovações não são um modelo fraco, são a tarefa mal especificada ou uma decisão de produto disfarçada de bug (foi o caso da T-053, onde a instrução do orquestrador é que estava errada). Um modelo maior não conserta especificação ruim, só a executa mais caro.
 - **Spike de design (opcional, recomendado para alta)**: antes de delegar uma tarefa alta, o orquestrador pode spawnar o agente `Plan` com `model: "opus"` para produzir plano de implementação (arquivos-alvo, abordagem, riscos, casos de borda). O plano entra na íntegra no prompt do executor — reduz retrabalho e permite até executar em Sonnet com plano de Opus quando o desafio é de *design*, não de *execução*.
 - **Na dúvida entre média e alta, escolha alta.** O custo extra de Opus numa tarefa é menor que um ciclo executar→reprovar→corrigir→re-revisar.
 - **O que a evidência dos ciclos 1–20 diz** ([`CALIBRAGEM.md`](./CALIBRAGEM.md)): nenhuma reprovação caiu em cálculo financeiro (essas foram para Opus e passaram) — todas caíram em **estado assíncrono, gates de render e consistência entre N arquivos**, que é onde lint, build e suíte passam verdes com o código errado. Haiku nunca errou código, mas errou um **relatório** (T-095): com Haiku, confira o diff, não a prosa.
 - Ao concluir, o modelo usado e o veredito vão para o **corpo da PR**; só o que muda decisão futura de roteamento entra em `CALIBRAGEM.md`. Nada disso volta para o `BACKLOG.md`.
+- **Mexeu no prompt de um agente, registre e confira** (2026-08-15). `.claude/agents/executor.md` e `revisor.md` são a peça que mais muda comportamento por caractere alterado, e até aqui mudavam sem deixar rastro do *porquê*. Toda alteração neles: (1) uma linha em `CALIBRAGEM.md` § "Versões dos prompts" — data, o que mudou, a evidência que motivou; (2) antes de aceitar, passe o prompt novo por **duas linhas** do dataset de regressão (as 9 reprovações, no mesmo arquivo) e confirme que ele ainda pegaria aquele achado. Um prompt que ganha uma regra nova e perde uma antiga é o modo de falha silencioso do fluxo — a suíte de testes do app não vê nada disso.
+
+## O predicado de sucesso é o check verde, não o relatório
+
+O que fecha uma tarefa é **evidência**, não a afirmação de que ela terminou. Concretamente:
+
+- O orquestrador **não aceita "testes passaram"** vindo do relatório do executor nem do revisor. O gate é o **check do CI na PR** (`pnpm build`, `lint`, `format:check`, `backlog:check`, `discord:check`, `pnpm test`). Relatório vale para saber *o que foi feito* e *o que ficou de fora*; não vale como prova de que funciona.
+- Isso já mordeu: na **T-095** o Haiku entregou o código certo e o **relatório errado** — alegou uma falha que não existia. Se o veredito dependesse da prosa, a tarefa teria sido rejeitada por um problema inventado.
+- **Merge com CI vermelho continua tecnicamente possível** (o ruleset é o nível mínimo — ver `TODO-HUMANO.md`, 2026-08-10). Enquanto for, esta regra é a única coisa entre um relatório otimista e a `main`: **espere o check** antes do merge.
+- **Risco que nenhum teste cobre exige execução, não leitura** — o `snapshotScheduler` roda no boot e nenhum teste pega se ele parar de ser chamado (T-099c). Nesses pontos, a evidência é subir o código e observar; ler o diff não é evidência.
 
 ## Regras de paralelismo (multi-branch)
 
