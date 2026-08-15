@@ -21,16 +21,18 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 ## Fila
 
 ### T-091 — Metas sai, Investimentos entra como árvore (guarda-chuva)
-- **Status**: fase (a) CONCLUIDA (#165); **(b) BLOQUEADA** no humano; (c)/(d) PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: nada
-- **Feito na (a)**: árvore `/investimentos` com Ações, Cripto e Renda Fixa; paths antigos viram redirect; Home funde os dois cards. Rationale da decisão "caixinha é Renda Fixa, irmã de Ações — **não reabrir**": corpo da PR #165.
-- **Fases restantes, em série**: **(b)** remover Metas; **(c)** posição sem ticker (valor aplicado, vencimento, taxa); **(d)** endpoint `/investments` da Pluggy para preencher.
-- **Remover Metas é migração destrutiva, não deleção de UI**: arrasta `goals`, `savings_entries.goal_id`, o **par atômico** de transferência poupança → meta (T-041), `CRUD /api/goals`, `POST /savings/transfer-to-goal`, card da Home e `computeGoalsSummary`. Duas etapas — sumir da UI primeiro, dropar dado depois, com o humano confirmando entre elas. Desenho da sucessão (caixinha herda o papel?) é pendência em `TODO-HUMANO.md`.
+- **Status**: (a) CONCLUIDA (#165); **(b1) EM_ANDAMENTO** ⭐; (b2) aguarda confirmação humana; (c)/(d) PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: nada
+- **Feito na (a)**: árvore `/investimentos` com Ações, Cripto e Renda Fixa; paths antigos viram redirect; Home funde os dois cards. Rationale de "caixinha é Renda Fixa, irmã de Ações — **não reabrir**": corpo da PR #165.
+- **Decisão do humano (2026-08-14, reação 2️⃣)**: **Metas some sem substituto** — caixinha NÃO herda o papel, não há migração de meta para caixinha. Registro em `TODO-HUMANO.md`.
+- **(b1) — Metas some da UI e da API, sem tocar no dado.** Arrasta `CRUD /api/goals`, `POST /savings/transfer-to-goal` e o **par atômico** da T-041, `savings-core/goals.ts`, `MetasPage`, card da Home, `computeGoalsSummary`, `goalsProgress`, o select de vínculo da `PoupancaPage` e os tipos no `shared`. **Saldo livre da poupança deixa de descontar "reservado em metas"** e passa a ser o saldo, ainda em centavos inteiros (T-052). `schema.ts` NÃO muda: `goals` e `savings_entries.goal_id` ficam no banco.
+- **(b2) — só depois de o humano ver o app sem Metas e confirmar**: `DROP` de `goals` e da coluna `goal_id`. Nada é apagado antes disso.
+- **Fases restantes depois**: **(c)** posição sem ticker (valor aplicado, vencimento, taxa); **(d)** endpoint `/investments` da Pluggy para preencher.
 - **Risco de dupla contagem com a T-089e**: o dinheiro na caixinha **saiu** da conta corrente, então saldo de conta + posição de caixinha não se sobrepõem — mas se a Pluggy devolver a caixinha *também* como conta, soma duas vezes. Conferir contra o payload real antes de somar.
 - **Herdado da (a)**, para a (c)/(d): o hub usa o total da carteira B3 como valor de qualquer nó não-"em breve" — quando Renda Fixa ganhar dado real, mapear valor por `node.key`.
-- **Aceite (por fase)**: carteira B3 segue intacta e com os mesmos números; nada de Metas é apagado sem confirmação explícita; suítes verdes.
+- **Aceite (por fase)**: carteira B3 e poupança seguem com os mesmos números; nenhuma linha de `goals` apagada na (b1); suítes verdes.
 
-### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva) ⭐ PRÓXIMA
-- **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-103
+### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva)
+- **Status**: PENDENTE (atrás da T-091b1 — conflitam no `savings-core`) · **Complexidade**: alta (executor Opus) · **Depende de**: T-103
 - **Objetivo**: o alvo (provado no `subscription-core`, generalizado no `validation-core`) é **1 função por arquivo**, **`db` injetado**, testes em `tests/unit/tests/`, **cobertura 100%**, Jest. Uma tarefa/PR por package, **em série** — cada um arrasta call sites e mexe nos mesmos arquivos de config. Ordem e quem já migrou: tabela no `docs/PACKAGES.md`. Próxima: **`savings-core`**, o primeiro core **com `db`**.
 - **Atenção na `savings-core`**: invariantes intocáveis — par atômico da transferência poupança → meta (T-041) e saldo livre em centavos inteiros (T-052). **Conflita com a T-091(b)**, que remove Metas e mexe nas mesmas funções: fazer as duas em série, nunca em paralelo. Achado da T-104a: separar funções expõe branches de default antes cobertos por acidente — rodar `--coverage` cedo.
 - **Fora de escopo**: mudar regra de negócio; desfazer acoplamentos core→core (ver Candidatas).
