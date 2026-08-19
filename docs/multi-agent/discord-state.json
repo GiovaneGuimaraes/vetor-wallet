@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-08-15T02:08:30-03:00"
+    "atualizadoEm": "2026-08-18T22:09:35-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-08-15T13:39:30-03:00"
+    "atualizadoEm": "2026-08-18T22:09:35-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -67,10 +67,26 @@
     "T-091b2": {
       "canal": "todo-ai",
       "messageId": "1538050465407963188",
+      "status": "EM_ANDAMENTO"
+    },
+    "T-106": {
+      "canal": "todo-ai",
+      "messageId": "1539439871729336431",
       "status": "PENDENTE"
     }
   },
   "humanTodos": {
+    "T-106-cognito-pool": {
+      "canal": "todo-human",
+      "messageId": "1539439876913635450",
+      "modo": "emoji + resposta",
+      "status": "ABERTO 2026-08-18: precisa dos dados do user pool e da decisao de confirmacao de e-mail",
+      "opcoes": {
+        "1️⃣": "manter a confirmacao por codigo",
+        "2️⃣": "auto-confirmar no backend",
+        "3️⃣": "desligar a verificacao no pool"
+      }
+    },
     "T-021": {
       "canal": "todo-human",
       "messageId": "1536142930925068369",

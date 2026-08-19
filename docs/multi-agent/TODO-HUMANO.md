@@ -18,6 +18,18 @@
 
 ## Abertos
 
+### [2026-08-18] Dados do user pool do Cognito e a política de confirmação de e-mail (T-106)
+- **Origem**: orquestrador (T-106, pedida por você no chat de 2026-08-18)
+- **Bloqueia**: **entregar** a T-106, não construí-la. O código, os testes e o fallback dá para fazer sem nada disso; provar que o login real funciona contra o seu pool, não.
+- **O que eu preciso, e só você tem** (tudo vai para `packages/rest-api/.env`, **nunca para o repo** — é público):
+  - `COGNITO_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID` e, **se** você marcou "generate a client secret" ao criar o app client, `COGNITO_CLIENT_SECRET`. O secret muda o código (obriga o `SECRET_HASH` em toda chamada), então diga qual dos dois casos é o seu.
+  - No app client, o fluxo **`ALLOW_USER_PASSWORD_AUTH`** precisa estar habilitado. É ele que permite o nosso backend trocar e-mail+senha por token; sem ele, o `InitiateAuth` responde erro e o login não sai do lugar. (A alternativa, `ADMIN_USER_PASSWORD_AUTH`, exigiria credencial IAM no servidor — mais peça para guardar.)
+- **A decisão que eu não tomo por você**: por padrão o Cognito **exige confirmação do e-mail por código** antes do primeiro login. Isso muda o cadastro do app:
+  1. **Manter a confirmação** — o registro passa a ter uma segunda tela ("digite o código que chegou no e-mail"). Mais trabalho na T-106 e o fluxo fica igual ao de app de verdade.
+  2. **Auto-confirmar** — o backend confirma a conta na hora (o usuário entra direto, como hoje). Mais simples e igual ao comportamento atual, mas ninguém prova que o e-mail existe.
+  3. **Desligar a verificação no pool** e resolver depois.
+- **Resposta do humano**: _(preencher)_
+
 ### [2026-08-14] ~~Confirmar o `DROP` do dado de Metas~~ — AUTORIZADO em 2026-08-15 (T-091b2)
 - **Origem**: orquestrador (etapa 2 da remoção decidida em 2026-08-14)
 - **Bloqueia**: T-091b2 — e **só ela**. A fila segue com a T-104b, que não depende disto.
