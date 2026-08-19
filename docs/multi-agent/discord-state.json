@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-08-18T22:37:49-03:00"
+    "atualizadoEm": "2026-08-18T23:48:22-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-08-18T22:28:55-03:00"
+    "atualizadoEm": "2026-08-18T23:48:22-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -73,7 +73,8 @@
     "T-106": {
       "canal": "todo-ai",
       "messageId": "1539439871729336431",
-      "status": "EM_ANDAMENTO"
+      "status": "CONCLUIDA",
+      "pr": 169
     }
   },
   "humanTodos": {
@@ -179,6 +180,16 @@
       "opcoes": {
         "✅": "subi e esta tudo certo",
         "❌": "deu problema"
+      }
+    },
+    "T-106-env-cognito": {
+      "canal": "todo-human",
+      "messageId": "1539464747571748865",
+      "modo": "emoji + resposta",
+      "status": "ABERTO 2026-08-18: sem COGNITO_* no .env o login responde 503; passo a passo para religar e vincular a conta antiga",
+      "opcoes": {
+        "✅": "configurei e entrei",
+        "❌": "deu erro"
       }
     }
   },

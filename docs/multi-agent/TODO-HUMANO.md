@@ -18,6 +18,19 @@
 
 ## Abertos
 
+### [2026-08-18] O login do app agora depende do Cognito — preencha o `.env` antes de usar (T-106, #169)
+- **Origem**: orquestrador (fechamento da T-106)
+- **Bloqueia**: **o seu login**. O server sobe e a migração da T-091b2 roda normalmente, mas `/api/auth/*` responde **503 `AUTH_UNAVAILABLE`** enquanto as variáveis não estiverem no `.env`. Isso é fail closed de propósito, não bug.
+- **A sequência para voltar a entrar no app** (nesta ordem):
+  1. No user pool, no **app client**, habilite o fluxo **`ALLOW_USER_PASSWORD_AUTH`**. Sem isso a AWS recusa o login e a rota devolve 502.
+  2. Preencha em `packages/rest-api/.env`: `COGNITO_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID` e — **só se** o app client tiver secret — `COGNITO_CLIENT_SECRET`. Modelo em `.env.example`. **Nunca commite esses valores**: o repo é público.
+  3. `pnpm dev` (é aqui que o `DROP` da T-091b2 acontece — ver o item dela).
+  4. Cadastre-se **com o mesmo e-mail de hoje**. É esse registro que cria a sua identidade no pool; o app vincula o usuário do Cognito à sua conta existente e **os seus dados continuam lá**.
+  5. **Verifique o e-mail no Cognito.** Isto não é opcional: o vínculo com a conta antiga só acontece com `email_verified = true`. Enquanto não estiver verificado, o app responde **403 `EMAIL_NOT_VERIFIED`** — e isso é a trava que impede um terceiro que saiba o seu e-mail de assumir a sua carteira (o buraco que o revisor pegou e que a #169 fechou).
+- **Se o vínculo legítimo for recusado mesmo com o e-mail verificado**: o parser aceita `email_verified` só como a string `"true"`. Se o seu pool devolver outro formato, a saída é **verificar/ajustar no pool**, nunca afrouxar o gate — está documentado em `packages/cognito-core/CLAUDE.md`. Me chame e eu ajusto o parser com o formato real na mão.
+- **A decisão sobre a confirmação de e-mail continua sua, e agora custa menos**: o backend cobre os dois mundos (`POST /api/auth/confirm` e `/resend-code` existem). Se você escolher manter a confirmação por código, falta só a **tela** de digitar o código no web — é tarefa pequena e eu abro quando você disser. Se auto-confirmar ou desligar a verificação no pool, atenção: **o gate de vínculo continua exigindo e-mail verificado**, então auto-confirmar o cadastro não basta para vincular a conta antiga.
+- **Resposta do humano**: _(preencher)_
+
 ### [2026-08-18] Subir o server uma vez para o `DROP` de Metas acontecer no seu banco (T-091b2, #168)
 - **Origem**: orquestrador (fechamento da T-091b2)
 - **Bloqueia**: nada — informativo, mas é o único passo que só você pode dar.

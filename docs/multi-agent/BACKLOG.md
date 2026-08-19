@@ -18,13 +18,6 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
-### T-106 — Login pelo AWS Cognito ⭐ PRÓXIMA
-- **Status**: EM_ANDAMENTO (backend; a tela de confirmação de código espera a decisão do humano) · **Complexidade**: alta (executor Opus)
-- **Pedido do humano (2026-08-18)**, acima do resto da fila: ele criou a conta AWS e está configurando o user pool.
-- **Decisões travadas no chat, não reabrir**: (1) Cognito é a **única** fonte de identidade — bcrypt sai do login; (2) a tela de login **continua nossa** — o `rest-api` chama `InitiateAuth`/`SignUp` e mantém o cookie `sid`, então `requireAuth` e o web quase não mudam; (3) a conta existente é **vinculada por e-mail** ao `users.id` atual via `cognito_sub`: nenhum dado do humano se perde.
-- **Escopo**: `cognito-core` novo (formato-alvo) como *integration* — fala com a AWS e **não toca o banco**; `auth-core` deixa de hashear e passa a espelhar (`cognito_sub`, ALTER idempotente); `auth/router.ts` orquestra. Segredo só no `.env` (`COGNITO_*`), **fail closed** se faltar. Fora: MFA, social login, deploy.
-- **Bloqueia hoje**: credenciais do pool — `TODO-HUMANO.md`.
-- **Aceite**: registro e login reais contra o pool; a conta dele entra e vê os mesmos dados; sem senha nossa no banco; suítes verdes.
 ### T-091c/d — Renda Fixa com dado real
 - **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-091a (#165) e b1 (#166)
 - **Objetivo**: **(c)** posição sem ticker (valor aplicado, vencimento, taxa) — o layer hoje assume ticker da B3 + preço médio + cotação da brapi, e caixinha não tem nenhum dos três; **(d)** endpoint `/investments` da Pluggy para preencher. Em série. "Caixinha é Renda Fixa, irmã de Ações" está decidido — **não reabrir** (#165).
@@ -58,6 +51,7 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Três origens de mascote no web** (`mascots.ts`, `AuthPage.tsx`, `HomePage.tsx`); só a primeira foi unificada na T-020.
 - **Movimentação interna no OFX** (T-085/T-088): só `MEMO` livre, sem categoria — adivinhar por descrição é o que a T-085 recusa fazer com dinheiro.
 - **Backfill histórico de snapshots** via `hourly_quote_insights`; agendador do job de insights (o da T-061 morre com o processo).
+- **Tela de confirmação de código do Cognito** (T-106b): backend pronto (`POST /api/auth/confirm`, `/resend-code`, e o 403 `EMAIL_NOT_VERIFIED` como gancho). Só entra se o humano optar por manter a confirmação — pendência no `TODO-HUMANO.md`.
 - **Webhook da Pluggy** (`item/*`) daria o `itemId` e o gatilho de sync, mas exige HTTPS público — depende de deploy (spec em `pluggy-core/CLAUDE.md`).
 - Casing da API inconsistente; default silencioso `type: 'OUTRO'` no POST /api/income; ampliar `/admin`; backend de cripto; redesign de Alertas/Import (sem UI desde a T-026).
 
