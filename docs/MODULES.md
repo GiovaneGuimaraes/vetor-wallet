@@ -18,19 +18,34 @@ veja o `CLAUDE.md` do package core correspondente (as antigas notas de `docs/dec
 ## 1. Auth
 
 **id**: `Auth`
-**Responsabilidade**: identidade, credenciais, sessão persistente e perfil do usuário.
+**Responsabilidade**: identidade (no **AWS Cognito** desde a T-106), sessão persistente e
+perfil do usuário.
 
 Packages:
 
-- `packages/auth-core` *(Core, T-099c)* — registro, login, hash bcrypt, troca de senha, papéis
-  (`grantRole`). Importa `portfolio-core` (`createUser` cria a carteira padrão) — exceção
-  conhecida à regra 6, ver `PACKAGES.md`.
+- `packages/cognito-core` *(Integração, T-106)* — client HTTP do AWS Cognito: `SignUp`,
+  `InitiateAuth` (`USER_PASSWORD_AUTH` e `REFRESH_TOKEN_AUTH`), `ConfirmSignUp`,
+  `ResendConfirmationCode`, `GetUser`, `ChangePassword`. **Não toca o banco.**
+- `packages/auth-core` *(Core, T-099c)* — dono da tabela `users`: espelho da identidade
+  (`cognito_sub`, vínculo por e-mail normalizado), perfil e papéis (`grantRole`). Importa
+  `portfolio-core` (`createUser` cria a carteira padrão) — exceção conhecida à regra 6, ver
+  `PACKAGES.md`.
 - `packages/db` *(Infraestrutura, T-097)* — `sessionStore` (sessões em SQLite, T-034/T-046).
-- `packages/rest-api` — `POST /api/auth/register·login·logout`, `GET/PATCH /me`,
-  `POST /change-password`, e o middleware `requireAuth`/`requireAdmin` (fica aqui porque é Express).
-- `packages/web/src/routes` — telas de login e cadastro.
+- `packages/rest-api` — `POST /api/auth/register·login·logout·confirm·resend-code`,
+  `GET/PATCH /me`, `POST /change-password`, e o middleware `requireAuth`/`requireAdmin` (fica
+  aqui porque é Express). **É a rota que cruza `auth-core` e `cognito-core`** — o único lugar
+  onde os dois se encontram.
+- `packages/web/src/routes` — telas de login e cadastro (`interpretRegisterResult` decide o que
+  fazer com os dois desfechos do cadastro).
 
-Invariante do domínio: a troca de senha exige sessão e **não** a invalida (T-094).
+Invariantes do domínio:
+
+- **A troca de senha exige sessão e não a invalida** (T-094) — agora via `ChangePassword` do
+  Cognito, com o access token guardado na sessão do **servidor** (nunca no browser).
+- **A tela de login é nossa**: sem Hosted UI, sem redirect OAuth, sem JWT no front. A sessão
+  segue sendo o cookie `sid` do `express-session` (decisão do humano, 2026-08-18).
+- **A conta anterior ao Cognito é vinculada por e-mail** no primeiro login — nada é recriado.
+- Sem as variáveis do Cognito as rotas de auth respondem **503**, nunca tentam e quebram torto.
 
 ---
 
