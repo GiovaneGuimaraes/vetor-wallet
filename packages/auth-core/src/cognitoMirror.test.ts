@@ -68,6 +68,7 @@ describe('espelho da identidade do Cognito em `users` (T-106)', () => {
     const result = await mirror.findOrCreateUserByCognitoSub({
       cognitoSub: 'sub-conhecido',
       email: 'conhecido@example.com',
+      emailVerified: true,
     });
     expect(result.outcome).toBe('found-by-sub');
     expect(result.user.id).toBe(created.id);
@@ -86,6 +87,7 @@ describe('espelho da identidade do Cognito em `users` (T-106)', () => {
     const result = await mirror.findOrCreateUserByCognitoSub({
       cognitoSub: 'sub-antigo',
       email: 'antigo@example.com',
+      emailVerified: true,
     });
 
     expect(result.outcome).toBe('linked-by-email');
@@ -108,6 +110,7 @@ describe('espelho da identidade do Cognito em `users` (T-106)', () => {
     const again = await mirror.findOrCreateUserByCognitoSub({
       cognitoSub: 'sub-antigo',
       email: 'antigo@example.com',
+      emailVerified: true,
     });
     expect(again.outcome).toBe('found-by-sub');
     expect(again.user.id).toBe(legacy.id);
@@ -120,6 +123,7 @@ describe('espelho da identidade do Cognito em `users` (T-106)', () => {
     const result = await mirror.findOrCreateUserByCognitoSub({
       cognitoSub: 'sub-caixa',
       email: '  Caixa@Example.COM ',
+      emailVerified: true,
     });
 
     expect(result.outcome).toBe('linked-by-email');
@@ -133,10 +137,14 @@ describe('espelho da identidade do Cognito em `users` (T-106)', () => {
     expect(Number(all.rows[0].n)).toBe(1);
   });
 
-  it('sub novo e e-mail novo: cria o espelho', async () => {
+  // `emailVerified: false` de propósito: criar espelho NOVO não precisa de
+  // e-mail verificado — não há conta de ninguém para assumir, a linha nasce vazia
+  // e pertence a quem acabou de se cadastrar. O que é gated é o vínculo.
+  it('sub novo e e-mail novo: cria o espelho mesmo sem e-mail verificado', async () => {
     const result = await mirror.findOrCreateUserByCognitoSub({
       cognitoSub: 'sub-inedito',
       email: 'Inedito@Example.com',
+      emailVerified: false,
     });
     expect(result.outcome).toBe('created');
     expect(result.user.email).toBe('inedito@example.com');
@@ -155,5 +163,79 @@ describe('espelho da identidade do Cognito em `users` (T-106)', () => {
     await expect(
       mirror.createCognitoUser('intruso@example.com', 'sub-exclusivo')
     ).rejects.toThrow();
+  });
+
+  // Achado da revisão da T-106: sem esta trava, quem soubesse o e-mail da vítima
+  // se cadastrava no pool com aquele e-mail e recebia a conta dela.
+  describe('vínculo por e-mail EXIGE e-mail verificado no provedor', () => {
+    it('recusa o vínculo, não cria sessão nem grava cognito_sub em ninguém', async () => {
+      const { createUser } = await import('./service');
+      const vitima = await createUser('vitima@example.com', 'senha-antiga-1');
+
+      await expect(
+        mirror.findOrCreateUserByCognitoSub({
+          cognitoSub: 'sub-do-atacante',
+          email: 'vitima@example.com',
+          emailVerified: false,
+        })
+      ).rejects.toBeInstanceOf(mirror.CognitoLinkRequiresVerifiedEmailError);
+
+      // A vítima segue sem `sub`: o vínculo foi checado ANTES de qualquer escrita.
+      const row = await db.execute({
+        sql: 'SELECT cognito_sub FROM users WHERE id = ?',
+        args: [vitima.id],
+      });
+      expect(row.rows[0].cognito_sub).toBeNull();
+
+      // E o `sub` do atacante não existe em lugar nenhum — nem numa conta nova.
+      expect(await mirror.findUserByCognitoSub('sub-do-atacante')).toBeNull();
+      const users = await db.execute({
+        sql: "SELECT COUNT(*) as n FROM users WHERE lower(email) = 'vitima@example.com'",
+        args: [],
+      });
+      expect(Number(users.rows[0].n)).toBe(1);
+    });
+
+    it('recusa também quando a caixa do e-mail difere (o casamento é normalizado)', async () => {
+      const { createUser } = await import('./service');
+      const vitima = await createUser('caixa-vitima@example.com', 'senha-antiga-1');
+
+      await expect(
+        mirror.findOrCreateUserByCognitoSub({
+          cognitoSub: 'sub-atacante-2',
+          email: '  Caixa-Vitima@EXAMPLE.com ',
+          emailVerified: false,
+        })
+      ).rejects.toBeInstanceOf(mirror.CognitoLinkRequiresVerifiedEmailError);
+
+      const row = await db.execute({
+        sql: 'SELECT cognito_sub FROM users WHERE id = ?',
+        args: [vitima.id],
+      });
+      expect(row.rows[0].cognito_sub).toBeNull();
+    });
+
+    it('com e-mail verificado o MESMO vínculo passa (a trava não quebra o caso legítimo)', async () => {
+      const { createUser } = await import('./service');
+      const dono = await createUser('dono-legitimo@example.com', 'senha-antiga-1');
+
+      const result = await mirror.findOrCreateUserByCognitoSub({
+        cognitoSub: 'sub-dono-legitimo',
+        email: 'dono-legitimo@example.com',
+        emailVerified: true,
+      });
+
+      expect(result.outcome).toBe('linked-by-email');
+      expect(result.user.id).toBe(dono.id);
+      expect((await mirror.findUserByCognitoSub('sub-dono-legitimo'))?.id).toBe(dono.id);
+    });
+
+    it('o erro não vaza senha nem sub, e nomeia o e-mail para o log', async () => {
+      const err = new mirror.CognitoLinkRequiresVerifiedEmailError('alguem@example.com');
+      expect(err).toBeInstanceOf(Error);
+      expect(err.name).toBe('CognitoLinkRequiresVerifiedEmailError');
+      expect(err.email).toBe('alguem@example.com');
+      expect(err.message).toContain('alguem@example.com');
+    });
   });
 });

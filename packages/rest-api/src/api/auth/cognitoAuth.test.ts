@@ -321,6 +321,173 @@ describe('vínculo da conta que já existia (T-106)', () => {
   });
 });
 
+/**
+ * Achado bloqueante da revisão da T-106: sem exigir `email_verified`, um
+ * atacante que soubesse o e-mail de uma conta pré-Cognito se cadastrava no pool
+ * com aquele e-mail e recebia a sessão da vítima.
+ *
+ * O pool deste describe é o cenário exato do ataque: **auto-confirma o cadastro**
+ * (login liberado na hora) e **não verifica o e-mail** — combinação legítima de
+ * configuração da AWS, e que o humano ainda não fechou.
+ */
+describe('takeover pelo vínculo por e-mail: pool auto-confirma SEM verificar e-mail', () => {
+  let app: Express;
+  let pool: FakeCognitoPool;
+
+  beforeAll(async () => {
+    pool = installFakeCognito({ autoConfirm: true, emailVerified: false });
+    app = await buildApp();
+  });
+
+  afterAll(() => pool.restore());
+
+  it('registro com o e-mail da vítima é 403 EMAIL_NOT_VERIFIED, sem sessão e sem vínculo', async () => {
+    const { createUser } = await import('@vetor-wallet/auth-core');
+    const vitima = await createUser('alvo@example.com', 'senha-antiga-1');
+    await dbModule.db.execute({
+      sql: 'INSERT INTO income_sources (user_id, name, amount) VALUES (?, ?, ?)',
+      args: [vitima.id, 'Salario', 123],
+    });
+
+    const agent = request.agent(app);
+    const res = await agent
+      .post('/api/auth/register')
+      .send({ email: 'alvo@example.com', password: 'senha-do-atacante-1' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('EMAIL_NOT_VERIFIED');
+    expect(res.body.id).toBeUndefined();
+
+    // Nenhuma sessão foi criada — o auto-login do register não passa pelo gate.
+    expect((await agent.get('/api/auth/me')).status).toBe(401);
+
+    // A vítima segue sem `cognito_sub`: o atacante não assumiu a linha dela.
+    const row = await dbModule.db.execute({
+      sql: 'SELECT cognito_sub FROM users WHERE id = ?',
+      args: [vitima.id],
+    });
+    expect(row.rows[0].cognito_sub).toBeNull();
+
+    // E nem o dado dela foi tocado, nem nasceu conta paralela.
+    const income = await dbModule.db.execute({
+      sql: 'SELECT COUNT(*) as n FROM income_sources WHERE user_id = ?',
+      args: [vitima.id],
+    });
+    expect(Number(income.rows[0].n)).toBe(1);
+    const users = await dbModule.db.execute({
+      sql: "SELECT COUNT(*) as n FROM users WHERE lower(email) = 'alvo@example.com'",
+      args: [],
+    });
+    expect(Number(users.rows[0].n)).toBe(1);
+  });
+
+  it('o login seguinte do atacante também é recusado (a trava não é só do register)', async () => {
+    const { createUser } = await import('@vetor-wallet/auth-core');
+    await createUser('alvo2@example.com', 'senha-antiga-1');
+
+    // Cadastro no pool falha no vínculo, mas o usuário JÁ existe lá dentro
+    // (o SignUp aconteceu antes do gate) — então o atacante pode tentar o login.
+    await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'alvo2@example.com', password: 'senha-do-atacante-1' });
+
+    const agent = request.agent(app);
+    const login = await agent
+      .post('/api/auth/login')
+      .send({ email: 'alvo2@example.com', password: 'senha-do-atacante-1' });
+
+    expect(login.status).toBe(403);
+    expect(login.body.code).toBe('EMAIL_NOT_VERIFIED');
+    expect((await agent.get('/api/auth/me')).status).toBe(401);
+  });
+
+  it('cadastro com e-mail INÉDITO segue funcionando (só o vínculo é gated)', async () => {
+    const agent = request.agent(app);
+    const res = await agent
+      .post('/api/auth/register')
+      .send({ email: 'inedito-sem-verificar@example.com', password: 'senha-forte-1' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.email).toBe('inedito-sem-verificar@example.com');
+    expect((await agent.get('/api/auth/me')).status).toBe(200);
+
+    const row = await dbModule.db.execute({
+      sql: 'SELECT cognito_sub FROM users WHERE email = ?',
+      args: ['inedito-sem-verificar@example.com'],
+    });
+    expect(row.rows[0].cognito_sub).toBe('sub-inedito-sem-verificar@example.com');
+  });
+});
+
+describe('vínculo liberado quando o e-mail É verificado no pool (T-106)', () => {
+  let app: Express;
+  let pool: FakeCognitoPool;
+
+  beforeAll(async () => {
+    // Pool que exige confirmação por código: confirmar o código É a prova de
+    // posse da caixa, e é o que libera o vínculo com a conta que já existia.
+    pool = installFakeCognito({ autoConfirm: false });
+    app = await buildApp();
+  });
+
+  afterAll(() => pool.restore());
+
+  it('quem confirma o código entra NA conta antiga, com os dados dela', async () => {
+    const { createUser } = await import('@vetor-wallet/auth-core');
+    const dono = await createUser('dono-verificado@example.com', 'senha-antiga-1');
+    await dbModule.db.execute({
+      sql: 'INSERT INTO income_sources (user_id, name, amount) VALUES (?, ?, ?)',
+      args: [dono.id, 'Salario', 321],
+    });
+
+    // 1. cadastro fica pendente (nenhuma sessão, nenhum vínculo)
+    const pending = await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'dono-verificado@example.com', password: 'senha-nova-1' });
+    expect(pending.status).toBe(202);
+
+    const antes = await dbModule.db.execute({
+      sql: 'SELECT cognito_sub FROM users WHERE id = ?',
+      args: [dono.id],
+    });
+    expect(antes.rows[0].cognito_sub).toBeNull();
+
+    // 2. confirma pelo código do e-mail
+    expect(
+      (
+        await request(app)
+          .post('/api/auth/confirm')
+          .send({ email: 'dono-verificado@example.com', code: '123456' })
+      ).status
+    ).toBe(204);
+
+    // 3. agora o login vincula e a sessão é da CONTA CERTA
+    const agent = request.agent(app);
+    const login = await agent
+      .post('/api/auth/login')
+      .send({ email: 'dono-verificado@example.com', password: 'senha-nova-1' });
+
+    expect(login.status).toBe(200);
+    expect(login.body.id).toBe(dono.id);
+
+    const me = await agent.get('/api/auth/me');
+    expect(me.status).toBe(200);
+    expect(me.body.id).toBe(dono.id);
+
+    const depois = await dbModule.db.execute({
+      sql: 'SELECT cognito_sub FROM users WHERE id = ?',
+      args: [dono.id],
+    });
+    expect(depois.rows[0].cognito_sub).toBe('sub-dono-verificado@example.com');
+
+    const income = await dbModule.db.execute({
+      sql: 'SELECT COUNT(*) as n FROM income_sources WHERE user_id = ?',
+      args: [dono.id],
+    });
+    expect(Number(income.rows[0].n)).toBe(1);
+  });
+});
+
 describe('troca de senha sobre o Cognito (T-094 + T-106)', () => {
   let app: Express;
   let pool: FakeCognitoPool;

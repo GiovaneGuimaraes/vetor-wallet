@@ -115,6 +115,39 @@ export async function createCognitoUser(email: string, cognitoSub: string): Prom
   return toUser(result.rows[0] as unknown as Record<string, unknown>);
 }
 
+/**
+ * Recusa do vínculo por e-mail quando o provedor de identidade **não** confirmou
+ * a posse do e-mail (T-106, achado da revisão).
+ *
+ * ## O ataque que este erro fecha
+ *
+ * Uma conta anterior ao Cognito tem `cognito_sub` NULL — a vítima nunca esteve no
+ * pool. Um atacante se cadastra no pool **com o e-mail da vítima**: nada colide,
+ * nem no nosso banco (o `userExists` do registro saiu de propósito, para a conta
+ * antiga poder ganhar identidade) nem no pool (o `Username` é inédito lá). Se o
+ * pool não exigir verificação de e-mail, o `SignUp` volta `UserConfirmed: true`,
+ * o login funciona, e o vínculo por e-mail entregaria a linha da vítima —
+ * carteira, despesas, poupança e assinatura — para o `sub` do atacante.
+ *
+ * "Vincular só o primeiro `sub` e recusar o segundo" **não** resolve: o ataque
+ * *é* a primeira vinculação, porque a vítima nunca logou pelo Cognito.
+ *
+ * O que resolve é exigir prova de posse do e-mail (`email_verified`), que é a
+ * única evidência de que quem está logando é dono da caixa que dá nome à conta.
+ * Erro tipado (e não `boolean` de retorno) porque este é um caminho que a rota
+ * **não pode** confundir com sucesso: quem esquecer de tratá-lo recebe um 500, não
+ * uma sessão da vítima.
+ */
+export class CognitoLinkRequiresVerifiedEmailError extends Error {
+  readonly email: string;
+
+  constructor(email: string) {
+    super(`Vinculo por e-mail recusado: e-mail nao verificado no provedor (${email})`);
+    this.name = 'CognitoLinkRequiresVerifiedEmailError';
+    this.email = email;
+  }
+}
+
 export type CognitoMirrorOutcome = 'found-by-sub' | 'linked-by-email' | 'created';
 
 export interface CognitoMirrorResult {
@@ -137,7 +170,25 @@ export interface CognitoMirrorResult {
  *    `Giovane@X.com` no pool criaria uma conta vazia paralela à
  *    `giovane@x.com` do banco, e a carteira, as despesas e o histórico
  *    "desapareceriam" sem nada ter sido apagado.
- * 3. **`sub` novo, e-mail novo** → cadastro novo: cria o espelho.
+ *    **Este caminho exige `emailVerified: true`** — ver a invariante abaixo.
+ * 3. **`sub` novo, e-mail novo** → cadastro novo: cria o espelho. **Não** exige
+ *    e-mail verificado: aqui não há nada de ninguém para assumir; a conta nasce
+ *    vazia e pertence a quem acabou de se cadastrar.
+ *
+ * ## INVARIANTE: vínculo por e-mail exige e-mail verificado no provedor
+ *
+ * Assumir uma linha de `users` que já existe é uma decisão de **autorização**, e
+ * o e-mail só serve como chave dela quando o provedor provou a posse da caixa
+ * (`email_verified`). Sem isso, qualquer um que saiba o e-mail da vítima se
+ * cadastra com aquele e-mail e recebe a conta dela — ver
+ * `CognitoLinkRequiresVerifiedEmailError` para o passo a passo do ataque. A regra
+ * vale para **qualquer** provedor de identidade que venha depois do Cognito: não
+ * é detalhe da AWS, é o que separa "mesmo e-mail" de "mesma pessoa".
+ *
+ * Note que `emailVerified` **não** é `UserConfirmed`: um pool pode auto-confirmar
+ * o cadastro (login liberado) sem nunca verificar o e-mail. Depender da
+ * configuração do pool seria terceirizar a nossa autorização para uma checkbox no
+ * console da AWS.
  *
  * Corrida entre dois logins simultâneos do mesmo `sub` novo: o índice único
  * parcial `idx_users_cognito_sub` faz o segundo INSERT falhar em vez de criar
@@ -147,6 +198,12 @@ export interface CognitoMirrorResult {
 export async function findOrCreateUserByCognitoSub(params: {
   cognitoSub: string;
   email: string;
+  /**
+   * O provedor confirmou a posse deste e-mail? Obrigatório de propósito: um
+   * default (`= true`, ou o campo opcional) reabriria o buraco em silêncio no
+   * próximo chamador que esquecesse de passá-lo.
+   */
+  emailVerified: boolean;
 }): Promise<CognitoMirrorResult> {
   const cognitoSub = params.cognitoSub.trim();
   const email = params.email.toLowerCase().trim();
@@ -159,6 +216,10 @@ export async function findOrCreateUserByCognitoSub(params: {
     args: [email],
   });
   if (byEmail.rows.length > 0) {
+    // Checado ANTES de qualquer escrita: um vínculo recusado não deixa rastro
+    // nenhum — nem `cognito_sub` na vítima, nem conta nova para o atacante.
+    if (!params.emailVerified) throw new CognitoLinkRequiresVerifiedEmailError(email);
+
     const user = toUser(byEmail.rows[0] as unknown as Record<string, unknown>);
     await linkCognitoSub(user.id, cognitoSub);
     return { user, outcome: 'linked-by-email' };

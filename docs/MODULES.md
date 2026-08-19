@@ -44,7 +44,11 @@ Invariantes do domínio:
   Cognito, com o access token guardado na sessão do **servidor** (nunca no browser).
 - **A tela de login é nossa**: sem Hosted UI, sem redirect OAuth, sem JWT no front. A sessão
   segue sendo o cookie `sid` do `express-session` (decisão do humano, 2026-08-18).
-- **A conta anterior ao Cognito é vinculada por e-mail** no primeiro login — nada é recriado.
+- **A conta anterior ao Cognito é vinculada por e-mail** no primeiro login — nada é recriado —
+  **e o vínculo exige `email_verified` no provedor**. Assumir uma linha de `users` que já existe
+  é decisão de autorização: sem prova de posse do e-mail, quem soubesse o e-mail da vítima
+  tomaria a conta dela. Criar conta **nova** não é gated. Vale para qualquer provedor de
+  identidade futuro, não só o Cognito.
 - Sem as variáveis do Cognito as rotas de auth respondem **503**, nunca tentam e quebram torto.
 
 ---

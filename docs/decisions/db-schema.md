@@ -16,7 +16,9 @@ CREATE TABLE IF NOT EXISTS users (
 -- ALTER idempotente (T-106): cognito_sub TEXT — `sub` do usuário no user pool do
 -- AWS Cognito, que desde a T-106 é a ÚNICA fonte de identidade. Nullable e sem
 -- DEFAULT: conta anterior ao Cognito nasce NULL e ganha o `sub` no primeiro
--- login, casando por e-mail normalizado (é o que preserva os dados).
+-- login, casando por e-mail normalizado (é o que preserva os dados) — e SÓ
+-- quando o Cognito confirma `email_verified`, senão quem soubesse o e-mail da
+-- vítima assumiria a linha dela (ver `packages/auth-core/CLAUDE.md`).
 -- `password_hash` continua NOT NULL e continua na tabela, mas SAIU do login —
 -- dropá-la é migração destrutiva e vai em tarefa própria, com confirmação do
 -- humano entre as etapas. Espelho novo grava o sentinela

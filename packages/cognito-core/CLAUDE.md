@@ -15,7 +15,8 @@ Cognito passou a ser a **única fonte de identidade** do Vetor Wallet. Categoria
    `requireAuth` continua funcionando por sessão.
 3. **A conta que já existia é vinculada por e-mail** ao `users.id` atual, via
    `users.cognito_sub`. Nenhum dado do dono do app se perde. Quem faz o vínculo é
-   o `auth-core` (`findOrCreateUserByCognitoSub`), não este package.
+   o `auth-core` (`findOrCreateUserByCognitoSub`), não este package — e o vínculo
+   **exige `email_verified`** (ver a invariante abaixo).
 
 Não reabra essas três em refactor: são decisão de produto, não escolha técnica.
 
@@ -45,7 +46,7 @@ src/
 ├── cognitoResendConfirmationCode.ts
 ├── cognitoInitiateAuth.ts      # login por senha
 ├── cognitoRefreshSession.ts    # REFRESH_TOKEN_AUTH (access token novo)
-├── cognitoGetUser.ts           # GetUser → { sub, email }
+├── cognitoGetUser.ts           # GetUser → { sub, email, emailVerified }
 ├── cognitoChangePassword.ts    # ChangePassword (access token do usuário)
 └── index.ts                    # barrel
 ```
@@ -105,6 +106,33 @@ invalida. O `ChangePassword` do Cognito não revoga tokens (quem revoga é
 
 ## Invariantes (não quebrar)
 
+- **Vínculo com uma conta que já existe EXIGE `email_verified === true`.**
+  `cognitoGetUser` devolve `emailVerified` e quem consome tem de repassá-lo ao
+  `findOrCreateUserByCognitoSub` (o campo é obrigatório lá justamente para não
+  poder ser esquecido). **Por quê:** uma conta anterior ao Cognito tem
+  `cognito_sub` NULL, e o registro **não** checa se o e-mail já existe no nosso
+  banco (de propósito — é assim que a conta antiga ganha identidade no pool).
+  Logo, quem souber o e-mail da vítima se cadastra no pool com aquele e-mail; se o
+  pool não verificar e-mail, o `SignUp` volta `UserConfirmed: true`, o login passa
+  e o vínculo entregaria a conta da vítima — carteira, despesas, poupança,
+  assinatura. Foi um achado de revisão da própria T-106.
+  Três consequências que não devem ser "simplificadas" depois:
+  1. **`email_verified` é fail closed**: ausente, `"false"`, `"1"` ou tipo
+     inesperado contam como não verificado. O Cognito manda o atributo como
+     **string**, e um pool pode não mandá-lo.
+  2. **`email_verified` ≠ `UserConfirmed`.** Um pool pode auto-confirmar o
+     cadastro (login liberado) sem nunca verificar o e-mail. Depender de
+     `UserConfirmed` seria terceirizar a autorização para uma checkbox no console
+     da AWS — e a configuração real do pool ainda não está fechada.
+  3. **Criar espelho novo continua liberado sem verificação** (não há conta de
+     ninguém para assumir). Só assumir uma linha existente é gated. E "vincular
+     apenas o primeiro `sub`" **não** substitui isto: o ataque *é* a primeira
+     vinculação, porque a vítima nunca logou pelo Cognito.
+
+  A regra é sobre identidade, não sobre a AWS: **qualquer** provedor que a gente
+  pendure aqui depois (Google, Auth0, Entra) precisa do mesmo gate, porque em
+  todos eles "mesmo e-mail" só significa "mesma pessoa" quando o provedor provou a
+  posse da caixa.
 - **Nada degrada em silêncio.** Rede, timeout, status não-ok, corpo ilegível e
   envelope fora do contrato viram `CognitoApiError`. "Não consegui falar com o
   Cognito" nunca pode virar "senha inválida".
@@ -156,7 +184,14 @@ Documentado pela AWS e implementado aqui:
 user pool quando a T-106 foi implementada — todos os testes usam HTTP mockado):
 
 - se o pool dele tem **client secret** (os dois caminhos existem e têm teste);
-- se o pool mantém **verificação de e-mail** (idem: `UserConfirmed` decide);
+- se o pool mantém **verificação de e-mail** (idem: `UserConfirmed` decide o
+  fluxo de cadastro, e `email_verified` decide o vínculo — os dois casos têm
+  teste, e o gate do vínculo vale independente de como o pool acabar);
+- **o nome e o formato do atributo `email_verified` naquele pool**: a AWS o
+  devolve como string `"true"`/`"false"` em pool padrão, mas um pool com atributo
+  customizado ou Lambda de pre-signup pode não populá-lo. Se o vínculo legítimo do
+  dono for recusado com `EMAIL_NOT_VERIFIED`, é aqui que se olha primeiro (e o
+  caminho de saída é verificar o e-mail no pool, **não** afrouxar o gate);
 - o `SECRET_HASH` do fluxo **REFRESH_TOKEN_AUTH** — a AWS o documenta sobre o
   *username*, e em pools onde o username é o `sub` (e não o e-mail) o valor que
   guardamos na sessão pode não ser o esperado. Suspeito nº 1 se a renovação

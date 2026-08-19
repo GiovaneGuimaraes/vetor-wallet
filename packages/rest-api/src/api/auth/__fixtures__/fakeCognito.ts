@@ -21,6 +21,12 @@
  * e-mail), que é o que mantém aqueles vinte arquivos funcionando sem mudar o
  * fluxo deles. Qual modo o pool real vai usar é decisão de produto aberta na
  * T-106; quem testa o outro caminho pede `autoConfirm: false`.
+ *
+ * `email_verified` é modelado **separado** de `UserConfirmed` (opção
+ * `emailVerified`) porque a combinação "cadastro auto-confirmado + e-mail não
+ * verificado" é o cenário de account takeover do vínculo por e-mail. Um fixture
+ * que amarrasse os dois campos deixaria o ataque impossível de escrever em teste
+ * — e foi assim que ele passou na primeira implementação da T-106.
  */
 
 import { computeSecretHash } from '@vetor-wallet/cognito-core';
@@ -29,6 +35,15 @@ interface FakeUser {
   sub: string;
   password: string;
   confirmed: boolean;
+  /**
+   * `email_verified` do pool — **independente de `confirmed`**, de propósito.
+   *
+   * Um pool que auto-confirma cadastros (login liberado direto) pode perfeitamente
+   * nunca verificar o e-mail, e é exatamente essa combinação que abria o caminho
+   * de account takeover no vínculo por e-mail. Amarrar os dois aqui esconderia o
+   * cenário do teste.
+   */
+  emailVerified: boolean;
   /** Código de confirmação "enviado por e-mail". */
   code: string;
 }
@@ -48,6 +63,15 @@ export interface FakeCognitoPool {
 export interface FakeCognitoOptions {
   /** `false` = o pool exige confirmação por código (o `SignUp` volta não confirmado). */
   autoConfirm?: boolean;
+  /**
+   * `email_verified` com que o usuário nasce. Default = `autoConfirm` (pool que
+   * auto-confirma normalmente marca o e-mail como verificado), mas os dois são
+   * ajustáveis separadamente porque a combinação
+   * `autoConfirm: true` + `emailVerified: false` é o cenário de takeover.
+   * `ConfirmSignUp` com o código correto sempre marca verificado — confirmar por
+   * código É a prova de posse da caixa.
+   */
+  emailVerified?: boolean;
   /** Presente = app client COM secret; o pool falso exige o `SECRET_HASH` correto. */
   clientSecret?: string;
   region?: string;
@@ -75,6 +99,7 @@ function awsOk(body: unknown): Response {
 
 export function installFakeCognito(options: FakeCognitoOptions = {}): FakeCognitoPool {
   const autoConfirm = options.autoConfirm ?? true;
+  const emailVerifiedAtSignUp = options.emailVerified ?? autoConfirm;
   const region = options.region ?? 'us-east-1';
   const userPoolId = options.userPoolId ?? 'us-east-1_FAKEPOOL';
   const clientId = options.clientId ?? 'fake-client-id';
@@ -145,6 +170,7 @@ export function installFakeCognito(options: FakeCognitoOptions = {}): FakeCognit
         sub,
         password: String(body.Password),
         confirmed: autoConfirm,
+        emailVerified: emailVerifiedAtSignUp,
         code: '123456',
       });
       return awsOk({ UserSub: sub, UserConfirmed: autoConfirm });
@@ -159,6 +185,8 @@ export function installFakeCognito(options: FakeCognitoOptions = {}): FakeCognit
       if (user.confirmed) return awsError('NotAuthorizedException');
       if (String(body.ConfirmationCode) !== user.code) return awsError('CodeMismatchException');
       user.confirmed = true;
+      // Confirmar pelo codigo do e-mail E a prova de posse da caixa.
+      user.emailVerified = true;
       return awsOk({});
     }
 
@@ -206,7 +234,7 @@ export function installFakeCognito(options: FakeCognitoOptions = {}): FakeCognit
         UserAttributes: [
           { Name: 'sub', Value: user.sub },
           { Name: 'email', Value: username },
-          { Name: 'email_verified', Value: String(user.confirmed) },
+          { Name: 'email_verified', Value: String(user.emailVerified) },
         ],
       });
     }

@@ -80,6 +80,13 @@ virou o lugar onde **`auth-core` e `cognito-core` se cruzam** — mesmo arranjo 
   (401) para não entregar um oráculo de "este e-mail tem conta aqui";
   `invalidParameter`/`challengeRequired` são 5xx porque significam "o pool está
   configurado de um jeito que este código não atende", não erro de quem digitou.
+- **O 403 `EMAIL_NOT_VERIFIED`** — vem do `auth-core`
+  (`CognitoLinkRequiresVerifiedEmailError`), não do Cognito, e é o gate que impede
+  assumir uma conta que já existe sem prova de posse do e-mail. É tratado no
+  `respondCognitoError` porque a alternativa (deixar subir) daria 500 num caminho
+  de segurança. **403 e não 401**: a credencial estava certa, e um 401 faria o
+  `web` derrubar a sessão e esconder a causa. O `emailVerified` vem SEMPRE do
+  `cognitoGetUser` — nunca do corpo da request.
 - **Os tokens do Cognito na `SessionData`** (`auth/middleware.ts`) — a troca de
   senha precisa do access token; o refresh existe porque o token vive ~1h e a
   sessão 7 dias.

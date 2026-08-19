@@ -6,6 +6,24 @@ export interface CognitoUser {
   sub: string;
   /** E-mail normalizado, como está no atributo `email` do pool. */
   email: string;
+  /**
+   * `email_verified` do pool — **prova de posse do e-mail**, não enfeite.
+   *
+   * É o que autoriza o vínculo com uma linha de `users` que já existe (ver
+   * `auth-core/src/cognitoMirror.ts`). Sem ele, qualquer pessoa que saiba o
+   * e-mail da vítima se cadastraria com aquele e-mail e assumiria a conta.
+   *
+   * **Fail closed**: atributo ausente, valor estranho ou tipo inesperado contam
+   * como `false`. O Cognito manda `"true"`/`"false"` como STRING (todo atributo
+   * de usuário é string), e um pool pode simplesmente não devolver o atributo —
+   * tratar essa lacuna como verificado seria transformar configuração do pool em
+   * autorização nossa.
+   *
+   * Note que **não é o mesmo que `UserConfirmed`** do `SignUp`: um pool pode
+   * auto-confirmar o cadastro (login liberado) sem nunca verificar o e-mail. Foi
+   * exatamente essa combinação que abriu o caminho de takeover corrigido aqui.
+   */
+  emailVerified: boolean;
 }
 
 /**
@@ -22,8 +40,8 @@ export interface CognitoUser {
  * um ganho de um round-trip **por login**.
  *
  * `GetUser` custa uma chamada HTTP e não tem nenhuma dessas escolhas: quem
- * afirma quem é o usuário é o Cognito, na resposta. Este package, por decisão,
- * **não interpreta JWT nenhum**.
+ * afirma quem é o usuário — e se o e-mail dele foi verificado — é o Cognito, na
+ * resposta. Este package, por decisão, **não interpreta JWT nenhum**.
  *
  * O e-mail é normalizado (`toLowerCase().trim()`) porque é ele que casa com
  * `users.email` no espelho do `auth-core` — que normaliza em toda leitura e
@@ -54,5 +72,9 @@ export async function cognitoGetUser(accessToken: string): Promise<CognitoUser> 
     throw new CognitoApiError('unexpectedResponse', 'Resposta de GetUser do Cognito sem sub/email');
   }
 
-  return { sub, email };
+  // Só o literal "true" (em qualquer caixa) verifica. Ausente, "false", "1" ou
+  // qualquer outra coisa = não verificado.
+  const emailVerified = read('email_verified').toLowerCase() === 'true';
+
+  return { sub, email, emailVerified };
 }

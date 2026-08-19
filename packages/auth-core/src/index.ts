@@ -22,5 +22,6 @@ export {
   linkCognitoSub,
   createCognitoUser,
   findOrCreateUserByCognitoSub,
+  CognitoLinkRequiresVerifiedEmailError,
 } from './cognitoMirror';
 export type { CognitoMirrorOutcome, CognitoMirrorResult } from './cognitoMirror';

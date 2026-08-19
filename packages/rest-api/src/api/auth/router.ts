@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { db } from '@vetor-wallet/db';
 import {
+  CognitoLinkRequiresVerifiedEmailError,
   findOrCreateUserByCognitoSub,
   parseRoles,
   isValidEmail,
@@ -68,8 +69,25 @@ function publicUser(user: User): Record<string, unknown> {
 /**
  * Traduz a falha do Cognito em resposta HTTP. **Relança o que não é dele**: um
  * `TypeError` nosso virando "E-mail ou senha invalidos" seria um bug invisível.
+ *
+ * Trata também a recusa do vínculo por e-mail não verificado — que vem do
+ * `auth-core`, não do Cognito, e é a única resposta 403 desta rota fora do
+ * cadastro não confirmado. **403 e não 401**: a credencial estava correta; o que
+ * falta é prova de posse do e-mail. Mandar 401 faria o `web` derrubar a sessão
+ * (evento `auth:unauthorized`) e esconderia a causa.
  */
 function respondCognitoError(res: Response, err: unknown): void {
+  if (err instanceof CognitoLinkRequiresVerifiedEmailError) {
+    // A mensagem NÃO confirma que existe conta com aquele e-mail (não diz
+    // "vinculo"): quem verificou o e-mail entra, quem não verificou recebe a
+    // mesma instrução que receberia num cadastro pendente.
+    console.error('[auth] vinculo por e-mail recusado: e-mail nao verificado no Cognito');
+    res.status(403).json({
+      error: 'Confirme o seu e-mail no provedor de identidade antes de entrar',
+      code: 'EMAIL_NOT_VERIFIED',
+    });
+    return;
+  }
   if (!isCognitoApiError(err)) throw err;
   const { status, error, code } = cognitoErrorResponse(err.code);
   // A `message` original (nossa, sem texto da AWS) fica no log do servidor: é o
@@ -81,16 +99,26 @@ function respondCognitoError(res: Response, err: unknown): void {
 /**
  * Fecha o login: troca os tokens do Cognito pela nossa sessão.
  *
- * `GetUser` é quem afirma o `sub` e o e-mail (este servidor não interpreta JWT),
- * e `findOrCreateUserByCognitoSub` é a porta única para o banco — inclusive o
- * vínculo por e-mail que preserva a conta que já existia.
+ * `GetUser` é quem afirma o `sub`, o e-mail e **se o e-mail foi verificado**
+ * (este servidor não interpreta JWT), e `findOrCreateUserByCognitoSub` é a porta
+ * única para o banco — inclusive o vínculo por e-mail que preserva a conta que já
+ * existia.
+ *
+ * O `emailVerified` **vem sempre do Cognito e nunca do corpo da request**: é ele
+ * que autoriza assumir uma linha de `users` que já existe. Se o vínculo for
+ * recusado, o erro sobe **antes** de qualquer escrita na sessão — nenhuma sessão
+ * é criada num vínculo negado.
  */
 async function establishSession(
   req: Request,
   session: CognitoSession
 ): Promise<{ user: User; outcome: string }> {
-  const { sub, email } = await cognitoGetUser(session.accessToken);
-  const { user, outcome } = await findOrCreateUserByCognitoSub({ cognitoSub: sub, email });
+  const { sub, email, emailVerified } = await cognitoGetUser(session.accessToken);
+  const { user, outcome } = await findOrCreateUserByCognitoSub({
+    cognitoSub: sub,
+    email,
+    emailVerified,
+  });
 
   req.session.userId = user.id;
   req.session.cognitoAccessToken = session.accessToken;
@@ -119,6 +147,13 @@ async function establishSession(
  * por este registro — é assim que ela ganha identidade no pool, e o vínculo por
  * e-mail no primeiro login preserva os dados. Recusar com 409 trancaria o dono
  * do app fora da própria carteira.
+ *
+ * É justamente essa abertura que faz o **auto-login** abaixo depender do gate de
+ * `email_verified`: sem ele, cadastrar com o e-mail de outra pessoa num pool que
+ * auto-confirma devolveria a sessão **da conta dela**. O gate mora dentro do
+ * `establishSession` (via `findOrCreateUserByCognitoSub`), então vale para este
+ * caminho e para o `/login` de uma vez — e não há como registrar uma rota nova de
+ * autenticação e esquecê-lo.
  */
 router.post(
   '/register',

@@ -40,6 +40,7 @@ describe('cognitoGetUser (T-106)', () => {
     expect(await cognitoGetUser('access-1')).toEqual({
       sub: 'sub-123',
       email: 'alice@example.com',
+      emailVerified: true,
     });
 
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
@@ -68,6 +69,44 @@ describe('cognitoGetUser (T-106)', () => {
     expect(await cognitoGetUser('access-1')).toEqual({
       sub: 'sub-123',
       email: 'alice@example.com',
+      emailVerified: false,
+    });
+  });
+
+  // email_verified é o que AUTORIZA o vínculo com uma conta que já existe
+  // (auth-core/cognitoMirror). Um falso positivo aqui é account takeover, então
+  // a leitura é fail closed e o teste percorre os valores que a AWS pode mandar.
+  describe('email_verified — fail closed (T-106, achado da revisão)', () => {
+    async function emailVerifiedFor(value: unknown): Promise<boolean> {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () =>
+          jsonResponse({
+            UserAttributes: [
+              { Name: 'sub', Value: 'sub-123' },
+              { Name: 'email', Value: 'alice@example.com' },
+              ...(value === undefined ? [] : [{ Name: 'email_verified', Value: value }]),
+            ],
+          })
+        )
+      );
+      return (await cognitoGetUser('access-1')).emailVerified;
+    }
+
+    it('só a string "true" (em qualquer caixa, com espaço) verifica', async () => {
+      expect(await emailVerifiedFor('true')).toBe(true);
+      expect(await emailVerifiedFor('True')).toBe(true);
+      expect(await emailVerifiedFor('  TRUE ')).toBe(true);
+    });
+
+    it('atributo ausente conta como NÃO verificado', async () => {
+      expect(await emailVerifiedFor(undefined)).toBe(false);
+    });
+
+    it('qualquer outro valor conta como NÃO verificado', async () => {
+      for (const value of ['false', '1', 'yes', '', 'verdadeiro', true, 1, null]) {
+        expect(await emailVerifiedFor(value)).toBe(false);
+      }
     });
   });
 

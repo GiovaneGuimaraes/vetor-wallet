@@ -52,8 +52,9 @@ src/
 │                # userExists, grantRole)
 ├── cognitoMirror.ts # T-106: espelho da identidade do Cognito —
 │                # COGNITO_MANAGED_PASSWORD_HASH, findUserByCognitoSub,
-│                # linkCognitoSub, createCognitoUser e a porta única
-│                # findOrCreateUserByCognitoSub
+│                # linkCognitoSub, createCognitoUser, a porta única
+│                # findOrCreateUserByCognitoSub e o erro
+│                # CognitoLinkRequiresVerifiedEmailError (gate do vínculo)
 └── index.ts     # barrel
 ```
 
@@ -84,6 +85,26 @@ Consumidores: `packages/rest-api/src/api/auth/{router,middleware}.ts` e
   **vincula** (é o passo que preserva os dados, decisão do humano de 2026-08-18);
   (3) e-mail novo → cria o espelho. `idx_users_cognito_sub` (único, parcial)
   garante que uma corrida entre dois logins falhe em vez de duplicar conta.
+- **O VÍNCULO POR E-MAIL EXIGE E-MAIL VERIFICADO NO PROVEDOR.** O caminho (2) só
+  acontece com `emailVerified: true` — vindo do `email_verified` que o Cognito
+  devolve no `GetUser`, nunca do corpo da request. Sem verificação, lança
+  `CognitoLinkRequiresVerifiedEmailError` **antes de qualquer escrita** (nem
+  `cognito_sub` na conta existente, nem conta nova), e a rota traduz para **403
+  `EMAIL_NOT_VERIFIED`**.
+  **Por quê:** conta anterior ao Cognito tem `cognito_sub` NULL e o registro não
+  checa e-mail existente no nosso banco (de propósito, para ela poder ganhar
+  identidade no pool). Então qualquer um que saiba o e-mail da vítima se cadastra
+  com aquele e-mail e — num pool que não verifica e-mail — receberia a conta dela
+  inteira: carteira, despesas, poupança, assinatura. Achado de revisão da própria
+  T-106; ver o docblock do erro para o passo a passo.
+  Detalhes que não devem ser "simplificados": o parâmetro é **obrigatório** (um
+  default reabriria o buraco em silêncio no próximo chamador); `emailVerified`
+  **não** é `UserConfirmed` (pool pode auto-confirmar sem verificar e-mail);
+  **criar espelho novo continua liberado sem verificação** (não há conta de
+  ninguém para assumir); e "vincular só o primeiro `sub`" **não** substitui o
+  gate — o ataque *é* a primeira vinculação, porque a vítima nunca logou lá.
+  A regra vale para **qualquer** provedor de identidade que venha depois: é o que
+  separa "mesmo e-mail" de "mesma pessoa".
 - **`linkCognitoSub` sobrescreve um `sub` anterior de propósito**: com e-mail
   único no pool, "mesmo e-mail, outro `sub`" só acontece quando a conta foi
   apagada e recriada lá — mesma pessoa, identidade nova. Recusar trancaria o dono
@@ -136,8 +157,10 @@ Também veio na T-106:
 
 - **`cognitoMirror.test.ts`** — banco temporário de verdade (`DATABASE_URL` antes
   do `await import('@vetor-wallet/db')`), porque o que se prova ali é SQL:
-  vínculo por e-mail com caixa diferente, unicidade do `sub`, e que o dado do
-  usuário antigo continua no lugar depois do vínculo.
+  vínculo por e-mail com caixa diferente, unicidade do `sub`, que o dado do
+  usuário antigo continua no lugar depois do vínculo, e o **gate de e-mail
+  verificado** — recusa (inclusive com caixa diferente) sem deixar rastro, e o
+  caso legítimo passando.
 
 ## Roadmap
 
