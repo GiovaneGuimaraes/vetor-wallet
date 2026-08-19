@@ -1,5 +1,5 @@
 import { db } from './client';
-import { normalizeExistingCategories, seedPlans } from './migrations';
+import { dropGoalsSchema, normalizeExistingCategories, seedPlans } from './migrations';
 import { cleanupExpiredSessions } from './sessionStore';
 
 export async function initDb() {
@@ -222,16 +222,10 @@ export async function initDb() {
      ON category_budgets(user_id, category)`
   );
 
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS goals (
-      id             INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id        INTEGER NOT NULL REFERENCES users(id),
-      name           TEXT    NOT NULL,
-      target_amount  REAL    NOT NULL,
-      current_amount REAL    NOT NULL DEFAULT 0,
-      created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
-    )
-  `);
+  // A tabela `goals` era criada aqui. Metas saiu do app na T-091b1 e o dado foi
+  // apagado na T-091b2 (`dropGoalsSchema`, chamada no fim deste arquivo). O
+  // CREATE precisava sair junto do DROP: `IF NOT EXISTS` + `initDb()` a cada boot
+  // significa que deixá-lo aqui recriaria a tabela (vazia) no boot seguinte.
 
   // ── Billing / assinatura Pix (T-069) ──────────────────────────────────────
   //
@@ -385,17 +379,21 @@ export async function initDb() {
     'ALTER TABLE alert_rules ADD COLUMN user_id INTEGER REFERENCES users(id)',
     'ALTER TABLE operations ADD COLUMN wallet_id INTEGER REFERENCES wallets(id)',
     "ALTER TABLE users ADD COLUMN roles TEXT NOT NULL DEFAULT '[]'",
-    // T-024: vínculo opcional entre lançamento de poupança e meta financeira.
-    // Metas com lançamentos vinculados passam a ter progresso derivado.
-    'ALTER TABLE savings_entries ADD COLUMN goal_id INTEGER REFERENCES goals(id)',
+    // T-024 adicionava aqui `savings_entries.goal_id` (vínculo do lançamento com
+    // a meta). A T-091b2 removeu a coluna: um ALTER idempotente que roda a cada
+    // boot **recriaria** o que `dropGoalsSchema` acabou de dropar, então a linha
+    // tinha de sair daqui na mesma mudança que a migração.
     // T-035: origem de uma ocorrência materializada de recorrência mensal.
     // NULL = lançamento digitado à mão. O template nunca é apagado (encerrar
     // é `active = 0`), então a FK nunca bloqueia um delete.
     'ALTER TABLE expense_entries ADD COLUMN recurring_id INTEGER REFERENCES recurring_expenses(id)',
     // T-041: etiqueta de procedência que amarra as duas pernas de uma
-    // transferência poupança → meta (WITHDRAW sem vínculo + DEPOSIT vinculado,
-    // mesmo uuid). É só rótulo para a UI: nada é validado entre as pernas e o
-    // PATCH não aceita o campo — cada perna segue editável/excluível sozinha.
+    // transferência poupança → meta (mesmo uuid nas duas). É só rótulo para a
+    // UI: nada é validado entre as pernas e o PATCH não aceita o campo — cada
+    // perna segue editável/excluível sozinha. **Sobreviveu à remoção de Metas
+    // (T-091b1/T-091b2) de propósito**: pares gravados antes dela continuam no
+    // banco e a lista de `/poupanca` ainda os marca com o selo `⇄`. Nada novo
+    // nasce com o campo preenchido.
     'ALTER TABLE savings_entries ADD COLUMN transfer_group TEXT',
     // T-084: identificador da transação no sistema de ORIGEM (FITID do OFX,
     // id da transação Pluggy). NULL = lançamento criado à mão pela UI — é a
@@ -415,11 +413,6 @@ export async function initDb() {
       // Column already exists — safe to ignore
     }
   }
-
-  await db.execute(
-    `CREATE INDEX IF NOT EXISTS idx_savings_entries_goal
-     ON savings_entries(user_id, goal_id)`
-  );
 
   // T-084 — dedupe de importação. Índice único PARCIAL: o
   // `WHERE external_id IS NOT NULL` não é só otimização — mantém o índice
@@ -458,6 +451,12 @@ export async function initDb() {
   // `cleanupExpiredSessions` (db/sessionStore.ts) para ser testada
   // diretamente (T-046), sem precisar iniciar o server inteiro.
   await cleanupExpiredSessions(db);
+
+  // T-091b2 — etapa 2 da remoção de Metas: dropa `goals`, o índice
+  // `idx_savings_entries_goal` e a coluna `savings_entries.goal_id` (rebuild da
+  // tabela). Precisa vir DEPOIS do loop de ALTER acima, que é quem garante a
+  // existência de `transfer_group` — a coluna que o rebuild preserva.
+  await dropGoalsSchema();
 
   await normalizeExistingCategories();
   await seedPlans();
