@@ -13,10 +13,12 @@
  * `0.30000000000000004` e um centavo de divergência entre o saldo e o
  * `summary` em razões grandes.
  *
- * Atenção ao dado legado: a etapa 2 da remoção (T-091b2) ainda não rodou, então
- * a coluna `savings_entries.goal_id` continua existindo e preenchida em bases
- * antigas. Lançamento com `goal_id` é um lançamento **comum** — entra no saldo
- * como qualquer outro, sem nenhum desconto.
+ * Dado legado, depois da etapa 2 (T-091b2, 2026-08-18): `savings_entries.goal_id`
+ * **não existe mais** — a coluna foi apagada do banco junto com a tabela `goals`.
+ * O que sobrou de Metas é o `transfer_group` (T-041), que amarra as pernas de uma
+ * transferência antiga e serve só de procedência para o selo `⇄` da UI. Perna de
+ * par legado é um lançamento **comum**: entra no saldo como qualquer outro, sem
+ * nenhum desconto.
  */
 
 /** Subconjunto de `SavingsEntry` de que o cálculo depende. */

@@ -21,12 +21,12 @@ import type { Db } from '@vetor-wallet/db';
  * (movimentação interna, aliás, nem é importada — T-088). Apagar poupança aqui é
  * perda líquida: não existe nada no lote de entrada que a recomponha.
  *
- * **Nada é apagado fora dessas três tabelas.** As tabelas legadas de Metas
- * (`goals` e a coluna `savings_entries.goal_id`) continuam no schema até a
- * T-091b2 e **não** são tocadas aqui: a linha em `goals` sobrevive ao replace,
- * só os lançamentos somem. Vale o mesmo para o `transfer_group` da T-041 — as
- * duas pontas de um par legado são linhas de `savings_entries`, então o par some
- * inteiro e nunca sobra meia transferência.
+ * **Nada é apagado fora dessas três tabelas** — nem o usuário, nem o catálogo de
+ * planos. As tabelas legadas de Metas (`goals` e a coluna
+ * `savings_entries.goal_id`) não aparecem mais nesta lista porque **não existem**:
+ * foram apagadas do banco na T-091b2. O que restou de Metas é o `transfer_group`
+ * da T-041, e ele não muda nada aqui — as duas pontas de um par legado são linhas
+ * de `savings_entries`, então o par some inteiro e nunca sobra meia transferência.
  *
  * ## Atomicidade
  *

@@ -16,7 +16,8 @@ src/
 │                  # process.cwd()/data/wallet.db
 ├── schema.ts      # initDb(): CREATE TABLE/ALTER idempotentes + limpeza de
 │                  # sessões expiradas + normalização de categorias no boot
-├── migrations.ts  # migrações de dados idempotentes (T-028)
+├── migrations.ts  # migrações idempotentes: normalização de categorias (T-028),
+│                  # seed de planos (T-069) e o DROP de Metas (T-091b2)
 ├── sessionStore.ts # SqliteSessionStore p/ express-session (T-034/T-046)
 ├── sqlErrors.ts   # classificação de erros do driver (isUniqueViolation)
 └── index.ts       # barrel: db, initDb, SqliteSessionStore,
@@ -35,6 +36,14 @@ src/
   `CREATE UNIQUE INDEX IF NOT EXISTS`, `ALTER TABLE` com try/catch ignorando
   "coluna já existe"). `initDb()` roda a cada boot — rodar duas vezes seguidas
   tem que produzir o mesmo estado.
+- **Remover coluna/tabela exige remover o `CREATE`/`ALTER` na MESMA mudança.**
+  Corolário direto da invariante acima: como `initDb()` roda inteiro a cada boot,
+  uma migração de DROP que deixe o `CREATE TABLE IF NOT EXISTS` (ou o `ALTER TABLE
+  ADD COLUMN`) no lugar é desfeita pelo boot seguinte. Precedente: `dropGoalsSchema`
+  (T-091b2), que apagou `goals`/`savings_entries.goal_id` — coluna com FK não aceita
+  `DROP COLUMN` no SQLite, então é rebuild de tabela em transação, com o detector de
+  idempotência lido de `PRAGMA table_info`. Rationale completo em
+  `docs/decisions/db-schema.md` § "Metas saiu do banco".
 - **Sessões do `express-session` são persistidas no SQLite** (`sessionStore.ts`,
   T-034/T-046), não no `MemoryStore` padrão — é o que faz login sobreviver a
   restart do server. TTL deriva de `cookie.maxAge`; expiração é fail-closed

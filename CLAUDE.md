@@ -1,6 +1,6 @@
 # CLAUDE.md — Vetor Wallet
 
-Carteira financeira pessoal: layers de Renda, Despesas, Poupança/Reserva e Investimentos (Ações da B3 com operações manuais, posição por preço médio ponderado e cotações via [brapi.dev](https://brapi.dev); Cripto e Renda Fixa). **O layer Metas foi removido na T-091b1** (decisão do humano, 2026-08-14) — não existe mais o conceito de objetivo no app.
+Carteira financeira pessoal: layers de Renda, Despesas, Poupança/Reserva e Investimentos (Ações da B3 com operações manuais, posição por preço médio ponderado e cotações via [brapi.dev](https://brapi.dev); Cripto e Renda Fixa). **O layer Metas foi removido na T-091b1** (decisão do humano, 2026-08-14) — não existe mais o conceito de objetivo no app, e a T-091b2 (2026-08-18) apagou o dado do banco (`goals`, `savings_entries.goal_id`).
 
 **Detalhes por domínio vivem em `docs/decisions/` — leia só o(s) arquivo(s) do domínio que a tarefa toca (índice no fim deste arquivo).**
 
@@ -191,7 +191,7 @@ Leia o arquivo do domínio antes de mexer nele:
 - **db-schema.md** — schema SQL completo, ALTERs idempotentes, índices.
 - **wallets-portfolio.md** — stub: migrado para `packages/portfolio-core/CLAUDE.md` (T-099c).
 - **savings-goals.md** — stub: migrado para `packages/savings-core/CLAUDE.md` (T-099b);
-  registra também a remoção de Metas (T-091b1) e a etapa 2 pendente (T-091b2).
+  registra também a remoção de Metas em duas etapas (T-091b1 no código, T-091b2 no banco).
 - **expenses-budgets.md** — stub: migrado para `packages/expenses-core/CLAUDE.md` (T-099b).
 - **income.md** — renda fixa × variável (T-036), sobra do mês real na Home (T-025).
 - **validation-money-dates.md** — data de calendário real (T-043), máx. 2 casas decimais (T-052).

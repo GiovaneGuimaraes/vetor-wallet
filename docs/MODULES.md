@@ -111,7 +111,9 @@ Packages:
 `/api/goals`, `POST /api/savings/transfer-to-goal` (T-041), o progresso de meta
 (T-024) e a página `/metas`. O **saldo livre virou o próprio saldo** — não há mais
 reserva a descontar nem cópia duplicada da regra entre server e web. A limpeza do
-banco (`goals`, `savings_entries.goal_id`) é a T-091b2, ainda pendente.
+banco (`goals`, `savings_entries.goal_id`, `idx_savings_entries_goal`) saiu na
+**T-091b2** (2026-08-18) — nada de Metas resta no schema. `transfer_group` ficou,
+como procedência do par legado.
 
 ---
 

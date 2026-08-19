@@ -28,7 +28,8 @@ router.use(requireActiveSubscription);
 // (@vetor-wallet/savings-core): somar em float direto pode divergir em um centavo de
 // `balance = totalDeposits + totalYield - totalWithdrawals` em razões grandes.
 // Desde a T-091b1 (Metas removida) o `balance` é também o saldo LIVRE: não há
-// mais reserva a descontar, e lançamento legado com `goal_id` conta integral.
+// mais reserva a descontar. A T-091b2 apagou `goal_id` do banco; o legado que
+// sobrou é o `transfer_group` (T-041), que é só procedência e conta integral.
 function buildSummary(entries: SavingsEntry[]): SavingsSummary {
   let depositsCents = 0;
   let yieldCents = 0;
@@ -88,8 +89,8 @@ router.post(
       return;
     }
 
-    // A coluna `goal_id` ainda existe no schema (a T-091b2 é quem a remove),
-    // mas nada novo é gravado nela: fica NULL por omissão.
+    // A coluna `goal_id` foi removida do banco na T-091b2 — não há mais nem onde
+    // gravar o vínculo, e o INSERT abaixo já não a mencionava.
     const insert = await db.execute({
       sql: 'INSERT INTO savings_entries (user_id, type, amount, date, note) VALUES (?, ?, ?, ?, ?)',
       args: [userId, type, amount, date, note ?? ''],

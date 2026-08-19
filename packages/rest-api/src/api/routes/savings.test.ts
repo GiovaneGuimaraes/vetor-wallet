@@ -134,16 +134,16 @@ describe('savings routes', () => {
     });
   });
 
-  // ── T-091b1: Metas foi removida do app ─────────────────────────────────────
+  // ── T-091b1/T-091b2: Metas foi removida do app e do banco ──────────────────
   it('ignores a goalId sent by an old client, creating an unlinked entry', async () => {
     // Campo desconhecido é ignorado em silêncio, como no resto da API — não é
-    // 400. A coluna `goal_id` só sai na T-091b2, então ainda dá para conferir
-    // que nada novo é gravado nela.
+    // 400. Desde a T-091b2 a coluna `goal_id` nem existe, então o lançamento
+    // devolvido não tem onde carregar o vínculo.
     const res = await agentA
       .post('/api/savings')
       .send({ type: 'DEPOSIT', amount: 42, date: '2025-01-10', goalId: 1 });
     expect(res.status).toBe(201);
-    expect(res.body.goal_id).toBeNull();
+    expect(res.body.goal_id).toBeUndefined();
   });
 
   it('ignores goalId in a PATCH, and a body with only goalId is an empty body (400)', async () => {
@@ -158,7 +158,7 @@ describe('savings routes', () => {
     const withAmount = await agentA.patch(`/api/savings/${id}`).send({ amount: 70, goalId: 1 });
     expect(withAmount.status).toBe(200);
     expect(withAmount.body.amount).toBe(70);
-    expect(withAmount.body.goal_id).toBeNull();
+    expect(withAmount.body.goal_id).toBeUndefined();
   });
 
   it('no longer exposes POST /api/savings/transfer-to-goal (404)', async () => {
@@ -169,12 +169,14 @@ describe('savings routes', () => {
   });
 
   /**
-   * O caso que mais provavelmente quebraria em produção: a etapa 2 (T-091b2)
-   * ainda não rodou, então a base real continua tendo `savings_entries` com
-   * `goal_id` preenchido. Esse dinheiro era "reservado" (fora do saldo livre) e
-   * agora tem de contar integralmente no saldo — que passou a SER o saldo livre.
+   * O caso legado que sobrou depois da T-091b2: `goal_id` foi apagado do banco,
+   * mas `transfer_group` NÃO — pares gravados pela transferência poupança → meta
+   * (T-041) continuam lá, e a lista de `/poupanca` ainda os marca com o selo `⇄`.
+   * Eles são lançamentos comuns: nada é descontado do saldo por causa do rótulo,
+   * que é justamente o que quebraria se alguém confundisse procedência com
+   * reserva.
    */
-  it('counts legacy entries with goal_id filled in the whole balance (T-091b1)', async () => {
+  it('counts legacy transfer_group entries in the whole balance (T-091b1/T-091b2)', async () => {
     const { db } = await import('@vetor-wallet/db');
     const agentF = request.agent(app);
     await agentF
@@ -184,32 +186,24 @@ describe('savings routes', () => {
     const userId = me.body.id as number;
 
     // Linhas legadas gravadas direto no banco: é assim que elas existem hoje
-    // numa base que usou Metas — a API não tem mais como criá-las. A tabela
-    // `goals` continua no schema até a T-091b2, e `savings_entries.goal_id` é
-    // FOREIGN KEY, então a meta legada precisa existir de verdade.
-    const goal = await db.execute({
-      sql: `INSERT INTO goals (user_id, name, target_amount, current_amount)
-            VALUES (?, 'Meta legada', 5000, 0)`,
+    // numa base que usou Metas — a API não tem mais como criá-las (nem aceita
+    // `transfer_group` no corpo).
+    await db.execute({
+      sql: `INSERT INTO savings_entries (user_id, type, amount, date, note, transfer_group)
+            VALUES (?, 'DEPOSIT', 900, '2025-02-01', 'perna legada', 'grp-legado')`,
       args: [userId],
     });
-    const goalId = Number(goal.lastInsertRowid ?? 0);
-
     await db.execute({
-      sql: `INSERT INTO savings_entries (user_id, type, amount, date, note, goal_id)
-            VALUES (?, 'DEPOSIT', 900, '2025-02-01', 'aporte vinculado', ?)`,
-      args: [userId, goalId],
-    });
-    await db.execute({
-      sql: `INSERT INTO savings_entries (user_id, type, amount, date, note, goal_id)
-            VALUES (?, 'WITHDRAW', 0.1, '2025-02-02', 'retirada vinculada', ?)`,
-      args: [userId, goalId],
+      sql: `INSERT INTO savings_entries (user_id, type, amount, date, note, transfer_group)
+            VALUES (?, 'WITHDRAW', 0.1, '2025-02-02', 'perna legada', 'grp-legado')`,
+      args: [userId],
     });
     await agentF.post('/api/savings').send({ type: 'DEPOSIT', amount: 0.2, date: '2025-02-03' });
 
     const res = await agentF.get('/api/savings');
     expect(res.status).toBe(200);
     // 900 − 0,10 + 0,20: em centavos inteiros dá 900,10 exatos (somar em float
-    // daria 900.0999999999999). Nada é descontado por causa do `goal_id`.
+    // daria 900.0999999999999). Nada é descontado por causa do `transfer_group`.
     expect(res.body.summary).toEqual({
       balance: 900.1,
       totalDeposits: 900.2,
