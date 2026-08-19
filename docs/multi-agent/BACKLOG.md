@@ -19,7 +19,7 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 ## Fila
 
 ### T-106 — Login pelo AWS Cognito ⭐ PRÓXIMA
-- **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: nada — a T-091b2 saiu em #168
+- **Status**: EM_ANDAMENTO (backend; a tela de confirmação de código espera a decisão do humano) · **Complexidade**: alta (executor Opus)
 - **Pedido do humano (2026-08-18)**, acima do resto da fila: ele criou a conta AWS e está configurando o user pool.
 - **Decisões travadas no chat, não reabrir**: (1) Cognito é a **única** fonte de identidade — bcrypt sai do login; (2) a tela de login **continua nossa** — o `rest-api` chama `InitiateAuth`/`SignUp` e mantém o cookie `sid`, então `requireAuth` e o web quase não mudam; (3) a conta existente é **vinculada por e-mail** ao `users.id` atual via `cognito_sub`: nenhum dado do humano se perde.
 - **Escopo**: `cognito-core` novo (formato-alvo) como *integration* — fala com a AWS e **não toca o banco**; `auth-core` deixa de hashear e passa a espelhar (`cognito_sub`, ALTER idempotente); `auth/router.ts` orquestra. Segredo só no `.env` (`COGNITO_*`), **fail closed** se faltar. Fora: MFA, social login, deploy.
