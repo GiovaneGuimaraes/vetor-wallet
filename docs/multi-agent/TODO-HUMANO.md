@@ -18,6 +18,15 @@
 
 ## Abertos
 
+### [2026-08-18] Subir o server uma vez para o `DROP` de Metas acontecer no seu banco (T-091b2, #168)
+- **Origem**: orquestrador (fechamento da T-091b2)
+- **Bloqueia**: nada — informativo, mas é o único passo que só você pode dar.
+- **O que está feito**: a T-091b2 mergeou em #168 com a migração de rebuild. **O seu `wallet.db` ainda não mudou** — a migração roda no `initDb()`, ou seja, no **próximo `pnpm dev`**. Quando você subir, `goals` e `savings_entries.goal_id` somem de vez e não voltam nos boots seguintes.
+- **O backup existe e está fora do repo**: `C:\Users\giovane\Desktop\vetor-wallet-backups\` tem a cópia byte a byte do `wallet.db` de antes (`wallet-pre-t091b2-2026-08-18.db`) e o export das metas (`goals-dump-2026-08-18.json`). **Não delete essa pasta** — ela é a única reversibilidade que existe. Também não a mova para dentro do repo: ele é público.
+- **O que o dump revelou, e diminui o risco**: eram **2 metas e nenhum aporte vinculado**, e a sua tabela de poupança está vazia. O rebuild vai copiar zero linhas.
+- **O que conferir depois de subir**: a Home e a Poupança abrem sem erro, e o saldo da poupança mostra o mesmo número de antes. Se algo estiver errado, pare o server e me diga **antes** de lançar coisa nova — restaurar é copiar o arquivo de backup de volta, e isso só vale enquanto você não tiver gravado dado novo em cima.
+- **Resposta do humano**: _(preencher)_
+
 ### [2026-08-18] Dados do user pool do Cognito e a política de confirmação de e-mail (T-106)
 - **Origem**: orquestrador (T-106, pedida por você no chat de 2026-08-18)
 - **Bloqueia**: **entregar** a T-106, não construí-la. O código, os testes e o fallback dá para fazer sem nada disso; provar que o login real funciona contra o seu pool, não.

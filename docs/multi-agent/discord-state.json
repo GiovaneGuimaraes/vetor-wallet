@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-08-18T22:09:35-03:00"
+    "atualizadoEm": "2026-08-18T22:28:55-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-08-18T22:09:35-03:00"
+    "atualizadoEm": "2026-08-18T22:28:55-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -67,7 +67,8 @@
     "T-091b2": {
       "canal": "todo-ai",
       "messageId": "1538050465407963188",
-      "status": "EM_ANDAMENTO"
+      "status": "CONCLUIDA",
+      "pr": 168
     },
     "T-106": {
       "canal": "todo-ai",
@@ -169,6 +170,16 @@
         "3️⃣": "exportar antes, depois apagar"
       },
       "status": "AUTORIZADO 2026-08-15: opcao 1 (apagar). Dump para fora do repo entra por default como passo da tarefa, decisao do orquestrador, derrubavel pelo humano."
+    },
+    "T-091b2-boot-real": {
+      "canal": "todo-human",
+      "messageId": "1539444760123801761",
+      "modo": "so emoji",
+      "status": "ABERTO 2026-08-18: a migracao roda no wallet.db dele no proximo pnpm dev; backup fora do repo",
+      "opcoes": {
+        "✅": "subi e esta tudo certo",
+        "❌": "deu problema"
+      }
     }
   },
   "lastSeen": {
