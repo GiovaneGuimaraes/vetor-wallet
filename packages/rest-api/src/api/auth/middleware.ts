@@ -5,6 +5,21 @@ import { parseRoles } from '@vetor-wallet/auth-core';
 declare module 'express-session' {
   interface SessionData {
     userId: number;
+    /**
+     * Tokens do Cognito da T-106. Vivem na sessão do SERVIDOR (SQLite, via
+     * `SqliteSessionStore`) — o cookie só carrega o `sid`, então nenhum token
+     * chega ao browser. Opcionais porque sessões criadas antes da T-106
+     * continuam válidas (o `requireAuth` só olha `userId`); quem precisa do
+     * token é a troca de senha, que responde `COGNITO_SESSION_REQUIRED` quando
+     * ele não está lá.
+     */
+    cognitoAccessToken?: string;
+    cognitoRefreshToken?: string;
+    /**
+     * O `Username` usado no login, guardado porque o `SECRET_HASH` do fluxo de
+     * refresh é calculado sobre ele e a request de refresh não o carrega.
+     */
+    cognitoUsername?: string;
   }
 }
 

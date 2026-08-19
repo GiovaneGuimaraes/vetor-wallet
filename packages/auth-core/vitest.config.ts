@@ -9,6 +9,10 @@ export default defineConfig({
     // core → core (portfolio-core).
     alias: {
       '@vetor-wallet/db': path.resolve(__dirname, '../db/src/index.ts'),
+      // Alias TRANSITIVO: quem importa é `db/src/migrations.ts`, não este
+      // package. Sem ele, o teste que usa banco de verdade (cognitoMirror)
+      // quebra ao resolver o `main`/dist do validation-core (T-106).
+      '@vetor-wallet/validation-core': path.resolve(__dirname, '../validation-core/src/index.ts'),
       '@vetor-wallet/shared': path.resolve(__dirname, '../shared/src/index.ts'),
       '@vetor-wallet/portfolio-core': path.resolve(__dirname, '../portfolio-core/src/index.ts'),
     },

@@ -19,7 +19,8 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **shared** | Core | – | Tipos TS compartilhados, **types-only** | ✅ existe |
 | **db** | Infrastructure | – | libsql client, `schema`, `migrations`, `sessionStore`, `sqlErrors` | ✅ existe (T-097) |
 | **validation-core** | Core | – | `isValidIsoDate`, `isValidMoneyAmount`, `normalizeCategory` | ✅ existe (T-099a) |
-| **auth-core** | Core | Auth | Credenciais, bcrypt, papéis | ✅ existe (T-099c) |
+| **auth-core** | Core | Auth | Espelho de identidade (`cognito_sub`), perfil, papéis | ✅ existe (T-099c) |
+| **cognito-core** | Integration | Auth | Client HTTP do AWS Cognito (login, cadastro, confirmação, troca de senha) | ✅ existe (T-106) |
 | **portfolio-core** | Core | Portfolio | Posição, preço médio, histórico, snapshots, agendador | ✅ existe (T-099c) |
 | **brapi-core** | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | ✅ existe (T-098) |
 | **expenses-core** | Core | Expenses | Recorrência lazy (categoria normalizada saiu para `validation-core`, T-099a) | ✅ existe (T-099b) |
@@ -59,6 +60,15 @@ negócio, veja [`MODULES.md`](./MODULES.md).
    > registrada no roadmap do módulo BankImport, e porque há um segundo consumidor previsto
    > (endpoint `investments`, para reconciliar posição B3 no Portfolio). Não use como
    > precedente para integração nova de um módulo só.
+
+   > `cognito-core` (T-106) é package, e não `auth-core/src/providers/cognito/`,
+   > por um motivo diferente do `pluggy-core`: a regra 2 diz que client de
+   > terceiro **não toca `db`**, e o `auth-core` existe justamente para tocar o
+   > banco (é o dono de `users`). Provider dentro dele colocaria o `fetch` da AWS
+   > e o SQL do espelho no mesmo package — a fronteira que mais importa aqui, com
+   > senha e token de um lado e `user_id` do outro, ficaria sendo só disciplina de
+   > pasta. Fora isso, o `rest-api` precisa dos dois **lado a lado** na mesma
+   > rota, o que já é o formato de "dois módulos se cruzam na rota".
 
    > `brapi-core` é package porque Portfolio **e** Insights o consomem. A AbacatePay virou
    > `subscription-core/src/providers/abacatepay/` (T-103) porque só existe por causa da
@@ -148,6 +158,7 @@ migrar. Package novo já nasce assim; os antigos migram um por vez, em tarefas p
 | `subscription-core` | ✅ alvo | Jest + Stryker |
 | `validation-core` | ✅ alvo (T-104a) | Jest |
 | `pluggy-core` | ✅ alvo, exceto runner (T-087) | Vitest, teste ao lado (segue `brapi-core`) |
+| `cognito-core` | ✅ alvo, exceto runner (T-106) | Vitest, teste ao lado, cobertura 100% |
 | demais `*-core`, `db` | arquivo-balaio, `db` importado, teste em `src/**/*.test.ts` | Vitest |
 
 > `validation-core` foi o segundo package migrado e o **calibre** do formato:

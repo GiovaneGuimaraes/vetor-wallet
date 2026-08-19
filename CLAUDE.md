@@ -62,8 +62,15 @@ packages/
 │                     # T-091b1 e o saldo livre virou o próprio saldo
 ├── expenses-core/    # @vetor-wallet/expenses-core — recorrência lazy e
 │                     # idempotente (T-099b, Ciclo 19)
-├── auth-core/        # @vetor-wallet/auth-core — credenciais, bcrypt, perfil,
-│                     # papéis (T-099c, Ciclo 19)
+├── auth-core/        # @vetor-wallet/auth-core — dono da tabela users: espelho
+│                     # da identidade (cognito_sub, vínculo por e-mail — T-106),
+│                     # perfil, papéis (T-099c, Ciclo 19). O login NÃO usa mais
+│                     # bcrypt; password_hash ficou no banco, sem uso
+├── cognito-core/     # @vetor-wallet/cognito-core — client HTTP do AWS Cognito
+│                     # (SignUp, InitiateAuth, ConfirmSignUp, ResendConfirmation
+│                     # Code, GetUser, ChangePassword): erro tipado, SECRET_HASH
+│                     # opcional, fail closed, NÃO toca o banco (T-106).
+│                     # Formato-alvo, runner Vitest, cobertura 100%
 ├── portfolio-core/   # @vetor-wallet/portfolio-core — preço médio ponderado,
 │                     # validação de SELL, série valor × custo, carteiras,
 │                     # snapshots + agendador (T-099c, Ciclo 19)
@@ -113,6 +120,8 @@ pnpm --filter @vetor-wallet/pluggy-core test       # Vitest (pluggy-core)
 pnpm --filter @vetor-wallet/portfolio-core test    # Vitest (portfolio-core)
 pnpm --filter @vetor-wallet/insights-core test     # Vitest (insights-core)
 pnpm --filter @vetor-wallet/auth-core test         # Vitest (auth-core)
+pnpm --filter @vetor-wallet/cognito-core test      # Vitest (cognito-core)
+pnpm --filter @vetor-wallet/cognito-core test --coverage  # 100% é a meta do formato
 pnpm --filter vetor-wallet-web test       # Vitest (web, funções puras)
 pnpm --filter vetor-wallet-cli insights:hourly [YYYY-MM-DD]
 pnpm --filter vetor-wallet-cli pluggy:link [itemId] [--email=] [--remove]
@@ -125,7 +134,7 @@ pnpm --filter vetor-wallet-cli pluggy:sync [YYYY-MM-DD] [--dry-run] [--email=]
 
 | Pacote | Principais variáveis |
 |---|---|
-| rest-api | `PORT` (3001), `SESSION_SECRET`*, `ALLOWED_ORIGIN`*, `NODE_ENV`*, `BRAPI_TOKEN`, `DATABASE_URL` (default `process.cwd()/data/wallet.db`), `ABACATEPAY_API_KEY`, `ABACATEPAY_API_URL` (default `https://api.abacatepay.com/v2`), `ABACATEPAY_WEBHOOK_SECRET`, `BILLING_ENABLED` (default false; obrigatória true em prod com billing); **Pluggy (T-089b)**: `ENVIRONMENT` (só `Staging` libera `/api/pluggy/*`; ausente/vazia/desconhecida = bloqueado), `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, `PLUGGY_API_URL` — * obrigatórias em prod |
+| rest-api | `PORT` (3001), `SESSION_SECRET`*, `ALLOWED_ORIGIN`*, `NODE_ENV`*, `BRAPI_TOKEN`, `DATABASE_URL` (default `process.cwd()/data/wallet.db`), `ABACATEPAY_API_KEY`, `ABACATEPAY_API_URL` (default `https://api.abacatepay.com/v2`), `ABACATEPAY_WEBHOOK_SECRET`, `BILLING_ENABLED` (default false; obrigatória true em prod com billing); **Pluggy (T-089b)**: `ENVIRONMENT` (só `Staging` libera `/api/pluggy/*`; ausente/vazia/desconhecida = bloqueado), `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, `PLUGGY_API_URL`; **Cognito (T-106)**: `COGNITO_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID` (as três obrigatórias — faltando qualquer uma, `/api/auth/*` responde **503**, fail closed), `COGNITO_CLIENT_SECRET` (opcional: presente = toda chamada leva `SECRET_HASH`) — * obrigatórias em prod |
 | web | `VITE_API_URL` (http://localhost:3001). **A flag da Pluggy NÃO vive aqui** — o web lê o estado por `GET /api/pluggy/status`; cópia em `VITE_*` divergiria e seria burlável (T-089b) |
 | cli | `DATABASE_URL=file:../rest-api/data/wallet.db` (relativo a packages/cli/), `BRAPI_TOKEN`; para `pluggy:sync` (T-087): `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, `PLUGGY_USER_EMAIL` (default do `--email=`; sem default silencioso), `PLUGGY_API_URL` (default `https://api.pluggy.ai`). `PLUGGY_ITEM_ID` **saiu do `pluggy:sync`** na T-089a — os items vivem em `pluggy_items`, por usuário, e são registrados por `pluggy:link` (a variável sobrou só como bootstrap desse comando). **Valores só no `.env` local, nunca no repo.** |
 
@@ -135,7 +144,7 @@ O SQLite (`packages/rest-api/data/wallet.db`) é criado no primeiro boot.
 
 | Recurso | Rotas | Notas |
 |---|---|---|
-| auth | POST /api/auth/register·login·logout, GET /me, PATCH /me, POST /change-password | bcrypt + express-session; troca de senha exige sessão e não a invalida (T-094) |
+| auth | POST /api/auth/register·login·logout·confirm·resend-code, GET /me, PATCH /me, POST /change-password | **AWS Cognito** + express-session (T-106): a tela é nossa, o cookie `sid` continua sendo a sessão, e o banco não guarda mais senha. `register` tem DOIS desfechos — **201** `{pendingConfirmation:false, ...user}` (pool sem verificação: já logado) e **202** `{pendingConfirmation:true, email}` (código por e-mail; sem sessão e sem linha em `users`). `confirm`/`resend-code` servem o segundo caso (204). Troca de senha exige sessão e não a invalida (T-094), agora por `ChangePassword` com o access token guardado na sessão do servidor. Sem `COGNITO_*` → **503** `AUTH_UNAVAILABLE`; erro do Cognito nunca vaza a mensagem da AWS. **Assumir uma conta que já existe exige `email_verified` no Cognito** — sem isso, **403** `EMAIL_NOT_VERIFIED` e nenhuma sessão (senão quem soubesse o e-mail da vítima tomaria a conta dela; criar conta nova segue liberado) |
 | wallets | GET, POST /api/wallets | carteira ÚNICA por usuário (T-050); POST recusa a 2ª |
 | operations | GET, POST, DELETE /api/operations[/:id] | `walletId` do cliente é ignorado; SELL validado contra posição atual |
 | portfolio | GET /api/portfolio, GET /portfolio/history?days= | cotações em tempo real; série valor × custo |
@@ -197,9 +206,11 @@ Leia o arquivo do domínio antes de mexer nele:
 - **validation-money-dates.md** — data de calendário real (T-043), máx. 2 casas decimais (T-052).
 - **billing.md** — stub: migrado para `packages/subscription-core/CLAUDE.md`
   (T-099b; renomeado na T-103).
-- **sessions-auth.md** — só a persistência de sessão no SQLite (T-034/T-046); credenciais/perfil/papéis migraram para `packages/auth-core/CLAUDE.md` (T-099c).
+- **sessions-auth.md** — só a persistência de sessão no SQLite (T-034/T-046); credenciais/perfil/papéis migraram para `packages/auth-core/CLAUDE.md` (T-099c) e a identidade virou AWS Cognito na T-106 (`packages/cognito-core/CLAUDE.md`).
 - **snapshots-history.md** — stub: dividido entre `packages/portfolio-core/CLAUDE.md` (snapshots, T-058a/T-060/T-061/T-063) e `packages/insights-core/CLAUDE.md` (benchmarks T-068, insights horários) na T-099c.
 
 Domínios sem `docs/decisions/` próprio, documentados só no package:
 `packages/bank-import-core/CLAUDE.md` (OFX + dedupe por `external_id`, T-084/T-085/T-086, e o
-mapeamento da Pluggy, T-087) e `packages/pluggy-core/CLAUDE.md` (client Open Finance, T-087).
+mapeamento da Pluggy, T-087), `packages/pluggy-core/CLAUDE.md` (client Open Finance, T-087) e
+`packages/cognito-core/CLAUDE.md` (client do AWS Cognito, decisões da T-106 e o que só pode ser
+provado contra o user pool real).

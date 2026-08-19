@@ -6,12 +6,19 @@ import request from 'supertest';
 import { tmpdir } from 'os';
 import path from 'path';
 import type { PluggyStatusResponse, PluggySyncResponse } from '@vetor-wallet/shared';
+import { installFakeCognito } from '../auth/__fixtures__/fakeCognito';
 
 const testDbPath = path.join(
   tmpdir(),
   `vetor-wallet-test-pluggy-route-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
+
+// T-106: o cadastro/login destes testes passa pelo AWS Cognito. O pool falso
+// abaixo intercepta o `fetch` para o endpoint do Cognito (e SÓ para ele) e
+// responde `UserConfirmed: true`, mantendo `POST /api/auth/register` como a
+// forma de conseguir uma sessão. Nenhum teste bate na AWS.
+installFakeCognito();
 
 /**
  * Rotas `/api/pluggy/*` (T-089b).

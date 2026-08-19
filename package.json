@@ -24,7 +24,7 @@
     "discord:check": "node tools/discord-guard.mjs",
     "colher:respostas": "node tools/colher-respostas.mjs",
     "test:tools": "node --test tools/*.test.mjs",
-    "test": "pnpm test:tools && pnpm --filter @vetor-wallet/validation-core test && pnpm --filter @vetor-wallet/db test && pnpm --filter @vetor-wallet/brapi-core test && pnpm --filter @vetor-wallet/subscription-core test && pnpm --filter @vetor-wallet/savings-core test && pnpm --filter @vetor-wallet/expenses-core test && pnpm --filter @vetor-wallet/bank-import-core test && pnpm --filter @vetor-wallet/pluggy-core test && pnpm --filter @vetor-wallet/insights-core test && pnpm --filter @vetor-wallet/portfolio-core test && pnpm --filter @vetor-wallet/auth-core test && pnpm --filter vetor-wallet-rest-api test && pnpm --filter vetor-wallet-web test",
+    "test": "pnpm test:tools && pnpm --filter @vetor-wallet/validation-core test && pnpm --filter @vetor-wallet/db test && pnpm --filter @vetor-wallet/brapi-core test && pnpm --filter @vetor-wallet/subscription-core test && pnpm --filter @vetor-wallet/savings-core test && pnpm --filter @vetor-wallet/expenses-core test && pnpm --filter @vetor-wallet/bank-import-core test && pnpm --filter @vetor-wallet/pluggy-core test && pnpm --filter @vetor-wallet/insights-core test && pnpm --filter @vetor-wallet/portfolio-core test && pnpm --filter @vetor-wallet/auth-core test && pnpm --filter @vetor-wallet/cognito-core test && pnpm --filter vetor-wallet-rest-api test && pnpm --filter vetor-wallet-web test",
     "format": "prettier --write \"packages/*/{src,tests}/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"packages/*/{src,tests}/**/*.{ts,tsx,css}\""
   }

@@ -24,6 +24,7 @@ export default defineConfig({
       '@vetor-wallet/auth-core': path.resolve(__dirname, '../auth-core/src/index.ts'),
       '@vetor-wallet/db': path.resolve(__dirname, '../db/src/index.ts'),
       '@vetor-wallet/brapi-core': path.resolve(__dirname, '../brapi-core/src/index.ts'),
+      '@vetor-wallet/cognito-core': path.resolve(__dirname, '../cognito-core/src/index.ts'),
       '@vetor-wallet/validation-core': path.resolve(__dirname, '../validation-core/src/index.ts'),
       '@vetor-wallet/subscription-core': path.resolve(__dirname, '../subscription-core/src/index.ts'),
       '@vetor-wallet/savings-core': path.resolve(__dirname, '../savings-core/src/index.ts'),

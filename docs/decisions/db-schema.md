@@ -12,6 +12,23 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT   NOT NULL,
   created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
 );
+-- ALTER idempotente: roles TEXT NOT NULL DEFAULT '[]', name TEXT, phone TEXT
+-- ALTER idempotente (T-106): cognito_sub TEXT — `sub` do usuário no user pool do
+-- AWS Cognito, que desde a T-106 é a ÚNICA fonte de identidade. Nullable e sem
+-- DEFAULT: conta anterior ao Cognito nasce NULL e ganha o `sub` no primeiro
+-- login, casando por e-mail normalizado (é o que preserva os dados) — e SÓ
+-- quando o Cognito confirma `email_verified`, senão quem soubesse o e-mail da
+-- vítima assumiria a linha dela (ver `packages/auth-core/CLAUDE.md`).
+-- `password_hash` continua NOT NULL e continua na tabela, mas SAIU do login —
+-- dropá-la é migração destrutiva e vai em tarefa própria, com confirmação do
+-- humano entre as etapas. Espelho novo grava o sentinela
+-- `cognito-managed:no-local-password`, que não é bcrypt válido.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_cognito_sub
+  ON users(cognito_sub) WHERE cognito_sub IS NOT NULL;
+-- Índice PARCIAL pelo mesmo motivo do dedupe de importação: as contas antigas
+-- têm NULL até o primeiro login, e em SQLite NULLs nunca colidem num UNIQUE —
+-- o WHERE deixa explícito o que seria implícito. Ele é o que faz uma corrida
+-- entre dois logins do mesmo `sub` novo falhar em vez de criar duas contas.
 
 -- Carteira do usuário. Desde a T-050 é UMA por usuário — invariante de
 -- APLICAÇÃO (POST /api/wallets recusa a segunda), sem UNIQUE(user_id): o

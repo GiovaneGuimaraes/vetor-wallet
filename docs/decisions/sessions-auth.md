@@ -5,6 +5,17 @@
 > `SqliteSessionStore` vive em `packages/db` desde a T-097 (ver
 > `packages/db/CLAUDE.md`). Este documento cobre só a persistência de sessão.
 
+> **Nota (T-106).** A identidade virou **AWS Cognito**
+> ([`packages/cognito-core/CLAUDE.md`](../../packages/cognito-core/CLAUDE.md)),
+> **sem** mudar nada do que está aqui: a sessão continua sendo o cookie `sid` do
+> `express-session` sobre o `SqliteSessionStore`, e `requireAuth` continua lendo
+> `req.session.userId`. O que a T-106 acrescentou ao `SessionData` foram os
+> tokens do Cognito (`cognitoAccessToken`, `cognitoRefreshToken`,
+> `cognitoUsername`) — necessários para o `ChangePassword`, e guardados **aqui**
+> (servidor/SQLite) justamente para não irem para o browser. Consequência prática
+> desta tabela: o `data` de uma sessão passou a conter segredo de terceiro, então
+> quem for exportar/logar a tabela `sessions` precisa tratá-la como credencial.
+
 ### Sessões persistem no restart (T-034)
 `express-session` usa `SqliteSessionStore` (`packages/db/src/sessionStore.ts`), uma implementação da interface `Store` sobre o mesmo `@libsql/client`/arquivo SQLite do app — não mais o `MemoryStore` padrão. Sessões sobrevivem a restart do server porque ficam gravadas na tabela `sessions` (`sid` PK, `data` TEXT JSON, `expires_at`; criada em `initDb()`, idempotente como as demais).
 
