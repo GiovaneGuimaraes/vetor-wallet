@@ -21,7 +21,7 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 ## Fila
 
 ### T-091b2 — Apagar o dado de Metas do banco ⭐ PRÓXIMA
-- **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-091b1 (#166, concluída)
+- **Status**: EM_ANDAMENTO · **Complexidade**: alta (executor Opus) · **Depende de**: T-091b1 (#166, concluída)
 - **Autorizado pelo humano em 2026-08-15** (chat): a etapa 2 entra na fila. É a **migração destrutiva** que a T-091b1 deixou de propósito para depois — e **não há backup do `wallet.db`**.
 - **Escopo**: `DROP TABLE goals`, `DROP INDEX idx_savings_entries_goal` e remoção de `savings_entries.goal_id` — no SQLite isso exige **rebuild da tabela** (FK), feito dentro de transação. `schema.test.ts` tem asserções sobre `goals`. Os ALTERs de `schema.ts` são idempotentes e rodam a cada boot: o que sai tem que sair **de vez**, senão o próximo boot recria a coluna.
 - **Dump antes do DROP, obrigatório**: gravar `goals` e os `savings_entries.goal_id` em arquivo **fora do repo** (é público) antes de apagar. Custa uma query e devolve a reversibilidade que a decisão custou.
