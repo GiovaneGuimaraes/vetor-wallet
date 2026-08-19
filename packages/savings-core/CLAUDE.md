@@ -19,11 +19,14 @@ manual × derivado, T-024) e toda a aritmética de reserva/transferência
 (`sumReservedByGoal`, `computeReservedTotal`, `computeFreeBalance`,
 `pickTransferLegs`, T-041/T-052).
 
-**Esta é a etapa 1 de 2, e nada foi apagado do banco.** A tabela `goals`, a
-coluna `savings_entries.goal_id` e o índice `idx_savings_entries_goal` continuam
-no schema até a **T-091b2**, que só roda depois de o humano abrir o app sem
-Metas e confirmar. Consequência prática ao mexer aqui: linhas legadas com
-`goal_id` preenchido **existem** e são lançamentos comuns.
+A **etapa 2 (T-091b2, 2026-08-18) já rodou**: a tabela `goals`, a coluna
+`savings_entries.goal_id` e o índice `idx_savings_entries_goal` foram **apagados**
+do banco (migração `dropGoalsSchema` em `packages/db/src/migrations.ts`; decisões
+em [`docs/decisions/db-schema.md`](../../docs/decisions/db-schema.md)). Consequência
+prática ao mexer aqui: **não existe mais vínculo com meta em lugar nenhum**, nem em
+base antiga. O único legado que sobrou é `savings_entries.transfer_group` (T-041),
+que é procedência para o selo `⇄` da UI — perna de par legado é lançamento comum e
+conta integral no saldo.
 
 ## Estrutura
 
@@ -43,9 +46,9 @@ do cliente: `packages/web/src/routes/{savingsProjection,savingsWithdraw}.ts`
   número, e quem precisa dele no cliente lê `summary.balance` do server em vez de
   derivar. A função `computeFreeBalance` foi **removida** em vez de virar
   identidade — um segundo nome para o mesmo valor convida a divergência.
-- **Lançamento com `goal_id` legado conta INTEGRAL no saldo.** Nada é descontado
-  por causa do vínculo órfão (tem teste, aqui e na rota) — é o caso que mais
-  provavelmente quebraria numa base real antes da T-091b2.
+- **Lançamento legado conta INTEGRAL no saldo.** Nada é descontado por causa de
+  rótulo de procedência: hoje isso significa `transfer_group` (T-041), e tem teste
+  aqui e na rota. Até a T-091b2 o caso era o `goal_id`, que deixou de existir.
 - **Toda soma de dinheiro aqui é em centavos inteiros** (`toCents` =
   `Math.round(v * 100)`): somar floats direto faz `0,10 + 0,20` virar
   `0.30000000000000004` e diverge um centavo do `summary` em razões grandes.

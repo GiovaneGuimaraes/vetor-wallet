@@ -29,17 +29,33 @@ O que saiu na T-091b1 (etapa 1 de 2 — só código):
 
 O que **explicitamente não** saiu, e por quê:
 
-- **Nenhuma linha de banco foi apagada.** A tabela `goals`, a coluna
-  `savings_entries.goal_id` e o índice `idx_savings_entries_goal` continuam em
-  `packages/db/src/schema.ts`, intactos. O `DROP` é a **etapa 2 (T-091b2)**, que
-  só roda depois de o humano abrir o app sem Metas e confirmar. Dado órfão no
-  banco até lá é o resultado esperado, não um defeito.
+- **Nenhuma linha de banco foi apagada** *na etapa 1*. A tabela `goals`, a coluna
+  `savings_entries.goal_id` e o índice `idx_savings_entries_goal` continuaram em
+  `packages/db/src/schema.ts`, intactos, até a **etapa 2 (T-091b2, 2026-08-18)**,
+  que rodou depois de o humano abrir o app sem Metas e confirmar. Dado órfão no
+  banco entre as duas etapas era o resultado esperado, não um defeito.
 - `savings_entries.transfer_group` sobrevive como **procedência de dado legado**:
   pares gravados antes da remoção continuam no banco e a lista de `/poupanca`
   ainda os marca com o selo `⇄`. Nada novo nasce com o campo.
 
 **Invariante que a remoção reescreveu (não apagou)**: o **saldo livre** da
 poupança passou a ser o **saldo inteiro** — não há mais reserva a descontar. A
-aritmética continua em **centavos inteiros** (T-041/T-052): lançamento legado com
-`goal_id` preenchido conta **integralmente** no saldo, e é esse o caso coberto
-pelo teste novo em `savings.test.ts` e em `routes/savings.test.ts`.
+aritmética continua em **centavos inteiros** (T-041/T-052): lançamento legado
+conta **integralmente** no saldo, e é esse o caso coberto pelos testes em
+`savings.test.ts` e em `routes/savings.test.ts` (que desde a T-091b2 usam o
+`transfer_group`, já que `goal_id` não existe mais).
+
+## Etapa 2 — o dado saiu do banco (T-091b2, 2026-08-18)
+
+Autorizada pelo humano em 2026-08-15, depois de ele abrir o app sem Metas. A
+tabela `goals`, a coluna `savings_entries.goal_id` e o índice
+`idx_savings_entries_goal` foram **apagados**; `transfer_group` ficou. Antes do
+DROP, o `wallet.db` inteiro e um dump das linhas de Metas foram copiados para fora
+do repo (que é público) — a etapa não tem desfazer.
+
+As decisões técnicas (por que rebuild de tabela em vez de `DROP COLUMN`, por que o
+`ALTER` idempotente tinha de sair na mesma mudança, e como a migração é idempotente
+sem tabela de versão) estão em
+[`db-schema.md` § "Metas saiu do banco"](./db-schema.md#metas-saiu-do-banco-t-091b2-2026-08-18).
+A migração é `dropGoalsSchema`, em `packages/db/src/migrations.ts`, chamada por
+`initDb()`.

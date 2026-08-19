@@ -63,7 +63,6 @@ beforeEach(async () => {
   await db.execute('DELETE FROM income_entries');
   await db.execute('DELETE FROM expense_entries');
   await db.execute('DELETE FROM savings_entries');
-  await db.execute('DELETE FROM goals');
   await db.execute('DELETE FROM users');
   userId = await newUser();
   otherId = await newUser();
@@ -112,27 +111,25 @@ describe('wipeUserFinancialEntries (T-089b — modo replace)', () => {
     expect((await counts(userId)).expense_entries).toBe(0);
   });
 
-  // T-091b1: Metas saiu do app, mas a tabela `goals` só é apagada na T-091b2 —
-  // até lá o replace não pode encostar nela, só nos lançamentos.
-  it('não apaga linhas de `goals`, só o lançamento (legado) que apontava para ela', async () => {
-    const goal = await db.execute({
-      sql: 'INSERT INTO goals (user_id, name, target_amount) VALUES (?, ?, ?)',
-      args: [userId, 'Viagem', 5000],
-    });
-    const goalId = Number(goal.lastInsertRowid ?? 0);
-    await db.execute({
-      sql: 'INSERT INTO savings_entries (user_id, type, amount, date, goal_id) VALUES (?, ?, ?, ?, ?)',
-      args: [userId, 'DEPOSIT', 800, '2026-08-02', goalId],
-    });
+  // T-091b2: `goals` e `savings_entries.goal_id` foram APAGADAS do banco. O que
+  // sobrou de Metas é o `transfer_group`, coberto pelo teste do par abaixo. O
+  // teste antigo ("não apaga linhas de `goals`") saiu com a tabela: não há mais
+  // tabela vizinha para o replace preservar.
+  it('não apaga nada fora das três tabelas de lançamento', async () => {
+    await seed(userId);
+    const plansBefore = await db.execute('SELECT COUNT(*) AS c FROM plans');
 
     await wipe.wipeUserFinancialEntries({ db, userId });
 
-    const goals = await db.execute({
-      sql: 'SELECT COUNT(*) AS c FROM goals WHERE user_id = ?',
+    // O usuário e o catálogo de planos (tabelas vizinhas, uma por usuário e uma
+    // global) sobrevivem — o replace é limpeza de lançamento, não de conta.
+    const users = await db.execute({
+      sql: 'SELECT COUNT(*) AS c FROM users WHERE id = ?',
       args: [userId],
     });
-    expect(Number(goals.rows[0].c)).toBe(1);
-    expect((await counts(userId)).savings_entries).toBe(0);
+    expect(Number(users.rows[0].c)).toBe(1);
+    const plansAfter = await db.execute('SELECT COUNT(*) AS c FROM plans');
+    expect(Number(plansAfter.rows[0].c)).toBe(Number(plansBefore.rows[0].c));
   });
 
   it('o par legado de transferência some INTEIRO — nunca sobra meia ponta (T-041)', async () => {

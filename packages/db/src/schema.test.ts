@@ -238,3 +238,61 @@ describe('initDb — pluggy_items (T-089a)', () => {
     expect(Number(res.rows[0].cnt)).toBe(3);
   });
 });
+
+/**
+ * T-091b2 — etapa 2 (destrutiva) da remoção de Metas. Aqui é o caminho do banco
+ * NOVO: nada a dropar, e nada de Metas pode nascer. O caminho do banco LEGADO
+ * (com `goals`/`goal_id` já gravados, que a migração de rebuild precisa apagar)
+ * vive em `dropGoalsSchema.test.ts` — `initDb()` opera sobre o client singleton
+ * do processo, então os dois caminhos não caberiam no mesmo arquivo.
+ */
+describe('initDb — Metas não existe mais no schema (T-091b2)', () => {
+  let db: Db;
+
+  beforeAll(async () => {
+    const mod = await import('./index');
+    db = mod.db;
+    await mod.initDb();
+  });
+
+  it('não cria a tabela goals', async () => {
+    const res = await db.execute({
+      sql: `SELECT COUNT(*) as cnt FROM sqlite_master WHERE type = 'table' AND name = ?`,
+      args: ['goals'],
+    });
+    expect(Number(res.rows[0].cnt)).toBe(0);
+  });
+
+  it('não cria a coluna savings_entries.goal_id', async () => {
+    const res = await db.execute('PRAGMA table_info(savings_entries)');
+    expect(res.rows.map((row) => String(row.name))).not.toContain('goal_id');
+  });
+
+  it('não cria o índice idx_savings_entries_goal', async () => {
+    const res = await db.execute({
+      sql: `SELECT COUNT(*) as cnt FROM sqlite_master WHERE type = 'index' AND name = ?`,
+      args: ['idx_savings_entries_goal'],
+    });
+    expect(Number(res.rows[0].cnt)).toBe(0);
+  });
+
+  it('mantém transfer_group, que NÃO saiu com Metas (T-041)', async () => {
+    const res = await db.execute('PRAGMA table_info(savings_entries)');
+    expect(res.rows.map((row) => String(row.name))).toContain('transfer_group');
+  });
+
+  it('nada de Metas volta depois de reiniciar o boot (initDb 2x)', async () => {
+    const mod = await import('./index');
+    await mod.initDb();
+    await mod.initDb();
+
+    const leftovers = await db.execute({
+      sql: `SELECT COUNT(*) as cnt FROM sqlite_master WHERE name IN (?, ?)`,
+      args: ['goals', 'idx_savings_entries_goal'],
+    });
+    expect(Number(leftovers.rows[0].cnt)).toBe(0);
+
+    const columns = await db.execute('PRAGMA table_info(savings_entries)');
+    expect(columns.rows.map((row) => String(row.name))).not.toContain('goal_id');
+  });
+});

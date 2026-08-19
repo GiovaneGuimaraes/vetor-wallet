@@ -178,30 +178,17 @@ CREATE TABLE IF NOT EXISTS savings_entries (
   note       TEXT    NOT NULL DEFAULT '',
   created_at TEXT    NOT NULL DEFAULT (datetime('now'))
 );
--- ALTER idempotente: goal_id INTEGER REFERENCES goals(id)
---   LEGADO. Vínculo com uma meta (T-024). Metas foi removida do app na T-091b1
---   e NADA novo é gravado aqui: a coluna e as linhas antigas continuam apenas
---   porque o DROP é a T-091b2, pendente de confirmação do humano. Lançamento
---   com goal_id é um lançamento COMUM — conta integral no saldo.
--- INDEX idx_savings_entries_goal (user_id, goal_id)  -- idem: legado
 -- ALTER idempotente: transfer_group TEXT
 --   uuid comum às duas pernas de uma transferência poupança → meta (T-041,
---   também removida na T-091b1). NULL = lançamento normal. É etiqueta de
---   PROCEDÊNCIA, não invariante: nada é validado entre as pernas e o PATCH não
---   aceita o campo.
+--   removida na T-091b1). NULL = lançamento normal. É etiqueta de PROCEDÊNCIA,
+--   não invariante: nada é validado entre as pernas e o PATCH não aceita o campo.
+--   SOBREVIVEU à remoção de Metas (T-091b1/T-091b2) de propósito — sustenta o
+--   selo ⇄ de par legado na lista de /poupanca. Nada novo nasce com o campo.
+-- REMOVIDO na T-091b2: goal_id INTEGER REFERENCES goals(id) (T-024) e o índice
+--   idx_savings_entries_goal (user_id, goal_id). Ver "Metas saiu do banco" abaixo.
 
--- Metas financeiras. LEGADO desde a T-091b1: a API de metas não existe mais e
--- nenhuma linha nova é criada. A tabela segue aqui até a T-091b2 apagá-la —
--- `current_amount` era o valor MANUAL de fallback, sobreposto pelo progresso
--- DERIVADO dos lançamentos vinculados quando havia algum.
-CREATE TABLE IF NOT EXISTS goals (
-  id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id        INTEGER NOT NULL REFERENCES users(id),
-  name           TEXT    NOT NULL,
-  target_amount  REAL    NOT NULL,
-  current_amount REAL    NOT NULL DEFAULT 0,
-  created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
-);
+-- A tabela `goals` foi REMOVIDA do banco na T-091b2 (2026-08-18) — ver a seção
+-- "Metas saiu do banco (T-091b2)" no fim deste arquivo.
 
 -- Orçamento mensal por categoria (T-023): teto de gasto sem vínculo com mês —
 -- vale para qualquer mês exibido em Despesas, só o gasto comparado varia.
@@ -324,6 +311,50 @@ CREATE INDEX IF NOT EXISTS idx_pluggy_items_user ON pluggy_items(user_id, create
 ```
 
 Driver: `@libsql/client` (libsql/SQLite). Sem ORM; queries são SQL puro.
+
+## Metas saiu do banco (T-091b2, 2026-08-18)
+
+A remoção de Metas foi feita em **duas etapas**, com o humano confirmando entre
+elas (regra do `docs/multi-agent/README.md`). A T-091b1 tirou o recurso da UI e da
+API sem apagar uma linha; esta etapa apagou o dado, e **não há desfazer** — o
+`wallet.db` foi copiado para fora do repo antes de rodar.
+
+O que saiu do schema, de vez:
+
+| Objeto | Origem |
+|---|---|
+| tabela `goals` | T-022 |
+| coluna `savings_entries.goal_id` (FK para `goals`) | T-024 |
+| índice `idx_savings_entries_goal (user_id, goal_id)` | T-024 |
+
+`savings_entries.transfer_group` **não** saiu: é o rótulo de procedência das duas
+pernas de uma transferência antiga (T-041) e sustenta o selo `⇄` na lista de
+`/poupanca`.
+
+Três decisões que valem para qualquer remoção de coluna futura neste banco:
+
+- **É rebuild de tabela, não `DROP COLUMN`.** `goal_id` carregava `REFERENCES
+  goals(id)`, e o `ALTER TABLE ... DROP COLUMN` do SQLite recusa coluna envolvida
+  em constraint. `dropGoalsSchema` (em `packages/db/src/migrations.ts`) cria a
+  tabela nova sem a coluna, copia as linhas com o `id` explícito, dropa a antiga e
+  renomeia — os quatro passos num `db.batch` só, porque uma `savings_entries`
+  dropada sem a nova no lugar é perda total do layer de poupança. `DROP TABLE
+  goals` só roda depois, quando nenhuma FK aponta mais para ela.
+- **A migração e a remoção do `CREATE`/`ALTER` andam juntas.** `initDb()` roda
+  inteiro a cada boot e os `ALTER` são idempotentes: deixar o `ALTER TABLE
+  savings_entries ADD COLUMN goal_id` em `schema.ts` faria o boot seguinte
+  **recriar** o que a migração acabou de dropar. Mesmo raciocínio para o `CREATE
+  TABLE IF NOT EXISTS goals`, que recriaria a tabela vazia.
+- **Idempotência sem tabela de versão.** O projeto não tem controle de versão de
+  migração: o detector é `PRAGMA table_info(savings_entries)` (sem `goal_id`, o
+  rebuild é pulado) e os dois DROPs usam `IF EXISTS`. Rodar `initDb()` duas vezes
+  seguidas, ou num banco novo que nunca teve Metas, é inócuo.
+
+Testes: `packages/db/src/dropGoalsSchema.test.ts` monta um banco temporário **no
+schema antigo** e prova que a coluna/tabela/índice somem, que todo lançamento
+sobrevive com os mesmos id/valores e o mesmo saldo, e que rodar de novo não mexe
+em nada; `schema.test.ts` cobre o outro caminho, o banco novo, onde nada de Metas
+pode nascer.
 
 ---
 

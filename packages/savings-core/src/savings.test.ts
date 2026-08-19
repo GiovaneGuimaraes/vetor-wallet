@@ -34,50 +34,48 @@ describe('computeBalance', () => {
 });
 
 /**
- * T-091b1: Metas foi removida e o saldo livre passou a ser o saldo inteiro.
- * A etapa 2 (T-091b2) ainda não apagou `savings_entries.goal_id`, então bases
- * reais seguem tendo lançamentos com vínculo gravado — eles NÃO podem mais ser
- * descontados de nada.
+ * T-091b1/T-091b2: Metas foi removida e o saldo livre passou a ser o saldo
+ * inteiro. A etapa 2 apagou `savings_entries.goal_id` do banco, então a linha que
+ * chega aqui não traz mais vínculo nenhum. O legado que **sobrou** é o
+ * `transfer_group` (T-041): rótulo de procedência que a UI usa para o selo `⇄`,
+ * e que não pode reservar nem descontar nada.
  */
-describe('saldo livre = saldo, com dado legado de meta (T-091b1)', () => {
-  it('counts entries carrying a legacy goal_id at full value', () => {
-    // O campo nem faz parte de `SavingsBalanceEntry` desde a T-091b1; a linha
-    // vinda do banco ainda o traz, e precisa ser somada como qualquer outra.
+describe('saldo livre = saldo, com dado legado de transferência (T-091b1/T-091b2)', () => {
+  it('counts entries carrying a legacy transfer_group at full value', () => {
+    // O campo não faz parte de `SavingsBalanceEntry`; a linha vinda do banco
+    // ainda o traz, e precisa ser somada como qualquer outra.
     const ledger = [
-      { type: 'DEPOSIT', amount: 100, goal_id: 7 },
-      { type: 'DEPOSIT', amount: 900, goal_id: null },
-      { type: 'WITHDRAW', amount: 300, goal_id: 7 },
+      { type: 'DEPOSIT', amount: 100, transfer_group: 'grp-1' },
+      { type: 'DEPOSIT', amount: 900, transfer_group: null },
+      { type: 'WITHDRAW', amount: 300, transfer_group: 'grp-1' },
       { type: 'YIELD', amount: 25 },
     ] as unknown as SavingsBalanceEntry[];
-    // Antes da T-091b1 o "livre" aqui seria 725 (100 − 300 com piso 0 na meta 7
-    // não reservava nada) contra um saldo de 725 — coincidência do exemplo;
-    // o que importa é que hoje só existe UM número: o saldo.
     expect(computeBalance(ledger)).toBe(725);
   });
 
-  it('does not discount a fully linked ledger', () => {
+  it('does not discount a ledger made only of legacy pair legs', () => {
     const ledger = [
-      { type: 'DEPOSIT', amount: 500, goal_id: 1 },
-      { type: 'DEPOSIT', amount: 500, goal_id: 2 },
+      { type: 'DEPOSIT', amount: 500, transfer_group: 'grp-1' },
+      { type: 'DEPOSIT', amount: 500, transfer_group: 'grp-2' },
     ] as unknown as SavingsBalanceEntry[];
     expect(computeBalance(ledger)).toBe(1000);
   });
 
-  it('stays exact in cents with linked entries (0,10 + 0,20 = 0,30)', () => {
+  it('stays exact in cents with legacy entries (0,10 + 0,20 = 0,30)', () => {
     const ledger = [
-      { type: 'DEPOSIT', amount: 0.1, goal_id: 3 },
-      { type: 'DEPOSIT', amount: 0.2, goal_id: 3 },
+      { type: 'DEPOSIT', amount: 0.1, transfer_group: 'grp-3' },
+      { type: 'DEPOSIT', amount: 0.2, transfer_group: 'grp-3' },
     ] as unknown as SavingsBalanceEntry[];
     expect(toCents(computeBalance(ledger))).toBe(30);
   });
 
   it('keeps a legacy transfer pair net zero on the balance', () => {
-    // Par da T-041 (WITHDRAW sem vínculo + DEPOSIT vinculado): sem Metas ele é
-    // só um par de lançamentos comuns que se anulam.
+    // Par da T-041 (as duas pernas com o mesmo uuid): sem Metas ele é só um par
+    // de lançamentos comuns que se anulam.
     const ledger = [
       { type: 'DEPOSIT', amount: 1000 },
-      { type: 'WITHDRAW', amount: 400 },
-      { type: 'DEPOSIT', amount: 400, goal_id: 5 },
+      { type: 'WITHDRAW', amount: 400, transfer_group: 'grp-5' },
+      { type: 'DEPOSIT', amount: 400, transfer_group: 'grp-5' },
     ] as unknown as SavingsBalanceEntry[];
     expect(computeBalance(ledger)).toBe(1000);
   });
