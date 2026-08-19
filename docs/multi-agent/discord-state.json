@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-08-18T22:28:55-03:00"
+    "atualizadoEm": "2026-08-18T22:37:49-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -73,7 +73,7 @@
     "T-106": {
       "canal": "todo-ai",
       "messageId": "1539439871729336431",
-      "status": "PENDENTE"
+      "status": "EM_ANDAMENTO"
     }
   },
   "humanTodos": {
