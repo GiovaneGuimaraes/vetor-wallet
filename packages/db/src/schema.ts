@@ -406,6 +406,18 @@ export async function initDb() {
     // (nullable por design; sem DEFAULT porque ADD COLUMN NOT NULL exigiria um).
     'ALTER TABLE users ADD COLUMN name TEXT',
     'ALTER TABLE users ADD COLUMN phone TEXT',
+    // T-106: `sub` do usuário no user pool do AWS Cognito, que passou a ser a
+    // ÚNICA fonte de identidade. Nullable de propósito e sem DEFAULT: as contas
+    // que já existem nascem com NULL e ganham o `sub` no primeiro login pelo
+    // Cognito (vínculo por e-mail normalizado — ver `auth-core`), que é o que
+    // preserva os dados de quem já usava o app.
+    //
+    // `password_hash` continua na tabela e continua NOT NULL — a T-106 só
+    // PAROU DE USÁ-LO no login. Dropar a coluna é migração destrutiva e vai em
+    // tarefa própria, com confirmação do humano entre as etapas (regra de
+    // `docs/multi-agent/README.md`). Espelho novo grava um sentinela que nenhum
+    // bcrypt aceita (`COGNITO_MANAGED_PASSWORD_HASH`, em `auth-core`).
+    'ALTER TABLE users ADD COLUMN cognito_sub TEXT',
   ]) {
     try {
       await db.execute(sql);
@@ -430,6 +442,17 @@ export async function initDb() {
   await db.execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_expense_entries_user_external
      ON expense_entries(user_id, external_id) WHERE external_id IS NOT NULL`
+  );
+
+  // T-106 — um `sub` do Cognito pertence a UM usuário nosso, e é por ele que o
+  // login acha o espelho. Índice único PARCIAL pelo mesmo motivo do dedupe
+  // acima: as contas anteriores ao Cognito têm `cognito_sub` NULL até o
+  // primeiro login, e em SQLite NULLs nunca colidem num UNIQUE — o
+  // `WHERE ... IS NOT NULL` deixa isso explícito em vez de implícito.
+  // Também vem DEPOIS do loop de ALTER, que é quem garante a coluna.
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_cognito_sub
+     ON users(cognito_sub) WHERE cognito_sub IS NOT NULL`
   );
 
   // Sessões do express-session (T-034): persistidas no mesmo banco em vez do

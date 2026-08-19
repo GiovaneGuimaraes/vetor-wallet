@@ -16,3 +16,11 @@ export {
   grantRole,
 } from './service';
 export type { ProfileUpdate } from './service';
+export {
+  COGNITO_MANAGED_PASSWORD_HASH,
+  findUserByCognitoSub,
+  linkCognitoSub,
+  createCognitoUser,
+  findOrCreateUserByCognitoSub,
+} from './cognitoMirror';
+export type { CognitoMirrorOutcome, CognitoMirrorResult } from './cognitoMirror';
