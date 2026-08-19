@@ -66,7 +66,10 @@ export default tseslint.config(
 
   // --- Arquivos de teste ---------------------------------------------------
   {
-    files: ['**/*.test.{ts,tsx}', '**/tests/**/*.{ts,tsx}'],
+    // `__fixtures__` entra aqui junto dos testes (T-106): é código que só existe
+    // para teste — excluído do build pelo `exclude` do tsconfig — e faz o mesmo
+    // que um teste faz, montar payload externo fora do formato feliz.
+    files: ['**/*.test.{ts,tsx}', '**/tests/**/*.{ts,tsx}', '**/__fixtures__/**/*.{ts,tsx}'],
     rules: {
       // Teste monta linha de banco/resposta de API fora do formato feliz para
       // provar a normalização; o `as unknown as X` é a forma honesta de dizer

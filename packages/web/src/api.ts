@@ -41,6 +41,7 @@ import type {
   PluggyConnectTokenResponse,
   PluggyImportMode,
   PluggySyncResponse,
+  RegisterResult,
 } from '@vetor-wallet/shared';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
@@ -90,7 +91,15 @@ export async function login(email: string, password: string): Promise<User> {
   return res.json();
 }
 
-export async function register(email: string, password: string): Promise<User> {
+/**
+ * Cadastro (T-106: quem cria a conta é o AWS Cognito).
+ *
+ * A resposta tem **dois desfechos** — 201 já autenticado ou 202 aguardando o
+ * código enviado por e-mail —, e é por isso que o retorno é `RegisterResult` e
+ * não `User`. Quem interpreta é `interpretRegisterResult` (routes/authRegister),
+ * para a decisão ficar testável fora do componente.
+ */
+export async function register(email: string, password: string): Promise<RegisterResult> {
   const res = await apiFetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

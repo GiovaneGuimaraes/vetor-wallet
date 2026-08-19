@@ -178,6 +178,28 @@ export interface User {
   roles: string[];
 }
 
+/**
+ * Resposta de `POST /api/auth/register` (T-106, identidade no AWS Cognito).
+ *
+ * Dois desfechos porque o user pool pode estar configurado dos dois jeitos e a
+ * decisão de produto ainda está aberta:
+ *
+ * - `pendingConfirmation: false` (HTTP 201) — o cadastro já saiu confirmado e a
+ *   sessão está criada: é o `User` de sempre.
+ * - `pendingConfirmation: true` (HTTP 202) — o Cognito enviou um código por
+ *   e-mail. **Não há sessão** e o `User` ainda não existe; o próximo passo é
+ *   confirmar (`POST /api/auth/confirm`) e depois entrar.
+ *
+ * O campo é o discriminante de propósito: um `User | { email }` obrigaria o
+ * chamador a adivinhar pela ausência de `id`.
+ */
+export interface RegisterPendingConfirmation {
+  pendingConfirmation: true;
+  email: string;
+}
+
+export type RegisterResult = (User & { pendingConfirmation: false }) | RegisterPendingConfirmation;
+
 export interface QuoteSnapshot {
   id: number;
   ticker: string;

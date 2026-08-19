@@ -6,6 +6,7 @@ import request from 'supertest';
 import { tmpdir } from 'os';
 import path from 'path';
 import type { OfxImportResult } from '@vetor-wallet/shared';
+import { installFakeCognito } from '../auth/__fixtures__/fakeCognito';
 
 // Banco temporário próprio deste arquivo; DATABASE_URL setado ANTES do dynamic
 // import de '../../db' (o client lê o env no top-level do módulo).
@@ -14,6 +15,12 @@ const testDbPath = path.join(
   `vetor-wallet-test-import-ofx-${Date.now()}-${Math.random().toString(36).slice(2)}.db`
 );
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
+
+// T-106: o cadastro/login destes testes passa pelo AWS Cognito. O pool falso
+// abaixo intercepta o `fetch` para o endpoint do Cognito (e SÓ para ele) e
+// responde `UserConfirmed: true`, mantendo `POST /api/auth/register` como a
+// forma de conseguir uma sessão. Nenhum teste bate na AWS.
+installFakeCognito();
 
 const OFX_ROUTE = '/api/import/ofx';
 

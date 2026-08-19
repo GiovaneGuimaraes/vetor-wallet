@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { login, register } from '../api';
+import { interpretRegisterResult } from '../routes/authRegister';
 import type { User } from '@vetor-wallet/shared';
 import { ThemeToggleButton } from './ThemeToggleButton';
 import { PLUGGY_BRAND, pluggySecurityNotes } from '../routes/pluggyImport';
@@ -66,10 +67,15 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // T-106: cadastro pode terminar "pendente de confirmação" (código por e-mail),
+  // e aí não há usuário para autenticar — só um aviso nesta mesma tela. A tela
+  // de digitar o código é tarefa futura.
+  const [notice, setNotice] = useState('');
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    setNotice('');
 
     if (mode === 'register' && password !== confirm) {
       setError('As senhas não coincidem');
@@ -78,9 +84,18 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
 
     setLoading(true);
     try {
-      const user =
-        mode === 'login' ? await login(email, password) : await register(email, password);
-      onAuth(user);
+      if (mode === 'login') {
+        onAuth(await login(email, password));
+      } else {
+        const outcome = interpretRegisterResult(await register(email, password));
+        if (outcome.kind === 'authenticated') onAuth(outcome.user);
+        else {
+          setNotice(outcome.message);
+          setMode('login');
+          setPassword('');
+          setConfirm('');
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
@@ -91,6 +106,7 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
   function switchMode(next: 'login' | 'register') {
     setMode(next);
     setError('');
+    setNotice('');
     setPassword('');
     setConfirm('');
   }
@@ -169,6 +185,15 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
               style={{ borderRadius: 10 }}
             >
               {error}
+            </div>
+          )}
+
+          {notice && (
+            <div
+              className="mb-4 text-sm text-ink bg-up/10 border border-up/25 px-3 py-2"
+              style={{ borderRadius: 10 }}
+            >
+              {notice}
             </div>
           )}
 

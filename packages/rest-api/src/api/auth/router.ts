@@ -2,21 +2,124 @@ import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { db } from '@vetor-wallet/db';
 import {
-  createUser,
-  findUserByEmail,
-  verifyPassword,
-  userExists,
+  findOrCreateUserByCognitoSub,
   parseRoles,
   isValidEmail,
   isValidName,
   isValidPhone,
   updateUserProfile,
-  findUserById,
-  updateUserPassword,
 } from '@vetor-wallet/auth-core';
+import {
+  cognitoChangePassword,
+  cognitoConfirmSignUp,
+  cognitoGetUser,
+  cognitoInitiateAuth,
+  cognitoRefreshSession,
+  cognitoResendConfirmationCode,
+  cognitoSignUp,
+  type CognitoSession,
+} from '@vetor-wallet/cognito-core';
+import type { User } from '@vetor-wallet/shared';
+import { cognitoErrorResponse, isCognitoApiError } from './cognitoErrorResponse';
+
+/**
+ * Rotas de autenticação (T-106: identidade no AWS Cognito).
+ *
+ * ## O que mudou e o que NÃO mudou
+ *
+ * Mudou: quem valida senha é o Cognito (`InitiateAuth` com `USER_PASSWORD_AUTH`)
+ * e quem cria conta é o Cognito (`SignUp`). O `users.password_hash` **não
+ * participa mais do login** — a coluna continua no banco, sem uso (dropá-la é
+ * migração destrutiva, tarefa própria).
+ *
+ * NÃO mudou: **a tela de login é nossa** e a sessão continua sendo o cookie
+ * `sid` do `express-session` (decisão do humano, 2026-08-18). Nada de Hosted UI,
+ * redirect OAuth ou JWT no browser; `requireAuth` segue lendo
+ * `req.session.userId`, e todas as outras rotas do app seguem intocadas.
+ *
+ * ## Os tokens do Cognito ficam na sessão do SERVIDOR
+ *
+ * `cognitoAccessToken`/`cognitoRefreshToken` vão para `req.session`, que é
+ * persistida no SQLite (`SqliteSessionStore`) — o cookie carrega só o `sid`.
+ * Eles existem por um motivo concreto: `ChangePassword` exige o access token do
+ * usuário (ver `cognito-core/src/cognitoChangePassword.ts` para o porquê de não
+ * ser `AdminSetUserPassword`).
+ *
+ * ## Esta rota é o único lugar onde `auth-core` e `cognito-core` se cruzam
+ *
+ * `cognito-core` nunca toca o banco; `auth-core` nunca fala HTTP. Quem junta os
+ * dois — token do Cognito → `sub` → linha em `users` → `req.session.userId` — é
+ * este arquivo (regra 4 de `docs/PACKAGES.md`).
+ */
 
 const router = Router();
 
+function publicUser(user: User): Record<string, unknown> {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    phone: user.phone,
+    created_at: user.created_at,
+    roles: user.roles,
+  };
+}
+
+/**
+ * Traduz a falha do Cognito em resposta HTTP. **Relança o que não é dele**: um
+ * `TypeError` nosso virando "E-mail ou senha invalidos" seria um bug invisível.
+ */
+function respondCognitoError(res: Response, err: unknown): void {
+  if (!isCognitoApiError(err)) throw err;
+  const { status, error, code } = cognitoErrorResponse(err.code);
+  // A `message` original (nossa, sem texto da AWS) fica no log do servidor: é o
+  // que permite distinguir 'unexpected' de 'network' numa investigação.
+  console.error('[auth] Cognito falhou:', err.code, err.message);
+  res.status(status).json(code ? { error, code } : { error });
+}
+
+/**
+ * Fecha o login: troca os tokens do Cognito pela nossa sessão.
+ *
+ * `GetUser` é quem afirma o `sub` e o e-mail (este servidor não interpreta JWT),
+ * e `findOrCreateUserByCognitoSub` é a porta única para o banco — inclusive o
+ * vínculo por e-mail que preserva a conta que já existia.
+ */
+async function establishSession(
+  req: Request,
+  session: CognitoSession
+): Promise<{ user: User; outcome: string }> {
+  const { sub, email } = await cognitoGetUser(session.accessToken);
+  const { user, outcome } = await findOrCreateUserByCognitoSub({ cognitoSub: sub, email });
+
+  req.session.userId = user.id;
+  req.session.cognitoAccessToken = session.accessToken;
+  if (session.refreshToken) req.session.cognitoRefreshToken = session.refreshToken;
+  req.session.cognitoUsername = email;
+
+  return { user, outcome };
+}
+
+/**
+ * `POST /api/auth/register`
+ *
+ * Dois desfechos, porque o pool pode estar dos dois jeitos e **a decisão de
+ * produto está aberta** (T-106):
+ *
+ * - **201** `{ pendingConfirmation: false, ...user }` — o pool devolveu
+ *   `UserConfirmed: true`, então já logamos a pessoa (é a experiência que o app
+ *   sempre teve: cadastrar entra).
+ * - **202** `{ pendingConfirmation: true, email }` — o pool mandou código por
+ *   e-mail. **Nenhuma sessão é criada e nenhuma linha nasce em `users`**: o
+ *   espelho local só existe depois de um login de verdade. Quem consome decide
+ *   se mostra tela de código (`POST /confirm`) ou instrui a checar o e-mail.
+ *
+ * Note o que NÃO existe mais aqui: a checagem `userExists` no banco. Uma conta
+ * local sem `cognito_sub` (todas as anteriores à T-106) **precisa** poder passar
+ * por este registro — é assim que ela ganha identidade no pool, e o vínculo por
+ * e-mail no primeiro login preserva os dados. Recusar com 409 trancaria o dono
+ * do app fora da própria carteira.
+ */
 router.post(
   '/register',
   asyncHandler(async (req: Request, res: Response) => {
@@ -30,62 +133,124 @@ router.post(
       res.status(400).json({ error: 'E-mail invalido' });
       return;
     }
-    if (!password || password.length < 8) {
+    // Continua validado aqui, antes da chamada externa: é resposta imediata e
+    // não depende da política do pool (que pode ser mais exigente e responde
+    // `weakPassword`).
+    if (!password || typeof password !== 'string' || password.length < 8) {
       res.status(400).json({ error: 'Senha deve ter pelo menos 8 caracteres' });
       return;
     }
 
-    if (await userExists(email)) {
-      res.status(409).json({ error: 'E-mail ja cadastrado' });
-      return;
-    }
+    try {
+      const signUp = await cognitoSignUp({ email, password });
 
-    const user = await createUser(email, password);
-    req.session.userId = user.id;
-    res.status(201).json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      phone: user.phone,
-      created_at: user.created_at,
-      roles: user.roles,
-    });
+      if (!signUp.userConfirmed) {
+        res.status(202).json({
+          pendingConfirmation: true,
+          email: email.toLowerCase().trim(),
+        });
+        return;
+      }
+
+      const session = await cognitoInitiateAuth({ email, password });
+      const { user } = await establishSession(req, session);
+      res.status(201).json({ pendingConfirmation: false, ...publicUser(user) });
+    } catch (err) {
+      respondCognitoError(res, err);
+    }
   })
 );
 
+/**
+ * `POST /api/auth/confirm` — confirma o cadastro com o código do e-mail.
+ *
+ * Existe para o pool que mantém verificação de e-mail. **Não cria sessão**: a
+ * confirmação não prova posse da senha (o código chegou por e-mail), então o
+ * passo seguinte é o login normal. 204 e pronto.
+ */
+router.post(
+  '/confirm',
+  asyncHandler(async (req: Request, res: Response) => {
+    const { email, code } = req.body as { email?: string; code?: string };
+
+    if (!email || typeof email !== 'string' || !isValidEmail(email.trim())) {
+      res.status(400).json({ error: 'E-mail invalido' });
+      return;
+    }
+    if (!code || typeof code !== 'string' || !code.trim()) {
+      res.status(400).json({ error: 'Codigo de confirmacao obrigatorio' });
+      return;
+    }
+
+    try {
+      await cognitoConfirmSignUp({ email, code });
+      res.status(204).send();
+    } catch (err) {
+      respondCognitoError(res, err);
+    }
+  })
+);
+
+/**
+ * `POST /api/auth/resend-code` — reenvia o código de confirmação.
+ *
+ * Par do `/confirm`: o código do Cognito vence e e-mail se perde. Sem isso, um
+ * cadastro com código expirado ficaria sem saída — não temos credencial IAM
+ * para operações `Admin*`.
+ */
+router.post(
+  '/resend-code',
+  asyncHandler(async (req: Request, res: Response) => {
+    const { email } = req.body as { email?: string };
+
+    if (!email || typeof email !== 'string' || !isValidEmail(email.trim())) {
+      res.status(400).json({ error: 'E-mail invalido' });
+      return;
+    }
+
+    try {
+      await cognitoResendConfirmationCode(email);
+      res.status(204).send();
+    } catch (err) {
+      respondCognitoError(res, err);
+    }
+  })
+);
+
+/**
+ * `POST /api/auth/login`
+ *
+ * Senha vai ao Cognito; o que volta é sessão nossa. O espelho em `users` é
+ * criado ou vinculado aqui (primeiro login de um `sub` desconhecido).
+ */
 router.post(
   '/login',
   asyncHandler(async (req: Request, res: Response) => {
     const { email, password } = req.body as { email?: string; password?: string };
 
-    if (!email || !password) {
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
       res.status(400).json({ error: 'E-mail e senha obrigatorios' });
       return;
     }
 
-    const user = await findUserByEmail(email);
-    // Always hash-compare to prevent timing attacks that leak user existence
-    const dummyHash = '$2b$12$invalidhashplaceholderXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
-    const passwordOk = user
-      ? await verifyPassword(password, user.password_hash)
-      : await verifyPassword(password, dummyHash).then(() => false);
-    if (!user || !passwordOk) {
-      res.status(401).json({ error: 'E-mail ou senha invalidos' });
-      return;
+    try {
+      const session = await cognitoInitiateAuth({ email, password });
+      const { user } = await establishSession(req, session);
+      res.json(publicUser(user));
+    } catch (err) {
+      respondCognitoError(res, err);
     }
-
-    req.session.userId = user.id;
-    res.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      phone: user.phone,
-      created_at: user.created_at,
-      roles: user.roles,
-    });
   })
 );
 
+/**
+ * `POST /api/auth/logout` — destrói a NOSSA sessão.
+ *
+ * Não chama `GlobalSignOut`/`RevokeToken` no Cognito de propósito: os tokens só
+ * existiam dentro desta sessão, que acaba de ser apagada do SQLite, e revogar
+ * globalmente derrubaria também outros dispositivos do mesmo usuário — que é
+ * outra feature ("sair de todos os aparelhos"), não esta.
+ */
 router.post('/logout', (req: Request, res: Response) => {
   req.session.destroy(() => {
     res.clearCookie('sid');
@@ -157,6 +322,8 @@ router.patch(
     if (hasName) update.name = body.name === null ? null : (body.name as string).trim();
     if (hasPhone) update.phone = body.phone === null ? null : body.phone;
 
+    // `name`/`phone` são NOSSOS (o Cognito nem sabe deles): o perfil continua
+    // sendo do `auth-core`, sem ida à AWS.
     const user = await updateUserProfile(req.session.userId, update);
     if (!user) {
       req.session.destroy(() => null);
@@ -164,21 +331,30 @@ router.patch(
       return;
     }
 
-    res.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      phone: user.phone,
-      created_at: user.created_at,
-      roles: user.roles,
-    });
+    res.json(publicUser(user));
   })
 );
 
-// T-094: troca de senha na page /conta. Mensagem genérica na senha atual
-// errada (não distingue "usuário não existe" de "senha errada" — o usuário
-// já está autenticado, mas mantemos o mesmo cuidado do login). Não toca na
-// sessão atual: o usuário segue logado após trocar a senha.
+/**
+ * `POST /api/auth/change-password` (T-094, reimplementado sobre o Cognito na T-106)
+ *
+ * A invariante da T-094 continua de pé: **exige sessão e NÃO invalida a
+ * sessão**. O que mudou é quem valida a senha atual — agora o `ChangePassword`
+ * do Cognito, contra o access token do usuário.
+ *
+ * ## O `retry` com refresh não é otimização
+ *
+ * O access token do Cognito vive ~1h; nossa sessão vive 7 dias. Sem renovar,
+ * qualquer troca de senha feita mais de uma hora depois do login falharia — e o
+ * `NotAuthorizedException` do Cognito é **o mesmo** para "senha atual errada" e
+ * "token expirado". Então: tenta; se der `invalidCredentials` e houver refresh
+ * token, renova e tenta **uma** vez; se ainda der, a leitura correta é "senha
+ * atual errada" (400).
+ *
+ * Se o próprio refresh falhar, o vínculo com o Cognito acabou (refresh revogado
+ * ou vencido) — aí é 401 pedindo login novo, e não 400 acusando a senha do
+ * usuário de errada.
+ */
 router.post(
   '/change-password',
   asyncHandler(async (req: Request, res: Response) => {
@@ -202,21 +378,65 @@ router.post(
       return;
     }
 
-    const user = await findUserById(req.session.userId);
-    if (!user) {
-      req.session.destroy(() => null);
-      res.status(401).json({ error: 'Sessao invalida' });
+    const accessToken = req.session.cognitoAccessToken;
+    if (!accessToken) {
+      // Sessão criada antes da T-106 (ou sem token por qualquer motivo): não há
+      // como falar com o Cognito em nome dela.
+      res.status(401).json({
+        error: 'Entre novamente para trocar a senha',
+        code: 'COGNITO_SESSION_REQUIRED',
+      });
       return;
     }
 
-    const currentOk = await verifyPassword(currentPassword, user.password_hash);
-    if (!currentOk) {
+    try {
+      await cognitoChangePassword({ accessToken, currentPassword, newPassword });
+      res.status(204).send();
+      return;
+    } catch (err) {
+      if (!isCognitoApiError(err) || err.code !== 'invalidCredentials') {
+        respondCognitoError(res, err);
+        return;
+      }
+    }
+
+    const refreshToken = req.session.cognitoRefreshToken;
+    const username = req.session.cognitoUsername;
+    if (!refreshToken || !username) {
       res.status(400).json({ error: 'Senha atual invalida' });
       return;
     }
 
-    await updateUserPassword(user.id, newPassword);
-    res.status(204).send();
+    let renewed: CognitoSession;
+    try {
+      renewed = await cognitoRefreshSession({ refreshToken, username });
+    } catch {
+      res.status(401).json({
+        error: 'Entre novamente para trocar a senha',
+        code: 'COGNITO_SESSION_REQUIRED',
+      });
+      return;
+    }
+
+    req.session.cognitoAccessToken = renewed.accessToken;
+    if (renewed.refreshToken) req.session.cognitoRefreshToken = renewed.refreshToken;
+
+    try {
+      await cognitoChangePassword({
+        accessToken: renewed.accessToken,
+        currentPassword,
+        newPassword,
+      });
+      // Nada de `req.session.destroy()` aqui: a sessão sobrevive à troca (T-094),
+      // e o Cognito também não revoga os tokens em `ChangePassword`.
+      res.status(204).send();
+    } catch (err) {
+      if (isCognitoApiError(err) && err.code === 'invalidCredentials') {
+        res.status(400).json({ error: 'Senha atual invalida' });
+        return;
+      }
+      respondCognitoError(res, err);
+    }
   })
 );
 

@@ -14,6 +14,7 @@
     "@vetor-wallet/auth-core": "workspace:*",
     "@vetor-wallet/bank-import-core": "workspace:*",
     "@vetor-wallet/brapi-core": "workspace:*",
+    "@vetor-wallet/cognito-core": "workspace:*",
     "@vetor-wallet/db": "workspace:*",
     "@vetor-wallet/expenses-core": "workspace:*",
     "@vetor-wallet/insights-core": "workspace:*",

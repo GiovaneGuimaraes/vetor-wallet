@@ -71,6 +71,23 @@ Na T-099c (Ciclo 19) saiu o resto, esvaziando `services/`:
 
 Cada um tem seu `CLAUDE.md` com as invariantes do domínio — leia antes de mexer.
 
+Na T-106 entrou `@vetor-wallet/cognito-core` (Integração), e `auth/router.ts`
+virou o lugar onde **`auth-core` e `cognito-core` se cruzam** — mesmo arranjo de
+`routes/pluggy.ts`. O que mora só ali:
+
+- **`auth/cognitoErrorResponse.ts`** — `CognitoErrorCode` → status HTTP +
+  mensagem em português. `userNotFound` responde igual a `invalidCredentials`
+  (401) para não entregar um oráculo de "este e-mail tem conta aqui";
+  `invalidParameter`/`challengeRequired` são 5xx porque significam "o pool está
+  configurado de um jeito que este código não atende", não erro de quem digitou.
+- **Os tokens do Cognito na `SessionData`** (`auth/middleware.ts`) — a troca de
+  senha precisa do access token; o refresh existe porque o token vive ~1h e a
+  sessão 7 dias.
+- **`auth/__fixtures__/fakeCognito.ts`** — user pool falso que intercepta o
+  `fetch` só do endpoint do Cognito. Os ~20 arquivos de teste de rota que criam
+  sessão por `POST /api/auth/register` chamam `installFakeCognito()` no topo;
+  **nenhum teste bate na AWS**.
+
 Na T-089b entrou `@vetor-wallet/pluggy-core` (Integração) como dependência deste
 package, por causa de `routes/pluggy.ts`. **É a rota que cruza os dois módulos**
 (regra de `docs/PACKAGES.md`): `bank-import-core` fala com o banco,
@@ -90,7 +107,7 @@ Entry compilado: `dist/api/index.js` (`pnpm --filter vetor-wallet-rest-api start
 
 - **Sem ORM** — SQL puro via `@libsql/client`. Schema muda só em `@vetor-wallet/db` (`schema.ts`), sempre idempotente (`IF NOT EXISTS` / ALTER com try-catch).
 - Toda query de dados filtra por `user_id`; registro alheio responde 404.
-- Cookie `sid`: httpOnly, sameSite lax, secure só em `NODE_ENV=production`; senha bcrypt (SALT_ROUNDS 12).
+- Cookie `sid`: httpOnly, sameSite lax, secure só em `NODE_ENV=production`. **A senha não é mais nossa** (T-106): quem valida é o AWS Cognito, e os tokens dele ficam na sessão do SERVIDOR (SQLite) — nunca no cookie, nunca no browser.
 - Timeouts de 5s nos fetches externos (brapi, benchmarks); falha de cotação não derruba a request (`quotesUnavailable`).
 - Testes de rota com banco: tmpdir + `DATABASE_URL` + dynamic import (ver exemplos em `src/api/routes/*.test.ts`).
 
@@ -116,5 +133,9 @@ ser um contrato externo e essa liberdade acaba.
 ## TODOs futuros
 
 - **Turso** para deploy multi-usuário (zero reescrita de queries).
-- **AWS Cognito** substituindo `@vetor-wallet/auth-core` + `auth/router.ts` (recuperação de senha, MFA); sessões persistentes (T-034) já não são motivo para migrar.
+- **AWS Cognito entrou na T-106** (identidade única; `auth/router.ts` orquestra
+  `@vetor-wallet/cognito-core` + `@vetor-wallet/auth-core`). Continua TODO:
+  recuperação de senha (`ForgotPassword`), MFA, login social, a tela de digitar o
+  código de confirmação no `web` (backend pronto: `POST /api/auth/confirm` e
+  `/resend-code`) e o `DROP` de `users.password_hash`.
 - Job de insights horários em Lambda + EventBridge (hoje: cli manual + scheduler in-process de snapshots).
