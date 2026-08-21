@@ -191,6 +191,27 @@
         "✅": "configurei e entrei",
         "❌": "deu erro"
       }
+    },
+    "T-106-roteiro-aws": {
+      "canal": "todo-human",
+      "messageId": "1540161790044930070",
+      "modo": "uma mensagem por passo (pedido do humano, 2026-08-20) — ✅ por passo, 1/2/3 no passo 5",
+      "status": "ABERTO 2026-08-20: humano esta no passo 1 (Identity Center pede identity provider — resposta: usar a Identity Center directory embutida)",
+      "passos": {
+        "1-conta-mfa-identity-center": "1540161793014366228",
+        "2-regiao": "1540161795963224156",
+        "3-user-pool": "1540161799481991218",
+        "4-app-client": "1540161802397028352",
+        "5-politica-email": "1540161805245096036",
+        "6-env-e-primeiro-login": "1540161808352940115"
+      },
+      "opcoes": {
+        "✅": "passo concluido",
+        "1️⃣": "passo 5: manter confirmacao por codigo",
+        "2️⃣": "passo 5: auto-confirmar no backend",
+        "3️⃣": "passo 5: desligar verificacao no pool"
+      },
+      "atualizadoEm": "2026-08-21T00:58:31.479Z"
     }
   },
   "lastSeen": {

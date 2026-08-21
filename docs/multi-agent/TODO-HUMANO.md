@@ -18,6 +18,27 @@
 
 ## Abertos
 
+### [2026-08-20] Roteiro AWS: os 6 passos até o user pool do Cognito funcionar (T-106)
+- **Origem**: orquestrador (conversa de 2026-08-20)
+- **Bloqueia**: T-106 na prática — o backend está mergeado (#169), mas `/api/auth/*` só sai do 503 quando o pool existir e o `.env` estiver preenchido.
+- **Espelho no Discord**: **uma mensagem por passo** no `#todo-human` (pedido do humano, 2026-08-20) — reagir ✅ na mensagem do passo conforme for concluindo.
+
+**Passo 1 — Conta AWS + MFA no root, e não usar o root pra nada.** Criar um usuário admin no IAM Identity Center e usar ele no console.
+  - **Achado do humano (2026-08-20)**: a tela pede um **identity provider** antes de criar usuário. Não é preciso IdP externo: escolher a **"Identity Center directory"** (o diretório embutido), criar o usuário lá e dar o permission set `AdministratorAccess`. SAML/OIDC só existiria se houvesse Google Workspace/Okta para federar — não é o caso.
+  - **Efeito colateral já observado**: habilitar o Identity Center cria uma AWS Organization, e isso migrou a conta de "free plan" para "paid plan" automaticamente. É esperado e não gera cobrança; o item da conta abaixo trata dos alarmes de custo.
+
+**Passo 2 — Escolher a região e ficar nela.** Sugestão: `us-east-1`. O Cognito é regional; pool na região errada é retrabalho. `sa-east-1` só se latência importasse (não importa).
+
+**Passo 3 — Criar o user pool.** Sign-in por e-mail, e-mail como atributo obrigatório. Envio de e-mail no **default do Cognito** (50/dia, sem SES) — evita ter que sair do sandbox do SES. Ligar `deletionProtection` (ideia herdada do `packages/auth` da OCA).
+
+**Passo 4 — Criar o app client.** É onde mora o erro comum: marcar **`ALLOW_USER_PASSWORD_AUTH`**; sem isso o login devolve 502. Se marcar "generate client secret", preencher `COGNITO_CLIENT_SECRET`; se não, deixar a variável fora do `.env`.
+
+**Passo 5 — Decidir a política de e-mail** (é a pendência de 2026-08-18, ainda aberta). Manter confirmação por código = falta só a tela no web (T-106b, tarefa pequena). Auto-confirmar = login imediato, **mas** o gate de vínculo continua exigindo `email_verified`, então a conta antiga não vincula sozinha.
+
+**Passo 6 — `.env` → `pnpm dev` → cadastrar com o mesmo e-mail → verificar.** É no `pnpm dev` que o `DROP` da T-091b2 acontece; fazer o backup do banco antes (`Desktop\vetor-wallet-backups\`).
+
+- **Resposta do humano**: _(preencher — ou reagir ✅ por passo no Discord)_
+
 ### [2026-08-18] O login do app agora depende do Cognito — preencha o `.env` antes de usar (T-106, #169)
 - **Origem**: orquestrador (fechamento da T-106)
 - **Bloqueia**: **o seu login**. O server sobe e a migração da T-091b2 roda normalmente, mas `/api/auth/*` responde **503 `AUTH_UNAVAILABLE`** enquanto as variáveis não estiverem no `.env`. Isso é fail closed de propósito, não bug.
