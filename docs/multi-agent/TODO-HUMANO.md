@@ -18,6 +18,27 @@
 
 ## Abertos
 
+### [2026-08-20] Roteiro AWS: os 6 passos até o user pool do Cognito funcionar (T-106)
+- **Origem**: orquestrador (conversa de 2026-08-20)
+- **Bloqueia**: T-106 na prática — o backend está mergeado (#169), mas `/api/auth/*` só sai do 503 quando o pool existir e o `.env` estiver preenchido.
+- **Espelho no Discord**: **uma mensagem por passo** no `#todo-human` (pedido do humano, 2026-08-20) — reagir ✅ na mensagem do passo conforme for concluindo.
+
+**Passo 1 — Conta AWS + MFA no root, e não usar o root pra nada.** Criar um usuário admin no IAM Identity Center e usar ele no console.
+  - **Achado do humano (2026-08-20)**: a tela pede um **identity provider** antes de criar usuário. Não é preciso IdP externo: escolher a **"Identity Center directory"** (o diretório embutido), criar o usuário lá e dar o permission set `AdministratorAccess`. SAML/OIDC só existiria se houvesse Google Workspace/Okta para federar — não é o caso.
+  - **Efeito colateral já observado**: habilitar o Identity Center cria uma AWS Organization, e isso migrou a conta de "free plan" para "paid plan" automaticamente. É esperado e não gera cobrança; o item da conta abaixo trata dos alarmes de custo.
+
+**Passo 2 — Escolher a região e ficar nela.** Sugestão: `us-east-1`. O Cognito é regional; pool na região errada é retrabalho. `sa-east-1` só se latência importasse (não importa).
+
+**Passo 3 — Criar o user pool.** Sign-in por e-mail, e-mail como atributo obrigatório. Envio de e-mail no **default do Cognito** (50/dia, sem SES) — evita ter que sair do sandbox do SES. Ligar `deletionProtection` (ideia herdada do `packages/auth` da OCA).
+
+**Passo 4 — Criar o app client.** É onde mora o erro comum: marcar **`ALLOW_USER_PASSWORD_AUTH`**; sem isso o login devolve 502. Se marcar "generate client secret", preencher `COGNITO_CLIENT_SECRET`; se não, deixar a variável fora do `.env`.
+
+**Passo 5 — Decidir a política de e-mail** (é a pendência de 2026-08-18, ainda aberta). Manter confirmação por código = falta só a tela no web (T-106b, tarefa pequena). Auto-confirmar = login imediato, **mas** o gate de vínculo continua exigindo `email_verified`, então a conta antiga não vincula sozinha.
+
+**Passo 6 — `.env` → `pnpm dev` → cadastrar com o mesmo e-mail → verificar.** É no `pnpm dev` que o `DROP` da T-091b2 acontece; fazer o backup do banco antes (`Desktop\vetor-wallet-backups\`).
+
+- **Resposta do humano**: _(preencher — ou reagir ✅ por passo no Discord)_
+
 ### [2026-08-18] O login do app agora depende do Cognito — preencha o `.env` antes de usar (T-106, #169)
 - **Origem**: orquestrador (fechamento da T-106)
 - **Bloqueia**: **o seu login**. O server sobe e a migração da T-091b2 roda normalmente, mas `/api/auth/*` responde **503 `AUTH_UNAVAILABLE`** enquanto as variáveis não estiverem no `.env`. Isso é fail closed de propósito, não bug.
@@ -129,7 +150,7 @@
 - **Resposta do humano**: (via chat, 2026-08-09) **cargo adicionado**. Validado ponta a ponta em seguida: `post`, `post --embed`, `edit`, `react`, `reactions` (com filtro de bot) e `post --mention --reply-to` funcionando nos 4 canais.
 - **Sobra pequena (não bloqueia nada)**: `pin` responde **403 Missing Permissions** (código 50013, não 50001 — o bot vê o canal, só não pode fixar). O cargo tem `MANAGE_MESSAGES` no nível do servidor, mas a permissão adicionada por canal não a inclui. Para as instruções ficarem fixadas no topo: adicionar **Gerenciar Mensagens** ao cargo nos 4 canais, ou fixar as 5 mensagens à mão (dois cliques cada). As mensagens já estão postadas de qualquer forma.
 - **`MESSAGE CONTENT INTENT` provado** (2026-08-09): o humano escreveu no `#new-tasks` e o `read --after` devolveu o texto intacto (`content: "mensagem de test"`, `bot: false`). Era o único risco que não dava para descartar sem uma mensagem escrita por ele — com a intent desligada, o texto voltaria vazio **sem erro nenhum**.
-- **Nota de segurança**: o token vive **só** em `tools/discord/.env` (não versionado — `.gitignore:6`). Nunca neste arquivo, que é versionado, nem em corpo de PR ou log.
+- **Nota de segurança**: o token vive **só** em `tools/discord/.env` (não versionado — coberto pelo `.gitignore`). Nunca neste arquivo, que é versionado, nem em corpo de PR ou log.
 
 ### [2026-08-09] ~~Arte do personagem da marca para o logo (T-020b)~~ — RESOLVIDO no mesmo dia
 - **Origem**: orquestrador (feedback do humano sobre o logo entregue na T-020)
@@ -143,7 +164,7 @@
 - **Origem**: sessão de revisão com o Claude (planejamento do ciclo 16)
 - **Bloqueia**: ~~T-087~~ — **nada. Validado ponta a ponta com a API real em 2026-08-12**: as 4 variáveis estão no `.env` local, `POST /auth` responde 200, o item do conector 200 (`MeuPluggy`) está `status=UPDATED`/`execution=SUCCESS`, e `pluggy:sync --dry-run` leu as contas ligadas sem nenhuma rejeição (só transações `PENDING` puladas). A T-087 foi mergeada (#159). O que a validação revelou sobre os **dados** virou a T-088 (item no topo deste arquivo).
 - **Atualização (2026-08-12)**: o humano informou que **tem conta e já tem `client_id`/`client_secret`**, e quer "bater os dados". T-087 saiu de BLOQUEADA para EM_ANDAMENTO. Mapa das duas contas, confirmado na doc da Pluggy nesta data — **são contas separadas** e isso não estava registrado aqui antes: (1) `meu.pluggy.ai` é a conta de **consumidor**, onde os bancos são conectados via Open Finance e onde os dados ficam com backup; (2) `dashboard.pluggy.ai` é o portal de **desenvolvedor**, onde o MeuPluggy é adicionado à lista de conectores da aplicação e onde nasce a **Development Application** com `client_id`/`client_secret`; (3) falta o passo que ninguém adivinha: uma **autorização OAuth ligando a conta consumidor à aplicação de desenvolvedor, repetida uma vez por banco conectado** — é ela que produz o `itemId` que o job consulta. Sem o (3), credencial válida devolve zero contas.
-- **O que ainda falta do humano**: gravar `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET` e `PLUGGY_ITEM_ID` em `packages/cli/.env` (não versionado — `.gitignore:6`). Valor **nunca** neste arquivo, nem em corpo de PR ou log.
+- **O que ainda falta do humano**: gravar `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET` e `PLUGGY_ITEM_ID` em `packages/cli/.env` (não versionado — coberto pelo `.gitignore`). Valor **nunca** neste arquivo, nem em corpo de PR ou log.
 - **Atualização do executor da T-087 (2026-08-12)**: o código está entregue e testado com `fetch` mockado (`pluggy-core` + mapeamento no `bank-import-core` + job `pluggy:sync`), então **nada aqui bloqueia a tarefa**. Para a validação real faltam **quatro** variáveis em `packages/cli/.env` (ver `packages/cli/.env.example`), não três: entrou `PLUGGY_USER_EMAIL` — o e-mail do usuário do app que **recebe** os lançamentos, porque toda tabela filtra por `user_id` e um job não tem sessão HTTP. Sem ela (ou com e-mail que não existe em `users`) o job **falha de propósito**, em vez de escolher um "usuário default" silencioso. Duas notas que a validação real vai encontrar: (1) o passo (3) do mapa acima — a autorização OAuth que cria o `itemId` — é o que decide se o job vê contas; se o `itemId` não existir ou for de outra aplicação, o job para com mensagem apontando para `PLUGGY_ITEM_ID` (não devolve "0 contas, sucesso"); (2) **rode primeiro com `--dry-run`**, que lista tudo o que faria sem gravar nada. Reexecutar é seguro em qualquer ordem — o dedupe da T-084 faz a segunda passagem reportar duplicatas.
 - **Pergunta/pendência**: criar conta em https://meu.pluggy.ai, conectar as contas bancárias/corretoras via Open Finance (Conector 200), gerar `CLIENT_ID`/`CLIENT_SECRET` no painel e colocar em `packages/cli/.env` (`PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`). Sem custo — o Meu Pluggy é gratuito para uso pessoal (não pode virar produto multi-CPF comercial). Enquanto isso, o executor da T-087 pode trabalhar com mocks, mas a validação final precisa das credenciais reais.
 - **Resposta do humano**: (via chat, 2026-08-08) **conta ainda não criada, "talvez demore um pouco"** — item segue ABERTO e a T-087 segue BLOQUEADA, sem previsão. Não é prioridade; não replanejar em torno dela.
@@ -175,7 +196,7 @@
 - **Bloqueia**: nada para o desenvolvimento (executores usam fetch mockado nos testes); bloqueava o **teste real em dev mode**
 - **Pergunta/pendência**: (1) criar conta em https://www.abacatepay.com (nasce em Dev Mode), gerar a API key de sandbox e colocar em `packages/rest-api/.env` como `ABACATEPAY_API_KEY`; (2) para produção, futuramente: chave de produção, webhook apontando para `https://<seu-host>/api/webhooks/abacatepay?webhookSecret=<secret>`, `ABACATEPAY_WEBHOOK_SECRET` + `BILLING_ENABLED=true`.
 - **Resposta do humano**: (via chat, 2026-08-08) **chave de staging (`abc_dev_…`) fornecida e gravada** pelo orquestrador em `packages/server/.env` — **hoje `packages/rest-api/.env`**, o arquivo
-  acompanhou o rename da T-100 e a chave continua lá (arquivo não versionado — `.gitignore:6`; confirmado por `git grep` que nenhum arquivo versionado contém a string). A chave anterior que estava no `.env` local foi substituída. **A parte (2) — produção — continua pendente**, mas sem urgência: como não há deploy (ver item acima), não existe ambiente de produção para configurar. Os preços default (Pro Mensal R$ 9,90 / Pro Anual R$ 99,00) seguem não contestados.
+  acompanhou o rename da T-100 e a chave continua lá (arquivo não versionado, coberto pelo `.gitignore`; confirmado por `git grep` que nenhum arquivo versionado contém a string). A chave anterior que estava no `.env` local foi substituída. **A parte (2) — produção — continua pendente**, mas sem urgência: como não há deploy (ver item acima), não existe ambiente de produção para configurar. Os preços default (Pro Mensal R$ 9,90 / Pro Anual R$ 99,00) seguem não contestados.
 - **Nota de segurança para agentes**: chaves vão **só** para `.env` local. Nunca commitar, nunca escrever o valor neste arquivo (que é versionado), nunca ecoar em corpo de PR ou log.
 
 ### [2026-07-25] Custo do multi-agente: revisor volta a ser Sonnet

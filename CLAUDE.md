@@ -180,8 +180,11 @@ Schema completo do banco: `docs/decisions/db-schema.md` (fonte da verdade: `pack
   nome de estabelecimento e id de conta/`itemId` — não só credencial. Achado que veio de dado
   real se descreve de forma **relativa** ("a maior parte do débito do mês", "vários múltiplos
   acima do gasto real"), que preserva a decisão sem expor a conta. Fixture usa valor inventado.
-  Credencial continua só no `.env` local (`.gitignore:6`). Regra criada em 2026-08-12, depois de
-  os valores reais de um dry-run da Pluggy irem para o `BACKLOG.md` e o `TODO-HUMANO.md`.
+  Credencial continua só no `.env` local (fora do repo pelo `.gitignore`). Regra criada em
+  2026-08-12, depois de os valores reais de um dry-run da Pluggy irem para o `BACKLOG.md` e o
+  `TODO-HUMANO.md`. **Banco também não**: nenhum `.db` é versionado (`packages/*/data/` e `*.db`
+  no `.gitignore`) — mesmo vazio, um `wallet.db` num repo público de carteira financeira alarma
+  quem passa e ninguém para pra conferir que está vazio.
 - Locale pt-BR/BRL no frontend (`Intl.NumberFormat`); tema via CSS custom properties (`web/src/index.css`).
 - Sem gerenciador de estado externo no web — estado em `App.tsx`, via props.
 - Funções com lógica de negócio no web vivem em módulos puros em `src/routes/*.ts` com teste ao lado (componentes só renderizam).
