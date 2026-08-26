@@ -1,6 +1,12 @@
 node_modules/
 dist/
-packages/rest-api/data/
+# nenhum banco SQLite entra no repo (ele e publico): data/ de qualquer package
+# e qualquer .db solto, mesmo vazio (a T-099c versionou um wallet.db de 0 byte)
+packages/*/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 *.log
 # qualquer .env fica de fora; só o .example é versionado
 .env

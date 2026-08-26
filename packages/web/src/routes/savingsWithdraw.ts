@@ -4,10 +4,11 @@
  * O server aceita `WITHDRAW` acima do saldo por decisão documentada
  * (`packages/savings-core/CLAUDE.md`) — a permissividade é intencional e
  * fora de escopo mudar. Mas a UI ficava muda diante de um erro de digitação
- * (ex.: saque de R$ 99.999 com saldo de R$ 5.042 passava sem qualquer
- * aviso), gerando saldo negativo em silêncio. Este módulo só decide **se
- * mostra o aviso** antes do POST — a permissão de fato continua inteiramente
- * do server, nada aqui bloqueia o envio depois da confirmação.
+ * (ex.: um saque de ordem de grandeza acima do saldo, por um zero a mais,
+ * passava sem qualquer aviso), gerando saldo negativo em silêncio. Este
+ * módulo só decide **se mostra o aviso** antes do POST — a permissão de
+ * fato continua inteiramente do server, nada aqui bloqueia o envio depois
+ * da confirmação.
  *
  * Comparação em centavos inteiros (padrão T-041/T-052): comparar floats
  * direto arrisca falso positivo/negativo bem na igualdade saque === saldo.
