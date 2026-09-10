@@ -11,14 +11,27 @@
 - **Origem**: executor (T-003) | orquestrador
 - **Bloqueia**: T-003 (ou "nada — apenas informativo")
 - **Pergunta/pendência**: o que precisa ser decidido ou feito, com as opções e trade-offs se houver
-- **Resposta do humano**: (via chat, 2026-09-09) **opção 1 — manter a confirmação por código**. O app client foi criado **com** secret, então toda chamada leva `SECRET_HASH`.
-- **Consequência, já entregue**: a T-106b saiu das candidatas e virou a tela de digitar o código no web (PR #171), com reenvio e com o 403 `USER_NOT_CONFIRMED` do login caindo na mesma tela. Junto foi a política de senha do pool validada no cliente — a recusa do Cognito é genérica e não diz qual regra quebrou.
-- **Por que a opção 1 e não a 2**: o gate de vínculo exige `email_verified`, e auto-confirmar deixaria esse campo falso para sempre. A trava que impede um terceiro que saiba o seu e-mail de assumir a sua carteira ficaria inerte — proteção que existe no código sem nunca valer.
+- **Resposta do humano**: _(preencher)_
 ```
 
 ---
 
 ## Abertos
+
+### [2026-09-10] O CI roda Node 20 (em EOL) e você desenvolve no 24 — bumpar ou congelar?
+- **Origem**: orquestrador (achado ao fechar a T-092, #172)
+- **Bloqueia**: nada hoje. É prevenção — e já cobrou uma vez.
+- **O que aconteceu**: o `jsdom@30` dos testes de render puxa `undici@8`, que usa uma API de Node mais novo que o 20 fixado em `.github/workflows/ci.yml`. Local (Node 24) passou; o CI quebrou. **E quebrou mal**: o resumo dizia "470 passed" enquanto os dois arquivos de teste de componente nem chegavam a carregar — verde enganoso, não vermelho honesto. Resolvido com o mínimo (`jsdom@25`, que declara `node >= 18`), mas isso trata o sintoma.
+- **A decisão**: (1) **bumpar o CI para Node 22 ou 24** — alinha com o seu ambiente, sai do EOL e evita a próxima dependência que exija Node novo; custa uma rodada de CI para descobrir se algum package reclama. (2) **congelar no 20 e escolher dependências por ele** — mais previsível, mas você vai bater nisso de novo, e Node 20 não recebe mais correção de segurança.
+- **Recomendação**: opção 1. O motivo não é a moda da versão: é que **o CI só vale enquanto ele roda o mesmo que você roda**. Um CI num runtime que ninguém usa aprova código que quebra na máquina de quem trabalha, e reprova código que funciona — os dois erros já aconteceram aqui em um dia.
+- **Resposta do humano**: _(preencher)_
+
+### [2026-09-10] Troque a senha da sua conta pela tela de Conta
+- **Origem**: orquestrador (testes da T-106b, 2026-09-09)
+- **Bloqueia**: nada. É higiene de credencial.
+- **Pendência**: a senha da sua conta foi combinada e usada **dentro de uma sessão de chat**, para eu conseguir provar o cadastro e o login contra o pool real. Ela nunca entrou em arquivo versionado, log ou corpo de PR — mas está no histórico daquela conversa, que não é lugar de senha viva. A troca pela tela de Conta resolve, e o fluxo está testado de ponta a ponta (inclusive o caso de mais de uma hora depois do login, que estava quebrado até a #172).
+- **Por que não fiz por você**: qualquer senha que eu escolhesse voltaria a passar por aqui — o único jeito de ela ser só sua é você digitá-la.
+- **Resposta do humano**: _(preencher)_
 
 ### [2026-08-20] ~~Roteiro AWS: os 6 passos até o user pool do Cognito funcionar~~ — CONCLUÍDO em 2026-09-09 (T-106)
 - **Origem**: orquestrador (conversa de 2026-08-20)
@@ -74,7 +87,9 @@
   1. **Manter a confirmação** — o registro passa a ter uma segunda tela ("digite o código que chegou no e-mail"). Mais trabalho na T-106 e o fluxo fica igual ao de app de verdade.
   2. **Auto-confirmar** — o backend confirma a conta na hora (o usuário entra direto, como hoje). Mais simples e igual ao comportamento atual, mas ninguém prova que o e-mail existe.
   3. **Desligar a verificação no pool** e resolver depois.
-- **Resposta do humano**: _(preencher)_
+- **Resposta do humano**: (via chat, 2026-09-09) **opção 1 — manter a confirmação por código**. O app client foi criado **com** secret, então toda chamada leva `SECRET_HASH`.
+- **Consequência, já entregue**: a T-106b saiu das candidatas e virou a tela de digitar o código no web (PR #171), com reenvio e com o 403 `USER_NOT_CONFIRMED` do login caindo na mesma tela. Junto foi a política de senha do pool validada no cliente — a recusa do Cognito é genérica e não diz qual regra quebrou.
+- **Por que a opção 1 e não a 2**: o gate de vínculo exige `email_verified`, e auto-confirmar deixaria esse campo falso para sempre. A trava que impede um terceiro que saiba o seu e-mail de assumir a sua carteira ficaria inerte — proteção que existe no código sem nunca valer.
 
 ### [2026-08-14] ~~Confirmar o `DROP` do dado de Metas~~ — AUTORIZADO em 2026-08-15 (T-091b2)
 - **Origem**: orquestrador (etapa 2 da remoção decidida em 2026-08-14)
