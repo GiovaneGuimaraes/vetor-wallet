@@ -199,6 +199,46 @@ user pool quando a T-106 foi implementada — todos os testes usam HTTP mockado)
 - o formato exato de `__type` que aquele pool devolve (qualificado ou não — os
   dois são tratados).
 
+## Envio de e-mail: default do Cognito hoje, SES quando doer
+
+O código de confirmação e o de recuperação saem **do Cognito**, não de código
+nosso: quem envia é o user pool, configurado no console (tela *Email* do pool).
+Nenhuma variável de ambiente nossa, nenhuma função deste package participa —
+quem procurar o remetente aqui não acha, e é por isso que isto está escrito.
+
+**Hoje o pool usa o envio default do Cognito** (decisão do humano, `passo 3` do
+roteiro AWS em `docs/multi-agent/TODO-HUMANO.md`). Ele custa zero configuração e
+vem com três limites: cota diária baixa por pool (~50 e-mails/dia), remetente
+fixo da AWS (`no-reply@verificationemail.com`) e entregabilidade sem garantia —
+cai em spam com frequência. Para o dono do app e dois ou três testers, resolve.
+
+**Migrar para o SES quando qualquer uma destas for verdade:**
+
+- o volume passar da cota diária do default;
+- quiser remetente próprio (`no-reply@seudominio`);
+- precisar de entregabilidade decente para usuários **que não são você** — um
+  código que cai no spam de terceiro é cadastro perdido, e o app não tem
+  operação `Admin*` para confirmar a conta manualmente (ver seção acima);
+- ir para produção de verdade.
+
+**O que a migração custa** (três coisas, nenhuma no código):
+
+1. verificar uma identidade — e-mail ou domínio — no SES, numa região que o
+   Cognito aceite como origem de envio;
+2. apontar o pool para essa identidade na tela *Email* do user pool;
+3. **sair do sandbox do SES**: dentro dele só dá para enviar a endereços já
+   verificados, com cota diária própria. É o passo que leva tempo (a AWS
+   analisa o pedido), e é o motivo de o default ter sido escolhido para começar.
+
+Os números de cota acima são os publicados pela AWS e mudam sem avisar este
+arquivo — confira na documentação antes de decidir com base neles. O que não
+muda é a forma da decisão: default enquanto o único destinatário é quem
+desenvolve; SES quando existir usuário de verdade do outro lado.
+
+**Efeito prático nos testes:** `ResendConfirmationCode` consome a mesma cota
+diária. Uma sessão de teste que reenvia código várias vezes esbarra no limite, e
+o sintoma é `codeDeliveryFailure`/`tooManyRequests` — não um bug no fluxo.
+
 ## Variáveis de ambiente
 
 `COGNITO_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID` (obrigatórias, fail
@@ -209,9 +249,9 @@ preenchidos pelo humano; o repo é público. Ver `packages/rest-api/.env.example
 ## Fora de escopo (T-106)
 
 MFA, login social, recuperação de senha (`ForgotPassword`/`ConfirmForgotPassword`),
-deploy, `DROP` de `users.password_hash`, tela de digitar o código de confirmação
-no `web` (o backend já tem `POST /api/auth/confirm` e `/resend-code` prontos), e
-qualquer operação `Admin*`.
+deploy, `DROP` de `users.password_hash` e qualquer operação `Admin*`. A tela de
+digitar o código no `web` **saiu do fora-de-escopo**: foi feita na T-106b, quando
+o humano decidiu manter a confirmação de e-mail ligada no pool.
 
 ## Convenções
 

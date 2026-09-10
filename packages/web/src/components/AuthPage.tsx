@@ -1,6 +1,13 @@
 import { useState, type FormEvent } from 'react';
-import { login, register } from '../api';
+import { confirmSignUp, login, register, resendConfirmationCode } from '../api';
 import { interpretRegisterResult } from '../routes/authRegister';
+import {
+  CONFIRMATION_CODE_LENGTH,
+  confirmDisabledReason,
+  interpretAuthError,
+  normalizeConfirmationCode,
+} from '../routes/authConfirm';
+import { passwordPolicyMet, passwordRules } from '../routes/passwordPolicy';
 import type { User } from '@vetor-wallet/shared';
 import { ThemeToggleButton } from './ThemeToggleButton';
 import { PLUGGY_BRAND, pluggySecurityNotes } from '../routes/pluggyImport';
@@ -48,6 +55,9 @@ const FEATURES: FeatureConfig[] = [
   // inteiro — rota, card da Home e backend. Nada a reanunciar aqui.
 ];
 
+/** A etapa `confirm` só existe quando o user pool exige verificação de e-mail (T-106). */
+type Mode = 'login' | 'register' | 'confirm';
+
 const labelClass = 'block text-xs font-medium text-dim uppercase tracking-wide mb-1.5';
 
 const inputClass =
@@ -61,21 +71,75 @@ const inputClass =
  * (grid 1.5fr/1fr, tokens de web/src/index.css, classes .vw-* de T-003/T-004).
  */
 export function AuthPage({ onAuth, theme, onToggle }: Props) {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  // T-106: cadastro pode terminar "pendente de confirmação" (código por e-mail),
-  // e aí não há usuário para autenticar — só um aviso nesta mesma tela. A tela
-  // de digitar o código é tarefa futura.
   const [notice, setNotice] = useState('');
+  // T-106: o pool exige confirmação de e-mail, então o cadastro tem uma etapa a
+  // mais. `pendingEmail` é o e-mail que o Cognito confirmou ter recebido — é ele
+  // que vai no `/confirm` e no `/resend-code`, e não o campo do formulário, que
+  // a pessoa pode editar enquanto o código não chega.
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [resending, setResending] = useState(false);
+
+  /**
+   * Entra na etapa de confirmação. Único caminho para `mode: 'confirm'`, porque
+   * ela só faz sentido com um e-mail pendente — chegar lá com `pendingEmail`
+   * vazio daria um POST sem `Username`.
+   */
+  function goToConfirmation(pending: string, message: string) {
+    setPendingEmail(pending);
+    setCode('');
+    setError('');
+    setNotice(message);
+    setMode('confirm');
+  }
+
+  /**
+   * Fecha o cadastro depois do código aceito.
+   *
+   * O `/confirm` responde 204 **sem criar sessão** (o código chegou por e-mail e
+   * não prova posse da senha). Como a senha ainda está no estado desta tela —
+   * digitada há segundos —, o login sai daqui e a pessoa não precisa redigitar
+   * nada. Se ele falhar (senha trocada em outra aba, pool com MFA, rede), o
+   * cadastro **já está confirmado**: a saída é a tela de login com aviso, nunca
+   * um erro que sugira que a confirmação não valeu.
+   */
+  async function finishConfirmation() {
+    if (!password) {
+      backToLogin('Cadastro confirmado! Entre com o seu e-mail e senha.');
+      return;
+    }
+    try {
+      onAuth(await login(pendingEmail, password));
+    } catch {
+      backToLogin('Cadastro confirmado! Entre com o seu e-mail e senha.');
+    }
+  }
+
+  function backToLogin(message: string) {
+    setMode('login');
+    setEmail(pendingEmail || email);
+    setPassword('');
+    setConfirm('');
+    setCode('');
+    setError('');
+    setNotice(message);
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
     setNotice('');
+
+    if (mode === 'register' && !passwordPolicyMet(password)) {
+      setError('A senha não atende aos requisitos listados abaixo do campo');
+      return;
+    }
 
     if (mode === 'register' && password !== confirm) {
       setError('As senhas não coincidem');
@@ -84,22 +148,44 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
 
     setLoading(true);
     try {
-      if (mode === 'login') {
+      if (mode === 'confirm') {
+        await confirmSignUp(pendingEmail, code);
+        await finishConfirmation();
+      } else if (mode === 'login') {
         onAuth(await login(email, password));
       } else {
         const outcome = interpretRegisterResult(await register(email, password));
         if (outcome.kind === 'authenticated') onAuth(outcome.user);
-        else {
-          setNotice(outcome.message);
-          setMode('login');
-          setPassword('');
-          setConfirm('');
-        }
+        else goToConfirmation(outcome.email, outcome.message);
       }
+    } catch (err) {
+      // Um login recusado por cadastro pendente não é senha errada: é a mesma
+      // etapa de código, alcançada por outra porta (cadastrou, fechou o app,
+      // voltou depois). Sem este desvio a conta ficaria presa — o app não tem
+      // credencial IAM para as operações `Admin*` do Cognito.
+      const outcome = interpretAuthError(err);
+      if (outcome.needsConfirmation && mode !== 'confirm') {
+        goToConfirmation(email.toLowerCase().trim(), outcome.message);
+      } else {
+        setError(outcome.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    setError('');
+    setNotice('');
+    setResending(true);
+    try {
+      await resendConfirmationCode(pendingEmail);
+      setCode('');
+      setNotice(`Enviamos um novo código para ${pendingEmail}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
-      setLoading(false);
+      setResending(false);
     }
   }
 
@@ -109,7 +195,11 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
     setNotice('');
     setPassword('');
     setConfirm('');
+    setCode('');
+    setPendingEmail('');
   }
+
+  const confirmBlocked = confirmDisabledReason({ code, loading });
 
   return (
     <div className="vw-landing-page">
@@ -177,7 +267,13 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
 
         {/* Card direito: login/cadastro */}
         <div className="vw-landing-auth vw-card vw-rise" style={{ ['--vw-rise-i' as string]: 1 }}>
-          <h2 className="vw-landing-auth-title">{mode === 'login' ? 'Entrar' : 'Criar conta'}</h2>
+          <h2 className="vw-landing-auth-title">
+            {mode === 'login'
+              ? 'Entrar'
+              : mode === 'register'
+                ? 'Criar conta'
+                : 'Confirmar cadastro'}
+          </h2>
 
           {error && (
             <div
@@ -197,94 +293,169 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div>
-              <span className={labelClass}>E-mail</span>
-              <input
-                className={inputClass}
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="voce@exemplo.com"
-                autoComplete="email"
-                required
-              />
-            </div>
+          {mode === 'confirm' ? (
+            <>
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <p className="text-sm text-dim">
+                  Enviamos um código de {CONFIRMATION_CODE_LENGTH} dígitos para{' '}
+                  <strong className="text-ink">{pendingEmail}</strong>. Confira também a caixa de
+                  spam.
+                </p>
 
-            <div>
-              <span className={labelClass}>Senha</span>
-              <input
-                className={inputClass}
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={mode === 'register' ? 'Mínimo 8 caracteres' : '••••••••'}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                required
-              />
-            </div>
+                <div>
+                  <span className={labelClass}>Código de confirmação</span>
+                  <input
+                    className={`${inputClass} text-center text-lg tracking-[0.4em]`}
+                    type="text"
+                    inputMode="numeric"
+                    value={code}
+                    onChange={(e) => setCode(normalizeConfirmationCode(e.target.value))}
+                    placeholder="000000"
+                    autoComplete="one-time-code"
+                    autoFocus
+                    required
+                  />
+                </div>
 
-            {mode === 'register' && (
-              <div>
-                <span className={labelClass}>Confirmar senha</span>
-                <input
-                  className={inputClass}
-                  type="password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                  required
-                />
-              </div>
-            )}
+                <button
+                  type="submit"
+                  disabled={confirmBlocked !== null}
+                  title={confirmBlocked ?? undefined}
+                  className="vw-btn-primary w-full text-sm font-semibold py-2.5 px-4 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-1"
+                >
+                  {loading ? 'Confirmando...' : 'Confirmar cadastro'}
+                </button>
+              </form>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="vw-btn-primary w-full text-sm font-semibold py-2.5 px-4 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-1"
-            >
-              {loading
-                ? mode === 'login'
-                  ? 'Entrando...'
-                  : 'Criando conta...'
-                : mode === 'login'
-                  ? 'Entrar'
-                  : 'Criar conta'}
-            </button>
-          </form>
-
-          <p className="vw-landing-switch">
-            {mode === 'login' ? (
-              <>
-                Não tem conta?{' '}
+              <p className="vw-landing-switch">
+                Não recebeu o código?{' '}
                 <button
                   type="button"
                   className="vw-landing-switch-link"
-                  onClick={() => switchMode('register')}
+                  onClick={handleResend}
+                  disabled={resending || loading}
                 >
-                  Criar conta
+                  {resending ? 'Reenviando...' : 'Reenviar'}
                 </button>
-              </>
-            ) : (
-              <>
-                Já tem conta?{' '}
+                {' · '}
                 <button
                   type="button"
                   className="vw-landing-switch-link"
                   onClick={() => switchMode('login')}
                 >
-                  Entrar
+                  Voltar
                 </button>
-              </>
-            )}
-          </p>
+              </p>
+            </>
+          ) : (
+            <>
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <div>
+                  <span className={labelClass}>E-mail</span>
+                  <input
+                    className={inputClass}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="voce@exemplo.com"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <span className={labelClass}>Senha</span>
+                  <input
+                    className={inputClass}
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={mode === 'register' ? 'Mínimo 8 caracteres' : '••••••••'}
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    required
+                  />
+                </div>
+
+                {/* T-106b: a recusa do Cognito é genérica ("senha não atende à
+                    política"), então a lista tem de ser visível ENQUANTO digita —
+                    descobrir a regra quebrada depois do POST é o round-trip cego
+                    que `passwordPolicy.ts` existe para evitar. */}
+                {mode === 'register' && (
+                  <ul className="vw-password-rules">
+                    {passwordRules(password).map((rule) => (
+                      <li
+                        key={rule.key}
+                        className={rule.ok ? 'vw-password-rule-ok' : 'vw-password-rule'}
+                      >
+                        <span aria-hidden="true">{rule.ok ? '✓' : '○'}</span> {rule.label}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {mode === 'register' && (
+                  <div>
+                    <span className={labelClass}>Confirmar senha</span>
+                    <input
+                      className={inputClass}
+                      type="password"
+                      value={confirm}
+                      onChange={(e) => setConfirm(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      required
+                    />
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="vw-btn-primary w-full text-sm font-semibold py-2.5 px-4 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-1"
+                >
+                  {loading
+                    ? mode === 'login'
+                      ? 'Entrando...'
+                      : 'Criando conta...'
+                    : mode === 'login'
+                      ? 'Entrar'
+                      : 'Criar conta'}
+                </button>
+              </form>
+
+              <p className="vw-landing-switch">
+                {mode === 'login' ? (
+                  <>
+                    Não tem conta?{' '}
+                    <button
+                      type="button"
+                      className="vw-landing-switch-link"
+                      onClick={() => switchMode('register')}
+                    >
+                      Criar conta
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Já tem conta?{' '}
+                    <button
+                      type="button"
+                      className="vw-landing-switch-link"
+                      onClick={() => switchMode('login')}
+                    >
+                      Entrar
+                    </button>
+                  </>
+                )}
+              </p>
+            </>
+          )}
         </div>
       </div>
 
       <p className="vw-landing-footer">
-        Cotações via brapi.dev · Open Finance via Pluggy · senhas com bcrypt · seus dados ficam no
-        seu servidor
+        Cotações via brapi.dev · Open Finance via Pluggy · identidade no AWS Cognito · seus dados
+        ficam no seu servidor
       </p>
     </div>
   );

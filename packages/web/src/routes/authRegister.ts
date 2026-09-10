@@ -12,18 +12,21 @@ import type { RegisterResult, User } from '@vetor-wallet/shared';
  * `AuthPage`) é lógica de fluxo escondida em componente — o `CLAUDE.md` da raiz
  * pede o contrário.
  *
- * **A tela de digitar o código é tarefa futura, de propósito.** Aqui o desfecho
- * pendente só vira aviso: o backend já tem `POST /api/auth/confirm` e
- * `POST /api/auth/resend-code` prontos para quando ela existir.
+ * O desfecho pendente carrega o **e-mail**, e não só a frase: é ele que a etapa
+ * de confirmação usa como `Username` no `POST /api/auth/confirm` e no
+ * `/resend-code`. Reler o campo do formulário serviria — até a pessoa editar o
+ * campo antes de digitar o código e confirmar o cadastro de outro endereço.
  */
 export type RegisterOutcome =
-  { kind: 'authenticated'; user: User } | { kind: 'pendingConfirmation'; message: string };
+  | { kind: 'authenticated'; user: User }
+  | { kind: 'pendingConfirmation'; email: string; message: string };
 
 export function interpretRegisterResult(result: RegisterResult): RegisterOutcome {
   if (result.pendingConfirmation) {
     return {
       kind: 'pendingConfirmation',
-      message: `Enviamos um código de confirmação para ${result.email}. Confirme o cadastro e entre com e-mail e senha.`,
+      email: result.email,
+      message: `Enviamos um código de confirmação para ${result.email}. Digite o código abaixo para concluir o cadastro.`,
     };
   }
 

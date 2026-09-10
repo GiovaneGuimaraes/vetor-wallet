@@ -535,6 +535,25 @@ body,
   text-decoration: underline;
 }
 
+/* T-106b: requisitos da senha do user pool, marcados enquanto digita. */
+.vw-password-rules {
+  margin: -2px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.vw-password-rule {
+  color: var(--color-dim);
+}
+
+.vw-password-rule-ok {
+  color: var(--color-up);
+}
+
 .vw-landing-footer {
   margin: 0;
   font-size: 12px;
