@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-09-09T23:15:53-03:00"
+    "atualizadoEm": "2026-09-10T00:20:12-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-09-09T21:28:34-03:00"
+    "atualizadoEm": "2026-09-10T00:20:12-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -224,6 +224,22 @@
         "3️⃣": "passo 5: desligar verificacao no pool"
       },
       "atualizadoEm": "2026-08-21T00:58:31.479Z"
+    },
+    "ci-node-20-eol": {
+      "canal": "todo-human",
+      "messageId": "1547446524953493576",
+      "modo": "emoji + resposta",
+      "status": "ABERTO 2026-09-10: CI no Node 20 (EOL) e dev no 24; jsdom@30 quebrou so no CI, com verde enganoso. Mitigado com jsdom@25.",
+      "opcoes": {
+        "1️⃣": "bumpar o CI para Node 22/24 (recomendado)",
+        "2️⃣": "congelar no 20 e escolher dependencias por ele"
+      }
+    },
+    "trocar-senha-da-conta": {
+      "canal": "todo-human",
+      "messageId": "1547446526752727100",
+      "modo": "so aviso",
+      "status": "ABERTO 2026-09-10: senha usada dentro de sessao de chat para provar o login contra o pool real; trocar pela tela de Conta. Nunca entrou em arquivo versionado, log ou PR."
     }
   },
   "lastSeen": {
