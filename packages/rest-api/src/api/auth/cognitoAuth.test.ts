@@ -5,6 +5,7 @@ import session from 'express-session';
 import request from 'supertest';
 import { tmpdir } from 'os';
 import path from 'path';
+import { computeSecretHash } from '@vetor-wallet/cognito-core';
 import { installFakeCognito, type FakeCognitoPool } from './__fixtures__/fakeCognito';
 
 // Banco temporário próprio deste arquivo (padrão dos testes de rota).
@@ -681,11 +682,19 @@ describe('app client COM client secret (T-106)', () => {
     expect(loginCall?.[1].AuthParameters.SECRET_HASH).toBeTruthy();
   });
 
-  it('refresh no fluxo com secret também leva o SECRET_HASH', async () => {
+  it('o SECRET_HASH do refresh é sobre o `sub`, NÃO sobre o e-mail', async () => {
+    // Regressão de 2026-09-09, medida contra o pool real: no REFRESH_TOKEN_AUTH
+    // a AWS recusa o hash calculado sobre o e-mail (NotAuthorizedException) e
+    // aceita o calculado sobre o `sub`. É a ÚNICA operação que foge do e-mail.
+    //
+    // O sintoma era silencioso: a troca de senha só usa o refresh quando o
+    // access token já venceu (1h), e a falha aparecia como "entre novamente"
+    // em vez de "senha atual errada". O fixture validava o hash sobre o e-mail
+    // — modelava um pool que não existe — e por isso a suíte ficou verde
+    // enquanto o fluxo real quebrava.
+    const email = 'refresh-secret@example.com';
     const agent = request.agent(app);
-    await agent
-      .post('/api/auth/register')
-      .send({ email: 'refresh-secret@example.com', password: 'senha-forte-1' });
+    await agent.post('/api/auth/register').send({ email, password: 'senha-forte-1' });
 
     pool.expireAccessTokens();
     const res = await agent
@@ -696,7 +705,10 @@ describe('app client COM client secret (T-106)', () => {
     const refreshCall = pool.calls.find(
       ([action, body]) => action === 'InitiateAuth' && body.AuthFlow === 'REFRESH_TOKEN_AUTH'
     );
-    expect(refreshCall?.[1].AuthParameters.SECRET_HASH).toBeTruthy();
+    const enviado = refreshCall?.[1].AuthParameters.SECRET_HASH;
+    const args = { clientId: 'fake-client-id', clientSecret: 'segredo-do-app-client' };
+    expect(enviado).toBe(computeSecretHash({ username: pool.subOf(email), ...args }));
+    expect(enviado).not.toBe(computeSecretHash({ username: email, ...args }));
   });
 });
 

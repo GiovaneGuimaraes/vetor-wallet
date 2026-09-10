@@ -123,7 +123,7 @@ async function establishSession(
   req.session.userId = user.id;
   req.session.cognitoAccessToken = session.accessToken;
   if (session.refreshToken) req.session.cognitoRefreshToken = session.refreshToken;
-  req.session.cognitoUsername = email;
+  req.session.cognitoSub = sub;
 
   return { user, outcome };
 }
@@ -436,7 +436,7 @@ router.post(
     }
 
     const refreshToken = req.session.cognitoRefreshToken;
-    const username = req.session.cognitoUsername;
+    const username = req.session.cognitoSub;
     if (!refreshToken || !username) {
       res.status(400).json({ error: 'Senha atual invalida' });
       return;

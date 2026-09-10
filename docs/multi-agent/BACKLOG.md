@@ -38,10 +38,6 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Cuidado**: saldo de cartão (`CREDIT`) é **dívida** — só `BANK` entra. Ver a dupla contagem com caixinhas na T-091.
 - **Aceite**: patrimônio soma as contas `BANK` conectadas; sem conexão nada muda; nada novo é gravado; suítes verdes.
 
-### T-092 — Teste de render de componente no web
-- **Status**: PENDENTE · **Complexidade**: média · **Depende de**: nada
-- **Objetivo**: promovida das Candidatas (revisores da T-076 e T-101) — o `PluggyImportModal` é o componente mais complexo do app (modo destrutivo, confirmação por digitação) e **nada prova que ele chama a lógica pura já testada**. Um `disabled` invertido no botão de replace passa verde hoje.
-- **Escopo**: Testing Library no runner que já existe (Vitest + jsdom), cobrindo o `PluggyImportModal`: botão travado sem `APAGAR`, aviso presente, relatório renderizado. O padrão fica no `CLAUDE.md` do web.
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 
 - **Acoplamentos core→core** (regra 6 do `PACKAGES.md`; pré-existentes): `auth-core → portfolio-core` e `insights-core → portfolio-core` — a saída é a **rota** orquestrar. E `portfolio-core/snapshots.ts` tem um **segundo client da brapi** (`fetchQuotesStrict`, que lança) paralelo ao `brapi-core.fetchQuotes` (que degrada em silêncio) — unificar.

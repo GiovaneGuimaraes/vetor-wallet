@@ -180,24 +180,35 @@ Documentado pela AWS e implementado aqui:
 - `ConfirmSignUp`, `ResendConfirmationCode`, `GetUser`, `ChangePassword`.
 - `SECRET_HASH` = base64(HMAC-SHA256(`username` + `clientId`, `clientSecret`)).
 
-**O que NÃO foi provado contra pool real** (o humano ainda estava configurando o
-user pool quando a T-106 foi implementada — todos os testes usam HTTP mockado):
+**Confirmado contra o pool real em 2026-09-09** (o humano terminou de configurar
+o user pool; os testes seguem 100% mockados — isto aqui é registro do que a AWS
+respondeu de verdade, não teste):
 
-- se o pool dele tem **client secret** (os dois caminhos existem e têm teste);
-- se o pool mantém **verificação de e-mail** (idem: `UserConfirmed` decide o
-  fluxo de cadastro, e `email_verified` decide o vínculo — os dois casos têm
-  teste, e o gate do vínculo vale independente de como o pool acabar);
-- **o nome e o formato do atributo `email_verified` naquele pool**: a AWS o
-  devolve como string `"true"`/`"false"` em pool padrão, mas um pool com atributo
-  customizado ou Lambda de pre-signup pode não populá-lo. Se o vínculo legítimo do
-  dono for recusado com `EMAIL_NOT_VERIFIED`, é aqui que se olha primeiro (e o
-  caminho de saída é verificar o e-mail no pool, **não** afrouxar o gate);
-- o `SECRET_HASH` do fluxo **REFRESH_TOKEN_AUTH** — a AWS o documenta sobre o
-  *username*, e em pools onde o username é o `sub` (e não o e-mail) o valor que
-  guardamos na sessão pode não ser o esperado. Suspeito nº 1 se a renovação
-  falhar num pool com secret;
-- o formato exato de `__type` que aquele pool devolve (qualificado ou não — os
-  dois são tratados).
+- o app client **tem** client secret, então toda chamada leva `SECRET_HASH`;
+- o pool **mantém a verificação de e-mail**: o `SignUp` volta
+  `UserConfirmed: false` e o cadastro só fecha depois do `ConfirmSignUp`. Foi o
+  que promoveu a T-106b (a tela de digitar o código);
+- `email_verified` chega como a string `"true"` esperada — o vínculo legítimo do
+  dono passou e a conta anterior foi adotada com os dados intactos;
+- **o `SECRET_HASH` do `REFRESH_TOKEN_AUTH` é sobre o `sub`, não sobre o
+  e-mail.** Era o "suspeito nº 1" desta lista e estava certo: com o mesmo refresh
+  token, hash sobre o e-mail → `NotAuthorizedException`; sobre o `sub` → 200. É a
+  **única** operação que foge do e-mail. O sintoma era silencioso — a troca de
+  senha respondia "entre novamente" em vez de "senha atual errada", e só quem
+  estivesse logado há mais de uma hora veria. A sessão passou a guardar
+  `cognitoSub`, e o fixture de teste, que validava o hash sobre o e-mail,
+  modelava um pool que não existe (corrigido junto);
+- **o self-service sign-up precisa estar ligado no pool.** Com
+  `AllowAdminCreateUserOnly = true` o `SignUp` responde
+  `NotAuthorizedException: SignUp is not permitted for this user pool` — o
+  **mesmo** `__type` de "SECRET_HASH errado", o que torna os dois
+  indistinguíveis pela resposta. O que separa: repetir a chamada **sem** o hash;
+  se o erro mudar para "client is configured with secret but SECRET_HASH was not
+  received", o hash estava certo e o problema é o pool. Sem operação `Admin*`,
+  ligar o self-registration no console é a única saída.
+
+**O que segue sem prova**: o formato exato de `__type` que o pool devolve
+(qualificado com o prefixo `com.amazonaws...#` ou não — os dois são tratados).
 
 ## Envio de e-mail: default do Cognito hoje, SES quando doer
 

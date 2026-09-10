@@ -16,10 +16,19 @@ declare module 'express-session' {
     cognitoAccessToken?: string;
     cognitoRefreshToken?: string;
     /**
-     * O `Username` usado no login, guardado porque o `SECRET_HASH` do fluxo de
+     * O `sub` do usuário no pool, guardado porque o `SECRET_HASH` do fluxo de
      * refresh é calculado sobre ele e a request de refresh não o carrega.
+     *
+     * **É o `sub`, não o e-mail** — e a diferença não é cosmética. Confirmado
+     * contra o pool real em 2026-09-09: no `REFRESH_TOKEN_AUTH` o hash sobre o
+     * e-mail é recusado com `NotAuthorizedException` e o hash sobre o `sub`
+     * passa. Todas as outras chamadas usam o e-mail; só esta foge do padrão.
+     *
+     * Sessão criada antes desta correção não tem o campo: a troca de senha com
+     * token vencido responde "Senha atual invalida" nela, e um login novo
+     * resolve. Preferido a inventar um `sub` a partir do e-mail guardado.
      */
-    cognitoUsername?: string;
+    cognitoSub?: string;
   }
 }
 

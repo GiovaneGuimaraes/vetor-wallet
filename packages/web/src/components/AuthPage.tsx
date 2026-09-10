@@ -58,6 +58,13 @@ const FEATURES: FeatureConfig[] = [
 /** A etapa `confirm` só existe quando o user pool exige verificação de e-mail (T-106). */
 type Mode = 'login' | 'register' | 'confirm';
 
+/**
+ * Cada campo é embrulhado num `<label>` (e não numa `<div>`), o que associa o
+ * texto ao `<input>` sem precisar de `id`/`htmlFor`. Antes eram `div` + `span`:
+ * visualmente idêntico e **sem rótulo acessível nenhum** — leitor de tela
+ * anunciava só "caixa de edição" na tela de login, e clicar no texto não
+ * focava o campo. Achado ao escrever o teste de render da T-092.
+ */
 const labelClass = 'block text-xs font-medium text-dim uppercase tracking-wide mb-1.5';
 
 const inputClass =
@@ -302,7 +309,7 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
                   spam.
                 </p>
 
-                <div>
+                <label className="block">
                   <span className={labelClass}>Código de confirmação</span>
                   <input
                     className={`${inputClass} text-center text-lg tracking-[0.4em]`}
@@ -315,7 +322,7 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
                     autoFocus
                     required
                   />
-                </div>
+                </label>
 
                 <button
                   type="submit"
@@ -350,7 +357,7 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
           ) : (
             <>
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                <div>
+                <label className="block">
                   <span className={labelClass}>E-mail</span>
                   <input
                     className={inputClass}
@@ -361,9 +368,9 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
                     autoComplete="email"
                     required
                   />
-                </div>
+                </label>
 
-                <div>
+                <label className="block">
                   <span className={labelClass}>Senha</span>
                   <input
                     className={inputClass}
@@ -374,7 +381,7 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
                     autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                     required
                   />
-                </div>
+                </label>
 
                 {/* T-106b: a recusa do Cognito é genérica ("senha não atende à
                     política"), então a lista tem de ser visível ENQUANTO digita —
@@ -394,7 +401,7 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
                 )}
 
                 {mode === 'register' && (
-                  <div>
+                  <label className="block">
                     <span className={labelClass}>Confirmar senha</span>
                     <input
                       className={inputClass}
@@ -405,7 +412,7 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
                       autoComplete="new-password"
                       required
                     />
-                  </div>
+                  </label>
                 )}
 
                 <button
