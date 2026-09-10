@@ -71,6 +71,30 @@ async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Erro de uma rota de `/api/auth/*` preservando o `code` do backend (T-106).
+ *
+ * A mensagem sozinha não basta: o fluxo do cadastro depende de distinguir
+ * "senha errada" de "cadastro ainda não confirmado" (`USER_NOT_CONFIRMED`), e
+ * comparar texto em português para decidir navegação quebra no dia em que
+ * alguém reescrever a frase. O `code` é o contrato estável — ver
+ * `cognitoErrorResponse` no rest-api.
+ */
+export class AuthApiError extends Error {
+  readonly code: string | null;
+
+  constructor(message: string, code: string | null) {
+    super(message);
+    this.name = 'AuthApiError';
+    this.code = code;
+  }
+}
+
+async function authError(res: Response, fallback: string): Promise<AuthApiError> {
+  const body = await res.json().catch(() => ({}) as { error?: string; code?: string });
+  return new AuthApiError(body.error ?? fallback, body.code ?? null);
+}
+
 export async function getMe(): Promise<User | null> {
   const res = await apiFetch('/api/auth/me');
   if (res.status === 401) return null;
@@ -84,10 +108,7 @@ export async function login(email: string, password: string): Promise<User> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(err.error ?? 'Falha ao entrar');
-  }
+  if (!res.ok) throw await authError(res, 'Falha ao entrar');
   return res.json();
 }
 
@@ -105,11 +126,33 @@ export async function register(email: string, password: string): Promise<Registe
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(err.error ?? 'Falha ao registrar');
-  }
+  if (!res.ok) throw await authError(res, 'Falha ao registrar');
   return res.json();
+}
+
+/**
+ * Confirma o cadastro com o código de 6 dígitos enviado por e-mail (T-106).
+ *
+ * Responde 204 e **não cria sessão**: o código chegou por e-mail e não prova
+ * posse da senha, então o passo seguinte é o login normal.
+ */
+export async function confirmSignUp(email: string, code: string): Promise<void> {
+  const res = await apiFetch('/api/auth/confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  });
+  if (!res.ok) throw await authError(res, 'Falha ao confirmar o cadastro');
+}
+
+/** Reenvia o código de confirmação (T-106): o código do Cognito expira. */
+export async function resendConfirmationCode(email: string): Promise<void> {
+  const res = await apiFetch('/api/auth/resend-code', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw await authError(res, 'Falha ao reenviar o codigo');
 }
 
 export async function logout(): Promise<void> {

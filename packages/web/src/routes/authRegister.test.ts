@@ -34,6 +34,7 @@ describe('interpretRegisterResult (T-106)', () => {
     });
 
     expect(outcome.kind).toBe('pendingConfirmation');
+    expect(outcome.kind === 'pendingConfirmation' && outcome.email).toBe('alice@example.com');
     expect(outcome.kind === 'pendingConfirmation' && outcome.message).toContain(
       'alice@example.com'
     );

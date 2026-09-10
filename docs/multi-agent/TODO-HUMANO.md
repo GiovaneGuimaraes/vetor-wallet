@@ -11,14 +11,16 @@
 - **Origem**: executor (T-003) | orquestrador
 - **Bloqueia**: T-003 (ou "nada — apenas informativo")
 - **Pergunta/pendência**: o que precisa ser decidido ou feito, com as opções e trade-offs se houver
-- **Resposta do humano**: _(preencher)_
+- **Resposta do humano**: (via chat, 2026-09-09) **opção 1 — manter a confirmação por código**. O app client foi criado **com** secret, então toda chamada leva `SECRET_HASH`.
+- **Consequência, já entregue**: a T-106b saiu das candidatas e virou a tela de digitar o código no web (PR #171), com reenvio e com o 403 `USER_NOT_CONFIRMED` do login caindo na mesma tela. Junto foi a política de senha do pool validada no cliente — a recusa do Cognito é genérica e não diz qual regra quebrou.
+- **Por que a opção 1 e não a 2**: o gate de vínculo exige `email_verified`, e auto-confirmar deixaria esse campo falso para sempre. A trava que impede um terceiro que saiba o seu e-mail de assumir a sua carteira ficaria inerte — proteção que existe no código sem nunca valer.
 ```
 
 ---
 
 ## Abertos
 
-### [2026-08-20] Roteiro AWS: os 6 passos até o user pool do Cognito funcionar (T-106)
+### [2026-08-20] ~~Roteiro AWS: os 6 passos até o user pool do Cognito funcionar~~ — CONCLUÍDO em 2026-09-09 (T-106)
 - **Origem**: orquestrador (conversa de 2026-08-20)
 - **Bloqueia**: T-106 na prática — o backend está mergeado (#169), mas `/api/auth/*` só sai do 503 quando o pool existir e o `.env` estiver preenchido.
 - **Espelho no Discord**: **uma mensagem por passo** no `#todo-human` (pedido do humano, 2026-08-20) — reagir ✅ na mensagem do passo conforme for concluindo.
@@ -37,9 +39,10 @@
 
 **Passo 6 — `.env` → `pnpm dev` → cadastrar com o mesmo e-mail → verificar.** É no `pnpm dev` que o `DROP` da T-091b2 acontece; fazer o backup do banco antes (`Desktop\vetor-wallet-backups\`).
 
-- **Resposta do humano**: _(preencher — ou reagir ✅ por passo no Discord)_
+- **Resposta do humano**: (via chat, 2026-09-09) os seis passos foram executados no console. O que faltava para o `SignUp` sair do 400 era o **passo 3**: o pool nasceu com `AllowAdminCreateUserOnly = true` e recusava todo cadastro com `NotAuthorizedException: SignUp is not permitted for this user pool` — o self-service sign-up estava desligado. Sem operação `Admin*` disponível (decisão da T-106), ligá-lo era a única saída.
+- **Confirmado contra o pool real em 2026-09-09**: cadastro → código por e-mail → `confirm` → `login`, com o vínculo por e-mail adotando a conta local que já existia e preenchendo o `cognito_sub`. Os dados da carteira anterior seguem intactos. O app client tem secret, e o `SECRET_HASH` está correto (sem ele o pool responde outro erro — foi assim que se separou "hash errado" de "sign-up desligado").
 
-### [2026-08-18] O login do app agora depende do Cognito — preencha o `.env` antes de usar (T-106, #169)
+### [2026-08-18] ~~O login do app agora depende do Cognito — preencha o `.env` antes de usar~~ — RESOLVIDO em 2026-09-09 (T-106, #169)
 - **Origem**: orquestrador (fechamento da T-106)
 - **Bloqueia**: **o seu login**. O server sobe e a migração da T-091b2 roda normalmente, mas `/api/auth/*` responde **503 `AUTH_UNAVAILABLE`** enquanto as variáveis não estiverem no `.env`. Isso é fail closed de propósito, não bug.
 - **A sequência para voltar a entrar no app** (nesta ordem):
@@ -61,7 +64,7 @@
 - **O que conferir depois de subir**: a Home e a Poupança abrem sem erro, e o saldo da poupança mostra o mesmo número de antes. Se algo estiver errado, pare o server e me diga **antes** de lançar coisa nova — restaurar é copiar o arquivo de backup de volta, e isso só vale enquanto você não tiver gravado dado novo em cima.
 - **Resposta do humano**: _(preencher)_
 
-### [2026-08-18] Dados do user pool do Cognito e a política de confirmação de e-mail (T-106)
+### [2026-08-18] ~~Dados do user pool do Cognito e a política de confirmação de e-mail~~ — RESPONDIDO em 2026-09-09 (T-106)
 - **Origem**: orquestrador (T-106, pedida por você no chat de 2026-08-18)
 - **Bloqueia**: **entregar** a T-106, não construí-la. O código, os testes e o fallback dá para fazer sem nada disso; provar que o login real funciona contra o seu pool, não.
 - **O que eu preciso, e só você tem** (tudo vai para `packages/rest-api/.env`, **nunca para o repo** — é público):
