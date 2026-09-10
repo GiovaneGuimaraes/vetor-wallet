@@ -196,6 +196,23 @@ Schema completo do banco: `docs/decisions/db-schema.md` (fonte da verdade: `pack
 
 Toda mudança de comportamento em server, db ou web exige teste automatizado (ou justificativa explícita). Estilo/refactor sem mudança de comportamento/docs não exigem. Padrão: `src/**/*.test.ts` em todos. Testes de rota do server e de db usam banco temporário + `DATABASE_URL` setado ANTES de `await import('@vetor-wallet/db')` (ou de um submódulo relativo dentro do próprio `packages/db`) — o client lê o env no top-level do módulo.
 
+**Teste de render no web (T-092).** Funções puras continuam sendo a regra — componente
+que só renderiza não precisa de teste. O que exige render é a **costura**: o componente
+chamando a lógica pura já testada, e o fluxo que vive dentro dele (mudança de etapa,
+botão travado, mensagem de erro). Um `disabled` invertido no `PluggyImportModal` passava
+verde na suíte inteira e destravava o botão que apaga tudo.
+
+- `src/**/*.test.tsx` com Testing Library, e `// @vitest-environment jsdom` **no topo
+  do arquivo**: o default do runner segue `node`, para as centenas de testes de função
+  pura não pagarem por um DOM que não usam.
+- Assertiva pelo que o usuário vê (papel, texto, `.disabled`), nunca por estado interno.
+  Sem `@testing-library/jest-dom` — dependência a mais só por açúcar de assertiva.
+- `vi.mock('../api')`: o componente é a unidade, rede não entra.
+- **Armadilha:** `mockRejectedValue` num `vi.fn()` faz o runner tratar a promise
+  rejeitada como erro não tratado e o teste falha mesmo com o componente tratando o
+  erro corretamente. O spy só registra a chamada; quem rejeita é uma função comum.
+  Explicado em `web/src/components/PluggyImportModal.test.tsx`.
+
 ## Índice de decisões (docs/decisions/)
 
 Leia o arquivo do domínio antes de mexer nele:

@@ -23,11 +23,14 @@ import { toCognitoSession, type CognitoSession } from './toCognitoSession';
  *
  * Quando o app client tem secret, o `SECRET_HASH` do fluxo de refresh também é
  * calculado sobre um username — e não há username no corpo da request para
- * inferi-lo. Por isso ele vem de fora (a rota guarda na sessão o mesmo string
- * usado no login). **Não conferido contra pool com secret** (ver "o que não foi
- * provado" no `CLAUDE.md` deste package): se um pool com secret recusar o
- * refresh, este é o primeiro suspeito — a AWS documenta o hash sobre o
- * *username* do usuário, que em alguns pools é o `sub` e não o e-mail.
+ * inferi-lo. Por isso ele vem de fora.
+ *
+ * **Passe o `sub`, não o e-mail.** Isto era suspeita documentada e virou fato
+ * medido contra o pool real em 2026-09-09, com o mesmo refresh token: hash sobre
+ * o e-mail → `NotAuthorizedException`; hash sobre o `sub` → 200. É a única
+ * operação deste package que foge do e-mail, o que a torna fácil de errar — e o
+ * erro é silencioso: o refresh falha, a troca de senha responde "entre
+ * novamente", e só quem estiver logado há mais de uma hora vê.
  */
 export async function cognitoRefreshSession(params: {
   refreshToken: string;

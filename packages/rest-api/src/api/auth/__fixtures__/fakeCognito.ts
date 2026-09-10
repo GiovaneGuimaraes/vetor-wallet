@@ -52,6 +52,13 @@ export interface FakeCognitoPool {
   users: Map<string, FakeUser>;
   /** Requests recebidas, na ordem: `[action, body]`. */
   calls: [string, Record<string, any>][];
+  /**
+   * O `sub` do usuário, para o teste afirmar sobre qual string o `SECRET_HASH`
+   * foi calculado. O `REFRESH_TOKEN_AUTH` usa o `sub` e todas as outras
+   * operações usam o e-mail — sem isto o teste só consegue dizer "veio algum
+   * hash", que é o que deixou a diferença passar despercebida.
+   */
+  subOf(email: string): string;
   /** Invalida todos os access tokens emitidos (simula o vencimento de 1h). */
   expireAccessTokens(): void;
   /** Invalida os refresh tokens emitidos (simula revogação). */
@@ -216,7 +223,12 @@ export function installFakeCognito(options: FakeCognitoOptions = {}): FakeCognit
       const token = String(body.AuthParameters.REFRESH_TOKEN);
       const username = refreshTokens.get(token);
       if (!username) return awsError('NotAuthorizedException');
-      const bad = checkSecretHash(username, body.AuthParameters.SECRET_HASH);
+      // O hash deste fluxo e sobre o `sub`, NAO sobre o e-mail — diferente de
+      // todas as outras chamadas. Observado contra o pool real em 2026-09-09: com
+      // o hash sobre o e-mail a AWS responde NotAuthorizedException; sobre o sub,
+      // 200. Enquanto este fixture aceitava o e-mail, ele modelava um pool que
+      // nao existe e os testes passavam enquanto a troca de senha quebrava.
+      const bad = checkSecretHash(users.get(username)!.sub, body.AuthParameters.SECRET_HASH);
       if (bad) return bad;
       const issued = issue(username) as { AuthenticationResult: Record<string, unknown> };
       // O Cognito NÃO reemite refresh token neste fluxo.
@@ -257,6 +269,7 @@ export function installFakeCognito(options: FakeCognitoOptions = {}): FakeCognit
   return {
     users,
     calls,
+    subOf: (email: string) => users.get(email.toLowerCase().trim())!.sub,
     expireAccessTokens: () => accessTokens.clear(),
     expireRefreshTokens: () => refreshTokens.clear(),
     restore: () => {
