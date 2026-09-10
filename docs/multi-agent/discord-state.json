@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-08-18T23:48:22-03:00"
+    "atualizadoEm": "2026-09-09T21:28:34-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-08-18T23:48:22-03:00"
+    "atualizadoEm": "2026-09-09T21:28:34-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -75,6 +75,12 @@
       "messageId": "1539439871729336431",
       "status": "CONCLUIDA",
       "pr": 169
+    },
+    "T-106b": {
+      "canal": "todo-ai",
+      "messageId": "1547403307700457532",
+      "status": "CONCLUIDA",
+      "pr": 171
     }
   },
   "humanTodos": {
@@ -82,7 +88,7 @@
       "canal": "todo-human",
       "messageId": "1539439876913635450",
       "modo": "emoji + resposta",
-      "status": "ABERTO 2026-08-18: precisa dos dados do user pool e da decisao de confirmacao de e-mail",
+      "status": "RESPONDIDO 2026-09-09: opcao 1 (manter a confirmacao por codigo). App client COM secret. Consequencia entregue na T-106b (#171).",
       "opcoes": {
         "1️⃣": "manter a confirmacao por codigo",
         "2️⃣": "auto-confirmar no backend",
@@ -186,7 +192,7 @@
       "canal": "todo-human",
       "messageId": "1539464747571748865",
       "modo": "emoji + resposta",
-      "status": "ABERTO 2026-08-18: sem COGNITO_* no .env o login responde 503; passo a passo para religar e vincular a conta antiga",
+      "status": "RESOLVIDO 2026-09-09: COGNITO_* no .env, /api/auth/* fora do 503, login feito e conta local antiga vinculada (cognito_sub preenchido, dados preservados).",
       "opcoes": {
         "✅": "configurei e entrei",
         "❌": "deu erro"
@@ -196,7 +202,7 @@
       "canal": "todo-human",
       "messageId": "1540161790044930070",
       "modo": "uma mensagem por passo (pedido do humano, 2026-08-20) — ✅ por passo, 1/2/3 no passo 5",
-      "status": "ABERTO 2026-08-20: humano esta no passo 1 (Identity Center pede identity provider — resposta: usar a Identity Center directory embutida)",
+      "status": "CONCLUIDO 2026-09-09: os 6 passos feitos no console. O que travava era o passo 3 — self-service sign-up desligado (AllowAdminCreateUserOnly), que recusava todo SignUp. Fluxo provado de ponta a ponta contra o pool real.",
       "passos": {
         "1-conta-mfa-identity-center": "1540161793014366228",
         "2-regiao": "1540161795963224156",

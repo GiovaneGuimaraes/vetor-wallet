@@ -51,7 +51,6 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Três origens de mascote no web** (`mascots.ts`, `AuthPage.tsx`, `HomePage.tsx`); só a primeira foi unificada na T-020.
 - **Movimentação interna no OFX** (T-085/T-088): só `MEMO` livre, sem categoria — adivinhar por descrição é o que a T-085 recusa fazer com dinheiro.
 - **Backfill histórico de snapshots** via `hourly_quote_insights`; agendador do job de insights (o da T-061 morre com o processo).
-- **Tela de confirmação de código do Cognito** (T-106b): backend pronto (`POST /api/auth/confirm`, `/resend-code`, e o 403 `EMAIL_NOT_VERIFIED` como gancho). Só entra se o humano optar por manter a confirmação — pendência no `TODO-HUMANO.md`.
 - **Webhook da Pluggy** (`item/*`) daria o `itemId` e o gatilho de sync, mas exige HTTPS público — depende de deploy (spec em `pluggy-core/CLAUDE.md`).
 - Casing da API inconsistente; default silencioso `type: 'OUTRO'` no POST /api/income; ampliar `/admin`; backend de cripto; redesign de Alertas/Import (sem UI desde a T-026).
 
