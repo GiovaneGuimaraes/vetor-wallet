@@ -20,11 +20,15 @@ const login = vi.fn();
 const register = vi.fn();
 const confirmSignUp = vi.fn();
 const resendConfirmationCode = vi.fn();
+const forgotPassword = vi.fn();
+const resetPassword = vi.fn();
 
 let loginImpl: () => Promise<User> = () => Promise.reject(new Error('não definido'));
 let registerImpl: () => Promise<RegisterResult> = () => Promise.reject(new Error('não definido'));
 let confirmImpl: () => Promise<void> = () => Promise.resolve();
 let resendImpl: () => Promise<void> = () => Promise.resolve();
+let forgotImpl: () => Promise<void> = () => Promise.resolve();
+let resetImpl: () => Promise<void> = () => Promise.resolve();
 
 vi.mock('../api', async () => {
   // A classe de erro vem da REAL: `interpretAuthError` faz `instanceof`, e uma
@@ -48,6 +52,14 @@ vi.mock('../api', async () => {
     resendConfirmationCode: (...args: unknown[]) => {
       resendConfirmationCode(...args);
       return resendImpl();
+    },
+    forgotPassword: (...args: unknown[]) => {
+      forgotPassword(...args);
+      return forgotImpl();
+    },
+    resetPassword: (...args: unknown[]) => {
+      resetPassword(...args);
+      return resetImpl();
     },
   };
 });
@@ -91,11 +103,15 @@ async function cadastrarAtePendente(user: ReturnType<typeof userEvent.setup>) {
 }
 
 beforeEach(() => {
-  [login, register, confirmSignUp, resendConfirmationCode].forEach((m) => m.mockReset());
+  [login, register, confirmSignUp, resendConfirmationCode, forgotPassword, resetPassword].forEach(
+    (m) => m.mockReset()
+  );
   loginImpl = () => Promise.resolve(USER);
   registerImpl = () => Promise.resolve({ pendingConfirmation: true, email: 'alice@example.com' });
   confirmImpl = () => Promise.resolve();
   resendImpl = () => Promise.resolve();
+  forgotImpl = () => Promise.resolve();
+  resetImpl = () => Promise.resolve();
 });
 afterEach(() => cleanup());
 
@@ -215,5 +231,129 @@ describe('AuthPage — etapa de confirmação (T-106b)', () => {
 
     await waitFor(() => expect(resendConfirmationCode).toHaveBeenCalledWith('alice@example.com'));
     expect(screen.getByText(/Enviamos um novo código/)).toBeTruthy();
+  });
+});
+
+describe('AuthPage — recuperação de senha (T-108b)', () => {
+  const SENHA_NOVA = 'NovaSenha123!';
+
+  /** Vai do login até a tela de código+senha nova (ponto de partida comum). */
+  async function irAteTrocarSenha(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(botao('Esqueci minha senha'));
+    await user.type(campo(/E-mail/), 'alice@example.com');
+    await user.click(botao('Enviar código'));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Nova senha' })).toBeTruthy());
+  }
+
+  it('"Esqueci minha senha" só aparece no login, e leva à etapa de e-mail', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(screen.queryByRole('button', { name: 'Esqueci minha senha' })).toBeTruthy();
+    await user.click(botao('Esqueci minha senha'));
+
+    expect(screen.getByRole('heading', { name: 'Recuperar senha' })).toBeTruthy();
+    // register também não deve ter o link, para não confundir a etapa errada
+    await user.click(botao('Voltar'));
+    await irParaCadastro(user);
+    expect(screen.queryByRole('button', { name: 'Esqueci minha senha' })).toBeNull();
+  });
+
+  it('enviar o e-mail nunca diz se a conta existe — texto é sempre condicional', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(botao('Esqueci minha senha'));
+    await user.type(campo(/E-mail/), 'alice@example.com');
+    await user.click(botao('Enviar código'));
+
+    await waitFor(() => expect(forgotPassword).toHaveBeenCalledWith('alice@example.com'));
+    expect(screen.getByRole('heading', { name: 'Nova senha' })).toBeTruthy();
+    expect(screen.getByText(/tiver uma conta, um código/)).toBeTruthy();
+  });
+
+  it('botão de enviar código trava sem e-mail', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(botao('Esqueci minha senha'));
+
+    expect(botao('Enviar código').disabled).toBe(true);
+    await user.type(campo(/E-mail/), 'a');
+    expect(botao('Enviar código').disabled).toBe(false);
+  });
+
+  it('botão de trocar senha trava até código completo e senha nova válida', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await irAteTrocarSenha(user);
+
+    expect(botao('Trocar senha').disabled).toBe(true);
+
+    await user.type(campo(/Código de confirmação/), '123456');
+    expect(botao('Trocar senha').disabled).toBe(true); // senha nova ainda vazia
+
+    await user.type(campo(/Senha nova/), SENHA_NOVA);
+    expect(botao('Trocar senha').disabled).toBe(false);
+  });
+
+  it('trocar a senha sempre volta ao login com aviso condicional — nunca confirma o resultado', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await irAteTrocarSenha(user);
+
+    await user.type(campo(/Código de confirmação/), '123456');
+    await user.type(campo(/Senha nova/), SENHA_NOVA);
+    await user.type(campo(/Confirmar senha nova/), SENHA_NOVA);
+    await user.click(botao('Trocar senha'));
+
+    await waitFor(() =>
+      expect(resetPassword).toHaveBeenCalledWith({
+        email: 'alice@example.com',
+        code: '123456',
+        newPassword: SENHA_NOVA,
+      })
+    );
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Entrar' })).toBeTruthy());
+    expect(screen.getByText(/se o código estava certo/i)).toBeTruthy();
+  });
+
+  it('senhas diferentes na troca não chegam a sair do navegador', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await irAteTrocarSenha(user);
+
+    await user.type(campo(/Código de confirmação/), '123456');
+    await user.type(campo(/Senha nova/), SENHA_NOVA);
+    await user.type(campo(/Confirmar senha nova/), 'OutraSenha123!');
+    await user.click(botao('Trocar senha'));
+
+    expect(resetPassword).not.toHaveBeenCalled();
+    expect(screen.getByText('As senhas não coincidem')).toBeTruthy();
+  });
+
+  it('reenviar na etapa de troca de senha chama o forgot-password de novo, não o resend do cadastro', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await irAteTrocarSenha(user);
+
+    await user.click(botao('Reenviar'));
+
+    await waitFor(() => expect(forgotPassword).toHaveBeenCalledTimes(2));
+    expect(resendConfirmationCode).not.toHaveBeenCalled();
+    expect(screen.getByText(/Se houver uma conta com esse e-mail, um novo código/)).toBeTruthy();
+  });
+
+  it('falha real (rede/config) na recuperação vira mensagem de erro, não silêncio', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    forgotImpl = () => Promise.reject(new AuthApiError('Autenticacao indisponivel', null));
+
+    await user.click(botao('Esqueci minha senha'));
+    await user.type(campo(/E-mail/), 'alice@example.com');
+    await user.click(botao('Enviar código'));
+
+    await waitFor(() => expect(screen.getByText('Autenticacao indisponivel')).toBeTruthy());
+    expect(screen.queryByRole('heading', { name: 'Nova senha' })).toBeNull();
   });
 });
