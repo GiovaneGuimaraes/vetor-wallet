@@ -23,9 +23,17 @@ jobs:
           # checagem em toda PR que nao tocasse esses dois arquivos por ultimo.
           fetch-depth: 0
 
+      # Node 24 (decisao do humano, 2026-09-13). Estava no 20, que saiu do EOL,
+      # e a divergencia cobrou: o jsdom@30 dos testes de render da T-092 puxa um
+      # undici que exige Node novo — passou local (24) e quebrou so aqui, com um
+      # resumo dizendo "470 passed" enquanto os dois arquivos de teste de
+      # componente nem carregavam. Verde enganoso e pior que vermelho honesto.
+      # Nao e 22 porque o 22 ja esta em manutencao: seria sair do EOL para a
+      # proxima fila do EOL. A regra por tras: o CI so vale enquanto roda o
+      # mesmo runtime de quem desenvolve.
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - uses: pnpm/action-setup@v4
         with:
