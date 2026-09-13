@@ -38,14 +38,8 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Cuidado**: saldo de cartão (`CREDIT`) é **dívida** — só `BANK` entra. Ver a dupla contagem com caixinhas na T-091.
 - **Aceite**: patrimônio soma as contas `BANK` conectadas; sem conexão nada muda; nada novo é gravado; suítes verdes.
 
-### T-108a — Recuperação de senha: `cognito-core` + rotas
-- **Status**: PENDENTE · **Complexidade**: média
-- **Objetivo**: quem esquece a senha **não tem saída pelo app** (o bcrypt saiu na T-106). Adicionar `cognitoForgotPassword` e `cognitoConfirmForgotPassword` — irmãs de `cognitoConfirmSignUp`: `cognitoIdpCall` + `SECRET_HASH` sobre o e-mail, erro tipado, sem tocar o banco — e as rotas `POST /api/auth/forgot-password` e `/reset-password`, **sem sessão**, no padrão do `/confirm`.
-- **Trava**: as duas respondem **204 sempre**, inclusive para e-mail inexistente — o contrário transforma o formulário em enumerador de usuários. `UserNotFound`/`CodeMismatch` nunca vazam no corpo; sem `COGNITO_*` → 503.
-- **Aceite**: cobertura 100% no `cognito-core`; teste de rota para e-mail inexistente, código errado e senha fraca; suítes, `build`, `lint` e `format:check` verdes.
-
 ### T-108b — Recuperação de senha: tela no `AuthPage`
-- **Status**: PENDENTE · **Complexidade**: média · **Depende de**: T-108a (em série)
+- **Status**: PENDENTE · **Complexidade**: média · **Depende de**: T-108a (#175, mergeada)
 - **Objetivo**: "Esqueci minha senha" no login, nas duas etapas do Cognito: pede e-mail → código + nova senha (mesma forma da etapa `confirm` da T-106b) → volta ao login com aviso. Reaproveita `passwordPolicy.ts` e o par código/reenviar; lógica pura em `src/routes/*.ts` com teste ao lado.
 - **Atenção**: o backend responde 204 sempre, então a tela **não pode** dizer se o e-mail existe — "se houver conta, o código chegou". Não reabrir pelo texto o vazamento que a (a) fecha.
 - **Aceite**: teste de render (jsdom no topo, `vi.mock('../api')`) de troca de etapa, botão travado e erro; suítes, `build`, `lint` e `format:check` verdes.
