@@ -1,5 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { confirmSignUp, login, register, resendConfirmationCode } from '../api';
+import {
+  confirmSignUp,
+  forgotPassword,
+  login,
+  register,
+  resendConfirmationCode,
+  resetPassword,
+} from '../api';
 import { interpretRegisterResult } from '../routes/authRegister';
 import {
   CONFIRMATION_CODE_LENGTH,
@@ -7,6 +14,7 @@ import {
   interpretAuthError,
   normalizeConfirmationCode,
 } from '../routes/authConfirm';
+import { forgotDisabledReason, resetDisabledReason } from '../routes/authForgotPassword';
 import { passwordPolicyMet, passwordRules } from '../routes/passwordPolicy';
 import type { User } from '@vetor-wallet/shared';
 import { ThemeToggleButton } from './ThemeToggleButton';
@@ -55,8 +63,13 @@ const FEATURES: FeatureConfig[] = [
   // inteiro — rota, card da Home e backend. Nada a reanunciar aqui.
 ];
 
-/** A etapa `confirm` só existe quando o user pool exige verificação de e-mail (T-106). */
-type Mode = 'login' | 'register' | 'confirm';
+/**
+ * A etapa `confirm` só existe quando o user pool exige verificação de e-mail
+ * (T-106). `forgot`/`reset` são a recuperação de senha (T-108b): pede e-mail,
+ * depois código + senha nova — mesma forma de duas etapas do cadastro, com o
+ * mesmo par código/reenviar reaproveitado.
+ */
+type Mode = 'login' | 'register' | 'confirm' | 'forgot' | 'reset';
 
 /**
  * Cada campo é embrulhado num `<label>` (e não numa `<div>`), o que associa o
@@ -86,12 +99,18 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   // T-106: o pool exige confirmação de e-mail, então o cadastro tem uma etapa a
-  // mais. `pendingEmail` é o e-mail que o Cognito confirmou ter recebido — é ele
-  // que vai no `/confirm` e no `/resend-code`, e não o campo do formulário, que
-  // a pessoa pode editar enquanto o código não chega.
+  // mais. `pendingEmail` é o e-mail em curso na etapa de duas partes ativa —
+  // o que o Cognito confirmou ter recebido no cadastro (vai no `/confirm` e no
+  // `/resend-code`), ou o que a pessoa digitou na recuperação de senha (T-108b,
+  // vai no `/forgot-password` e no `/reset-password`) — nunca o campo de e-mail
+  // do formulário de login, que a pessoa pode seguir editando.
   const [pendingEmail, setPendingEmail] = useState('');
   const [code, setCode] = useState('');
   const [resending, setResending] = useState(false);
+  // T-108b: senha nova da recuperação — campos próprios porque `password`/
+  // `confirm` pertencem ao cadastro e continuam vivos se a pessoa voltar por ali.
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
 
   /**
    * Entra na etapa de confirmação. Único caminho para `mode: 'confirm'`, porque
@@ -134,8 +153,25 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
     setPassword('');
     setConfirm('');
     setCode('');
+    setNewPassword('');
+    setNewPasswordConfirm('');
     setError('');
     setNotice(message);
+  }
+
+  /**
+   * Entra na recuperação de senha (T-108b). Único caminho para `mode: 'forgot'`
+   * — pré-preenche com o e-mail já digitado no login, mas a pessoa pode trocar
+   * antes de enviar.
+   */
+  function goToForgotPassword() {
+    setMode('forgot');
+    setPendingEmail(email.trim());
+    setCode('');
+    setNewPassword('');
+    setNewPasswordConfirm('');
+    setError('');
+    setNotice('');
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -153,6 +189,16 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
       return;
     }
 
+    if (mode === 'reset' && !passwordPolicyMet(newPassword)) {
+      setError('A senha nova não atende aos requisitos listados abaixo do campo');
+      return;
+    }
+
+    if (mode === 'reset' && newPassword !== newPasswordConfirm) {
+      setError('As senhas não coincidem');
+      return;
+    }
+
     setLoading(true);
     try {
       if (mode === 'confirm') {
@@ -160,6 +206,22 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
         await finishConfirmation();
       } else if (mode === 'login') {
         onAuth(await login(email, password));
+      } else if (mode === 'forgot') {
+        // 204 sempre (T-108a) — não prova que o e-mail existe. O texto abaixo
+        // é deliberadamente condicional; ver `authForgotPassword.ts`.
+        await forgotPassword(pendingEmail.trim());
+        setCode('');
+        setNewPassword('');
+        setNewPasswordConfirm('');
+        setNotice(
+          'Se houver uma conta com esse e-mail, um código foi enviado. Confira também a caixa de spam.'
+        );
+        setMode('reset');
+      } else if (mode === 'reset') {
+        // Idem: 204 sempre, inclusive código errado ou vencido. O sucesso
+        // desta chamada nunca vira "senha trocada" — só o login prova isso.
+        await resetPassword({ email: pendingEmail.trim(), code, newPassword });
+        backToLogin('Se o código estava certo, a senha nova já vale — tente entrar.');
       } else {
         const outcome = interpretRegisterResult(await register(email, password));
         if (outcome.kind === 'authenticated') onAuth(outcome.user);
@@ -169,9 +231,11 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
       // Um login recusado por cadastro pendente não é senha errada: é a mesma
       // etapa de código, alcançada por outra porta (cadastrou, fechou o app,
       // voltou depois). Sem este desvio a conta ficaria presa — o app não tem
-      // credencial IAM para as operações `Admin*` do Cognito.
+      // credencial IAM para as operações `Admin*` do Cognito. Só se aplica a
+      // login/register: um erro em `forgot`/`reset` é sempre falha real de
+      // transporte (rede, `AUTH_UNAVAILABLE`), nunca desvio de fluxo.
       const outcome = interpretAuthError(err);
-      if (outcome.needsConfirmation && mode !== 'confirm') {
+      if (outcome.needsConfirmation && (mode === 'login' || mode === 'register')) {
         goToConfirmation(email.toLowerCase().trim(), outcome.message);
       } else {
         setError(outcome.message);
@@ -181,14 +245,27 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
     }
   }
 
+  /**
+   * Reenvia o código. Na etapa de cadastro (`confirm`) é `/resend-code`; na
+   * recuperação de senha (`reset`) é chamar `/forgot-password` de novo — o
+   * Cognito reenvia o código a cada `ForgotPassword`, e não existe um
+   * "resend" dedicado para essa etapa. As duas pontas mantêm a mesma cautela
+   * do 204: nunca confirmam que o e-mail existe.
+   */
   async function handleResend() {
     setError('');
     setNotice('');
     setResending(true);
     try {
-      await resendConfirmationCode(pendingEmail);
-      setCode('');
-      setNotice(`Enviamos um novo código para ${pendingEmail}.`);
+      if (mode === 'reset') {
+        await forgotPassword(pendingEmail);
+        setCode('');
+        setNotice('Se houver uma conta com esse e-mail, um novo código foi enviado.');
+      } else {
+        await resendConfirmationCode(pendingEmail);
+        setCode('');
+        setNotice(`Enviamos um novo código para ${pendingEmail}.`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
@@ -204,9 +281,13 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
     setConfirm('');
     setCode('');
     setPendingEmail('');
+    setNewPassword('');
+    setNewPasswordConfirm('');
   }
 
   const confirmBlocked = confirmDisabledReason({ code, loading });
+  const forgotBlocked = forgotDisabledReason({ email: pendingEmail, loading });
+  const resetBlocked = resetDisabledReason({ code, newPassword, loading });
 
   return (
     <div className="vw-landing-page">
@@ -279,7 +360,11 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
               ? 'Entrar'
               : mode === 'register'
                 ? 'Criar conta'
-                : 'Confirmar cadastro'}
+                : mode === 'confirm'
+                  ? 'Confirmar cadastro'
+                  : mode === 'forgot'
+                    ? 'Recuperar senha'
+                    : 'Nova senha'}
           </h2>
 
           {error && (
@@ -354,6 +439,139 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
                 </button>
               </p>
             </>
+          ) : mode === 'forgot' ? (
+            <>
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <p className="text-sm text-dim">
+                  Informe o e-mail da sua conta. Se ele estiver cadastrado, enviaremos um código de
+                  recuperação.
+                </p>
+
+                <label className="block">
+                  <span className={labelClass}>E-mail</span>
+                  <input
+                    className={inputClass}
+                    type="email"
+                    value={pendingEmail}
+                    onChange={(e) => setPendingEmail(e.target.value)}
+                    placeholder="voce@exemplo.com"
+                    autoComplete="email"
+                    autoFocus
+                    required
+                  />
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={forgotBlocked !== null}
+                  title={forgotBlocked ?? undefined}
+                  className="vw-btn-primary w-full text-sm font-semibold py-2.5 px-4 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-1"
+                >
+                  {loading ? 'Enviando...' : 'Enviar código'}
+                </button>
+              </form>
+
+              <p className="vw-landing-switch">
+                <button
+                  type="button"
+                  className="vw-landing-switch-link"
+                  onClick={() => switchMode('login')}
+                >
+                  Voltar
+                </button>
+              </p>
+            </>
+          ) : mode === 'reset' ? (
+            <>
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <p className="text-sm text-dim">
+                  Se <strong className="text-ink">{pendingEmail}</strong> tiver uma conta, um código
+                  de {CONFIRMATION_CODE_LENGTH} dígitos foi enviado para ele. Confira também a caixa
+                  de spam.
+                </p>
+
+                <label className="block">
+                  <span className={labelClass}>Código de confirmação</span>
+                  <input
+                    className={`${inputClass} text-center text-lg tracking-[0.4em]`}
+                    type="text"
+                    inputMode="numeric"
+                    value={code}
+                    onChange={(e) => setCode(normalizeConfirmationCode(e.target.value))}
+                    placeholder="000000"
+                    autoComplete="one-time-code"
+                    autoFocus
+                    required
+                  />
+                </label>
+
+                <label className="block">
+                  <span className={labelClass}>Senha nova</span>
+                  <input
+                    className={inputClass}
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Mínimo 8 caracteres"
+                    autoComplete="new-password"
+                    required
+                  />
+                </label>
+
+                <ul className="vw-password-rules">
+                  {passwordRules(newPassword).map((rule) => (
+                    <li
+                      key={rule.key}
+                      className={rule.ok ? 'vw-password-rule-ok' : 'vw-password-rule'}
+                    >
+                      <span aria-hidden="true">{rule.ok ? '✓' : '○'}</span> {rule.label}
+                    </li>
+                  ))}
+                </ul>
+
+                <label className="block">
+                  <span className={labelClass}>Confirmar senha nova</span>
+                  <input
+                    className={inputClass}
+                    type="password"
+                    value={newPasswordConfirm}
+                    onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                    required
+                  />
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={resetBlocked !== null}
+                  title={resetBlocked ?? undefined}
+                  className="vw-btn-primary w-full text-sm font-semibold py-2.5 px-4 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer mt-1"
+                >
+                  {loading ? 'Confirmando...' : 'Trocar senha'}
+                </button>
+              </form>
+
+              <p className="vw-landing-switch">
+                Não recebeu o código?{' '}
+                <button
+                  type="button"
+                  className="vw-landing-switch-link"
+                  onClick={handleResend}
+                  disabled={resending || loading}
+                >
+                  {resending ? 'Reenviando...' : 'Reenviar'}
+                </button>
+                {' · '}
+                <button
+                  type="button"
+                  className="vw-landing-switch-link"
+                  onClick={() => switchMode('login')}
+                >
+                  Voltar
+                </button>
+              </p>
+            </>
           ) : (
             <>
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -382,6 +600,18 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
                     required
                   />
                 </label>
+
+                {mode === 'login' && (
+                  <div className="text-right" style={{ marginTop: -8 }}>
+                    <button
+                      type="button"
+                      className="vw-landing-switch-link"
+                      onClick={goToForgotPassword}
+                    >
+                      Esqueci minha senha
+                    </button>
+                  </div>
+                )}
 
                 {/* T-106b: a recusa do Cognito é genérica ("senha não atende à
                     política"), então a lista tem de ser visível ENQUANTO digita —

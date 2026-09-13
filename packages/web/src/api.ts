@@ -155,6 +155,46 @@ export async function resendConfirmationCode(email: string): Promise<void> {
   if (!res.ok) throw await authError(res, 'Falha ao reenviar o codigo');
 }
 
+/**
+ * Inicia a recuperação de senha (T-108b, consumindo a rota da T-108a).
+ *
+ * O backend responde **204 sempre** — inclusive quando o e-mail não tem
+ * cadastro no pool — para não virar um oráculo de contas. Esta função não tem
+ * como saber se "deu certo" no sentido de "o e-mail existe": só sabe que o
+ * pedido chegou ao servidor. Quem decide o texto honesto é a tela
+ * (`AuthPage`), não este módulo.
+ */
+export async function forgotPassword(email: string): Promise<void> {
+  const res = await apiFetch('/api/auth/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw await authError(res, 'Falha ao iniciar a recuperação de senha');
+}
+
+/**
+ * Fecha a recuperação de senha com o código do e-mail e a senha nova
+ * (T-108b, rota da T-108a).
+ *
+ * Mesma cautela do `forgotPassword`: **204 sempre**, inclusive código errado
+ * ou vencido — o backend nunca confirma nem nega isso ao cliente. Um erro
+ * lançado por esta função é sempre um problema real de transporte/configuração
+ * (rede, `AUTH_UNAVAILABLE`), nunca "código inválido".
+ */
+export async function resetPassword(params: {
+  email: string;
+  code: string;
+  newPassword: string;
+}): Promise<void> {
+  const res = await apiFetch('/api/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw await authError(res, 'Falha ao trocar a senha');
+}
+
 export async function logout(): Promise<void> {
   await apiFetch('/api/auth/logout', { method: 'POST' });
 }
