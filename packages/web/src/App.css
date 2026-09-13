@@ -535,6 +535,16 @@ body,
   text-decoration: underline;
 }
 
+/* O "Esqueci minha senha" (T-108b) e o unico link de troca de etapa que vive
+   FORA do paragrafo .vw-landing-switch, entao ele nao herdava os 12px de la e
+   saia do tamanho de todos os outros. Mesmo tamanho, mesma familia: o link e
+   secundario, quem chega nesta tela quer entrar. */
+.vw-auth-forgot {
+  margin-top: -8px;
+  text-align: right;
+  font-size: 12px;
+}
+
 /* T-106b: requisitos da senha do user pool, marcados enquanto digita. */
 .vw-password-rules {
   margin: -2px 0 0;

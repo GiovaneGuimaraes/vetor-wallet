@@ -602,7 +602,7 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
                 </label>
 
                 {mode === 'login' && (
-                  <div className="text-right" style={{ marginTop: -8 }}>
+                  <div className="vw-auth-forgot">
                     <button
                       type="button"
                       className="vw-landing-switch-link"
