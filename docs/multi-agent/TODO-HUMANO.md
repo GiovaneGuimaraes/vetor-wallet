@@ -18,20 +18,22 @@
 
 ## Abertos
 
-### [2026-09-10] O CI roda Node 20 (em EOL) e você desenvolve no 24 — bumpar ou congelar?
+### [2026-09-10] ~~O CI roda Node 20 (em EOL) e você desenvolve no 24 — bumpar ou congelar?~~ — RESPONDIDO em 2026-09-13 (opção 1)
 - **Origem**: orquestrador (achado ao fechar a T-092, #172)
 - **Bloqueia**: nada hoje. É prevenção — e já cobrou uma vez.
 - **O que aconteceu**: o `jsdom@30` dos testes de render puxa `undici@8`, que usa uma API de Node mais novo que o 20 fixado em `.github/workflows/ci.yml`. Local (Node 24) passou; o CI quebrou. **E quebrou mal**: o resumo dizia "470 passed" enquanto os dois arquivos de teste de componente nem chegavam a carregar — verde enganoso, não vermelho honesto. Resolvido com o mínimo (`jsdom@25`, que declara `node >= 18`), mas isso trata o sintoma.
 - **A decisão**: (1) **bumpar o CI para Node 22 ou 24** — alinha com o seu ambiente, sai do EOL e evita a próxima dependência que exija Node novo; custa uma rodada de CI para descobrir se algum package reclama. (2) **congelar no 20 e escolher dependências por ele** — mais previsível, mas você vai bater nisso de novo, e Node 20 não recebe mais correção de segurança.
 - **Recomendação**: opção 1. O motivo não é a moda da versão: é que **o CI só vale enquanto ele roda o mesmo que você roda**. Um CI num runtime que ninguém usa aprova código que quebra na máquina de quem trabalha, e reprova código que funciona — os dois erros já aconteceram aqui em um dia.
-- **Resposta do humano**: _(preencher)_
+- **Resposta do humano (2026-09-13)**: opção 1 — "podemos trocar o que está deprecated". **Versão escolhida: Node 24**, e não 22: o 22 entrou em manutenção em out/2025, o 24 é o LTS ativo e é o que roda na máquina dele — bumpar para o 22 seria sair do EOL para a próxima fila do EOL. Junto vai a **volta do `jsdom` para o 30**, porque o pin no 25 só existia para caber no Node 20; mantê-lo depois do bump seria guardar o sintoma sem a doença. Feito inline pelo orquestrador (higiene de repo).
 
 ### [2026-09-10] Troque a senha da sua conta pela tela de Conta
 - **Origem**: orquestrador (testes da T-106b, 2026-09-09)
 - **Bloqueia**: nada. É higiene de credencial.
 - **Pendência**: a senha da sua conta foi combinada e usada **dentro de uma sessão de chat**, para eu conseguir provar o cadastro e o login contra o pool real. Ela nunca entrou em arquivo versionado, log ou corpo de PR — mas está no histórico daquela conversa, que não é lugar de senha viva. A troca pela tela de Conta resolve, e o fluxo está testado de ponta a ponta (inclusive o caso de mais de uma hora depois do login, que estava quebrado até a #172).
 - **Por que não fiz por você**: qualquer senha que eu escolhesse voltaria a passar por aqui — o único jeito de ela ser só sua é você digitá-la.
-- **Resposta do humano**: _(preencher)_
+- **Pergunta do humano (2026-09-13)**: "a UI está lidando com troca de senha?" — **está**. A tela `/conta` tem a seção "Alterar senha" (senha atual + nova + confirmação), entregue na T-094 e ligada ao `ChangePassword` do Cognito na T-106; a T-092 (#172) consertou justamente o caso de trocar mais de uma hora depois do login. **Nada falta para esta pendência** — falta você digitar a senha nova.
+- **O que de fato falta no auth** (resposta à segunda parte, "faça as UIs que faltam"): **recuperação de senha**. Quem esquecer a senha não tem saída nenhuma pelo app — nem tela, nem rota, nem `ForgotPassword`/`ConfirmForgotPassword` no `cognito-core`. Virou a **T-108a/b** no backlog (2026-09-13).
+- **Resposta do humano**: _(segue aberta: é ação sua, não resposta)_
 
 ### [2026-08-20] ~~Roteiro AWS: os 6 passos até o user pool do Cognito funcionar~~ — CONCLUÍDO em 2026-09-09 (T-106)
 - **Origem**: orquestrador (conversa de 2026-08-20)
@@ -68,14 +70,15 @@
 - **A decisão sobre a confirmação de e-mail continua sua, e agora custa menos**: o backend cobre os dois mundos (`POST /api/auth/confirm` e `/resend-code` existem). Se você escolher manter a confirmação por código, falta só a **tela** de digitar o código no web — é tarefa pequena e eu abro quando você disser. Se auto-confirmar ou desligar a verificação no pool, atenção: **o gate de vínculo continua exigindo e-mail verificado**, então auto-confirmar o cadastro não basta para vincular a conta antiga.
 - **Resposta do humano**: _(preencher)_
 
-### [2026-08-18] Subir o server uma vez para o `DROP` de Metas acontecer no seu banco (T-091b2, #168)
+### [2026-08-18] ~~Subir o server uma vez para o `DROP` de Metas acontecer no seu banco (T-091b2, #168)~~ — RESOLVIDO em 2026-09-13 (já tinha acontecido)
 - **Origem**: orquestrador (fechamento da T-091b2)
 - **Bloqueia**: nada — informativo, mas é o único passo que só você pode dar.
 - **O que está feito**: a T-091b2 mergeou em #168 com a migração de rebuild. **O seu `wallet.db` ainda não mudou** — a migração roda no `initDb()`, ou seja, no **próximo `pnpm dev`**. Quando você subir, `goals` e `savings_entries.goal_id` somem de vez e não voltam nos boots seguintes.
 - **O backup existe e está fora do repo**: `C:\Users\giovane\Desktop\vetor-wallet-backups\` tem a cópia byte a byte do `wallet.db` de antes (`wallet-pre-t091b2-2026-08-18.db`) e o export das metas (`goals-dump-2026-08-18.json`). **Não delete essa pasta** — ela é a única reversibilidade que existe. Também não a mova para dentro do repo: ele é público.
 - **O que o dump revelou, e diminui o risco**: eram **2 metas e nenhum aporte vinculado**, e a sua tabela de poupança está vazia. O rebuild vai copiar zero linhas.
 - **O que conferir depois de subir**: a Home e a Poupança abrem sem erro, e o saldo da poupança mostra o mesmo número de antes. Se algo estiver errado, pare o server e me diga **antes** de lançar coisa nova — restaurar é copiar o arquivo de backup de volta, e isso só vale enquanto você não tiver gravado dado novo em cima.
-- **Resposta do humano**: _(preencher)_
+- **Resolução (2026-09-13)**: o humano autorizou rodar a migração, e ao abrir o `wallet.db` ela **já estava aplicada** — o boot aconteceu sozinho em 2026-09-09, nos testes da T-106 contra o pool real. Estado conferido: `goals` não existe mais, `savings_entries` não tem `goal_id`, e as 21 tabelas restantes estão lá com os dados do humano intactos (poupança vazia, como o dump de 2026-08-18 previa). Nada a fazer.
+- **Achado que fica (2026-09-13)**: a pasta de backups no Desktop (vetor-wallet-backups) **não existe mais** nesta máquina — o backup pré-T-091b2 e o dump das metas sumiram. Não muda nada aqui (a migração passou, os dados estão íntegros e não havia metas com aporte), mas a próxima migração destrutiva — o `DROP` de `users.password_hash` — precisa criar o dump do zero e **conferir que ele existe** antes de tocar no banco, em vez de confiar numa pasta de outro ciclo.
 
 ### [2026-08-18] ~~Dados do user pool do Cognito e a política de confirmação de e-mail~~ — RESPONDIDO em 2026-09-09 (T-106)
 - **Origem**: orquestrador (T-106, pedida por você no chat de 2026-08-18)

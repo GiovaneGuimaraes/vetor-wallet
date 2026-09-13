@@ -38,6 +38,18 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Cuidado**: saldo de cartão (`CREDIT`) é **dívida** — só `BANK` entra. Ver a dupla contagem com caixinhas na T-091.
 - **Aceite**: patrimônio soma as contas `BANK` conectadas; sem conexão nada muda; nada novo é gravado; suítes verdes.
 
+### T-108a — Recuperação de senha: `cognito-core` + rotas
+- **Status**: PENDENTE · **Complexidade**: média
+- **Objetivo**: quem esquece a senha **não tem saída pelo app** (o bcrypt saiu na T-106). Adicionar `cognitoForgotPassword` e `cognitoConfirmForgotPassword` — irmãs de `cognitoConfirmSignUp`: `cognitoIdpCall` + `SECRET_HASH` sobre o e-mail, erro tipado, sem tocar o banco — e as rotas `POST /api/auth/forgot-password` e `/reset-password`, **sem sessão**, no padrão do `/confirm`.
+- **Trava**: as duas respondem **204 sempre**, inclusive para e-mail inexistente — o contrário transforma o formulário em enumerador de usuários. `UserNotFound`/`CodeMismatch` nunca vazam no corpo; sem `COGNITO_*` → 503.
+- **Aceite**: cobertura 100% no `cognito-core`; teste de rota para e-mail inexistente, código errado e senha fraca; suítes, `build`, `lint` e `format:check` verdes.
+
+### T-108b — Recuperação de senha: tela no `AuthPage`
+- **Status**: PENDENTE · **Complexidade**: média · **Depende de**: T-108a (em série)
+- **Objetivo**: "Esqueci minha senha" no login, nas duas etapas do Cognito: pede e-mail → código + nova senha (mesma forma da etapa `confirm` da T-106b) → volta ao login com aviso. Reaproveita `passwordPolicy.ts` e o par código/reenviar; lógica pura em `src/routes/*.ts` com teste ao lado.
+- **Atenção**: o backend responde 204 sempre, então a tela **não pode** dizer se o e-mail existe — "se houver conta, o código chegou". Não reabrir pelo texto o vazamento que a (a) fecha.
+- **Aceite**: teste de render (jsdom no topo, `vi.mock('../api')`) de troca de etapa, botão travado e erro; suítes, `build`, `lint` e `format:check` verdes.
+
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 
 - **Acoplamentos core→core** (regra 6 do `PACKAGES.md`; pré-existentes): `auth-core → portfolio-core` e `insights-core → portfolio-core` — a saída é a **rota** orquestrar. E `portfolio-core/snapshots.ts` tem um **segundo client da brapi** (`fetchQuotesStrict`, que lança) paralelo ao `brapi-core.fetchQuotes` (que degrada em silêncio) — unificar.
@@ -47,7 +59,6 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Três origens de mascote no web** (`mascots.ts`, `AuthPage.tsx`, `HomePage.tsx`); só a primeira foi unificada na T-020.
 - **Movimentação interna no OFX** (T-085/T-088): só `MEMO` livre, sem categoria — adivinhar por descrição é o que a T-085 recusa fazer com dinheiro.
 - **Backfill histórico de snapshots** via `hourly_quote_insights`; agendador do job de insights (o da T-061 morre com o processo).
-- **Recuperação de senha não existe** (T-106): quem esquecer a senha **não tem saída pelo app**. O bcrypt saiu, o pool não expõe `Admin*` sem credencial IAM e `ForgotPassword`/`ConfirmForgotPassword` nunca foram implementados — ficaram fora do escopo da T-106 quando ainda não havia pool de verdade. Agora há, e o app tem exatamente um usuário sem plano B. As duas chamadas são irmãs do que já existe (`cognitoIdpCall` + `SECRET_HASH` sobre o e-mail) e a tela é a mesma do código de confirmação, que a T-106b já entregou.
 - **`users.password_hash` é coluna morta** desde a T-106: nada lê, nada escreve. O `DROP` é migração destrutiva (tarefa própria, com dump para fora do repo antes), e enquanto ela não vier a coluna guarda hash de senha antiga sem serventia.
 - **Webhook da Pluggy** (`item/*`) daria o `itemId` e o gatilho de sync, mas exige HTTPS público — depende de deploy (spec em `pluggy-core/CLAUDE.md`).
 - Casing da API inconsistente; default silencioso `type: 'OUTRO'` no POST /api/income; ampliar `/admin`; backend de cripto; redesign de Alertas/Import (sem UI desde a T-026).
