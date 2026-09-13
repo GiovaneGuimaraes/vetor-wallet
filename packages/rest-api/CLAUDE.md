@@ -141,8 +141,11 @@ ser um contrato externo e essa liberdade acaba.
 
 - **Turso** para deploy multi-usuário (zero reescrita de queries).
 - **AWS Cognito entrou na T-106** (identidade única; `auth/router.ts` orquestra
-  `@vetor-wallet/cognito-core` + `@vetor-wallet/auth-core`). Continua TODO:
-  recuperação de senha (`ForgotPassword`), MFA, login social, a tela de digitar o
-  código de confirmação no `web` (backend pronto: `POST /api/auth/confirm` e
-  `/resend-code`) e o `DROP` de `users.password_hash`.
+  `@vetor-wallet/cognito-core` + `@vetor-wallet/auth-core`). **Recuperação de
+  senha entrou na T-108a**: `POST /api/auth/forgot-password` e
+  `/reset-password`, sempre 204 (mascarado), fail closed a 503 sem
+  `COGNITO_*`. Continua TODO: MFA, login social, a tela de recuperação de
+  senha e a de digitar o código de confirmação no `web` (backend pronto:
+  `POST /api/auth/confirm`, `/resend-code`, `/forgot-password`,
+  `/reset-password`) e o `DROP` de `users.password_hash`.
 - Job de insights horários em Lambda + EventBridge (hoje: cli manual + scheduler in-process de snapshots).

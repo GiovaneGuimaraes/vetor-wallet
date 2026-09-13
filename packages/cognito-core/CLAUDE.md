@@ -44,6 +44,8 @@ src/
 ├── cognitoSignUp.ts            # SignUp → { userSub, userConfirmed }
 ├── cognitoConfirmSignUp.ts     # ConfirmSignUp (código do e-mail)
 ├── cognitoResendConfirmationCode.ts
+├── cognitoForgotPassword.ts     # ForgotPassword (inicia a recuperação, T-108a)
+├── cognitoConfirmForgotPassword.ts # ConfirmForgotPassword (código + senha nova)
 ├── cognitoInitiateAuth.ts      # login por senha
 ├── cognitoRefreshSession.ts    # REFRESH_TOKEN_AUTH (access token novo)
 ├── cognitoGetUser.ts           # GetUser → { sub, email, emailVerified }
@@ -165,6 +167,29 @@ invalida. O `ChangePassword` do Cognito não revoga tokens (quem revoga é
 - **Env lido dentro das funções**, nunca no top-level (mesmo motivo do
   `BRAPI_TOKEN` no `brapi-core`): permite trocar o env entre casos de teste.
 
+## Recuperação de senha: `ForgotPassword`/`ConfirmForgotPassword` (T-108a)
+
+As duas funções são irmãs exatas de `cognitoResendConfirmationCode` e
+`cognitoConfirmSignUp` — mesmo `cognitoIdpCall`, `SECRET_HASH` sobre o e-mail
+(`SecretHash` na raiz, igual às demais operações fora de `InitiateAuth`), erro
+tipado, sem tocar o banco. `ConfirmForgotPassword` leva um campo a mais que o
+Cognito exige, `Password` (a senha nova) — nunca aparece em log ou mensagem de
+erro, mesma doutrina do código de confirmação.
+
+**Este package NÃO decide "204 sempre".** As duas funções propagam
+`CognitoApiError` normalmente, inclusive `userNotFound`. Quem mascara o
+resultado atrás de um 204 uniforme (para o formulário não virar enumerador de
+contas — o app tem exatamente um usuário real) é a rota
+(`packages/rest-api/src/api/auth/router.ts`, `POST /forgot-password` e
+`/reset-password`): só `configMissing` continua virando 503 lá, e erro de
+formato do pedido vira 400 antes de a AWS ser chamada. Ver o comentário na
+rota, que também documenta a consequência para a T-108b (a tela não pode dizer
+"e-mail não encontrado").
+
+**O que segue sem prova contra o pool real**: se `ForgotPassword` respeita a
+mesma cota diária de e-mail do envio default do Cognito (ver seção "Envio de
+e-mail" abaixo) — plausível, mas só o uso real confirma.
+
 ## Contrato da API (assumido × confirmado)
 
 Documentado pela AWS e implementado aqui:
@@ -259,10 +284,12 @@ preenchidos pelo humano; o repo é público. Ver `packages/rest-api/.env.example
 
 ## Fora de escopo (T-106)
 
-MFA, login social, recuperação de senha (`ForgotPassword`/`ConfirmForgotPassword`),
-deploy, `DROP` de `users.password_hash` e qualquer operação `Admin*`. A tela de
-digitar o código no `web` **saiu do fora-de-escopo**: foi feita na T-106b, quando
-o humano decidiu manter a confirmação de e-mail ligada no pool.
+MFA, login social, deploy, `DROP` de `users.password_hash` e qualquer operação
+`Admin*`. A tela de digitar o código no `web` **saiu do fora-de-escopo**: foi
+feita na T-106b, quando o humano decidiu manter a confirmação de e-mail ligada
+no pool. **Recuperação de senha (`ForgotPassword`/`ConfirmForgotPassword`)
+saiu do fora-de-escopo na T-108a** (client + rotas); a tela no `web` é a
+T-108b.
 
 ## Convenções
 

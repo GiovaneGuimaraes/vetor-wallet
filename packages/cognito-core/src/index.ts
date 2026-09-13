@@ -14,6 +14,8 @@ export { cognitoSignUp } from './cognitoSignUp';
 export type { CognitoSignUpResult } from './cognitoSignUp';
 export { cognitoConfirmSignUp } from './cognitoConfirmSignUp';
 export { cognitoResendConfirmationCode } from './cognitoResendConfirmationCode';
+export { cognitoForgotPassword } from './cognitoForgotPassword';
+export { cognitoConfirmForgotPassword } from './cognitoConfirmForgotPassword';
 export { cognitoInitiateAuth } from './cognitoInitiateAuth';
 export { cognitoRefreshSession } from './cognitoRefreshSession';
 export { cognitoGetUser } from './cognitoGetUser';

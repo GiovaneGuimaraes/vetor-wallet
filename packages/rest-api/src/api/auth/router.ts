@@ -12,7 +12,9 @@ import {
 } from '@vetor-wallet/auth-core';
 import {
   cognitoChangePassword,
+  cognitoConfirmForgotPassword,
   cognitoConfirmSignUp,
+  cognitoForgotPassword,
   cognitoGetUser,
   cognitoInitiateAuth,
   cognitoRefreshSession,
@@ -249,6 +251,95 @@ router.post(
     } catch (err) {
       respondCognitoError(res, err);
     }
+  })
+);
+
+/**
+ * `POST /api/auth/forgot-password` — inicia a recuperação de senha (T-108a).
+ *
+ * **Sempre 204, sem corpo** — inclusive quando o e-mail não tem cadastro no
+ * pool. É a mesma doutrina do `userNotFound` em `cognitoErrorResponse`: um
+ * formulário que responde diferente para "e-mail existe" e "e-mail não existe"
+ * vira um oráculo de contas, e este app tem exatamente um usuário real. Só dois
+ * desfechos escapam do 204: corpo malformado (400, checado ANTES de falar com o
+ * Cognito) e falta de configuração do Cognito (503, fail closed).
+ *
+ * **Consequência para a tela (T-108b): não existe "e-mail não encontrado".**
+ * A UI deve tratar 204 como "se o e-mail existir, um código foi enviado" —
+ * nunca confirmar ou negar a existência da conta.
+ */
+router.post(
+  '/forgot-password',
+  asyncHandler(async (req: Request, res: Response) => {
+    const { email } = req.body as { email?: string };
+
+    if (!email || typeof email !== 'string' || !isValidEmail(email.trim())) {
+      res.status(400).json({ error: 'E-mail invalido' });
+      return;
+    }
+
+    try {
+      await cognitoForgotPassword(email);
+    } catch (err) {
+      if (isCognitoApiError(err) && err.code === 'configMissing') {
+        respondCognitoError(res, err);
+        return;
+      }
+      if (!isCognitoApiError(err)) throw err;
+      // Todo outro desfecho do Cognito (e-mail sem cadastro, throttling, rede,
+      // erro inesperado) fica só no log: a resposta ao cliente é sempre 204.
+      console.error('[auth] forgot-password: Cognito respondeu', err.code, '- mascarado em 204');
+    }
+
+    res.status(204).send();
+  })
+);
+
+/**
+ * `POST /api/auth/reset-password` — fecha a recuperação de senha com o código
+ * do e-mail e a senha nova (T-108a).
+ *
+ * Mesma trava do `/forgot-password`: **sempre 204**, inclusive para código
+ * errado/vencido ou senha recusada pela política do pool. Por isso a validação
+ * de formato aqui NÃO inclui um mínimo de caracteres para `newPassword` — isso
+ * é política de senha, e delegamos ao Cognito (`InvalidPasswordException` vira
+ * `weakPassword`, mascarado como qualquer outro desfecho). Só formato bruto do
+ * pedido (campo ausente ou do tipo errado) vira 400.
+ */
+router.post(
+  '/reset-password',
+  asyncHandler(async (req: Request, res: Response) => {
+    const { email, code, newPassword } = req.body as {
+      email?: string;
+      code?: string;
+      newPassword?: string;
+    };
+
+    if (!email || typeof email !== 'string' || !isValidEmail(email.trim())) {
+      res.status(400).json({ error: 'E-mail invalido' });
+      return;
+    }
+    if (!code || typeof code !== 'string' || !code.trim()) {
+      res.status(400).json({ error: 'Codigo de confirmacao obrigatorio' });
+      return;
+    }
+    if (!newPassword || typeof newPassword !== 'string') {
+      res.status(400).json({ error: 'Senha nova obrigatoria' });
+      return;
+    }
+
+    try {
+      await cognitoConfirmForgotPassword({ email, code, newPassword });
+    } catch (err) {
+      if (isCognitoApiError(err) && err.code === 'configMissing') {
+        respondCognitoError(res, err);
+        return;
+      }
+      if (!isCognitoApiError(err)) throw err;
+      console.error('[auth] reset-password: Cognito respondeu', err.code, '- mascarado em 204');
+    }
+
+    res.status(204).send();
   })
 );
 
