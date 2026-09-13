@@ -206,6 +206,27 @@ export function installFakeCognito(options: FakeCognitoOptions = {}): FakeCognit
       return awsOk({ CodeDeliveryDetails: { Destination: 'a***@e***.com' } });
     }
 
+    if (action === 'ForgotPassword') {
+      const username = String(body.Username);
+      const bad = checkSecretHash(username, body.SecretHash);
+      if (bad) return bad;
+      const user = users.get(username);
+      if (!user) return awsError('UserNotFoundException');
+      return awsOk({ CodeDeliveryDetails: { Destination: 'a***@e***.com' } });
+    }
+
+    if (action === 'ConfirmForgotPassword') {
+      const username = String(body.Username);
+      const bad = checkSecretHash(username, body.SecretHash);
+      if (bad) return bad;
+      const user = users.get(username);
+      if (!user) return awsError('UserNotFoundException');
+      if (String(body.ConfirmationCode) !== user.code) return awsError('CodeMismatchException');
+      if (String(body.Password).length < 8) return awsError('InvalidPasswordException');
+      user.password = String(body.Password);
+      return awsOk({});
+    }
+
     if (action === 'InitiateAuth' && body.AuthFlow === 'USER_PASSWORD_AUTH') {
       const username = String(body.AuthParameters.USERNAME);
       const bad = checkSecretHash(username, body.AuthParameters.SECRET_HASH);

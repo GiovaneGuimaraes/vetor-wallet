@@ -144,6 +144,126 @@ describe('registro no pool que EXIGE confirmação de e-mail (T-106)', () => {
   });
 });
 
+describe('recuperação de senha (T-108a)', () => {
+  let app: Express;
+  let pool: FakeCognitoPool;
+
+  beforeAll(async () => {
+    pool = installFakeCognito({ autoConfirm: true });
+    app = await buildApp();
+    await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'recupera@example.com', password: 'senha-forte-1' });
+  });
+
+  afterAll(() => pool.restore());
+
+  it('e-mail INEXISTENTE responde 204, igual ao e-mail que existe (nao vira oraculo de contas)', async () => {
+    const existente = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ email: 'recupera@example.com' });
+    const inexistente = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ email: 'ninguem-aqui@example.com' });
+
+    expect(existente.status).toBe(204);
+    expect(existente.body).toEqual({});
+    expect(inexistente.status).toBe(204);
+    expect(inexistente.body).toEqual({});
+  });
+
+  it('valida o corpo de /forgot-password antes de falar com a AWS', async () => {
+    const antes = pool.calls.length;
+    expect((await request(app).post('/api/auth/forgot-password').send({})).status).toBe(400);
+    expect(
+      (await request(app).post('/api/auth/forgot-password').send({ email: 'nao-e-email' })).status
+    ).toBe(400);
+    expect(pool.calls.length).toBe(antes);
+  });
+
+  it('reseta a senha com o codigo certo e o login passa a usar a senha nova', async () => {
+    const res = await request(app).post('/api/auth/reset-password').send({
+      email: ' Recupera@Example.com ',
+      code: ' 123456 ',
+      newPassword: 'senha-recuperada-1',
+    });
+    expect(res.status).toBe(204);
+
+    const loginAntiga = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'recupera@example.com', password: 'senha-forte-1' });
+    expect(loginAntiga.status).toBe(401);
+
+    const loginNova = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'recupera@example.com', password: 'senha-recuperada-1' });
+    expect(loginNova.status).toBe(200);
+  });
+
+  it('CODIGO ERRADO responde 204 (mascarado), nao 400', async () => {
+    const res = await request(app).post('/api/auth/reset-password').send({
+      email: 'recupera@example.com',
+      code: '000000',
+      newPassword: 'outra-senha-1',
+    });
+    expect(res.status).toBe(204);
+    expect(res.body).toEqual({});
+
+    // A senha NAO mudou: o codigo era invalido.
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'recupera@example.com', password: 'outra-senha-1' });
+    expect(login.status).toBe(401);
+  });
+
+  it('SENHA FRACA (recusada pela politica do pool) responde 204 (mascarado), nao 400', async () => {
+    const res = await request(app).post('/api/auth/reset-password').send({
+      email: 'recupera@example.com',
+      code: '123456',
+      newPassword: 'curta',
+    });
+    expect(res.status).toBe(204);
+    expect(res.body).toEqual({});
+  });
+
+  it('E-MAIL INEXISTENTE em /reset-password tambem responde 204', async () => {
+    const res = await request(app).post('/api/auth/reset-password').send({
+      email: 'ninguem-aqui@example.com',
+      code: '123456',
+      newPassword: 'senha-qualquer-1',
+    });
+    expect(res.status).toBe(204);
+    expect(res.body).toEqual({});
+  });
+
+  it('valida o corpo de /reset-password antes de falar com a AWS', async () => {
+    const antes = pool.calls.length;
+    expect((await request(app).post('/api/auth/reset-password').send({})).status).toBe(400);
+    expect(
+      (
+        await request(app)
+          .post('/api/auth/reset-password')
+          .send({ email: 'nao-e-email', code: '123456', newPassword: 'senha-nova-1' })
+      ).status
+    ).toBe(400);
+    expect(
+      (
+        await request(app)
+          .post('/api/auth/reset-password')
+          .send({ email: 'recupera@example.com', code: '  ', newPassword: 'senha-nova-1' })
+      ).status
+    ).toBe(400);
+    expect(
+      (
+        await request(app)
+          .post('/api/auth/reset-password')
+          .send({ email: 'recupera@example.com', code: '123456' })
+      ).status
+    ).toBe(400);
+    expect(pool.calls.length).toBe(antes);
+  });
+});
+
 describe('registro no pool SEM confirmação de e-mail (T-106)', () => {
   let app: Express;
   let pool: FakeCognitoPool;
@@ -732,6 +852,11 @@ describe('fail closed sem configuração do Cognito (T-106)', () => {
       ['/api/auth/login', { email: 'sem-config@example.com', password: 'senha-forte-1' }],
       ['/api/auth/confirm', { email: 'sem-config@example.com', code: '123456' }],
       ['/api/auth/resend-code', { email: 'sem-config@example.com' }],
+      ['/api/auth/forgot-password', { email: 'sem-config@example.com' }],
+      [
+        '/api/auth/reset-password',
+        { email: 'sem-config@example.com', code: '123456', newPassword: 'senha-forte-1' },
+      ],
     ] as [string, Record<string, string>][]) {
       const res = await request(app).post(path).send(body);
       expect(res.status).toBe(503);
