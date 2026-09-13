@@ -38,12 +38,6 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Cuidado**: saldo de cartão (`CREDIT`) é **dívida** — só `BANK` entra. Ver a dupla contagem com caixinhas na T-091.
 - **Aceite**: patrimônio soma as contas `BANK` conectadas; sem conexão nada muda; nada novo é gravado; suítes verdes.
 
-### T-108b — Recuperação de senha: tela no `AuthPage`
-- **Status**: PENDENTE · **Complexidade**: média · **Depende de**: T-108a (#175, mergeada)
-- **Objetivo**: "Esqueci minha senha" no login, nas duas etapas do Cognito: pede e-mail → código + nova senha (mesma forma da etapa `confirm` da T-106b) → volta ao login com aviso. Reaproveita `passwordPolicy.ts` e o par código/reenviar; lógica pura em `src/routes/*.ts` com teste ao lado.
-- **Atenção**: o backend responde 204 sempre, então a tela **não pode** dizer se o e-mail existe — "se houver conta, o código chegou". Não reabrir pelo texto o vazamento que a (a) fecha.
-- **Aceite**: teste de render (jsdom no topo, `vi.mock('../api')`) de troca de etapa, botão travado e erro; suítes, `build`, `lint` e `format:check` verdes.
-
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 
 - **Acoplamentos core→core** (regra 6 do `PACKAGES.md`; pré-existentes): `auth-core → portfolio-core` e `insights-core → portfolio-core` — a saída é a **rota** orquestrar. E `portfolio-core/snapshots.ts` tem um **segundo client da brapi** (`fetchQuotesStrict`, que lança) paralelo ao `brapi-core.fetchQuotes` (que degrada em silêncio) — unificar.

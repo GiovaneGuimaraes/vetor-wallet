@@ -74,10 +74,17 @@ ficou melhor.
 | T-013 | módulo puro com lógica de cálculo e sem teste (o `CLAUDE.md` exige) | política de testes |
 | T-049 | `CLAUDE.md` contraditório + faltando teste do caminho positivo | política de testes |
 | T-053 | a **instrução do orquestrador** estava errada, não o código | prompt, não modelo |
+| T-108b | duas funções com a **mesma assinatura** (`email => Promise<void>`) trocáveis sem erro de tipo | comportamento errado em silêncio |
 
 **Limite honesto**: o diff exato que foi reprovado nem sempre sobrevive (foi corrigido na mesma
 branch antes do merge). O que se reusa aqui é o **caso** — a situação e o sinal —, não um
 artefato pronto para rodar. Reconstituir o diff, quando vale, é `git log` na branch da tarefa.
+
+
+**Técnica que o revisor da T-108b usou e vale repetir** (2026-09-13): quando o achado depende de
+um teste existente estar certo, **mutar o código e conferir que o teste falha** custa um minuto e
+troca "o teste cobre" por "o teste prova". Ele trocou a chamada bifurcada, viu o teste vermelho e
+reverteu. Vale sempre que duas funções são intercambiáveis para o compilador.
 
 ## Origem
 
