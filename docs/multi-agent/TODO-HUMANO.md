@@ -18,6 +18,17 @@
 
 ## Abertos
 
+### [2026-09-13] Migração para AppSync + Relay: 4 decisões antes da primeira linha
+- **Origem**: orquestrador (pedido do humano, 2026-09-13)
+- **Bloqueia**: a fase 1 da migração. Nada entra no backlog sem isso.
+- **O plano completo**: [`plano-appsync-relay.md`](./plano-appsync-relay.md) — o que você faz na AWS (8 passos), o que eu faço no código, a ordem em 6 fases e as armadilhas.
+- **Decisão 1 — para onde vai o banco.** O SQLite é um arquivo no seu disco e a AppSync não alcança ele; migrar para AppSync **implica migrar o banco**. (1️⃣) **Turso/libsql gerenciado** — o `db` já usa `@libsql/client`, então o SQL e os `*-core` atravessam intactos; (2️⃣) **Aurora Serverless v2** — tudo na AWS, mas reescreve o SQL para Postgres e cobra capacidade mínima contínua; (3️⃣) **DynamoDB** — mais barato e mais nativo, e briga com um app relacional (preço médio, agregação mensal). **Recomendo a 1️⃣**: é a única em que a lógica de domínio não é reescrita.
+- **Decisão 2 — CDK desde o começo?** Recomendo console uma vez só para ver, e **CDK para valer** (`packages/infra`). Recurso criado por clique ninguém reproduz depois. Se você não discordar, eu sigo por aqui.
+- **Decisão 3 — onde ficam os tokens do Cognito.** Hoje o access token vive na sessão do servidor e o navegador só tem um cookie opaco. O modelo padrão da AppSync põe o token no cliente. (1️⃣) **padrão AppSync**, token só em memória, nunca `localStorage`; (2️⃣) **manter um BFF** que guarda a sessão e assina as chamadas — preserva a postura de hoje e joga fora metade da simplicidade. **Recomendo a 1️⃣**, mas é o seu dinheiro: se preferir a 2️⃣, o plano continua de pé com um Lambda a mais.
+- **Decisão 4 — teto de custo.** Não vou cravar preço (os números mudam e precisam ser conferidos no dia). O que peço antes do primeiro deploy é o **AWS Budget com alarme por e-mail**: um loop numa subscription é o erro que só aparece na fatura.
+- **O que eu já sei que dói, e você deve pesar antes de dizer sim**: você perde o desenvolvimento offline. Hoje é `pnpm dev` sem internet e sem conta em lugar nenhum; a AppSync não tem emulador local bom. É o maior custo da migração e não tem saída elegante.
+- **Resposta do humano**: _(preencher)_
+
 ### [2026-09-10] ~~O CI roda Node 20 (em EOL) e você desenvolve no 24 — bumpar ou congelar?~~ — RESPONDIDO em 2026-09-13 (opção 1)
 - **Origem**: orquestrador (achado ao fechar a T-092, #172)
 - **Bloqueia**: nada hoje. É prevenção — e já cobrou uma vez.

@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-09-13T19:55:30-03:00"
+    "atualizadoEm": "2026-09-13T21:00:40-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -258,6 +258,27 @@
       "messageId": "1547446526752727100",
       "modo": "so aviso",
       "status": "ABERTO 2026-09-13: segue pendente (acao dele). Respondida a duvida: a UI de troca EXISTE (/conta, T-094 + T-106). O que falta no auth e recuperacao de senha — virou T-108a/b."
+    },
+    "appsync-banco": {
+      "canal": "todo-human",
+      "messageId": "1548845848539168769",
+      "modo": "emoji + resposta",
+      "status": "ABERTO 2026-09-13: para onde vai o banco na migracao AppSync (plano em docs/multi-agent/plano-appsync-relay.md)",
+      "opcoes": {
+        "1️⃣": "Turso/libsql gerenciado (recomendado)",
+        "2️⃣": "Aurora Serverless v2",
+        "3️⃣": "DynamoDB"
+      }
+    },
+    "appsync-tokens": {
+      "canal": "todo-human",
+      "messageId": "1548845850661486736",
+      "modo": "emoji + resposta",
+      "status": "ABERTO 2026-09-13: tokens do Cognito no cliente (padrao AppSync) ou BFF preservando o cookie httpOnly",
+      "opcoes": {
+        "1️⃣": "padrao AppSync, token em memoria (recomendado)",
+        "2️⃣": "manter um BFF"
+      }
     }
   },
   "lastSeen": {
