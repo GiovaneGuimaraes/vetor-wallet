@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-09-13T21:00:40-03:00"
+    "atualizadoEm": "2026-09-14T21:39:01-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -263,7 +263,7 @@
       "canal": "todo-human",
       "messageId": "1548845848539168769",
       "modo": "emoji + resposta",
-      "status": "ABERTO 2026-09-13: para onde vai o banco na migracao AppSync (plano em docs/multi-agent/plano-appsync-relay.md)",
+      "status": "RESPONDIDO 2026-09-14: opcao 2 (Aurora Serverless v2 + Postgres). Plano reescrito; fase 1 = migracao do banco.",
       "opcoes": {
         "1️⃣": "Turso/libsql gerenciado (recomendado)",
         "2️⃣": "Aurora Serverless v2",
@@ -274,11 +274,27 @@
       "canal": "todo-human",
       "messageId": "1548845850661486736",
       "modo": "emoji + resposta",
-      "status": "ABERTO 2026-09-13: tokens do Cognito no cliente (padrao AppSync) ou BFF preservando o cookie httpOnly",
+      "status": "ABERTO 2026-09-13, reforcado 2026-09-14: a OCA usa a 1 (aws-amplify no cliente).",
       "opcoes": {
         "1️⃣": "padrao AppSync, token em memoria (recomendado)",
         "2️⃣": "manter um BFF"
       }
+    },
+    "appsync-iac": {
+      "canal": "todo-human",
+      "messageId": "1549217868044832800",
+      "modo": "emoji + resposta",
+      "status": "ABERTO 2026-09-14: carlin (como na OCA) ou CDK. Substitui a pergunta console x CDK de 2026-09-13.",
+      "opcoes": {
+        "1️⃣": "carlin, como na OCA (recomendado)",
+        "2️⃣": "AWS CDK em packages/infra"
+      }
+    },
+    "appsync-budget": {
+      "canal": "todo-human",
+      "messageId": "1549217875565481987",
+      "modo": "so emoji",
+      "status": "ABERTO 2026-09-14: criar o AWS Budget com alarme por e-mail. Passo 1 da fase 1 — a Aurora cobra por existir."
     }
   },
   "lastSeen": {
