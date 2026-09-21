@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-09-20T21:36:58-03:00"
+    "atualizadoEm": "2026-09-20T22:36:09-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -274,7 +274,7 @@
       "canal": "todo-human",
       "messageId": "1548845850661486736",
       "modo": "emoji + resposta",
-      "status": "ABERTO 2026-09-13, reforcado 2026-09-14: a OCA usa a 1 (aws-amplify no cliente).",
+      "status": "RESPONDIDO PARCIAL 2026-09-20: a mensagem virou o registro das decisoes 4 (Budget feito), 5 (regiao us-east-1) e 6 (API Gateway no lugar do AppSync). A decisao da SESSAO segue aberta e so e necessaria na fase 2: store em Postgres (recomendado) x JWT no API Gateway.",
       "opcoes": {
         "1️⃣": "padrao AppSync, token em memoria (recomendado)",
         "2️⃣": "manter um BFF"
@@ -294,7 +294,7 @@
       "canal": "todo-human",
       "messageId": "1549217875565481987",
       "modo": "so emoji",
-      "status": "ABERTO 2026-09-14: criar o AWS Budget com alarme por e-mail. Passo 1 da fase 1 — a Aurora cobra por existir."
+      "status": "RESOLVIDO 2026-09-20: o humano criou o AWS Budget com alarme. Passo 1 da fase 1 feito."
     }
   },
   "lastSeen": {
