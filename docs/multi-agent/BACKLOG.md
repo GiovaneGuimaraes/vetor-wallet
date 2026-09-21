@@ -18,6 +18,22 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
+> **Retomar aqui (fechado em 2026-09-20).** A fase 1 da migração está em curso e é a
+> prioridade; T-091c/d e T-089e seguem parados atrás dela.
+>
+> 1. **Medir antes de repetir** — traduzir **um** core de `db` para `query` (`packages/query`,
+>    já pronto) e medir o custo real. **`savings-core` é o candidato**: já está no formato e é o
+>    menor. Só depois repetir nos outros. Recomendação minha, não decidida pelo humano.
+> 2. **Passo 3, o que falta**: operations/wallets, alerts, budgets, expense-entries,
+>    portfolio/snapshots — no molde da T-110a/c/d.
+> 3. **Passo 4 só falta provar**: `db:up` + `db:sync` contra Postgres real. **Espera o humano
+>    instalar o Docker** (`TODO-HUMANO.md`). O DDL já é testado sem banco.
+> 4. **Passos 6–8 (VPC, Aurora, Lambdas, carga) seguem parados** por decisão do humano.
+>
+> Duas pendências dele: **Docker Desktop** e **autorizar o required status check no `main`**
+> (pedido depois de eu mergear a #184 com o CI vermelho). Decisão aberta: a **3 — sessão**
+> (store em Postgres × JWT no gateway), necessária só na fase 2.
+
 ### T-091c/d — Renda Fixa com dado real
 - **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-091a (#165) e b1 (#166)
 - **Objetivo**: **(c)** posição sem ticker (valor aplicado, vencimento, taxa) — o layer hoje assume ticker da B3 + preço médio + cotação da brapi, e caixinha não tem nenhum dos três; **(d)** endpoint `/investments` da Pluggy para preencher. Em série. "Caixinha é Renda Fixa, irmã de Ações" está decidido — **não reabrir** (#165).
@@ -26,13 +42,12 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Aceite**: carteira B3 com os mesmos números; suítes verdes.
 
 ### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva)
-- **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-103
-- **Objetivo**: **1 função por arquivo**, **`db` injetado**, **cobertura 100% travada por threshold**. Uma tarefa/PR por package, **em série** — cada um arrasta call sites e mexe nos mesmos configs. Ordem e quem já migrou: `docs/PACKAGES.md`. Próximos domínios: **income**, **operations/wallets**, **alerts**, **budgets**, **expense-entries**.
-- **Molde, fixado na T-110a/b** (primeiro core com `db`, PRs #180/#181): (1) **runner Jest**, testes em `tests/unit/tests/`, `coverageThreshold` 100% — decisão do humano em 2026-09-20, revertendo o Vitest que a T-110a tinha adotado; (2) **migrar o formato e tirar o CRUD da rota na MESMA PR**, porque em sequência as duas passadas mexem no mesmo barrel, nos mesmos configs e nos mesmos call sites; (3) `isolatedModules` no `tests/tsconfig.json`, **não** como opção do ts-jest (deprecada, sai na v30).
-- **Medição que motiva a fusão**: o `savings-core` tinha 43 linhas e 2 funções puras enquanto a rota tinha 212 linhas e 17 pontos de SQL. Mesma forma em income, expenses, operations, alerts, budgets e wallets — é o passo 3 da fase 1 da migração (`plano-migracao-aws.md`), e não depende de AWS.
-- **Achado repetido da T-104a e confirmado na T-110a**: separar funções expõe branches de default antes cobertos por acidente — rodar `--coverage` cedo, e travar o 100% por `thresholds` em vez de deixá-lo como meta no papel.
-- **Fora de escopo**: mudar regra de negócio; desfazer acoplamentos core→core (ver Candidatas).
-- **Aceite (por package)**: suíte do package verde com cobertura 100%; `build`, `lint`, `format:check` e `pnpm test` da raiz verdes; contagem de testes do `rest-api` preservada ou maior.
+- **Status**: EM ANDAMENTO (3 de ~8) · **Complexidade**: alta
+- **Objetivo**: **1 função por arquivo**, **`db` injetado**, **Jest**, cobertura **100% por threshold** — e, na MESMA PR, tirar o CRUD da rota. É o passo 3 de `plano-migracao-aws.md`; não depende de AWS.
+- **Molde**: `packages/savings-core` (T-110a/b). Quem já migrou e o que cada um decidiu: `docs/PACKAGES.md` e o `CLAUDE.md` de cada package.
+- **Faltam**: operations/wallets · alerts · budgets · expense-entries · portfolio/snapshots.
+- **Aceite (por package)**: cobertura 100%; `build`, `lint`, `format:check` e `pnpm test` verdes; **contagem de testes do `rest-api` preservada** — é ela que prova que o comportamento não mudou.
+
 ### T-089e — Patrimônio total com saldo das contas da Pluggy
 - **Status**: PENDENTE · **Complexidade**: média · **Depende de**: T-089 (#163)
 - **Objetivo**: pedido do humano (2026-08-12) — o card de patrimônio da Home deve somar o dinheiro que está **na conta e na poupança do banco**. Hoje é `ações + poupança do app`.
