@@ -210,10 +210,13 @@ Cada passo é uma coisa só e dá para parar entre eles. **(H)** = só o humano 
    `$1` em vez de `?`, `RETURNING id` no lugar de `lastInsertRowid`, `23505` no lugar do código
    do SQLite. A suíte inteira roda contra Postgres em container. **É aqui que os 176 pontos são
    tocados** — e é o passo que mais fatia em PRs pequenas, um package por vez.
-6. **(H) Rede e banco na AWS**: VPC, Aurora Serverless v2 com capacidade mínima no menor valor
-   aceitável, e os segredos no Secrets Manager (nunca no repo).
+6. **Rede e banco na AWS** — agora é código nosso, por causa da decisão 2 (§8.1): `packages/infra`
+   com um `ensureX` por recurso (VPC, subnets, security groups, endpoint do Secrets Manager,
+   Aurora Serverless v2 com capacidade mínima no menor valor aceitável). Eu escrevo, **(H)** roda
+   com as credenciais dele — credencial de deploy nunca passa por mim. Os segredos vão para o
+   Secrets Manager e os ids dos recursos para o **SSM Parameter Store**, nunca para o repo.
 7. **Deploy do `lambda-postgres-query`** (eu escrevo, humano roda o deploy): os dois Lambdas na
-   VPC, read e write.
+   VPC, read e write, pelo mesmo `ensureX` do passo 6.
 8. **(H) Migrar os dados.** Dump do `wallet.db` → carga no Postgres → **conferência de contagem
    por tabela e de soma por coluna de dinheiro**. Com backup fora do repo antes, **conferindo que
    a pasta existe** — a de agosto sumiu (registro no `TODO-HUMANO.md`).
@@ -269,16 +272,68 @@ Postgres. Isso é de propósito — se algo quebrar, o suspeito é um só.
   decidiu com os dois custos na mesa, e com duas razões a favor que a recomendação anterior
   subestimava: **é a pilha que ele já opera** (§3) e **devolve o desenvolvimento local offline**
   via Postgres em Docker (§2).
-- **2 — infra as code: ABERTA, e mudou de forma.** Não é mais "console × CDK". A OCA usa
-  **`carlin`** (CloudFormation, do ttoss) em todos os packages de infra. Copiar a referência
-  inteira é mais barato que traduzi-la para CDK. **Recomendo `carlin`**, pelo mesmo motivo que
-  recomendo o resto: é a pilha que já funciona e que o humano sabe operar.
+- **2 — infra as code: RESPONDIDA em 2026-09-20 — scripts em SDK puro da AWS, com o `carlin`
+  registrado como migração futura (§8.1).** Eu recomendava `carlin`, por ser a pilha que o humano
+  já opera; ele escolheu o SDK **sabendo que é o caminho mais caro**, por um motivo que a
+  recomendação não pesava: **quer ver como o deploy funciona por baixo**. Provisionar a AppSync na
+  mão é objetivo declarado, não efeito colateral. O desenho da §8.1 existe para que a escolha
+  custe aprendizado sem custar um caminho sem volta.
 - **3 — onde ficam os tokens do Cognito: ABERTA, com um voto novo.** A OCA usa o padrão AppSync
   (`aws-amplify` no cliente). **Recomendo 3a**, token só em memória. Ponto de atenção que não
   muda: o `change-password` de hoje usa o access token guardado na sessão do servidor.
 - **4 — teto de custo: ABERTA, e ficou mais urgente.** Com Turso o custo seguia o uso; com Aurora
   Serverless v2 ele **existe enquanto o cluster existir**. O Budget com alarme deixou de ser
   higiene e virou o passo 1 da fase 1.
+
+### 8.1 Deploy em SDK puro — o desenho, e a porta aberta para o `carlin`
+
+A escolha da decisão 2 é **imperativa**: `packages/infra`, um script por recurso, chamando o
+`@aws-sdk/client-*`. Registro aqui o que isso custa, para nenhum custo aparecer como surpresa no
+meio da fase 1, e as três regras que mantêm a conta pagável.
+
+**O que o SDK entrega fácil** — e é, não por acaso, a parte que ensina: AppSync
+(`CreateGraphqlApi`, `StartSchemaCreation`, `CreateDataSource`, `CreateResolver`), Lambda
+(`CreateFunction` + zip), Budget e Secrets Manager. Chamada direta, `Update*` equivalente, nada
+escondido. Provisionar a AppSync na mão é o objetivo declarado da decisão.
+
+**Onde dói, e não ensina quase nada em troca:**
+
+1. **VPC** — cerca de dez recursos encadeados (VPC, subnets, route tables e associações, security
+   groups e regras, e os **endpoints** para o Secrets Manager, porque Lambda em VPC não tem saída
+   para a internet). Cada id alimenta o próximo: o grafo de dependência que o CloudFormation
+   resolve sozinho passa a ser código nosso.
+2. **Aurora Serverless v2** — `CreateDBCluster` + `CreateDBInstance` + subnet group, e um
+   **waiter de ~10 minutos** que o script precisa sobreviver a ser interrompido no meio.
+3. **IAM** — role criada não é role assumível no mesmo segundo. O
+   `InvalidParameterValueException: The role defined for the function cannot be assumed` é
+   consistência eventual, e a saída é retry — que o CloudFormation faria por nós.
+
+**O custo real não é o `create`, é a segunda execução.** Sem CloudFormation não há drift
+detection, não há rollback de stack meio criada (a limpeza é manual), não há `delete-stack` (a
+remoção exige ordem reversa) e **não há outputs** — os ids dos recursos viram estado nosso.
+
+**As três regras** (a terceira é o que torna a migração futura barata):
+
+1. **Estado no SSM Parameter Store, nunca em arquivo.** Cada script grava o id que criou em
+   `/vetor-wallet/<ambiente>/<recurso>` e lê de lá o que precisa. Não é preferência de estilo:
+   **id de infra não entra neste repo**, que é público — é a mesma regra do dado financeiro
+   (`CLAUDE.md`). Um `infra-state.json` versionado violaria; e um não versionado se perde.
+2. **Idempotente por construção: "descreve → cria ou atualiza", nunca "cria".** Rodar duas vezes
+   tem que ser inofensivo, porque vai acontecer — o waiter da Aurora garante isso.
+3. **Um recurso = uma função pura `ensureX({ client, params }) → id`**, no formato-alvo da T-104
+   (1 função por arquivo, client **injetado**, teste com o SDK mockado). O `ensureX` é a unidade
+   que o `carlin` substitui um dia.
+
+**A migração futura para `carlin`**, quando o aprendizado já tiver sido colhido ou quando a
+manutenção passar a doer: apagar `packages/infra` e escrever os templates equivalentes. Ela é
+barata **por causa da regra 3 e de uma invariante que precisa ser mantida deliberadamente** —
+nenhum código do app importa `packages/infra`. A infra é script de operação, não dependência de
+runtime; o `graph-api` e os cores não sabem que ela existe. No dia da troca nada dentro de
+`packages/*` se move, e o estado no SSM continua servindo. **Se um dia um core importar algo de
+`infra`, esta porta se fecha** — é a única coisa a vigiar.
+
+**O que eu não faria de outro jeito por causa desta decisão**: a ordem da fase 1 não muda, e os
+passos 3, 4 e 5 (extrair CRUD, `postgresdb`, `query`) continuam sem tocar em AWS nenhuma.
 
 ## 9. Armadilhas que eu já enxergo
 
@@ -305,6 +360,7 @@ Postgres. Isso é de propósito — se algo quebrar, o suspeito é um só.
 
 ## 10. O que eu preciso para começar
 
-As decisões 2, 3 e 4 respondidas, e o **passo 1 da §5.4** (o Budget) feito. Com isso eu abro a
+As decisões **3 e 4** respondidas (a 2 saiu em 2026-09-20: SDK puro, §8.1), e o **passo 1 da
+§5.4** (o Budget) feito. Com isso eu abro a
 fase 1 no `BACKLOG.md` — e ela começa por onde não depende da AWS: extrair o CRUD das rotas para
 os cores (§5.4, passo 3), que é trabalho útil mesmo que a migração pare no meio.
