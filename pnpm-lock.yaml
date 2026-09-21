@@ -359,6 +359,9 @@ importers:
       '@vetor-wallet/expenses-core':
         specifier: workspace:*
         version: link:../expenses-core
+      '@vetor-wallet/income-core':
+        specifier: workspace:*
+        version: link:../income-core
       '@vetor-wallet/insights-core':
         specifier: workspace:*
         version: link:../insights-core
