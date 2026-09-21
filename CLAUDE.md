@@ -63,7 +63,8 @@ packages/
 │                     # `db` injetado na T-110a). Metas saíram na T-091b1 e o
 │                     # saldo livre virou o próprio saldo
 ├── expenses-core/    # @vetor-wallet/expenses-core — recorrência lazy e
-│                     # idempotente (T-099b, Ciclo 19)
+│                     # idempotente + o CRUD de despesa fixa que vivia na
+│                     # rota (T-099b, Ciclo 19; formato-alvo na T-110c)
 ├── auth-core/        # @vetor-wallet/auth-core — dono da tabela users: espelho
 │                     # da identidade (cognito_sub, vínculo por e-mail — T-106),
 │                     # perfil, papéis (T-099c, Ciclo 19). O login NÃO usa mais
@@ -117,7 +118,7 @@ pnpm --filter @vetor-wallet/subscription-core test # Jest (subscription-core)
 pnpm --filter @vetor-wallet/subscription-core mutation  # Stryker, sob demanda
 pnpm --filter @vetor-wallet/validation-core test   # Jest (validation-core)
 pnpm --filter @vetor-wallet/savings-core test      # Jest (savings-core; cobertura 100%)
-pnpm --filter @vetor-wallet/expenses-core test     # Vitest (expenses-core)
+pnpm --filter @vetor-wallet/expenses-core test     # Jest (expenses-core; cobertura 100%)
 pnpm --filter @vetor-wallet/bank-import-core test  # Vitest (bank-import-core)
 pnpm --filter @vetor-wallet/pluggy-core test       # Vitest (pluggy-core)
 pnpm --filter @vetor-wallet/portfolio-core test    # Vitest (portfolio-core)

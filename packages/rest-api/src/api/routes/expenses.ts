@@ -5,10 +5,12 @@ import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import type { NewFixedExpense, FixedExpenseUpdate } from '@vetor-wallet/shared';
 import {
-  normalizeCategory,
-  isValidMoneyAmount,
-  moneyAmountError,
-} from '@vetor-wallet/validation-core';
+  listFixedExpenses,
+  createFixedExpense,
+  updateFixedExpense,
+  deleteFixedExpense,
+} from '@vetor-wallet/expenses-core';
+import { isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
 
 const router = Router();
 
@@ -19,11 +21,7 @@ router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const result = await db.execute({
-      sql: 'SELECT * FROM fixed_expenses WHERE user_id = ? ORDER BY created_at DESC',
-      args: [userId],
-    });
-    res.json(result.rows);
+    res.json(await listFixedExpenses({ db, userId }));
   })
 );
 
@@ -46,25 +44,19 @@ router.post(
       return;
     }
 
-    // Categoria é gravada na forma canônica (T-028) — ver @vetor-wallet/validation-core/src/categories.ts.
-    const normalizedCategory = normalizeCategory(typeof category === 'string' ? category : '');
-
-    const insert = await db.execute({
-      sql: 'INSERT INTO fixed_expenses (user_id, name, category, amount) VALUES (?, ?, ?, ?)',
-      args: [userId, name.trim(), normalizedCategory, amount],
+    // A normalização da categoria (T-028) mora no core, junto da gravação.
+    const expense = await createFixedExpense({
+      db,
+      userId,
+      name,
+      category: typeof category === 'string' ? category : '',
+      amount,
     });
-
-    const newId = insert.lastInsertRowid ?? 0;
-    // Re-SELECT também filtrado por user_id (T-059, simetria com o PATCH — T-051).
-    const row = await db.execute({
-      sql: 'SELECT * FROM fixed_expenses WHERE id = ? AND user_id = ?',
-      args: [Number(newId), userId],
-    });
-    res.status(201).json(row.rows[0]);
+    res.status(201).json(expense);
   })
 );
 
-// T-031: edição parcial, espelhando o padrão de PATCH /api/goals/:id.
+// T-031: edição parcial.
 router.patch(
   '/:id',
   asyncHandler(async (req: Request, res: Response) => {
@@ -96,43 +88,17 @@ router.patch(
       return;
     }
 
-    const existing = await db.execute({
-      sql: 'SELECT id FROM fixed_expenses WHERE id = ? AND user_id = ?',
-      args: [id, userId],
+    const expense = await updateFixedExpense({
+      db,
+      userId,
+      id,
+      changes: { name, category, amount },
     });
-    if (existing.rows.length === 0) {
+    if (expense === null) {
       res.status(404).json({ error: 'Despesa fixa não encontrada' });
       return;
     }
-
-    const fields: string[] = [];
-    const args: (string | number)[] = [];
-    if (name !== undefined) {
-      fields.push('name = ?');
-      args.push(name.trim());
-    }
-    if (category !== undefined) {
-      // Mesma forma canônica da criação (T-028) — ver @vetor-wallet/validation-core/src/categories.ts.
-      fields.push('category = ?');
-      args.push(normalizeCategory(category));
-    }
-    if (amount !== undefined) {
-      fields.push('amount = ?');
-      args.push(amount);
-    }
-    args.push(id, userId);
-
-    await db.execute({
-      sql: `UPDATE fixed_expenses SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`,
-      args,
-    });
-
-    // Re-SELECT também filtrado por user_id (T-051).
-    const row = await db.execute({
-      sql: 'SELECT * FROM fixed_expenses WHERE id = ? AND user_id = ?',
-      args: [id, userId],
-    });
-    res.json(row.rows[0]);
+    res.json(expense);
   })
 );
 
@@ -141,11 +107,7 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const { id } = req.params;
-    const result = await db.execute({
-      sql: 'DELETE FROM fixed_expenses WHERE id = ? AND user_id = ?',
-      args: [id, userId],
-    });
-    if (result.rowsAffected === 0) {
+    if (!(await deleteFixedExpense({ db, userId, id }))) {
       res.status(404).json({ error: 'Despesa fixa não encontrada' });
       return;
     }

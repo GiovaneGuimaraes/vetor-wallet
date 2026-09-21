@@ -13,10 +13,11 @@
     "baseUrl": ".",
     "paths": {
       "@vetor-wallet/db": ["../db/src/index.ts"],
-      "@vetor-wallet/validation-core": ["../validation-core/src/index.ts"]
+      "@vetor-wallet/validation-core": ["../validation-core/src/index.ts"],
+      "@vetor-wallet/shared": ["../shared/src/index.ts"]
     }
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts", "src/**/__fixtures__/**"],
-  "references": [{ "path": "../db" }, { "path": "../validation-core" }]
+  "references": [{ "path": "../db" }, { "path": "../validation-core" }, { "path": "../shared" }]
 }
