@@ -26,7 +26,7 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **expenses-core** | Core | Expenses | Recorrência lazy (categoria normalizada saiu para `validation-core`, T-099a) | ✅ existe (T-099b) |
 | **savings-core** | Core | Savings | Saldo da poupança em centavos (metas saíram na T-091b1) | ✅ existe (T-099b) |
 | **subscription-core** | Core | Subscriptions | Datas, ativação idempotente, gating + provider AbacatePay | ✅ existe (T-103) |
-| **insights-core** | Core | Insights | Benchmarks CDI/Ibovespa, insights horários | ✅ existe (T-099c) |
+| **insights-core** | Core | Insights | Benchmarks CDI/Ibovespa | ✅ existe (T-099c) |
 | **bank-import-core** | Core | BankImport | Parser OFX, dedupe por `external_id` | ✅ existe (T-099c) |
 | **pluggy-core** | Integration | BankImport | Client HTTP da Pluggy (Open Finance): auth 2h, contas, transações por cursor | ✅ existe (T-087) |
 

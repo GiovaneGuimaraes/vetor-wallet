@@ -4,7 +4,6 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "insights:hourly": "tsx src/hourlyInsights.ts",
     "pluggy:link": "tsx src/pluggyLink.ts",
     "pluggy:sync": "tsx src/pluggySync.ts",
     "roles:grant-admin": "tsx src/grantAdmin.ts",
@@ -15,7 +14,6 @@
     "@vetor-wallet/db": "workspace:*",
     "@vetor-wallet/auth-core": "workspace:*",
     "@vetor-wallet/bank-import-core": "workspace:*",
-    "@vetor-wallet/insights-core": "workspace:*",
     "@vetor-wallet/pluggy-core": "workspace:*",
     "@vetor-wallet/shared": "workspace:*",
     "@vetor-wallet/validation-core": "workspace:*",

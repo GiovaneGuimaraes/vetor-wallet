@@ -74,8 +74,9 @@ packages/
 ├── portfolio-core/   # @vetor-wallet/portfolio-core — preço médio ponderado,
 │                     # validação de SELL, série valor × custo, carteiras,
 │                     # snapshots + agendador (T-099c, Ciclo 19)
-├── insights-core/    # @vetor-wallet/insights-core — benchmarks CDI/Ibovespa e
-│                     # job de insights horários (T-099c, Ciclo 19)
+├── insights-core/    # @vetor-wallet/insights-core — benchmarks CDI/Ibovespa
+│                     # (T-099c, Ciclo 19). O job de insights horários saiu na
+│                     # T-109a (2026-09-20): volta como Lambda + EventBridge
 ├── bank-import-core/ # @vetor-wallet/bank-import-core — parser OFX, dedupe
 │                     # por external_id (T-099c, Ciclo 19), o mapeamento/
 │                     # gravação das transações da Pluggy (T-087, Ciclo 20) e
@@ -123,7 +124,6 @@ pnpm --filter @vetor-wallet/auth-core test         # Vitest (auth-core)
 pnpm --filter @vetor-wallet/cognito-core test      # Vitest (cognito-core)
 pnpm --filter @vetor-wallet/cognito-core test --coverage  # 100% é a meta do formato
 pnpm --filter vetor-wallet-web test       # Vitest (web, funções puras)
-pnpm --filter vetor-wallet-cli insights:hourly [YYYY-MM-DD]
 pnpm --filter vetor-wallet-cli pluggy:link [itemId] [--email=] [--remove]
 pnpm --filter vetor-wallet-cli pluggy:sync [YYYY-MM-DD] [--dry-run] [--email=]
 ```
@@ -154,7 +154,6 @@ O SQLite (`packages/rest-api/data/wallet.db`) é criado no primeiro boot.
 | alerts | GET, POST, DELETE /api/alerts[/:id] | backend ativo, sem UI (T-026) |
 | benchmarks | GET /api/benchmarks, GET /api/benchmarks/history?days= | CDI/Ibovespa: acumulado do período (número) e série diária p/ o gráfico (T-068) |
 | tickers | GET /api/tickers | busca na brapi |
-| admin | POST /api/admin/run-insights-job | requireAdmin |
 | income | CRUD /api/income[/:id] | fontes fixas mensais, sem data |
 | income-entries | CRUD /api/income-entries[/:id]?month= | renda avulsa datada (T-036); POST aceita `externalId` opcional — repetido responde 409 `{ duplicate: true, entry }` (T-084) |
 | expenses | CRUD /api/expenses[/:id] | fixas; categoria normalizada (T-028) |
@@ -227,7 +226,7 @@ Leia o arquivo do domínio antes de mexer nele:
 - **billing.md** — stub: migrado para `packages/subscription-core/CLAUDE.md`
   (T-099b; renomeado na T-103).
 - **sessions-auth.md** — só a persistência de sessão no SQLite (T-034/T-046); credenciais/perfil/papéis migraram para `packages/auth-core/CLAUDE.md` (T-099c) e a identidade virou AWS Cognito na T-106 (`packages/cognito-core/CLAUDE.md`).
-- **snapshots-history.md** — stub: dividido entre `packages/portfolio-core/CLAUDE.md` (snapshots, T-058a/T-060/T-061/T-063) e `packages/insights-core/CLAUDE.md` (benchmarks T-068, insights horários) na T-099c.
+- **snapshots-history.md** — stub: dividido entre `packages/portfolio-core/CLAUDE.md` (snapshots, T-058a/T-060/T-061/T-063) e `packages/insights-core/CLAUDE.md` (benchmarks T-068) na T-099c.
 
 Domínios sem `docs/decisions/` próprio, documentados só no package:
 `packages/bank-import-core/CLAUDE.md` (OFX + dedupe por `external_id`, T-084/T-085/T-086, e o

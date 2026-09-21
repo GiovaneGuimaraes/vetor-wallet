@@ -14,7 +14,7 @@ importa `@vetor-wallet/db` — "Core" é *dono das regras/dados do domínio*, n�
 Este arquivo substitui `docs/decisions/wallets-portfolio.md` e a parte de
 Portfolio de `docs/decisions/snapshots-history.md` (ambos hoje stubs apontando
 para cá) e cobre o módulo inteiro, incluindo o que vive nas rotas do `server` e
-nas telas do `web`. As seções de benchmarks (T-068) e do job de insights
+nas telas do `web`. A seção de benchmarks (T-068) e a do job de insights
 horários foram para `packages/insights-core/CLAUDE.md`.
 
 ## Estrutura
@@ -145,7 +145,7 @@ Até a T-058a, `runSnapshotJob()`/`catchUpIfNeeded()` (`packages/portfolio-core/
 - **Dias ausentes** (o cliente preenche/interpola — precedente do `/summary` da T-033): dias anteriores à primeira operação, e dias em que **algum** ticker detido ainda não tem nenhum preço conhecido. Essa segunda regra é mais rigorosa que "nenhum preço conhecido" (somar só a parte com preço devolveria um valor silenciosamente subestimado — o mesmo vale falso que o forward-fill evita), mas **com o seed da primeira BUY ela é inalcançável por construção**: só um BUY, que tem preço, cria quantidade positiva. Ficou como cláusula de defesa, não como caminho esperado. Já um dia com a carteira toda vendida **entra** com zeros (é um zero verdadeiro); usuário sem nenhuma operação recebe `[]`.
 - **Isolamento**: o filtro por usuário mora na query de `operations` (e a de snapshots só busca os tickers que o próprio usuário operou). `quote_snapshots` **não tem `user_id`** — preço de fechamento é global. Coberto por teste com dois usuários.
 - A âncora de "hoje" é a data **BRT** (`getBRTDate`), a mesma do P&L do dia.
-- **Fora de escopo (segue pendente)**: backfill histórico de preços anteriores ao início da coleta e qualquer mudança no shape de `quote_snapshots`/no CLI de insights horários.
+- **Fora de escopo (segue pendente)**: backfill histórico de preços anteriores ao início da coleta e qualquer mudança no shape de `quote_snapshots`. (O CLI de insights horários, citado aqui até a T-109a, não existe mais.)
 
 #### Gráfico de evolução real da carteira na dash (T-058b)
 `packages/web/src/api.ts` ganhou `getPortfolioHistory(days?)` (mesmo padrão dos demais fetches — `?days=` só entra na query string quando informado). O card "Evolução da carteira" em `/dash` (`DashboardPage.tsx`) entra **acima** do card "Projeção de ganhos" (T-056/T-057b), entre `PortfolioDashboard` e ele: dado real antes de dado simulado é a ordem de leitura mais natural, e os dois cards de gráfico ficam agrupados em vez de intercalados com a tabela de operações.

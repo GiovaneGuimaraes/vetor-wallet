@@ -148,4 +148,5 @@ ser um contrato externo e essa liberdade acaba.
   senha e a de digitar o código de confirmação no `web` (backend pronto:
   `POST /api/auth/confirm`, `/resend-code`, `/forgot-password`,
   `/reset-password`) e o `DROP` de `users.password_hash`.
-- Job de insights horários em Lambda + EventBridge (hoje: cli manual + scheduler in-process de snapshots).
+- Coleta de cotações em background em Lambda + EventBridge (hoje: só o scheduler in-process de
+  snapshots). O job de insights horários foi removido na T-109a e renasce lá.

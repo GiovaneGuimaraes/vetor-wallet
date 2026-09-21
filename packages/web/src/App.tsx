@@ -14,7 +14,6 @@ import { InvestimentosPage } from './routes/InvestimentosPage';
 import { RendaFixaPage } from './routes/RendaFixaPage';
 import { PlanosPage } from './routes/PlanosPage';
 import { ContaPage } from './routes/ContaPage';
-import { AdminRoute } from './routes/AdminRoute';
 import { decideWalletFlow, resolvePrimaryWallet } from './routes/walletFlow';
 import { INVESTMENT_NODES, LEGACY_INVESTMENT_REDIRECTS } from './routes/investmentsTree';
 import { shouldNavigateToPlans } from './routes/billingNavigation';
@@ -213,8 +212,6 @@ export default function App() {
           <LandingRoute user={user} theme={theme} onToggleTheme={toggleTheme} onAuth={handleAuth} />
         }
       />
-      <Route path="/admin" element={<AdminRoute user={user} onLogout={handleLogout} />} />
-
       <Route
         element={
           <ProtectedShell

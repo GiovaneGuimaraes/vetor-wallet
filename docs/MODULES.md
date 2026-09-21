@@ -170,8 +170,6 @@ Packages:
   (T-068), e o job de insights horários. Importa `portfolio-core` — exceção conhecida à
   regra 6, ver `PACKAGES.md`.
 - `packages/rest-api` — `/api/benchmarks`, `/api/benchmarks/history?days=`,
-  `POST /api/admin/run-insights-job`.
-- `packages/cli` — `insights:hourly [YYYY-MM-DD]`.
 - `packages/web/src/routes` — gráfico de comparação.
 
 ---

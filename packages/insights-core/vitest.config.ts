@@ -6,8 +6,8 @@ export default defineConfig({
     // Ver comentário equivalente em packages/rest-api/vitest.config.ts: sem o
     // alias explícito o Vitest resolveria pelo `main`/dist do package, que
     // pode não existir ou estar desatualizado (falso verde). Vale também para
-    // core → core: sem o alias de portfolio-core, hourlyInsights.test.ts
-    // validaria o dist daquele package em vez do fonte.
+    // core → core: sem o alias de portfolio-core, o teste que chega nele pelo
+    // barrel (benchmarks.ts) validaria o dist daquele package, não o fonte.
     alias: {
       '@vetor-wallet/db': path.resolve(__dirname, '../db/src/index.ts'),
       '@vetor-wallet/shared': path.resolve(__dirname, '../shared/src/index.ts'),
