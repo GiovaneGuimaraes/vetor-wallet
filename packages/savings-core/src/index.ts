@@ -1,2 +1,13 @@
-export { toCents, computeBalance } from './savings';
-export type { SavingsBalanceEntry } from './savings';
+export { toCents } from './toCents';
+export { computeBalance } from './computeBalance';
+export type { SavingsBalanceEntry } from './computeBalance';
+export { SAVINGS_ENTRY_TYPES, isSavingsEntryType } from './SAVINGS_ENTRY_TYPES';
+export { summariseSavings } from './summariseSavings';
+export { listSavingsEntries } from './listSavingsEntries';
+export type { ListSavingsEntriesParams } from './listSavingsEntries';
+export { createSavingsEntry } from './createSavingsEntry';
+export type { CreateSavingsEntryParams } from './createSavingsEntry';
+export { updateSavingsEntry } from './updateSavingsEntry';
+export type { UpdateSavingsEntryParams } from './updateSavingsEntry';
+export { deleteSavingsEntry } from './deleteSavingsEntry';
+export type { DeleteSavingsEntryParams } from './deleteSavingsEntry';

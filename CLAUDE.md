@@ -58,8 +58,10 @@ packages/
 │                     # novo: 1 função por arquivo, `db` injetado, Jest com
 │                     # testes em tests/unit/tests/ e cobertura 100%
 ├── savings-core/     # @vetor-wallet/savings-core — saldo da poupança em
-│                     # centavos inteiros (T-099b, Ciclo 19); metas saíram na
-│                     # T-091b1 e o saldo livre virou o próprio saldo
+│                     # centavos inteiros + o CRUD de savings_entries que
+│                     # vivia na rota (T-099b, Ciclo 19; formato-alvo com
+│                     # `db` injetado na T-110a). Metas saíram na T-091b1 e o
+│                     # saldo livre virou o próprio saldo
 ├── expenses-core/    # @vetor-wallet/expenses-core — recorrência lazy e
 │                     # idempotente (T-099b, Ciclo 19)
 ├── auth-core/        # @vetor-wallet/auth-core — dono da tabela users: espelho

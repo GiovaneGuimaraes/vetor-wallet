@@ -27,8 +27,10 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva)
 - **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-103
-- **Objetivo**: o alvo (provado no `subscription-core`, generalizado no `validation-core`) é **1 função por arquivo**, **`db` injetado**, testes em `tests/unit/tests/`, **cobertura 100%**, Jest. Uma tarefa/PR por package, **em série** — cada um arrasta call sites e mexe nos mesmos configs. Ordem e quem já migrou: `docs/PACKAGES.md`. Próxima: **`savings-core`**, o primeiro core **com `db`**.
-- **Atenção na `savings-core`**: o package **encolheu** na T-091b1 (#166) — o par atômico da T-041 e a agregação por meta não existem mais. Invariante intocável: **saldo em centavos inteiros** (T-052). Achado da T-104a: separar funções expõe branches de default antes cobertos por acidente — rodar `--coverage` cedo.
+- **Objetivo**: **1 função por arquivo**, **`db` injetado**, **cobertura 100% travada por threshold**. Uma tarefa/PR por package, **em série** — cada um arrasta call sites e mexe nos mesmos configs. Ordem e quem já migrou: `docs/PACKAGES.md`. Próxima: **`expenses-core`**.
+- **Duas decisões travadas na T-110a** (primeiro core com `db`, PR #180): (1) **runner Vitest com teste ao lado**, não Jest em `tests/unit/tests/` — é o que os três últimos packages fizeram e evita um 2º runner por migração; (2) **migrar o formato e tirar o CRUD da rota na MESMA PR**, porque em sequência as duas passadas mexem no mesmo barrel, nos mesmos configs e nos mesmos call sites.
+- **Medição que motiva a fusão**: o `savings-core` tinha 43 linhas e 2 funções puras enquanto a rota tinha 212 linhas e 17 pontos de SQL. Mesma forma em income, expenses, operations, alerts, budgets e wallets — é o passo 3 da fase 1 da migração (`plano-appsync-relay.md`), e não depende de AWS.
+- **Achado repetido da T-104a e confirmado na T-110a**: separar funções expõe branches de default antes cobertos por acidente — rodar `--coverage` cedo, e travar o 100% por `thresholds` em vez de deixá-lo como meta no papel.
 - **Fora de escopo**: mudar regra de negócio; desfazer acoplamentos core→core (ver Candidatas).
 - **Aceite (por package)**: suíte do package verde com cobertura 100%; `build`, `lint`, `format:check` e `pnpm test` da raiz verdes; contagem de testes do `rest-api` preservada ou maior.
 ### T-089e — Patrimônio total com saldo das contas da Pluggy
