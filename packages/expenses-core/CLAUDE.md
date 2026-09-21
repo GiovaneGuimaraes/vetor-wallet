@@ -1,6 +1,7 @@
 # CLAUDE.md — @vetor-wallet/expenses-core
 
-Regras de despesas do Vetor Wallet — hoje, a **recorrência mensal** (T-035).
+Regras de despesas do Vetor Wallet: o CRUD de **despesa fixa** e a
+**recorrência mensal** (T-035).
 Extraído de `packages/rest-api/src/api/services/recurringExpenses.ts` na T-099b
 (Ciclo 19 — arquitetura em módulos). Categoria **Core**, módulo **Expenses**
 (ver `docs/MODULES.md`/`docs/PACKAGES.md`). É dono das tabelas
@@ -24,12 +25,60 @@ mas a política de importação é do módulo BankImport.
 
 ```
 src/
-├── recurringExpenses.ts  # daysInMonth/occurrenceDate (puras),
-│                         # createRecurringExpenseEntry (transação interativa),
-│                         # materializeRecurringExpenses (lazy + idempotente);
-│                         # re-exporta isUniqueViolation de @vetor-wallet/db
-└── index.ts              # barrel
+├── daysInMonth.ts                  # PURO
+├── occurrenceDate.ts               # PURO: prende o dia ao mês
+├── RecurringExpenseRow.ts          # tipo do template
+├── TransactionalDb.ts              # Db + transação interativa (exceção, ver abaixo)
+├── createRecurringExpenseEntry.ts  # 3 escritas numa transação (T-045)
+├── materializeRecurringExpenses.ts # lazy + idempotente
+├── listFixedExpenses.ts            # db injetado
+├── createFixedExpense.ts           # db injetado; normaliza a categoria
+├── updateFixedExpense.ts           # db injetado; devolve null = 404 da rota
+├── deleteFixedExpense.ts           # db injetado; devolve false = 404 da rota
+└── index.ts                        # barrel; re-exporta isUniqueViolation
+
+tests/
+├── tsconfig.json
+└── unit/
+    ├── jest.config.ts              # threshold 100%
+    ├── testDb.ts                   # Db mockado
+    └── tests/                      # 1 arquivo por função
 ```
+
+## Formato-alvo, com `db` injetado (T-110c, 2026-09-20)
+
+Segundo core com `db` a migrar, no molde do `savings-core` (T-110a/b): uma
+função por arquivo, Jest, cobertura 100% por `coverageThreshold`. Junto veio o
+CRUD de **despesa fixa**, que morava na rota `expenses.ts` — 156 linhas com SQL
+viraram 118 sem nenhuma.
+
+**A normalização de categoria (T-028) desceu para o core.** Ela estava na rota,
+repetida no POST e no PATCH. É regra de domínio: duas despesas com
+"Alimentação" e "alimentacao" têm que cair no mesmo teto de orçamento, venham de
+onde vierem — inclusive de uma importação, que não passa por aquela rota.
+
+### A exceção do `TransactionalDb`
+
+`createRecurringExpenseEntry` precisa de **transação interativa** (a segunda e a
+terceira escrita dependem do `lastInsertRowid` da primeira), e `transaction`
+**não** faz parte do contrato `Db` — que é estreito de propósito. Em vez de
+alargar o `Db` de todo mundo por causa de uma função, o tipo mais largo vive
+aqui, em `src/TransactionalDb.ts`, derivado do próprio `Db`.
+
+**Isto é dívida conhecida da migração para Postgres** (passo 5 do
+`docs/multi-agent/plano-migracao-aws.md`): transação interativa **não sobrevive**
+a um proxy por instrução como o `lambda-postgres-query`. O equivalente em
+Postgres é uma instrução só, com CTE (`WITH ins AS (INSERT ... RETURNING id)
+INSERT ...`), que aliás dispensa a transação. É a **única** função do repo com
+esse problema, e está isolada num arquivo por esse motivo.
+
+### O teste que continua usando banco real
+
+`createRecurringExpenseEntry` é o único teste do package com client de verdade
+(arquivo temporário): ele prova **rollback**, e mock não prova rollback — prova
+que o mock foi chamado. O que a injeção mudou é que o teste não precisa mais
+setar `DATABASE_URL` antes de um `await import()` dinâmico para controlar a
+ordem de avaliação do módulo: ele cria um client e passa.
 
 Rotas: `packages/rest-api/src/api/routes/{expenses,expenseEntries,recurringExpenses,budgets}.ts`.
 Lógica pura do cliente: `packages/web/src/routes/{expenseMonth,recurrence,expensesGrouping,monthFetch,ofxImportReport}.ts`.

@@ -123,7 +123,7 @@ router.get(
     const horizonLimit = shiftMonthKey(currentMonth(), MATERIALIZATION_HORIZON_MONTHS);
     const materializableMonths = windowMonths.filter((m) => m <= horizonLimit);
     if (materializableMonths.length > 0) {
-      await materializeRecurringExpenses(userId, materializableMonths);
+      await materializeRecurringExpenses({ db, userId, months: materializableMonths });
     }
 
     const result = await db.execute({
@@ -167,7 +167,7 @@ router.get(
     // nada além do formato). Meses além do horizonte ainda são listados —
     // apenas não geram nada.
     if (month <= shiftMonthKey(currentMonth(), MATERIALIZATION_HORIZON_MONTHS)) {
-      await materializeRecurringExpenses(userId, [month]);
+      await materializeRecurringExpenses({ db, userId, months: [month] });
     }
 
     const result = await db.execute({
@@ -295,6 +295,7 @@ router.post(
     const startMonth = entryMonth > currentMonth() ? entryMonth : currentMonth();
 
     const created = await createRecurringExpenseEntry({
+      db,
       userId,
       description: description.trim(),
       category: normalizedCategory,
