@@ -1,4 +1,3 @@
-import { vi } from 'vitest';
 import type { Db } from '@vetor-wallet/db';
 
 /**
@@ -14,12 +13,12 @@ export function makeTestDb(
   const calls: Array<{ sql: string; args: unknown }> = [];
   let i = 0;
   const db = {
-    execute: vi.fn(async (stmt: { sql: string; args?: unknown }) => {
+    execute: jest.fn(async (stmt: { sql: string; args?: unknown }) => {
       calls.push({ sql: stmt.sql, args: stmt.args });
       const next = results[i++] ?? {};
       return { rows: [], rowsAffected: 0, ...next } as never;
     }),
-    batch: vi.fn(async () => [] as never),
+    batch: jest.fn(async () => [] as never),
   } as unknown as Db;
   return { db, calls };
 }

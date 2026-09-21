@@ -153,13 +153,20 @@ migrar. Package novo já nasce assim; os antigos migram um por vez, em tarefas p
 
 ### Estado da migração de formato
 
+> **Runner: Jest é o padrão** (decisão do humano, 2026-09-20). A T-110a tinha
+> adotado Vitest com teste ao lado, seguindo os dois packages anteriores; o
+> humano reverteu na T-110b e o `savings-core` virou o molde: Jest,
+> `tests/unit/tests/`, `coverageThreshold` em 100%. Os cores que ainda vão
+> migrar seguem este molde, e `pluggy-core`/`cognito-core` ficam como estão
+> até terem tarefa própria — converter runner sem mexer no código não paga a PR.
+
 | Package | Formato | Runner |
 |---|---|---|
 | `subscription-core` | ✅ alvo | Jest + Stryker |
 | `validation-core` | ✅ alvo (T-104a) | Jest |
 | `pluggy-core` | ✅ alvo, exceto runner (T-087) | Vitest, teste ao lado (segue `brapi-core`) |
 | `cognito-core` | ✅ alvo, exceto runner (T-106) | Vitest, teste ao lado, cobertura 100% |
-| `savings-core` | ✅ alvo, exceto runner (T-110a) — **primeiro com `db` injetado** | Vitest, teste ao lado, cobertura 100% travada por threshold |
+| `savings-core` | ✅ alvo completo (T-110a/b) — **primeiro com `db` injetado** | Jest, `tests/unit/tests/`, cobertura 100% por `coverageThreshold` |
 | demais `*-core`, `db` | arquivo-balaio, `db` importado, teste em `src/**/*.test.ts` | Vitest |
 
 > `validation-core` foi o segundo package migrado e o **calibre** do formato:

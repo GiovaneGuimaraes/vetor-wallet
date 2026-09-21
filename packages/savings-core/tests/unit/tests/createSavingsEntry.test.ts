@@ -1,6 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { createSavingsEntry } from './createSavingsEntry';
-import { makeTestDb } from './testDb';
+import { createSavingsEntry } from 'src/createSavingsEntry';
+import { makeTestDb } from 'tests/unit/testDb';
 
 describe('createSavingsEntry', () => {
   it('insere e devolve a linha lida de volta', async () => {

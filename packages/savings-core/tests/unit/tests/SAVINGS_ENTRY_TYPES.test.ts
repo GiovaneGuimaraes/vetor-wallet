@@ -1,5 +1,4 @@
-import { describe, it, expect } from 'vitest';
-import { SAVINGS_ENTRY_TYPES, isSavingsEntryType } from './SAVINGS_ENTRY_TYPES';
+import { SAVINGS_ENTRY_TYPES, isSavingsEntryType } from 'src/SAVINGS_ENTRY_TYPES';
 
 describe('SAVINGS_ENTRY_TYPES', () => {
   it('é a lista dos três tipos, em ordem estável (a mensagem de 400 a usa)', () => {

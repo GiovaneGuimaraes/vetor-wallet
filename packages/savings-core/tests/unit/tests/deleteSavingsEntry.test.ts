@@ -1,6 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { deleteSavingsEntry } from './deleteSavingsEntry';
-import { makeTestDb } from './testDb';
+import { deleteSavingsEntry } from 'src/deleteSavingsEntry';
+import { makeTestDb } from 'tests/unit/testDb';
 
 describe('deleteSavingsEntry', () => {
   it('devolve true quando apagou', async () => {

@@ -1,7 +1,6 @@
-import { describe, it, expect } from 'vitest';
 import type { SavingsEntry } from '@vetor-wallet/shared';
-import { summariseSavings } from './summariseSavings';
-import { computeBalance } from './computeBalance';
+import { summariseSavings } from 'src/summariseSavings';
+import { computeBalance } from 'src/computeBalance';
 
 function entry(type: SavingsEntry['type'], amount: number): SavingsEntry {
   return {

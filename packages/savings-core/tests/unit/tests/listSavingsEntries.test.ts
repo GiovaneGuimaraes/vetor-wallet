@@ -1,6 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { listSavingsEntries } from './listSavingsEntries';
-import { makeTestDb } from './testDb';
+import { listSavingsEntries } from 'src/listSavingsEntries';
+import { makeTestDb } from 'tests/unit/testDb';
 
 describe('listSavingsEntries', () => {
   it('filtra por user_id e devolve as linhas', async () => {

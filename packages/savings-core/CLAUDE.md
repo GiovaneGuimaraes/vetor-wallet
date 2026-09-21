@@ -40,8 +40,14 @@ src/
 ├── createSavingsEntry.ts   # db injetado
 ├── updateSavingsEntry.ts   # db injetado; devolve null = 404 da rota
 ├── deleteSavingsEntry.ts   # db injetado; devolve false = 404 da rota
-├── testDb.ts               # helper: Db mockado para os testes
 └── index.ts                # barrel
+
+tests/
+├── tsconfig.json           # types: node + jest; isolatedModules
+└── unit/
+    ├── jest.config.ts      # rootDir = raiz do package; threshold 100%
+    ├── testDb.ts           # helper: Db mockado
+    └── tests/              # 1 arquivo de teste por função
 ```
 
 ## Formato-alvo, com `db` injetado (T-110a, 2026-09-20)
@@ -51,9 +57,13 @@ calibre `validation-core` vieram antes; ver `docs/PACKAGES.md`). Duas coisas
 aconteceram na mesma PR, de propósito — fazê-las em sequência mexeria duas vezes
 no mesmo barrel, nos mesmos configs e nos mesmos call sites:
 
-1. **Uma função por arquivo**, teste ao lado, cobertura **100% travada por
-   `thresholds` no `vitest.config.ts`** (não é meta no papel: a suíte falha
-   abaixo disso).
+1. **Uma função por arquivo**, testes em `tests/unit/tests/` importando por
+   `src/...` (de fora, olhando para dentro), cobertura **100% travada por
+   `coverageThreshold`** — não é meta no papel: a suíte falha abaixo disso.
+   **Runner Jest** (T-110b): a T-110a tinha entregue em Vitest com teste ao
+   lado, e o humano fixou o Jest como padrão em 2026-09-20. Este package é o
+   molde dos sete cores que ainda vão migrar — inclusive no `isolatedModules`,
+   que vive no `tests/tsconfig.json` e não como opção do ts-jest (deprecada).
 2. **O CRUD saiu da rota.** `savings.ts` no `rest-api` tinha 212 linhas com 17
    pontos de SQL e o `buildSummary` — regra de domínio — dentro do arquivo do
    Express. Agora tem 138 linhas e **zero SQL**: valida entrada e traduz o
