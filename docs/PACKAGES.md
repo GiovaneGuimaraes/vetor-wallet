@@ -23,6 +23,7 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **cognito-core** | Integration | Auth | Client HTTP do AWS Cognito (login, cadastro, confirmação, troca de senha) | ✅ existe (T-106) |
 | **portfolio-core** | Core | Portfolio | Posição, preço médio, histórico, snapshots, agendador | ✅ existe (T-099c) |
 | **brapi-core** | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | ✅ existe (T-098) |
+| **income-core** | Core | Income | CRUD de fontes fixas e lançamentos avulsos (T-110d) | ✅ existe (T-110d) |
 | **expenses-core** | Core | Expenses | Recorrência lazy + CRUD de despesa fixa (a normalização de categoria é chamada aqui, mas mora em `validation-core`, T-099a) | ✅ existe (T-099b), formato-alvo na T-110c |
 | **savings-core** | Core | Savings | Saldo da poupança em centavos + CRUD de `savings_entries` (metas saíram na T-091b1) | ✅ existe (T-099b), formato-alvo na T-110a |
 | **subscription-core** | Core | Subscriptions | Datas, ativação idempotente, gating + provider AbacatePay | ✅ existe (T-103) |
@@ -168,6 +169,7 @@ migrar. Package novo já nasce assim; os antigos migram um por vez, em tarefas p
 | `cognito-core` | ✅ alvo, exceto runner (T-106) | Vitest, teste ao lado, cobertura 100% |
 | `savings-core` | ✅ alvo completo (T-110a/b) — **primeiro com `db` injetado** | Jest, `tests/unit/tests/`, cobertura 100% por `coverageThreshold` |
 | `expenses-core` | ✅ alvo completo (T-110c) — inclui a exceção `TransactionalDb` | Jest, cobertura 100%; 1 teste com client real (prova rollback) |
+| `income-core` | ✅ nasceu no formato-alvo (T-110d) | Jest, cobertura 100% |
 | demais `*-core`, `db` | arquivo-balaio, `db` importado, teste em `src/**/*.test.ts` | Vitest |
 
 > `validation-core` foi o segundo package migrado e o **calibre** do formato:

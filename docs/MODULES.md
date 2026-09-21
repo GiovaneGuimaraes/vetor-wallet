@@ -87,9 +87,12 @@ Packages:
   (avulsas, T-036).
 - `packages/web/src/routes` — página de renda e o cálculo da sobra do mês na Home (T-025).
 
-Este módulo **não tem package core** e provavelmente não vai ter: a lógica é CRUD com validação,
-sem regra de negócio própria. Se um dia ganhar regras (projeção de renda, recorrência),
-nasce `packages/income-core`.
+Este módulo **ganhou `packages/income-core` na T-110d** (2026-09-20). A previsão anterior aqui
+era de que ele não teria core, porque a lógica é CRUD com validação, sem regra de negócio própria
+— o que **continua verdade**. O que mudou foi o critério: não é mais "tem regra de negócio?", e
+sim "onde mora o SQL quando ele precisar ser reescrito?". O passo 3 da migração
+(`docs/multi-agent/plano-migracao-aws.md`) tira o SQL das rotas para que a tradução
+SQLite → Postgres tenha um lugar por query. Um core magro é o preço.
 
 ---
 

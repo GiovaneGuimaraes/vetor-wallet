@@ -19,6 +19,11 @@ import {
   insertEntryWithExternalId,
   validateExternalId,
 } from '@vetor-wallet/bank-import-core';
+import {
+  listIncomeEntriesByMonth,
+  updateIncomeEntry,
+  deleteIncomeEntry,
+} from '@vetor-wallet/income-core';
 
 const router = Router();
 
@@ -49,13 +54,8 @@ router.get(
       return;
     }
 
-    const result = await db.execute({
-      sql: `SELECT * FROM income_entries
-            WHERE user_id = ? AND substr(date, 1, 7) = ?
-            ORDER BY date DESC, created_at DESC`,
-      args: [userId, month],
-    });
-    res.json({ month, entries: result.rows });
+    const entries = await listIncomeEntriesByMonth({ db, userId, month });
+    res.json({ month, entries });
   })
 );
 
@@ -143,42 +143,17 @@ router.patch(
       return;
     }
 
-    const existing = await db.execute({
-      sql: 'SELECT id FROM income_entries WHERE id = ? AND user_id = ?',
-      args: [id, userId],
+    const entry = await updateIncomeEntry({
+      db,
+      userId,
+      id,
+      changes: { description, amount, date },
     });
-    if (existing.rows.length === 0) {
+    if (entry === null) {
       res.status(404).json({ error: 'Lançamento de renda não encontrado' });
       return;
     }
-
-    const fields: string[] = [];
-    const args: (string | number)[] = [];
-    if (description !== undefined) {
-      fields.push('description = ?');
-      args.push(description.trim());
-    }
-    if (amount !== undefined) {
-      fields.push('amount = ?');
-      args.push(amount);
-    }
-    if (date !== undefined) {
-      fields.push('date = ?');
-      args.push(date);
-    }
-    args.push(id, userId);
-
-    await db.execute({
-      sql: `UPDATE income_entries SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`,
-      args,
-    });
-
-    // Re-SELECT também filtrado por user_id (T-051).
-    const row = await db.execute({
-      sql: 'SELECT * FROM income_entries WHERE id = ? AND user_id = ?',
-      args: [id, userId],
-    });
-    res.json(row.rows[0]);
+    res.json(entry);
   })
 );
 
@@ -187,11 +162,7 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const { id } = req.params;
-    const result = await db.execute({
-      sql: 'DELETE FROM income_entries WHERE id = ? AND user_id = ?',
-      args: [id, userId],
-    });
-    if (result.rowsAffected === 0) {
+    if (!(await deleteIncomeEntry({ db, userId, id }))) {
       res.status(404).json({ error: 'Lançamento de renda não encontrado' });
       return;
     }

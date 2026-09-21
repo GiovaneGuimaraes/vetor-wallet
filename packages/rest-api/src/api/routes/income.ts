@@ -3,12 +3,18 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
-import type { NewIncomeSource, IncomeSourceType, IncomeSourceUpdate } from '@vetor-wallet/shared';
+import type { NewIncomeSource, IncomeSourceUpdate } from '@vetor-wallet/shared';
+import {
+  INCOME_SOURCE_TYPES,
+  isIncomeSourceType,
+  listIncomeSources,
+  createIncomeSource,
+  updateIncomeSource,
+  deleteIncomeSource,
+} from '@vetor-wallet/income-core';
 import { isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
 
 const router = Router();
-
-const VALID_TYPES: IncomeSourceType[] = ['SALARIO', 'FREELA', 'OUTRO'];
 
 router.use(requireAuth);
 router.use(requireActiveSubscription);
@@ -17,11 +23,7 @@ router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const result = await db.execute({
-      sql: 'SELECT * FROM income_sources WHERE user_id = ? ORDER BY created_at DESC',
-      args: [userId],
-    });
-    res.json(result.rows);
+    res.json(await listIncomeSources({ db, userId }));
   })
 );
 
@@ -35,8 +37,8 @@ router.post(
       res.status(400).json({ error: 'name é obrigatório' });
       return;
     }
-    if (type !== undefined && !VALID_TYPES.includes(type)) {
-      res.status(400).json({ error: `type deve ser um de: ${VALID_TYPES.join(', ')}` });
+    if (type !== undefined && !isIncomeSourceType(type)) {
+      res.status(400).json({ error: `type deve ser um de: ${INCOME_SOURCE_TYPES.join(', ')}` });
       return;
     }
     if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
@@ -48,22 +50,12 @@ router.post(
       return;
     }
 
-    const insert = await db.execute({
-      sql: 'INSERT INTO income_sources (user_id, name, type, amount) VALUES (?, ?, ?, ?)',
-      args: [userId, name.trim(), type, amount],
-    });
-
-    const newId = insert.lastInsertRowid ?? 0;
-    // Re-SELECT também filtrado por user_id (T-059, simetria com o PATCH — T-051).
-    const row = await db.execute({
-      sql: 'SELECT * FROM income_sources WHERE id = ? AND user_id = ?',
-      args: [Number(newId), userId],
-    });
-    res.status(201).json(row.rows[0]);
+    const source = await createIncomeSource({ db, userId, name, type, amount });
+    res.status(201).json(source);
   })
 );
 
-// T-031: edição parcial, espelhando o padrão de PATCH /api/goals/:id.
+// T-031: edição parcial.
 router.patch(
   '/:id',
   asyncHandler(async (req: Request, res: Response) => {
@@ -79,8 +71,8 @@ router.patch(
       res.status(400).json({ error: 'name não pode ser vazio' });
       return;
     }
-    if (type !== undefined && !VALID_TYPES.includes(type)) {
-      res.status(400).json({ error: `type deve ser um de: ${VALID_TYPES.join(', ')}` });
+    if (type !== undefined && !isIncomeSourceType(type)) {
+      res.status(400).json({ error: `type deve ser um de: ${INCOME_SOURCE_TYPES.join(', ')}` });
       return;
     }
     if (
@@ -95,43 +87,12 @@ router.patch(
       return;
     }
 
-    const existing = await db.execute({
-      sql: 'SELECT id FROM income_sources WHERE id = ? AND user_id = ?',
-      args: [id, userId],
-    });
-    if (existing.rows.length === 0) {
+    const source = await updateIncomeSource({ db, userId, id, changes: { name, type, amount } });
+    if (source === null) {
       res.status(404).json({ error: 'Fonte de renda não encontrada' });
       return;
     }
-
-    const fields: string[] = [];
-    const args: (string | number)[] = [];
-    if (name !== undefined) {
-      fields.push('name = ?');
-      args.push(name.trim());
-    }
-    if (type !== undefined) {
-      fields.push('type = ?');
-      args.push(type);
-    }
-    if (amount !== undefined) {
-      fields.push('amount = ?');
-      args.push(amount);
-    }
-    args.push(id, userId);
-
-    await db.execute({
-      sql: `UPDATE income_sources SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`,
-      args,
-    });
-
-    // Re-SELECT também filtrado por user_id (T-051) — a existência já foi
-    // checada acima, mas o re-SELECT não deve depender só disso.
-    const row = await db.execute({
-      sql: 'SELECT * FROM income_sources WHERE id = ? AND user_id = ?',
-      args: [id, userId],
-    });
-    res.json(row.rows[0]);
+    res.json(source);
   })
 );
 
@@ -140,11 +101,7 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const { id } = req.params;
-    const result = await db.execute({
-      sql: 'DELETE FROM income_sources WHERE id = ? AND user_id = ?',
-      args: [id, userId],
-    });
-    if (result.rowsAffected === 0) {
+    if (!(await deleteIncomeSource({ db, userId, id }))) {
       res.status(404).json({ error: 'Fonte de renda não encontrada' });
       return;
     }

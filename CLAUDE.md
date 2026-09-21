@@ -62,6 +62,9 @@ packages/
 │                     # vivia na rota (T-099b, Ciclo 19; formato-alvo com
 │                     # `db` injetado na T-110a). Metas saíram na T-091b1 e o
 │                     # saldo livre virou o próprio saldo
+├── income-core/      # @vetor-wallet/income-core — CRUD de fontes fixas e de
+│                     # lançamentos avulsos de renda; nasceu no formato-alvo
+│                     # (T-110d), extraído das rotas
 ├── expenses-core/    # @vetor-wallet/expenses-core — recorrência lazy e
 │                     # idempotente + o CRUD de despesa fixa que vivia na
 │                     # rota (T-099b, Ciclo 19; formato-alvo na T-110c)
@@ -119,6 +122,7 @@ pnpm --filter @vetor-wallet/subscription-core mutation  # Stryker, sob demanda
 pnpm --filter @vetor-wallet/validation-core test   # Jest (validation-core)
 pnpm --filter @vetor-wallet/savings-core test      # Jest (savings-core; cobertura 100%)
 pnpm --filter @vetor-wallet/expenses-core test     # Jest (expenses-core; cobertura 100%)
+pnpm --filter @vetor-wallet/income-core test       # Jest (income-core; cobertura 100%)
 pnpm --filter @vetor-wallet/bank-import-core test  # Vitest (bank-import-core)
 pnpm --filter @vetor-wallet/pluggy-core test       # Vitest (pluggy-core)
 pnpm --filter @vetor-wallet/portfolio-core test    # Vitest (portfolio-core)
