@@ -116,7 +116,7 @@ pnpm --filter @vetor-wallet/brapi-core test        # Vitest (brapi-core)
 pnpm --filter @vetor-wallet/subscription-core test # Jest (subscription-core)
 pnpm --filter @vetor-wallet/subscription-core mutation  # Stryker, sob demanda
 pnpm --filter @vetor-wallet/validation-core test   # Jest (validation-core)
-pnpm --filter @vetor-wallet/savings-core test      # Vitest (savings-core)
+pnpm --filter @vetor-wallet/savings-core test      # Jest (savings-core; cobertura 100%)
 pnpm --filter @vetor-wallet/expenses-core test     # Vitest (expenses-core)
 pnpm --filter @vetor-wallet/bank-import-core test  # Vitest (bank-import-core)
 pnpm --filter @vetor-wallet/pluggy-core test       # Vitest (pluggy-core)

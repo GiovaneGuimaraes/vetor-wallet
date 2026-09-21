@@ -1,6 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { updateSavingsEntry } from './updateSavingsEntry';
-import { makeTestDb } from './testDb';
+import { updateSavingsEntry } from 'src/updateSavingsEntry';
+import { makeTestDb } from 'tests/unit/testDb';
 
 describe('updateSavingsEntry', () => {
   it('devolve null quando o lançamento não é do usuário (ou não existe)', async () => {

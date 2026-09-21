@@ -1,5 +1,4 @@
-import { describe, it, expect } from 'vitest';
-import { computeBalance } from './computeBalance';
+import { computeBalance } from 'src/computeBalance';
 
 describe('computeBalance', () => {
   it('soma DEPOSIT e YIELD e subtrai WITHDRAW', () => {

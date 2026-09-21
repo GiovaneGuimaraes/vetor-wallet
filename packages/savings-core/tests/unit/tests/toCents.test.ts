@@ -1,5 +1,4 @@
-import { describe, it, expect } from 'vitest';
-import { toCents } from './toCents';
+import { toCents } from 'src/toCents';
 
 describe('toCents', () => {
   it('converte reais em centavos inteiros', () => {
