@@ -21,8 +21,6 @@ export {
   runSnapshotJob,
   catchUpIfNeeded,
 } from './snapshots';
-export { startSnapshotScheduler } from './snapshotScheduler';
-export type { SnapshotSchedulerHandle } from './snapshotScheduler';
 export {
   DEFAULT_WALLET,
   findDefaultWallet,

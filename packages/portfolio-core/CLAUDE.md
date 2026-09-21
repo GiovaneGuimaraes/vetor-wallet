@@ -3,7 +3,7 @@
 Carteira e ações da B3: posição por **preço médio ponderado**, validação de SELL
 contra a posição atual, série histórica valor × custo, snapshots diários de
 fechamento e o agendador in-process da coleta. Extraído de
-`packages/rest-api/src/api/services/{portfolio,portfolioHistory,wallets,snapshots,snapshotScheduler}.ts`
+`packages/rest-api/src/api/services/{portfolio,portfolioHistory,wallets,snapshots}.ts`
 na T-099c (Ciclo 19 — arquitetura em módulos). Categoria **Core**, módulo
 **Portfolio** (ver `docs/MODULES.md` / `docs/PACKAGES.md`).
 
@@ -32,13 +32,12 @@ src/
 ├── snapshots.ts          # getBRTDate/isBusinessDay/withRetry (puros) +
 │                         # persistência e leitura de quote_snapshots +
 │                         # runSnapshotJob / catchUpIfNeeded
-├── snapshotScheduler.ts  # startSnapshotScheduler (setInterval + unref)
 └── index.ts              # barrel
 ```
 
 Rotas: `packages/rest-api/src/api/routes/{wallets,operations,portfolio,snapshots,import,alerts}.ts`.
-Boot: `packages/rest-api/src/api/index.ts` chama `catchUpIfNeeded()` e
-`startSnapshotScheduler(30min, catchUpIfNeeded)` — ver "Coleta diária" abaixo.
+Boot: `packages/rest-api/src/api/index.ts` chama `catchUpIfNeeded()` — ver
+"Coleta diária" abaixo.
 Telas: `packages/web/src/routes/DashboardPage.tsx` e os módulos puros ao lado.
 
 ## Invariantes (não quebrar)
@@ -134,7 +133,7 @@ Até a T-058a, `runSnapshotJob()`/`catchUpIfNeeded()` (`packages/portfolio-core/
 
 - **Por que o boot basta como "guarda"**: `catchUpIfNeeded` já só roda em **dia útil, depois das 18:15 BRT e apenas se não houver snapshot do dia**; o `UNIQUE(ticker, date(captured_at))` fecha a idempotência no banco. Nenhuma guarda nova foi inventada.
 - **Não-fatal e não-bloqueante**: a chamada vem **depois** do `app.listen` e num `.catch` que só loga — mesmo espírito do `createUser` da T-050a. `runSnapshotJob` já engole a falha de fetch (3 tentativas com backoff via `withRetry`); o `catch` do boot cobre o resto (erro de banco, rejeição inesperada). Coberto por teste: `catchUpIfNeeded` **resolve** com a brapi indisponível, sem gravar nada.
-- **Agendador in-process reexecuta o catch-up periodicamente (T-061)** — o boot deixou de ser o único gatilho. `startSnapshotScheduler(intervalMs, runner)` (`packages/portfolio-core/src/snapshotScheduler.ts`, testada com fake timers) é um `setInterval` genérico que chama `runner()` a cada tick, devolvendo um handle `{ stop }`; `index.ts` liga com `startSnapshotScheduler(30 * 60 * 1000, catchUpIfNeeded)` logo após o catch-up de boot, dentro do mesmo `.then()` do `initDb()`. Nenhuma guarda nova foi inventada: são as mesmas de `catchUpIfNeeded` (dia útil, depois das 18:15 BRT, sem snapshot do dia) + o `UNIQUE(ticker, date(captured_at))` do banco que seguem garantindo a idempotência — o agendador só faz a chamada acontecer de novo. Um erro do `runner` é capturado e logado (nunca derruba o server nem para os ticks seguintes) e o timer é `.unref()`'d (não impede o processo de encerrar). **Limitação que persiste**: é *in-process* — não é cron do SO, não persiste entre restarts e não coordena múltiplas instâncias; morre e nasce com o processo Node. Lambda + EventBridge continua sendo o caminho para produção/deploy distribuído (fora de escopo).
+- **O agendador in-process da T-061 foi REMOVIDO na T-109b (2026-09-20)** — e com ele `snapshotScheduler.ts`, seu teste de fake timers e os dois exports do barrel. Ele reexecutava `catchUpIfNeeded()` a cada 30min para cobrir o server que sobe de manhã e fica no ar o dia inteiro, nunca cruzando a guarda das 18:15 BRT. **O gatilho voltou a ser só o boot**, de propósito: era o último cron vivo no app, e ele renasce como EventBridge + Lambda quando a infra da AWS existir (decisão do humano — tirar antes da migração, para não traduzir um agendador in-process para Postgres e carregá-lo adiante). **A consequência aceita**: num dia em que o server suba de manhã e não reinicie, o fechamento daquele dia não é capturado. Isso NÃO abre buraco no gráfico — o forward-fill da série (bullet abaixo) repete o último fechamento conhecido, e o próximo boot depois das 18:15 BRT de um dia útil captura o que faltou. O que se perde é a linha daquele dia em `quote_snapshots`, não a continuidade da curva.
 
 `GET /api/portfolio/history?days=N` monta a série a partir dessas linhas, com a lógica pura em `packages/portfolio-core/src/portfolioHistory.ts` (`buildPortfolioHistory`, `buildDateWindow`, `shiftDate` — testadas):
 
