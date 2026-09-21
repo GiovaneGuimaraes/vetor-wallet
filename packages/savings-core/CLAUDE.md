@@ -3,9 +3,9 @@
 Regras de poupança/reserva do Vetor Wallet. Extraído de
 `packages/rest-api/src/api/services/savings.ts` na T-099b (Ciclo 19 —
 arquitetura em módulos). Categoria **Core**, módulo **Savings** (ver
-`docs/MODULES.md`/`docs/PACKAGES.md`). É dono da tabela `savings_entries`.
-Hoje o package é **100% puro** (só aritmética de centavos): a metade que falava
-com o banco era `goals.ts`, que saiu com Metas na T-091b1.
+`docs/MODULES.md`/`docs/PACKAGES.md`). É dono da tabela `savings_entries` —
+e, desde a **T-110a** (2026-09-20), é dono de verdade: o CRUD que vivia na rota
+veio para cá, com `db` **injetado**.
 
 Este arquivo substitui `docs/decisions/savings-goals.md` (hoje um stub apontando
 para cá — e o registro da remoção de Metas) e cobre o módulo Savings inteiro,
@@ -32,9 +32,47 @@ conta integral no saldo.
 
 ```
 src/
-├── savings.ts  # PURO: toCents, computeBalance
-└── index.ts    # barrel
+├── toCents.ts              # PURO: reais → centavos inteiros
+├── computeBalance.ts       # PURO: DEPOSIT + YIELD − WITHDRAW
+├── summariseSavings.ts     # PURO: o summary de GET /api/savings
+├── SAVINGS_ENTRY_TYPES.ts  # os três tipos + isSavingsEntryType
+├── listSavingsEntries.ts   # db injetado
+├── createSavingsEntry.ts   # db injetado
+├── updateSavingsEntry.ts   # db injetado; devolve null = 404 da rota
+├── deleteSavingsEntry.ts   # db injetado; devolve false = 404 da rota
+├── testDb.ts               # helper: Db mockado para os testes
+└── index.ts                # barrel
 ```
+
+## Formato-alvo, com `db` injetado (T-110a, 2026-09-20)
+
+Este é o **primeiro core com `db` a migrar** (o piloto `subscription-core` e o
+calibre `validation-core` vieram antes; ver `docs/PACKAGES.md`). Duas coisas
+aconteceram na mesma PR, de propósito — fazê-las em sequência mexeria duas vezes
+no mesmo barrel, nos mesmos configs e nos mesmos call sites:
+
+1. **Uma função por arquivo**, teste ao lado, cobertura **100% travada por
+   `thresholds` no `vitest.config.ts`** (não é meta no papel: a suíte falha
+   abaixo disso).
+2. **O CRUD saiu da rota.** `savings.ts` no `rest-api` tinha 212 linhas com 17
+   pontos de SQL e o `buildSummary` — regra de domínio — dentro do arquivo do
+   Express. Agora tem 138 linhas e **zero SQL**: valida entrada e traduz o
+   resultado em status HTTP, que é o papel dela.
+
+**`db` é parâmetro, nunca import.** Nenhuma função aqui importa o singleton de
+`@vetor-wallet/db`; quem chama passa o client. É o que dispensa banco temporário
+no teste (`testDb.ts` devolve um mock puro) e o que o resolver do AppSync e o
+`lambda-postgres-query` vão exigir na migração para Postgres.
+
+**Ausência é 404 da rota, não exceção aqui**: `updateSavingsEntry` devolve `null`
+e `deleteSavingsEntry` devolve `false` quando a linha não existe **ou** é de
+outro usuário. Os dois casos colapsam no mesmo 404 de propósito — distinguir
+"não existe" de "não é seu" transformaria a rota em sonda de existência.
+
+**Toda consulta carrega `user_id`**, inclusive o re-SELECT depois do INSERT
+(T-059) e o `UPDATE` depois da checagem de existência (T-051) — não só a
+checagem. Assim nem uma corrida entre as duas consultas poderia escrever em
+linha alheia.
 
 Rota: `packages/rest-api/src/api/routes/savings.ts`. Telas e lógica pura
 do cliente: `packages/web/src/routes/{savingsProjection,savingsWithdraw}.ts`

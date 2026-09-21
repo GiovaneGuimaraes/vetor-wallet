@@ -3,63 +3,33 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
-import { toCents } from '@vetor-wallet/savings-core';
+import {
+  SAVINGS_ENTRY_TYPES,
+  isSavingsEntryType,
+  summariseSavings,
+  listSavingsEntries,
+  createSavingsEntry,
+  updateSavingsEntry,
+  deleteSavingsEntry,
+} from '@vetor-wallet/savings-core';
 import {
   isValidIsoDate,
   isValidMoneyAmount,
   moneyAmountError,
 } from '@vetor-wallet/validation-core';
-import type {
-  NewSavingsEntry,
-  SavingsEntryType,
-  SavingsEntry,
-  SavingsEntryUpdate,
-  SavingsSummary,
-} from '@vetor-wallet/shared';
+import type { NewSavingsEntry, SavingsEntryUpdate } from '@vetor-wallet/shared';
 
 const router = Router();
 
-const VALID_TYPES: SavingsEntryType[] = ['DEPOSIT', 'WITHDRAW', 'YIELD'];
-
 router.use(requireAuth);
 router.use(requireActiveSubscription);
-
-// Somado em centavos inteiros, alinhado a `computeBalance`
-// (@vetor-wallet/savings-core): somar em float direto pode divergir em um centavo de
-// `balance = totalDeposits + totalYield - totalWithdrawals` em razões grandes.
-// Desde a T-091b1 (Metas removida) o `balance` é também o saldo LIVRE: não há
-// mais reserva a descontar. A T-091b2 apagou `goal_id` do banco; o legado que
-// sobrou é o `transfer_group` (T-041), que é só procedência e conta integral.
-function buildSummary(entries: SavingsEntry[]): SavingsSummary {
-  let depositsCents = 0;
-  let yieldCents = 0;
-  let withdrawalsCents = 0;
-
-  for (const entry of entries) {
-    const cents = toCents(entry.amount);
-    if (entry.type === 'DEPOSIT') depositsCents += cents;
-    else if (entry.type === 'YIELD') yieldCents += cents;
-    else if (entry.type === 'WITHDRAW') withdrawalsCents += cents;
-  }
-
-  return {
-    balance: (depositsCents + yieldCents - withdrawalsCents) / 100,
-    totalDeposits: depositsCents / 100,
-    totalYield: yieldCents / 100,
-    totalWithdrawals: withdrawalsCents / 100,
-  };
-}
 
 router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const result = await db.execute({
-      sql: 'SELECT * FROM savings_entries WHERE user_id = ? ORDER BY date DESC, created_at DESC',
-      args: [userId],
-    });
-    const entries = result.rows as unknown as SavingsEntry[];
-    res.json({ entries, summary: buildSummary(entries) });
+    const entries = await listSavingsEntries({ db, userId });
+    res.json({ entries, summary: summariseSavings(entries) });
   })
 );
 
@@ -72,8 +42,8 @@ router.post(
     // faz com qualquer campo desconhecido em todas as outras rotas.
     const { type, amount, date, note = '' } = req.body as Partial<NewSavingsEntry>;
 
-    if (!type || !VALID_TYPES.includes(type)) {
-      res.status(400).json({ error: `type deve ser um de: ${VALID_TYPES.join(', ')}` });
+    if (!isSavingsEntryType(type)) {
+      res.status(400).json({ error: `type deve ser um de: ${SAVINGS_ENTRY_TYPES.join(', ')}` });
       return;
     }
     if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
@@ -89,20 +59,8 @@ router.post(
       return;
     }
 
-    // A coluna `goal_id` foi removida do banco na T-091b2 — não há mais nem onde
-    // gravar o vínculo, e o INSERT abaixo já não a mencionava.
-    const insert = await db.execute({
-      sql: 'INSERT INTO savings_entries (user_id, type, amount, date, note) VALUES (?, ?, ?, ?, ?)',
-      args: [userId, type, amount, date, note ?? ''],
-    });
-
-    const newId = insert.lastInsertRowid ?? 0;
-    // Re-SELECT também filtrado por user_id (T-059, simetria com o PATCH — T-051).
-    const row = await db.execute({
-      sql: 'SELECT * FROM savings_entries WHERE id = ? AND user_id = ?',
-      args: [Number(newId), userId],
-    });
-    res.status(201).json(row.rows[0]);
+    const entry = await createSavingsEntry({ db, userId, type, amount, date, note });
+    res.status(201).json(entry);
   })
 );
 
@@ -125,8 +83,8 @@ router.patch(
       res.status(400).json({ error: 'informe ao menos um campo para atualizar' });
       return;
     }
-    if (type !== undefined && !VALID_TYPES.includes(type)) {
-      res.status(400).json({ error: `type deve ser um de: ${VALID_TYPES.join(', ')}` });
+    if (type !== undefined && !isSavingsEntryType(type)) {
+      res.status(400).json({ error: `type deve ser um de: ${SAVINGS_ENTRY_TYPES.join(', ')}` });
       return;
     }
     if (
@@ -149,46 +107,17 @@ router.patch(
       return;
     }
 
-    const existing = await db.execute({
-      sql: 'SELECT id FROM savings_entries WHERE id = ? AND user_id = ?',
-      args: [id, userId],
+    const entry = await updateSavingsEntry({
+      db,
+      userId,
+      id,
+      changes: { type, amount, date, note },
     });
-    if (existing.rows.length === 0) {
+    if (entry === null) {
       res.status(404).json({ error: 'Lançamento de poupança não encontrado' });
       return;
     }
-
-    const fields: string[] = [];
-    const args: (string | number | null)[] = [];
-    if (type !== undefined) {
-      fields.push('type = ?');
-      args.push(type);
-    }
-    if (amount !== undefined) {
-      fields.push('amount = ?');
-      args.push(amount);
-    }
-    if (date !== undefined) {
-      fields.push('date = ?');
-      args.push(date);
-    }
-    if (note !== undefined) {
-      fields.push('note = ?');
-      args.push(note);
-    }
-    args.push(id, userId);
-
-    await db.execute({
-      sql: `UPDATE savings_entries SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`,
-      args,
-    });
-
-    // Re-SELECT também filtrado por user_id (T-051).
-    const row = await db.execute({
-      sql: 'SELECT * FROM savings_entries WHERE id = ? AND user_id = ?',
-      args: [id, userId],
-    });
-    res.json(row.rows[0]);
+    res.json(entry);
   })
 );
 
@@ -197,11 +126,8 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const { id } = req.params;
-    const result = await db.execute({
-      sql: 'DELETE FROM savings_entries WHERE id = ? AND user_id = ?',
-      args: [id, userId],
-    });
-    if (result.rowsAffected === 0) {
+    const apagou = await deleteSavingsEntry({ db, userId, id });
+    if (!apagou) {
       res.status(404).json({ error: 'Lançamento de poupança não encontrado' });
       return;
     }

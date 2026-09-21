@@ -15,5 +15,13 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      // `index.ts` é barrel (só reexporta) e `testDb.ts` é helper de teste —
+      // mesma exclusão do cognito-core, o outro package no formato-alvo.
+      exclude: ['src/index.ts', 'src/testDb.ts', 'src/**/*.test.ts'],
+      thresholds: { statements: 100, branches: 100, functions: 100, lines: 100 },
+    },
   },
 });

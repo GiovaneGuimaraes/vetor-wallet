@@ -24,7 +24,7 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **portfolio-core** | Core | Portfolio | Posição, preço médio, histórico, snapshots, agendador | ✅ existe (T-099c) |
 | **brapi-core** | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | ✅ existe (T-098) |
 | **expenses-core** | Core | Expenses | Recorrência lazy (categoria normalizada saiu para `validation-core`, T-099a) | ✅ existe (T-099b) |
-| **savings-core** | Core | Savings | Saldo da poupança em centavos (metas saíram na T-091b1) | ✅ existe (T-099b) |
+| **savings-core** | Core | Savings | Saldo da poupança em centavos + CRUD de `savings_entries` (metas saíram na T-091b1) | ✅ existe (T-099b), formato-alvo na T-110a |
 | **subscription-core** | Core | Subscriptions | Datas, ativação idempotente, gating + provider AbacatePay | ✅ existe (T-103) |
 | **insights-core** | Core | Insights | Benchmarks CDI/Ibovespa | ✅ existe (T-099c) |
 | **bank-import-core** | Core | BankImport | Parser OFX, dedupe por `external_id` | ✅ existe (T-099c) |
@@ -159,6 +159,7 @@ migrar. Package novo já nasce assim; os antigos migram um por vez, em tarefas p
 | `validation-core` | ✅ alvo (T-104a) | Jest |
 | `pluggy-core` | ✅ alvo, exceto runner (T-087) | Vitest, teste ao lado (segue `brapi-core`) |
 | `cognito-core` | ✅ alvo, exceto runner (T-106) | Vitest, teste ao lado, cobertura 100% |
+| `savings-core` | ✅ alvo, exceto runner (T-110a) — **primeiro com `db` injetado** | Vitest, teste ao lado, cobertura 100% travada por threshold |
 | demais `*-core`, `db` | arquivo-balaio, `db` importado, teste em `src/**/*.test.ts` | Vitest |
 
 > `validation-core` foi o segundo package migrado e o **calibre** do formato:
