@@ -8,11 +8,11 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-09-13T20:31:00-03:00"
+    "atualizadoEm": "2026-09-20T21:36:58-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
-    "atualizadoEm": "2026-09-13T20:40:45-03:00"
+    "atualizadoEm": "2026-09-20T21:36:58-03:00"
   },
   "agenticSystem": {
     "messageId": "1536205023682232321",
@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-09-20T21:15:58-03:00"
+    "atualizadoEm": "2026-09-20T21:36:58-03:00"
   },
   "tasks": {
     "T-091b1": {
