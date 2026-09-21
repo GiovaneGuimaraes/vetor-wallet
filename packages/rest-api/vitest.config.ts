@@ -28,6 +28,7 @@ export default defineConfig({
       '@vetor-wallet/validation-core': path.resolve(__dirname, '../validation-core/src/index.ts'),
       '@vetor-wallet/subscription-core': path.resolve(__dirname, '../subscription-core/src/index.ts'),
       '@vetor-wallet/savings-core': path.resolve(__dirname, '../savings-core/src/index.ts'),
+      '@vetor-wallet/income-core': path.resolve(__dirname, '../income-core/src/index.ts'),
       '@vetor-wallet/expenses-core': path.resolve(__dirname, '../expenses-core/src/index.ts'),
       '@vetor-wallet/pluggy-core': path.resolve(__dirname, '../pluggy-core/src/index.ts'),
     },
