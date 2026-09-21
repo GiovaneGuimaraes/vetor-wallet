@@ -7,8 +7,9 @@ API REST em Node + Express + TypeScript (CJS). Leia junto com o `CLAUDE.md` da r
 ```
 src/
 └── api/
-    ├── index.ts      # entry: sessão, CORS, 18 routers, initDb(), catch-up de
-    │                 # snapshots no boot (não-fatal) + scheduler 30min (T-061)
+    ├── index.ts      # entry: sessão, CORS, 23 routers, initDb(), catch-up de
+    │                 # snapshots no boot (não-fatal). O scheduler de 30min da
+    │                 # T-061 saiu na T-109b; o router admin, na T-109a
     ├── auth/         # middleware (requireAuth → res.locals.userId) e
     │                 # router (/api/auth/*) — o SERVICE saiu na T-099c
     ├── routes/       # 1 arquivo por recurso REST (ver tabela no CLAUDE.md raiz)
@@ -56,13 +57,13 @@ Na T-099c (Ciclo 19) saiu o resto, esvaziando `services/`:
   via `@vetor-wallet/bank-import-core/fixtures`, um alias **só de teste** que
   precisa vir ANTES do alias do package base no `resolve.alias` (casamento por
   prefixo do Vite).
-- `@vetor-wallet/portfolio-core` (de `services/{portfolio,portfolioHistory,wallets,snapshots,snapshotScheduler}.ts`)
+- `@vetor-wallet/portfolio-core` (de `services/{portfolio,portfolioHistory,wallets,snapshots}.ts`)
   — preço médio ponderado, validação de SELL, série valor × custo, carteiras e a
-  coleta de snapshots. **`api/index.ts` continua ligando `catchUpIfNeeded()` e
-  `startSnapshotScheduler(30min, catchUpIfNeeded)` no boot** — só mudou de onde
-  os dois são importados.
-- `@vetor-wallet/insights-core` (de `services/{benchmarks,benchmarkHistory,hourlyInsights}.ts`)
-  — benchmarks CDI/Ibovespa e o job horário (também consumido pelo `cli`).
+  coleta de snapshots. **`api/index.ts` continua ligando `catchUpIfNeeded()` no
+  boot**; o `startSnapshotScheduler(30min, …)` que acompanhava essa chamada foi
+  removido na T-109b.
+- `@vetor-wallet/insights-core` (de `services/{benchmarks,benchmarkHistory}.ts`)
+  — benchmarks CDI/Ibovespa. O job horário saiu na T-109a.
 - `@vetor-wallet/auth-core` (de `api/auth/service.ts`) — credenciais, perfil e
   papéis. `auth/middleware.ts` e `auth/router.ts` **ficam aqui** (são Express) e
   importam do package; os testes que sobem app Express (`middleware.test.ts`,

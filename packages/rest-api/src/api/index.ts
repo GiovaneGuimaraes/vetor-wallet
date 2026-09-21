@@ -27,7 +27,7 @@ import billingSimulateRouter from './routes/billingSimulate';
 import webhooksRouter from './routes/webhooks';
 import pluggyRouter from './routes/pluggy';
 import { errorHandler } from './middleware/errorHandler';
-import { catchUpIfNeeded, startSnapshotScheduler } from '@vetor-wallet/portfolio-core';
+import { catchUpIfNeeded } from '@vetor-wallet/portfolio-core';
 
 const app = express();
 
@@ -91,10 +91,6 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT ?? 3001;
 
-// T-061: reexecuta o catch-up periodicamente, para além do boot — ver
-// startSnapshotScheduler() e o comentário abaixo, junto do dispatch inicial.
-const SNAPSHOT_SCHEDULER_INTERVAL_MS = 30 * 60 * 1000; // 30 min
-
 initDb()
   .then(() => {
     app.listen(PORT, () => {
@@ -114,15 +110,14 @@ initDb()
       console.error('[snapshots] Catch-up on startup failed (server continues):', err);
     });
 
-    // T-061: o boot sozinho só cobre quem reinicia depois das 18:15 BRT — um
-    // server que sobe de manhã e fica no ar o dia inteiro nunca reexecutava a
-    // checagem. Este agendador in-process reexecuta `catchUpIfNeeded()` a
-    // cada 30min; as guardas de dia útil/horário/snapshot-do-dia já existentes
-    // dentro dela (mais o UNIQUE(ticker, date(captured_at)) no banco) seguem
-    // sendo a única idempotência — nenhuma guarda nova foi criada aqui. O
-    // timer é `.unref()`'d (não segura o processo) e morre com ele: não é
-    // cron, não persiste, não substitui o Lambda + EventBridge do roadmap.
-    startSnapshotScheduler(SNAPSHOT_SCHEDULER_INTERVAL_MS, catchUpIfNeeded);
+    // T-109b (2026-09-20): o agendador in-process de 30min da T-061 foi
+    // REMOVIDO — era o último cron vivo no app, e ele renasce como EventBridge
+    // + Lambda quando a infra da AWS existir. O catch-up de boot acima FICA:
+    // não é timer nem cron, e é ele que mantém a coleta diária acontecendo a
+    // cada vez que o server sobe. Consequência aceita: um server que suba de
+    // manhã e fique no ar o dia inteiro não captura o fechamento daquele dia —
+    // o forward-fill do gráfico cobre o buraco, e o próximo boot depois das
+    // 18:15 BRT captura o que faltou.
   })
   .catch((err) => {
     console.error('Failed to initialize database:', err);
