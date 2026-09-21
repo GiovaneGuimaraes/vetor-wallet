@@ -1,4 +1,9 @@
-# Plano — migrar a REST API para GraphQL no AWS AppSync, com Relay no web
+# Plano — levar o app para a AWS: Postgres na Aurora, API REST no API Gateway
+
+> **Virada de rumo (2026-09-20): o AppSync e o Relay SAÍRAM do plano.** O humano
+> avaliou que o app é simples demais para pagar o preço deles, e concordo — o
+> raciocínio está na §1.1. O arquivo mudou de nome (`plano-appsync-relay.md` →
+> `plano-migracao-aws.md`); a **fase 1, que é o banco, não mudou em nada**.
 
 > Escrito pelo orquestrador em 2026-09-13 e **reescrito em 2026-09-14**, depois de duas coisas:
 > o humano escolheu **Aurora Serverless v2 + Postgres** (decisão 1) e apontou o monorepo privado
@@ -23,44 +28,73 @@ suficiente, e é a razão honesta a registrar.
 ## 1. O que muda, em uma frase
 
 Hoje o web fala com um Express que roda na máquina do humano e lê um arquivo SQLite ao lado dele.
-Depois, o web falaria com uma API GraphQL gerenciada pela AWS, que chama um Lambda, que lê um
-Postgres na nuvem — e o Relay passaria a ser o dono do cache e do carregamento de dados no
-frontend, no lugar dos `useEffect` que cada página escreve hoje.
+Depois, o web falará com **as mesmas rotas REST**, servidas por Lambda atrás do **API Gateway**,
+lendo um **Postgres** na nuvem. O contrato da API não muda; muda **onde ela roda** e **o que ela
+lê**.
+
+## 1.1 Por que o AppSync saiu (decisão do humano, 2026-09-20)
+
+O AppSync entrega três coisas: uma linguagem de consulta, *subscriptions* em WebSocket e
+resolvers gerenciados. **O app não usa nenhuma das três.** As rotas já devolvem exatamente o que
+cada tela precisa, não há cliente terceiro pedindo formato diferente, e o desenho previa **um
+único Lambda** para a API inteira — ou seja, nem a vantagem de "resolver sem código" se aplicava.
+
+O que ele cobrava em troca está escrito nas versões anteriores deste documento e era caro:
+**Relay no web** (compiler no CI, fragmentos, store), um **schema GraphQL** mantido em paralelo
+aos tipos que já existem em `packages/shared`, e a regra de ownership reescrita **resolver a
+resolver** — que foi exatamente onde a arquitetura de referência teve 13 resolvers cross-tenant,
+todos autenticados.
+
+Com API Gateway, a migração vira **"onde isso roda"** em vez de **"como isso é escrito"**: as
+mesmas rotas, os mesmos tipos, os mesmos 440 testes de rota do `rest-api` continuam valendo como
+rede de segurança durante a mudança.
+
+**O que se perde, registrado para não ser redescoberto como surpresa**: (1) *subscriptions* —
+os dois usos citados no plano antigo ("o Pix caiu", "o sync da Pluggy terminou") são polling hoje,
+então não se perde nada que exista, mas push futuro vira WebSocket API do API Gateway, que dá
+mais trabalho manual; (2) **uma requisição por tela** — com REST, uma tela que precisa de
+portfolio e benchmarks faz dois `fetch`, que é o que ela já faz hoje.
+
+**A porta continua aberta, e de graça**: o que viabiliza qualquer um dos dois é o **core com
+`db`/`query` injetado** (T-104/T-110a). Um resolver do AppSync e um handler do API Gateway
+chamam `listSavingsEntries({ db, userId })` do mesmo jeito.
 
 ## 2. O que se ganha e o que se perde
 
 **Ganha**
 
-- **Uma requisição por tela.** Hoje a Home dispara 6 chamadas, e o Dashboard tem waterfall real:
-  o `App.tsx` precisa resolver `getWallets`/`getPortfolio` antes de o Dashboard poder buscar
-  histórico e benchmarks. Com GraphQL a tela declara tudo que precisa e vai uma vez.
-- **Tempo real onde hoje há polling.** A `PlanosPage` fica batendo em `GET /api/pix-charges/:id`
-  para saber se o Pix caiu. Vira uma subscription.
-- **Cache normalizado sem escrever nada.** O Relay guarda por objeto: mudou a despesa em uma
-  tela, toda outra tela que mostra aquela despesa atualiza.
-- **Nenhum servidor para manter no ar.** O agendador de snapshots, que hoje morre quando o
-  terminal fecha, vira EventBridge.
-- **O casing inconsistente morre por construção.** O schema não comporta `external_id` ao lado
-  de `externalId` — o débito do `BACKLOG.md` sai junto, sem tarefa dedicada.
-- **Um banco de verdade.** Isto é novo com a escolha da Aurora: tipo `NUMERIC` para dinheiro,
-  `ALTER TABLE ... DROP COLUMN` que existe, `ON CONFLICT` completo, tipos de data reais. Boa
-  parte da ginástica do `packages/db` existe só porque o SQLite não tem isso (§5.3).
+- **O app deixa de morrer com o terminal.** Hoje ele só existe enquanto o Express está no ar na
+  máquina do humano. Depois, existe sem ninguém ligado — e o catch-up de snapshots, que hoje
+  depende de um boot, vira EventBridge.
+- **Um banco de verdade.** Tipo `NUMERIC` para dinheiro, `ALTER TABLE ... DROP COLUMN` que
+  existe, `ON CONFLICT` completo, tipos de data reais. Boa parte da ginástica do `packages/db`
+  existe só porque o SQLite não tem isso (§5.3).
+- **Domínio testável e portátil.** O trabalho da fase 1 (CRUD nos cores, `db`/`query` injetado)
+  vale em qualquer transporte — é o que mantém a porta do AppSync aberta sem pagar por ela agora.
+- **Acesso de qualquer lugar**, com HTTPS e certificado gerenciado, sem expor a máquina de casa.
+
+**NÃO ganha** (e ganharia com o AppSync — registrado porque a conta foi feita, §1.1): uma
+requisição por tela, subscriptions no lugar do polling do Pix, cache normalizado de graça, e o
+fim do casing inconsistente por construção. O casing volta a ser o que é hoje: um débito com
+tarefa própria no `BACKLOG.md`.
 
 **Perde**
 
-- **O desenvolvimento offline — em parte, e menos do que eu disse antes.** A AppSync não tem
-  emulador local bom, isso continua. Mas com **Postgres** o banco local volta a ser possível:
-  `docker compose up postgres` e os `*-core` rodam na máquina, offline, contra o mesmo dialeto.
-  Com Turso isso seria um serviço remoto. **É o único ponto em que a escolha da Aurora sai na
-  frente da opção que eu havia recomendado** — e é um ponto real.
+- **Quase nada do desenvolvimento offline.** Com o AppSync fora, o que sobra no caminho é
+  Express — que roda local como sempre — e Postgres em container: `docker compose up postgres` e
+  os `*-core` rodam na máquina, offline, contra o mesmo dialeto da nuvem. **O offline deixou de
+  ser um custo da migração.**
 - **Uma conta de nuvem no caminho de um app pessoal.** Uma configuração errada pode custar
   dinheiro.
 - **Custo contínuo.** A Aurora Serverless v2 cobra capacidade mínima **enquanto existe**, não por
   uso. Para um app de um usuário, é o item caro do mês e não cai com o app parado (§8, decisão 4).
-- **Os tokens do Cognito saem do servidor** (decisão 3, ainda aberta).
-- **Tempo.** É a reescrita do transporte inteiro **mais** a reescrita do SQL: 65 endpoints, 57
-  funções em `api.ts`, 16 arquivos que as chamam, e **176 pontos de SQL** (§5.1). São meses de
-  tarefas, não um ciclo.
+- **A sessão precisa de destino novo** (decisão 3, ainda aberta) — ver §6.1: o `sessionStore`
+  em SQLite não sobrevive a Lambda.
+- **Tempo — bem menos do que com AppSync.** Some a reescrita do transporte (65 endpoints, 57
+  funções em `api.ts`, 16 arquivos que as chamam, Relay no web). **Sobra a reescrita do SQL**:
+  os **176 pontos** da §5.1, que é o trabalho da fase 1 e aconteceria de qualquer jeito.
+- **Cold start.** Lambda em VPC no caminho de uma request que já chama a brapi. Medir antes de
+  otimizar, mas saber que existe.
 
 ## 3. A arquitetura de referência (o que a OCA já roda)
 
@@ -110,19 +144,18 @@ nosso (mesma regra do dado financeiro).
 ## 4. Arquitetura alvo
 
 ```
-     navegador (Vite + React + Relay)
-        │  HTTPS, Authorization: <idToken do Cognito>
+     navegador (Vite + React, o mesmo de hoje)
+        │  HTTPS — as MESMAS rotas /api/*
         ▼
    ┌───────────────────────────────────┐
-   │  AWS AppSync (API GraphQL)        │  authorizer = o user pool que já existe (T-106)
-   │  schema = graph-api               │
-   └───┬────────────────┬──────────────┘
-       │ 1 Lambda       │ subscriptions (WebSocket)
-       ▼                ▼
-   ┌──────────────────────────┐     "o Pix caiu", "o sync da Pluggy terminou"
-   │ graph-api (Lambda)       │
-   │  schemaComposer + guards │───► brapi / Pluggy / AbacatePay  (direto, sem VPC)
-   │  resolvers = os *-core   │
+   │  API Gateway (HTTP API)           │  authorizer = o user pool que já existe (T-106)
+   └───┬───────────────────────────────┘
+       │ proxy {proxy+}
+       ▼
+   ┌──────────────────────────┐
+   │ Lambda: o Express de hoje│  serverless-http envolve o app inteiro
+   │  routers + middleware    │───► brapi / Pluggy / AbacatePay  (direto, sem VPC)
+   │  rotas = os *-core       │
    └──────────┬───────────────┘
               │ query({ text, values })
               ▼
@@ -132,14 +165,26 @@ nosso (mesma regra do dado financeiro).
               ▼
        Aurora Serverless v2 (Postgres)
 
-   fora do GraphQL, de propósito:
-   API Gateway + Lambda ──► webhook da AbacatePay (HMAC sobre os bytes crus)
-   S3 presigned + mutation ──► upload de OFX/CSV
-   EventBridge + Lambda ──► snapshots de cotação, insights horários
+   fora do Lambda da API, de propósito:
+   EventBridge + Lambda ──► catch-up de snapshots (o cron que a T-109b removeu)
+   S3 ──► front estático (o `dist` do Vite), com CloudFront na frente
 ```
 
-O resolver é uma casca: a regra de negócio continua nos `*-core`. **É por isso que a T-104
-(formato com dependência injetada) deixou de ser higiene e virou pré-requisito.**
+**O Express continua existindo** — envolvido por `serverless-http`, sem reescrever rota
+nenhuma. Foi a razão de peso para o API Gateway: os **440 testes de rota** do `rest-api`
+continuam sendo a rede de segurança durante a migração do banco, e não viram lixo no meio do
+caminho.
+
+**Um Lambda só para a API inteira, não um por rota.** Com um usuário e um app deste tamanho,
+partir em N funções multiplica cold start, configuração e deploy sem ganho nenhum. Se um dia uma
+rota específica justificar isolamento (a de importação, que é pesada), ela sai para um Lambda
+próprio sem mexer no resto.
+
+**O `webhook da AbacatePay` é a exceção que precisa de cuidado**: ele depende de HMAC sobre os
+**bytes crus** e de estar montado ANTES do `express.json()`. Com `serverless-http`, o corpo
+chega do API Gateway possivelmente em base64 (`isBase64Encoded`) — se isso for decodificado na
+ordem errada, a assinatura falha em produção e passa em teste. É o primeiro caso a provar na
+fase 2, não o último.
 
 ## 5. A fase 1 é a migração do banco — o tamanho real dela
 
@@ -197,13 +242,16 @@ tabela, antes e depois, com diferença esperada de zero. Se aparecer diferença,
 
 Cada passo é uma coisa só e dá para parar entre eles. **(H)** = só o humano faz.
 
-1. **(H) Budget com alarme.** Billing → Budgets → orçamento mensal no valor tolerável, alerta por
-   e-mail em 50% e 100%. **Antes de criar qualquer recurso** — a Aurora cobra por existir.
-2. **(H) Confirmar a região.** A mesma do user pool (`COGNITO_REGION` no `.env`).
-3. **Extrair o CRUD das rotas para `*-core`** (eu). ~8 tarefas de ~1h, uma por domínio, no
-   formato-alvo da T-104 (`db` injetado, 1 função por arquivo, teste). **Tudo continua SQLite e
-   continua REST** — nada de AWS aqui, e o app segue funcionando. Depois deste passo, os 70
-   pontos de SQL das rotas viram zero e existe um lugar único para reescrever cada query.
+1. ~~**(H) Budget com alarme.**~~ **FEITO em 2026-09-20.** Era pré-requisito de qualquer recurso
+   na AWS — a Aurora cobra por existir.
+2. ~~**(H) Confirmar a região.**~~ **FEITA em 2026-09-20: `us-east-1`**, a mesma do user pool
+   (T-106). Todo recurso da migração nasce nela; um recurso em região diferente do user pool não
+   é erro de custo, é latência e confusão de console.
+3. **Extrair o CRUD das rotas para `*-core`** (eu). ~8 tarefas, uma por domínio, no formato-alvo
+   (`db` injetado, 1 função por arquivo, Jest, cobertura 100%). **Tudo continua SQLite e continua
+   REST** — nada de AWS aqui, e o app segue funcionando. Depois deste passo, os 70 pontos de SQL
+   das rotas viram zero e existe um lugar único para reescrever cada query. **`savings-core` saiu
+   na T-110a/b (PRs #180/#181) e é o molde.**
 4. **Escrever o `packages/postgresdb`** (eu): as 20 tabelas como modelos declarativos, os índices
    **nomeados**, e o `sync` rodando contra um Postgres em Docker. Ainda sem nuvem.
 5. **Trocar a facade `db` por `query`** (eu): `{ text, values }` em vez de `{ sql, args }`,
@@ -228,41 +276,54 @@ Postgres. Isso é de propósito — se algo quebrar, o suspeito é um só.
 
 | Fase | O que entrega | Como sei que acabou |
 |---|---|---|
-| **1. Banco** (§5) | CRUD extraído, `postgresdb`, `query`, Aurora, dados migrados | O app de hoje, REST, funcionando contra Postgres; contagens e somas batendo |
-| **2. Esqueleto GraphQL** | `packages/graph-api`, AppSync, authorizer do Cognito, `query { me }` ponta a ponta, Relay atrás de flag | Login e a tela de Conta lendo `me` pelo GraphQL; o resto ainda REST |
-| **3. Leitura** | Schema e resolvers de portfolio, renda, despesas, poupança; páginas migradas **uma por PR** | Cada página migrada faz **uma** requisição, com a suíte passando em `relay-test-utils` |
-| **4. Escrita** | Mutations, connections com `@appendEdge`, optimistic update | Criar/editar/apagar em cada layer sem refetch manual |
-| **5. Bordas** | Webhook, upload via S3, EventBridge, subscription do Pix | O polling da `PlanosPage` é deletado |
-| **6. Desligar o REST** | `packages/rest-api` sai; `api.ts` (834 linhas) sai | `pnpm build` sem o rest-api e nenhuma referência a `localhost:3001` |
+| **1. Banco** (§5) | CRUD extraído para os cores, `postgresdb`, `query`, Aurora, dados migrados | O app de hoje, REST, **rodando local** contra Postgres; contagens e somas batendo |
+| **2. Sessão** (§6.1) | O `sessionStore` sai do SQLite; a autenticação passa a funcionar sem estado em disco | Login, `/me` e `change-password` verdes com o servidor sem arquivo nenhum |
+| **3. A API na nuvem** | `serverless-http` + Lambda + API Gateway + `lambda-postgres-query` na VPC | As mesmas rotas respondendo por HTTPS; os 440 testes de rota inalterados |
+| **4. O front na nuvem** | `dist` do Vite no S3 + CloudFront; `VITE_API_URL` apontando para o API Gateway | Abrir a URL num navegador que nunca rodou `pnpm dev` |
+| **5. Bordas** | EventBridge para o catch-up de snapshots; webhook e upload conferidos no novo caminho | O catch-up acontece sem ninguém subir servidor |
 
-### 6.1 O que o Relay impõe no schema
+**A ordem tem um porquê:** cada fase deixa o app inteiro funcionando. Só se troca **uma** coisa
+por vez — primeiro o banco (com tudo local), depois a sessão, depois onde a API roda, depois
+onde o front mora. Quando algo quebrar, o suspeito é um só.
 
-1. **Interface `Node` e IDs globais.** Os ids são inteiros por tabela — existe `operations.id = 1`
-   e `expense_entries.id = 1`. Todo tipo expõe um id opaco (`base64("Operation:1")`). Sem isso o
-   cache do Relay mistura objetos diferentes.
-2. **Connections onde hoje é array.** Não existe paginação em lugar nenhum hoje. Proposta:
-   connection de verdade em `operations`, `expenseEntries`, `incomeEntries` e `savings`; lista
-   simples em `positions`, `benchmarks` e resumos (são cálculo, não coleção).
-3. **camelCase em tudo**, mapeado num lugar só, na borda do resolver. O `query` da OCA tem
-   `camelCaseKeys` justamente para isso.
+### 6.1 A sessão é o problema real desta migração (e substitui o que o Relay impunha)
+
+Hoje a sessão é `express-session` com cookie `sid` e store **em SQLite** (T-034/T-046). Num
+Lambda isso não existe: não há disco entre invocações. Três saídas, e é exatamente aqui que a
+**decisão 3** (§8) aterrissa:
+
+1. **Token do Cognito no cliente, authorizer do API Gateway** — o cookie e o `sessionStore`
+   somem, a validação do JWT acontece no gateway, e o Lambda recebe o `sub` já verificado.
+   É o mais barato de operar e o que o API Gateway faz nativamente.
+2. **Manter a sessão, com store em Postgres** — o cookie `sid` continua, e a tabela de sessões
+   migra junto com o resto. Preserva o login como está, inclusive o `change-password`.
+3. **Manter a sessão, com store em DynamoDB/ElastiCache** — mesma coisa, com mais uma peça de
+   infra.
+
+**Recomendo a 2 para a fase 2 e a 1 como destino.** A 2 é uma troca de store, não de
+arquitetura: nada no web muda, e o `change-password` — que guarda o *access token* do Cognito na
+sessão do servidor e já mordeu na T-092 — continua funcionando sem ser reescrito no meio da
+migração de banco. A 1 é melhor no fim, quando houver menos coisa se mexendo ao mesmo tempo.
 
 ### 6.2 Testes
 
-- **Core/resolver**: função com `query` injetado — o teste de hoje, com Postgres em container.
-- **Componente Relay**: `createMockEnvironment` + `MockPayloadGenerator`, que geram dados a
-  partir do **schema real**; um campo que o fragmento não pediu quebra o teste. Substitui o
-  `vi.mock('../api')` e é estritamente mais forte.
+- **Core**: função com `db`/`query` injetado, mock puro — é o que a T-110a já entregou no
+  `savings-core`.
+- **Rota**: os testes de hoje, **sem alteração**. É o ponto inteiro de manter REST: eles seguem
+  valendo durante a troca de banco e durante a ida para o Lambda.
+- **Integração com Postgres**: a suíte roda contra container, não contra a Aurora — bater na
+  nuvem em CI custa dinheiro e acopla o teste à rede.
 - A política de testes do repo não muda: mudança de comportamento exige teste.
 
-## 7. O que NÃO vai para o GraphQL
+## 7. O que muda de forma, mesmo sem GraphQL
 
-- **Webhook da AbacatePay.** HMAC sobre bytes crus e ordem de middleware que já mordeu. Continua
-  REST: API Gateway + Lambda.
-- **Upload de OFX e CSV.** URL pré-assinada do S3 + mutation com a chave do objeto. De bônus, o
-  limite de 1 MB de hoje deixa de existir.
-- **Agendador de snapshots e job de insights.** EventBridge + Lambda.
-- **O gate de ambiente da Pluggy.** Vira campo do schema, mas o gate continua variável do Lambda,
-  fail closed.
+- **Webhook da AbacatePay.** Continua REST e continua exigindo bytes crus — atenção ao
+  `isBase64Encoded` do API Gateway (§4).
+- **Upload de OFX e CSV.** Hoje é `express.raw` com 1 MB. No API Gateway o teto de payload é
+  **10 MB** e vale a pena, mais adiante, trocar por URL pré-assinada do S3 — não é pré-requisito
+  de nada.
+- **Catch-up de snapshots.** EventBridge + Lambda, chamando `catchUpIfNeeded`. É o retorno do
+  que a T-109b removeu de propósito.
 
 ## 8. Decisões — estado
 
@@ -278,12 +339,18 @@ Postgres. Isso é de propósito — se algo quebrar, o suspeito é um só.
   recomendação não pesava: **quer ver como o deploy funciona por baixo**. Provisionar a AppSync na
   mão é objetivo declarado, não efeito colateral. O desenho da §8.1 existe para que a escolha
   custe aprendizado sem custar um caminho sem volta.
-- **3 — onde ficam os tokens do Cognito: ABERTA, com um voto novo.** A OCA usa o padrão AppSync
-  (`aws-amplify` no cliente). **Recomendo 3a**, token só em memória. Ponto de atenção que não
-  muda: o `change-password` de hoje usa o access token guardado na sessão do servidor.
-- **4 — teto de custo: ABERTA, e ficou mais urgente.** Com Turso o custo seguia o uso; com Aurora
-  Serverless v2 ele **existe enquanto o cluster existir**. O Budget com alarme deixou de ser
-  higiene e virou o passo 1 da fase 1.
+- **3 — o que substitui o `sessionStore` em SQLite: ABERTA, e mudou de forma com o AppSync
+  fora.** Não é mais "token em memória × BFF": o BFF deixou de ser uma peça extra, porque o
+  Express **continua existindo** (§4). Virou "trocar o store da sessão" × "trocar por JWT no
+  gateway". **Recomendo store em Postgres na fase 2 e JWT como destino** — o raciocínio está na
+  §6.1. Ponto de atenção que não muda: o `change-password` usa o access token guardado na sessão
+  do servidor.
+- **4 — teto de custo: RESPONDIDA em 2026-09-20.** O humano **criou o AWS Budget com alarme**.
+  O passo 1 da §5.4 está feito.
+- **5 — região: RESPONDIDA em 2026-09-20 — `us-east-1`.** A mesma do user pool do Cognito
+  (T-106). O passo 2 da §5.4 está feito.
+- **6 — transporte da API: RESPONDIDA em 2026-09-20 — API Gateway + Lambda, REST preservado.**
+  Substitui o AppSync + Relay das versões anteriores; o raciocínio está na §1.1.
 
 ### 8.1 Deploy em SDK puro — o desenho, e a porta aberta para o `carlin`
 
@@ -347,20 +414,30 @@ passos 3, 4 e 5 (extrair CRUD, `postgresdb`, `query`) continuam sem tocar em AWS
 - **O `change-password` é o caso mais complicado do auth.** A T-092 já apanhou de um detalhe ali
   (o `SECRET_HASH` do refresh vai sobre o `sub`, não sobre o e-mail). É a primeira coisa a provar
   na fase 2, não a última.
-- **As sessões atuais morrem** ao trocar o cookie `sid` pelo token do Cognito — e o
-  `sessionStore` do SQLite some junto. Um login a mais; só não virar incidente.
-- **Cold start no meio de uma cotação.** `GET /api/portfolio` chama a brapi em tempo real. Agora
-  há dois Lambdas em série (graph-api → lambda-postgres-query) e a VPC no caminho. Medir antes de
+- **O `sessionStore` em SQLite não sobrevive ao Lambda** — é a decisão 3, e está na §6.1. Se
+  virar troca de store, ninguém precisa relogar; se virar JWT, todo mundo reloga uma vez.
+- **Cold start no meio de uma cotação.** `GET /api/portfolio` chama a brapi em tempo real. Há
+  dois Lambdas em série (API → `lambda-postgres-query`) e a VPC no caminho. Medir antes de
   otimizar, mas já saber que existe.
 - **Índice único anônimo no Sequelize empilha cópia a cada `sync --alter`** (§3). Regra no
   `CLAUDE.md` do package no primeiro dia.
-- **`relay-compiler` no CI**: ou commita o gerado e o CI confere, ou gera no build. Escolher e
-  travar — este repo já levou um "verde enganoso" do CI.
+- **`isBase64Encoded` do API Gateway** é a armadilha equivalente ao antigo `relay-compiler` no
+  CI: o webhook da AbacatePay valida HMAC sobre bytes crus, e decodificar na ordem errada faz a
+  assinatura falhar **só em produção**, com o teste verde. Provar cedo (§4).
 - **Migração de dados é destrutiva por natureza.** Dump fora do repo, conferido, antes da carga.
 
 ## 10. O que eu preciso para começar
 
-As decisões **3 e 4** respondidas (a 2 saiu em 2026-09-20: SDK puro, §8.1), e o **passo 1 da
-§5.4** (o Budget) feito. Com isso eu abro a
-fase 1 no `BACKLOG.md` — e ela começa por onde não depende da AWS: extrair o CRUD das rotas para
-os cores (§5.4, passo 3), que é trabalho útil mesmo que a migração pare no meio.
+**Nada.** As decisões 1, 2, 4, 5 e 6 estão respondidas, e os passos 1 e 2 da §5.4 (Budget e
+região) foram feitos pelo humano em 2026-09-20. A **decisão 3** (sessão) só é necessária na fase
+2 — os passos 3, 4 e 5 da fase 1 não dependem dela.
+
+Em curso agora, nesta ordem:
+
+1. **Passo 3 — extrair o CRUD das rotas para os cores.** `savings-core` saiu na T-110a/b e virou
+   o molde (formato-alvo + CRUD na mesma PR, Jest). Faltam os outros domínios.
+2. **Passo 4 — `packages/postgresdb`**, com `sync` contra Postgres em container.
+3. **Passo 5 — trocar a facade `db` por `query`**, onde os 176 pontos de SQL são tocados.
+
+Os passos 6 a 8 (VPC, Aurora, Lambdas, migração dos dados) ficam **parados por decisão do
+humano** (2026-09-20) até os três acima terminarem.

@@ -179,7 +179,7 @@ export const handler = async (event: { userId: number }) => {
 
 A migração exige um banco que o Lambda alcance pela rede — o arquivo SQLite local não serve.
 Desde 2026-09-14 o destino decidido é **Aurora Serverless v2 + Postgres**
-(`docs/multi-agent/plano-appsync-relay.md`), não mais Turso.
+(`docs/multi-agent/plano-migracao-aws.md`), não mais Turso.
 
 O job de insights horários era o exemplo canônico desta seção até a **T-109a** (2026-09-20),
 quando foi removido justamente para renascer aqui como Lambda + EventBridge, em vez de
