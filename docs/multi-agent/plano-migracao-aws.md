@@ -252,12 +252,18 @@ Cada passo é uma coisa só e dá para parar entre eles. **(H)** = só o humano 
    REST** — nada de AWS aqui, e o app segue funcionando. Depois deste passo, os 70 pontos de SQL
    das rotas viram zero e existe um lugar único para reescrever cada query. **`savings-core` saiu
    na T-110a/b (PRs #180/#181) e é o molde.**
-4. **Escrever o `packages/postgresdb`** (eu): as 20 tabelas como modelos declarativos, os índices
-   **nomeados**, e o `sync` rodando contra um Postgres em Docker. Ainda sem nuvem.
-5. **Trocar a facade `db` por `query`** (eu): `{ text, values }` em vez de `{ sql, args }`,
-   `$1` em vez de `?`, `RETURNING id` no lugar de `lastInsertRowid`, `23505` no lugar do código
-   do SQLite. A suíte inteira roda contra Postgres em container. **É aqui que os 176 pontos são
-   tocados** — e é o passo que mais fatia em PRs pequenas, um package por vez.
+4. ~~**Escrever o `packages/postgresdb`**~~ **FEITO na T-112** (PR #187): 19 modelos
+   declarativos (`hourly_quote_insights` e `users.password_hash` ficaram **fora**, de
+   propósito), `db:sync` e `docker-compose`. **O que falta provar**: o `sync` contra um
+   Postgres de verdade — não há Docker na máquina do humano. O DDL gerado está testado sem
+   banco, e foi ele que pegou o `updated_at` fantasma em 14 tabelas.
+5. **Trocar a facade `db` por `query`** (eu). O **package já existe** (T-112, PR #187), com os
+   dois backends (pg na fase 1, Lambda na fase 3) e com o `isUniqueViolation` do Postgres —
+   deliberadamente escrito ANTES de qualquer query ser traduzida, porque é a armadilha
+   silenciosa deste passo. Falta trocar core por core: `{ text, values }` em vez de
+   `{ sql, args }`, `$1` em vez de `?`, `RETURNING id` no lugar de `lastInsertRowid`,
+   `rowCount` no lugar de `rowsAffected`. **É aqui que os 176 pontos são tocados** — um package
+   por PR.
 6. **Rede e banco na AWS** — agora é código nosso, por causa da decisão 2 (§8.1): `packages/infra`
    com um `ensureX` por recurso (VPC, subnets, security groups, endpoint do Secrets Manager,
    Aurora Serverless v2 com capacidade mínima no menor valor aceitável). Eu escrevo, **(H)** roda

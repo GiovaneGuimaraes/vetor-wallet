@@ -62,6 +62,12 @@ packages/
 │                     # vivia na rota (T-099b, Ciclo 19; formato-alvo com
 │                     # `db` injetado na T-110a). Metas saíram na T-091b1 e o
 │                     # saldo livre virou o próprio saldo
+├── postgresdb/       # @vetor-wallet/postgresdb — o schema do Postgres da
+│                     # migração (modelos sequelize-typescript + db:sync +
+│                     # docker-compose). NÃO atende request (T-112)
+├── query/            # @vetor-wallet/query — query({text,values}) que vai
+│                     # substituir o `db` injetado nos cores; backend pg na
+│                     # fase 1 e Lambda na fase 3 (T-112)
 ├── income-core/      # @vetor-wallet/income-core — CRUD de fontes fixas e de
 │                     # lançamentos avulsos de renda; nasceu no formato-alvo
 │                     # (T-110d), extraído das rotas
@@ -123,6 +129,10 @@ pnpm --filter @vetor-wallet/validation-core test   # Jest (validation-core)
 pnpm --filter @vetor-wallet/savings-core test      # Jest (savings-core; cobertura 100%)
 pnpm --filter @vetor-wallet/expenses-core test     # Jest (expenses-core; cobertura 100%)
 pnpm --filter @vetor-wallet/income-core test       # Jest (income-core; cobertura 100%)
+pnpm --filter @vetor-wallet/postgresdb test        # Jest (schema + DDL gerado, sem banco)
+pnpm --filter @vetor-wallet/postgresdb db:up       # Postgres local em :5433 (Docker)
+pnpm --filter @vetor-wallet/postgresdb db:sync     # aplica o schema no Postgres local
+pnpm --filter @vetor-wallet/query test             # Jest (query)
 pnpm --filter @vetor-wallet/bank-import-core test  # Vitest (bank-import-core)
 pnpm --filter @vetor-wallet/pluggy-core test       # Vitest (pluggy-core)
 pnpm --filter @vetor-wallet/portfolio-core test    # Vitest (portfolio-core)
