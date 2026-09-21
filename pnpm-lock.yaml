@@ -125,9 +125,6 @@ importers:
       '@vetor-wallet/db':
         specifier: workspace:*
         version: link:../db
-      '@vetor-wallet/insights-core':
-        specifier: workspace:*
-        version: link:../insights-core
       '@vetor-wallet/pluggy-core':
         specifier: workspace:*
         version: link:../pluggy-core

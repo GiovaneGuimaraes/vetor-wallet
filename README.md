@@ -60,7 +60,8 @@ pnpm build
 
 ## Próximos passos
 
-- Agendador do job de insights horários (AWS Lambda + EventBridge)
+- Coleta de cotações em background (AWS Lambda + EventBridge) — o job de insights horários
+  foi REMOVIDO na T-109a e renasce lá
 - Backend do layer de criptomoedas (hoje a tela é mock "em breve")
 - Redesign da UI de alertas, importação CSV e comparativo CDI/Ibovespa (backends prontos, ocultos da interface aguardando redesign)
 - Sugestões geradas por LLM a partir dos indicadores calculados

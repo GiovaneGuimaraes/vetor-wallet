@@ -235,27 +235,6 @@ export async function changePassword(currentPassword: string, newPassword: strin
   }
 }
 
-// ── Admin ─────────────────────────────────────────────────────────────────────
-
-export async function runInsightsJob(date?: string): Promise<{
-  tickersProcessed: number;
-  saved: number;
-  duplicated: number;
-  failed: number;
-}> {
-  const res = await apiFetch('/api/admin/run-insights-job', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(date ? { date } : {}),
-  });
-  if (res.status === 403) throw new Error('Acesso restrito a administradores');
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Falha ao executar o job de insights' }));
-    throw new Error(err.error ?? 'Falha ao executar o job de insights');
-  }
-  return res.json();
-}
-
 // ── Tickers ───────────────────────────────────────────────────────────────────
 
 export async function searchTickers(query: string): Promise<TickersResponse> {

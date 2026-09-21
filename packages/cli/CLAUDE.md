@@ -15,14 +15,13 @@ CLIs de coleta e manutenção de dados, sem dependência do Express. Cada script
 ```
 cli/
 ├── src/
-│   ├── hourlyInsights.ts  # job de captura horária de cotações B3
 │   ├── pluggyCli.ts       # plumbing dos dois jobs Pluggy (argv/env, máscara)
 │   ├── pluggyLink.ts      # registra/remove um item da Pluggy p/ um usuário (T-089a)
 │   ├── pluggySync.ts      # sincronização Open Finance via Pluggy (T-087/T-089a)
 │   └── grantAdmin.ts      # concede a role admin a um e-mail
 ├── .env.example           # DATABASE_URL, BRAPI_TOKEN, PLUGGY_*
-├── package.json           # vetor-wallet-cli; scripts: insights:hourly,
-│                          # pluggy:link, pluggy:sync, roles:grant-admin
+├── package.json           # vetor-wallet-cli; scripts: pluggy:link,
+│                          # pluggy:sync, roles:grant-admin
 └── tsconfig.json          # path aliases para os packages consumidos
 ```
 
@@ -34,14 +33,9 @@ cli/
 # 1. Criar o .env (necessário apenas na primeira vez)
 cp packages/cli/.env.example packages/cli/.env
 
-# 2. Rodar o job (a partir da raiz do workspace)
-pnpm --filter vetor-wallet-cli insights:hourly
-
-# Com data específica (YYYY-MM-DD):
-pnpm --filter vetor-wallet-cli insights:hourly 2025-07-10
+# 2. Rodar um job (a partir da raiz do workspace)
+pnpm --filter vetor-wallet-cli pluggy:sync --dry-run
 ```
-
-Sem argumento de data, o job usa o dia útil anterior em BRT.
 
 ### Pluggy: primeiro vincular o item, depois sincronizar (T-089a)
 
@@ -153,7 +147,7 @@ quando `services/` deixou de existir). Ele importa dos cores:
 
 ```typescript
 import { initDb } from '@vetor-wallet/db';
-import { runHourlyInsightsJob } from '@vetor-wallet/insights-core';
+import { syncPluggyItems } from '@vetor-wallet/bank-import-core';
 ```
 
 **Não adicione lógica de negócio diretamente nos arquivos de `cli/src/`** — ela pertence ao `*-core` do domínio. O CLI só chama `initDb()`, invoca o job e loga o resultado.
@@ -173,14 +167,20 @@ import { runHourlyInsightsJob } from '@vetor-wallet/insights-core';
 Quando o deploy em AWS Lambda + EventBridge for feito, cada `cli/src/*.ts` vira um handler:
 
 ```typescript
-// lambda/hourlyInsights.ts (exemplo)
-import { initDb } from '@vetor-wallet/db';
-import { runHourlyInsightsJob } from '@vetor-wallet/insights-core';
+// lambda/pluggySync.ts (exemplo)
+import { db, initDb } from '@vetor-wallet/db';
+import { syncPluggyItems } from '@vetor-wallet/bank-import-core';
 
-export const handler = async () => {
+export const handler = async (event: { userId: number }) => {
   await initDb();
-  return runHourlyInsightsJob();
+  return syncPluggyItems({ db, userId: event.userId, deps });
 };
 ```
 
-A migração exige `DATABASE_URL` apontando para Turso (SQLite remoto) — sem isso, Lambda não tem acesso ao arquivo local.
+A migração exige um banco que o Lambda alcance pela rede — o arquivo SQLite local não serve.
+Desde 2026-09-14 o destino decidido é **Aurora Serverless v2 + Postgres**
+(`docs/multi-agent/plano-appsync-relay.md`), não mais Turso.
+
+O job de insights horários era o exemplo canônico desta seção até a **T-109a** (2026-09-20),
+quando foi removido justamente para renascer aqui como Lambda + EventBridge, em vez de
+envelhecer como cron de máquina.

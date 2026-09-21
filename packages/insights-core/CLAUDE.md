@@ -1,14 +1,18 @@
 # CLAUDE.md — @vetor-wallet/insights-core
 
-Comparação da carteira com **CDI/Ibovespa** (T-068) e o **job de insights
-horários**. Extraído de
+Comparação da carteira com **CDI/Ibovespa** (T-068). Extraído de
 `packages/rest-api/src/api/services/{benchmarks,benchmarkHistory,hourlyInsights}.ts`
 na T-099c (Ciclo 19 — arquitetura em módulos). Categoria **Core**, módulo
 **Insights** (ver `docs/MODULES.md` / `docs/PACKAGES.md`).
 
-É dono de `hourly_insights` e por isso importa `@vetor-wallet/db`; busca séries
-externas (BCB SGS 12 e brapi `^BVSP`) e por isso importa
-`@vetor-wallet/brapi-core`.
+O **job de insights horários saiu na T-109a** (2026-09-20) — com ele saíram
+`hourlyInsights.ts`, o CLI `insights:hourly` e a rota `POST /api/admin/run-insights-job`.
+A tabela `hourly_quote_insights` continua no schema, **parada**: nada mais escreve nela, e
+nada nunca leu (foi esse o argumento para remover). O fluxo volta como **Lambda + EventBridge**
+quando a infra da AWS existir.
+
+Lê operações para montar a posição da carteira e por isso importa `@vetor-wallet/db`; busca
+séries externas (BCB SGS 12 e brapi `^BVSP`) e por isso importa `@vetor-wallet/brapi-core`.
 
 Este arquivo recebe a parte de Insights de `docs/decisions/snapshots-history.md`
 (hoje um stub) — a parte de Portfolio daquele documento foi para
@@ -23,12 +27,10 @@ src/
 ├── benchmarkHistory.ts   # GET /api/benchmarks/history: SÉRIE diária.
 │                         # buildCdiIndexSeries/buildIbovespaSeries/
 │                         # clampSeriesToWindow/brapiRangeForDays são puras
-├── hourlyInsights.ts     # job de insights horários (PQueue + withRetry)
 └── index.ts              # barrel
 ```
 
-Rotas: `packages/rest-api/src/api/routes/{benchmarks,admin}.ts`.
-CLI: `packages/cli/src/hourlyInsights.ts` (`pnpm --filter vetor-wallet-cli insights:hourly`).
+Rotas: `packages/rest-api/src/api/routes/benchmarks.ts`.
 Lógica pura do cliente: `packages/web/src/routes/benchmarkSeries.ts`.
 
 ## Invariantes (não quebrar)
@@ -42,9 +44,8 @@ Lógica pura do cliente: `packages/web/src/routes/benchmarkSeries.ts`.
 
 ## Dependência de `@vetor-wallet/portfolio-core` (nota de arquitetura)
 
-`src/benchmarks.ts` usa `buildPositionMap`/`buildPortfolioSummary` e
-`hourlyInsights.ts` usa `resolveActiveTickers`/`getBRTDate`/
-`saveSnapshotForDate`/`withRetry`. Isso é **core → core de outro módulo**,
+`src/benchmarks.ts` usa `buildPositionMap`/`buildPortfolioSummary` do
+`portfolio-core`. Isso é **core → core de outro módulo**,
 contra a regra 6 de `docs/PACKAGES.md`. É o acoplamento que já existia dentro do
 `server` (`services/benchmarks.ts` importava `./portfolio`), apenas tornado
 explícito pela extração — a T-099c foi movimentação mecânica e **não** o
@@ -69,8 +70,14 @@ Duas linhas OPCIONAIS no `HistoryChart`, respondendo "e se o mesmo dinheiro tive
 - **Tooltip (T-067)** ganhou linha por benchmark visível (valor no MESMO dia), e cresce em altura/largura conforme as linhas presentes.
 - **Fora de escopo (segue pendente)**: exportação do gráfico; comparação com outros benchmarks (IPCA, dólar); percentuais de rentabilidade lado a lado (as linhas comparam valor, não mostram "+X% vs +Y%").
 
-### Job de insights horários sem agendador automático
-O CLI `pnpm --filter vetor-wallet-cli insights:hourly` precisa ser invocado manualmente ou via cron do SO até o deploy em AWS Lambda + EventBridge (issue futura).
+### Por que o job de insights horários foi REMOVIDO (T-109a, 2026-09-20)
+Ele gravava em `hourly_quote_insights` de hora em hora e **nenhum `SELECT` no repo lia essa
+tabela** — escrita pura, sem leitor. Sem agendador de verdade, dependia de ser chamado à mão
+(CLI) ou por cron do SO, e a rota de admin existia só para disparar o job a partir do navegador.
+O humano decidiu (2026-09-20) tirá-lo do caminho **antes** da migração para a AWS, para que ele
+renasça como Lambda + EventBridge em vez de ser carregado adiante e traduzido para Postgres sem
+nunca ter tido um consumidor. A tabela continua no schema: derrubá-la é migração destrutiva e
+tem tarefa própria (ver `docs/multi-agent/BACKLOG.md`).
 
 ## Convenções
 
