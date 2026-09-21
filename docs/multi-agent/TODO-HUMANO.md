@@ -18,6 +18,22 @@
 
 ## Abertos
 
+### [2026-09-20] Instalar o Docker Desktop — sem ele o schema do Postgres não pode ser provado
+- **Origem**: orquestrador (T-112, PR #187)
+- **Bloqueia**: a **prova** do passo 4. Não bloqueia escrever o passo 5 (os cores trocam `db` por `query` com teste de mock), mas bloqueia rodar o app contra Postgres.
+- **Pendência**: o `packages/postgresdb` está escrito, com `docker-compose` e `db:sync`. O que **não** existe é Docker nesta máquina — conferi no bash e no PowerShell, e os dois dizem "command not found". O que está provado é o **DDL gerado** (teste sem banco, que já pegou um `updated_at` fantasma em 14 tabelas); o que não está é o Postgres **aceitar** esse DDL: extensões, permissões, ordem de criação dos `ENUM`.
+- **O que fazer**: instalar o Docker Desktop e rodar `pnpm --filter @vetor-wallet/postgresdb db:up` seguido de `db:sync`. Se der erro, ele é meu para consertar — o valor da sua ação é só produzir o erro.
+- **Por que não fiz por você**: instalar software na sua máquina não é coisa que eu faça sem você pedir, e é download grande.
+- **Resposta do humano**: _(preencher)_
+
+### [2026-09-20] Ligar *required status check* no `main` — eu mergeei uma PR vermelha
+- **Origem**: orquestrador (erro próprio, na T-110d/PR #184)
+- **Bloqueia**: nada. É trava de processo.
+- **O que aconteceu**: a #184 entrou com o CI **vermelho** (lockfile desatualizado). O merge passou porque o `main` não exige check verde, e eu não conferi o resultado antes de mergear. Consertei na #185 e o `main` ficou vermelho por cerca de cinco minutos. **O erro foi meu, não do processo** — mas o processo permitiu.
+- **A trava**: exigir o check "Install · Build · Lint · Test" no `main`. Com ela, o mesmo erro vira um merge recusado em vez de um `main` quebrado. Custa nada e não muda o fluxo quando o CI está verde.
+- **Por que não fiz por você**: mexer em regra de proteção de branch é configuração do repositório, com efeito sobre qualquer pessoa que venha a contribuir — não é mudança de código para eu tomar sozinho. **Diga "pode ligar" e eu ligo por `gh api`**, ou você liga em Settings → Branches.
+- **Resposta do humano**: _(preencher)_
+
 ### [2026-09-13] Migração para a AWS: tudo respondido menos a sessão (decisão 3)
 - **Origem**: orquestrador (pedido do humano, 2026-09-13)
 - **Bloqueia**: nada hoje. A fase 1 está em curso; a decisão 3 só é necessária na fase 2.
