@@ -23,13 +23,10 @@
 - **Bloqueava**: a **prova** do passo 4.
 - **Resposta do humano (2026-09-22)**: instalou o Docker Desktop. `db:up` + `db:sync` rodaram contra o Postgres 16 real — as 21 tabelas nasceram. **Apareceu exatamente o tipo de erro que a pendência previa**: `CREATE INDEX ... ("userId", "date")` falhou com `column "userId" does not exist` em `expense_entries`. Causa: `@Index('nome')` em nível de propriedade ignora `underscored: true` em índice composto (bug do `sequelize-typescript`, não do schema) — afetava 7 modelos (`ExpenseEntry`, `IncomeEntry`, `PluggyItem`, `PixCharge`, `RecurringExpense`, `QuoteSnapshot`, `Session`). Corrigido alinhando todos ao padrão que `CategoryBudget` já usava (`@Table({ indexes: [...] })` com nomes de coluna em snake_case explícitos). Reaplicado do zero (`db:down` + `db:up` + `db:sync`): schema aplicado limpo, 21 índices conferidos manualmente via `\d`. `pnpm test`/`lint`/`format:check`/`build` verdes. Detalhe em `packages/postgresdb/CLAUDE.md`.
 
-### [2026-09-20] Ligar *required status check* no `main` — eu mergeei uma PR vermelha
+### [2026-09-20] ~~Ligar *required status check* no `main` — eu mergeei uma PR vermelha~~ — RESOLVIDO em 2026-09-22
 - **Origem**: orquestrador (erro próprio, na T-110d/PR #184)
-- **Bloqueia**: nada. É trava de processo.
-- **O que aconteceu**: a #184 entrou com o CI **vermelho** (lockfile desatualizado). O merge passou porque o `main` não exige check verde, e eu não conferi o resultado antes de mergear. Consertei na #185 e o `main` ficou vermelho por cerca de cinco minutos. **O erro foi meu, não do processo** — mas o processo permitiu.
-- **A trava**: exigir o check "Install · Build · Lint · Test" no `main`. Com ela, o mesmo erro vira um merge recusado em vez de um `main` quebrado. Custa nada e não muda o fluxo quando o CI está verde.
-- **Por que não fiz por você**: mexer em regra de proteção de branch é configuração do repositório, com efeito sobre qualquer pessoa que venha a contribuir — não é mudança de código para eu tomar sozinho. **Diga "pode ligar" e eu ligo por `gh api`**, ou você liga em Settings → Branches.
-- **Resposta do humano**: _(preencher)_
+- **Bloqueava**: nada — trava de processo.
+- **Resposta do humano (2026-09-22)**: "pode ligar". Feito por `gh api` (ruleset `main protegida`, id 20620300): adicionada a regra `required_status_checks` exigindo o check `Install · Build · Lint · Test`, com `strict_required_status_checks_policy: true`, mantendo `deletion` e `non_fast_forward` que já existiam. A partir de agora, PR/push para o `main` com esse check falhando (ou ainda rodando, pelo modo estrito) é recusado em vez de entrar quebrado.
 
 ### [2026-09-13] Migração para a AWS: tudo respondido menos a sessão (decisão 3)
 - **Origem**: orquestrador (pedido do humano, 2026-09-13)

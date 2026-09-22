@@ -32,9 +32,9 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 >    `packages/postgresdb/CLAUDE.md`. Schema aplicado limpo, suíte/lint/build verdes.
 > 4. **Passos 6–8 (VPC, Aurora, Lambdas, carga) seguem parados** por decisão do humano.
 >
-> Uma pendência dele: **autorizar o required status check no `main`** (pedido depois de eu
-> mergear a #184 com o CI vermelho). Decisão aberta: a **3 — sessão** (store em Postgres × JWT
-> no gateway), necessária só na fase 2.
+> **Required status check ligado em 2026-09-22** (`Install · Build · Lint · Test` no `main`,
+> ruleset `main protegida`) — não bloqueia mais nada. Decisão aberta: a **3 — sessão** (store em
+> Postgres × JWT no gateway), necessária só na fase 2.
 
 ### T-091c/d — Renda Fixa com dado real
 - **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-091a (#165) e b1 (#166)

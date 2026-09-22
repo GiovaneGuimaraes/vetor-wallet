@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-09-20T23:44:58-03:00"
+    "atualizadoEm": "2026-09-22T19:44:41-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-09-20T23:26:18-03:00"
+    "atualizadoEm": "2026-09-22T19:44:41-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -300,13 +300,13 @@
       "canal": "todo-human",
       "messageId": "1551419159831781397",
       "modo": "so emoji",
-      "status": "ABERTO 2026-09-20 (T-112): sem Docker na maquina, o db:sync do postgresdb nao pode ser provado contra Postgres real."
+      "status": "RESOLVIDO 2026-09-22: Docker instalado, db:up + db:sync provados contra Postgres 16 real. Achado e corrigido bug real (@Index de propriedade ignorando underscored em 7 modelos)."
     },
     "branch-protection-check": {
       "canal": "todo-human",
       "messageId": "1551419163426164857",
       "modo": "so emoji",
-      "status": "ABERTO 2026-09-20: eu mergeei a #184 com o CI vermelho. Pedido de autorizacao para ligar required status check no main via gh api."
+      "status": "RESOLVIDO 2026-09-22: humano respondeu 'pode ligar'. Ruleset main protegida ganhou required_status_checks (Install . Build . Lint . Test, modo estrito)."
     }
   },
   "lastSeen": {
