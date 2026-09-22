@@ -4,7 +4,6 @@ import {
   DataType,
   Default,
   ForeignKey,
-  Index,
   Model,
   Table,
   Unique,
@@ -18,9 +17,12 @@ import { User } from './User';
  * `itemId` é identificador da Pluggy. **Nada dele entra em arquivo versionado**
  * — nem em fixture, nem em log de PR (regra do `CLAUDE.md`: o repo é público).
  */
-@Table({ tableName: 'pluggy_items', underscored: true })
+@Table({
+  tableName: 'pluggy_items',
+  underscored: true,
+  indexes: [{ name: 'idx_pluggy_items_user', fields: ['user_id', 'created_at'] }],
+})
 export class PluggyItem extends Model {
-  @Index('idx_pluggy_items_user')
   @ForeignKey(() => User)
   @Column({ type: DataType.INTEGER, allowNull: false })
   declare userId: number;
@@ -39,7 +41,6 @@ export class PluggyItem extends Model {
   @Column({ type: DataType.TEXT, allowNull: false })
   declare status: string;
 
-  @Index('idx_pluggy_items_user')
   @CreatedAt
   declare createdAt: Date;
 

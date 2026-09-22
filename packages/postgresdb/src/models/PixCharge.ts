@@ -4,7 +4,6 @@ import {
   DataType,
   Default,
   ForeignKey,
-  Index,
   Model,
   Table,
   Unique,
@@ -14,9 +13,13 @@ import { Plan } from './Plan';
 import { User } from './User';
 
 /** Cobrança Pix na AbacatePay. `id` é LOCAL; `abacateChargeId` é o do provedor. */
-@Table({ tableName: 'pix_charges', underscored: true, updatedAt: false })
+@Table({
+  tableName: 'pix_charges',
+  underscored: true,
+  updatedAt: false,
+  indexes: [{ name: 'idx_pix_charges_user_status', fields: ['user_id', 'status', 'created_at'] }],
+})
 export class PixCharge extends Model {
-  @Index('idx_pix_charges_user_status')
   @ForeignKey(() => User)
   @Column({ type: DataType.INTEGER, allowNull: false })
   declare userId: number;
@@ -32,7 +35,6 @@ export class PixCharge extends Model {
   @Column({ type: CENTS, allowNull: false })
   declare amountCents: number;
 
-  @Index('idx_pix_charges_user_status')
   @Default('PENDING')
   @Column({
     type: DataType.ENUM('PENDING', 'PAID', 'EXPIRED', 'CANCELLED', 'REFUNDED'),
@@ -54,7 +56,6 @@ export class PixCharge extends Model {
   @Column({ type: DataType.DATE })
   declare paidAt: Date | null;
 
-  @Index('idx_pix_charges_user_status')
   @CreatedAt
   declare createdAt: Date;
 }

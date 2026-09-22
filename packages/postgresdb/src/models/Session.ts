@@ -1,4 +1,4 @@
-import { Column, DataType, Index, Model, PrimaryKey, Table } from 'sequelize-typescript';
+import { Column, DataType, Model, PrimaryKey, Table } from 'sequelize-typescript';
 
 /**
  * Sessão do `express-session` (T-034/T-046).
@@ -11,7 +11,12 @@ import { Column, DataType, Index, Model, PrimaryKey, Table } from 'sequelize-typ
  * ter a tabela sem usá-la não custa nada — o contrário (descobrir na hora que
  * ela falta) custaria um deploy.
  */
-@Table({ tableName: 'sessions', underscored: true, timestamps: false })
+@Table({
+  tableName: 'sessions',
+  underscored: true,
+  timestamps: false,
+  indexes: [{ name: 'idx_sessions_expires_at', fields: ['expires_at'] }],
+})
 export class Session extends Model {
   @PrimaryKey
   @Column({ type: DataType.TEXT })
@@ -20,7 +25,6 @@ export class Session extends Model {
   @Column({ type: DataType.TEXT, allowNull: false })
   declare data: string;
 
-  @Index('idx_sessions_expires_at')
   @Column({ type: DataType.DATE, allowNull: false })
   declare expiresAt: Date;
 }

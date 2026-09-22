@@ -4,7 +4,6 @@ import {
   DataType,
   Default,
   ForeignKey,
-  Index,
   Model,
   Table,
 } from 'sequelize-typescript';
@@ -18,9 +17,13 @@ import { User } from './User';
  *
  * `externalId` sustenta a dedupe de importação (T-084); ver `IncomeEntry`.
  */
-@Table({ tableName: 'expense_entries', underscored: true, updatedAt: false })
+@Table({
+  tableName: 'expense_entries',
+  underscored: true,
+  updatedAt: false,
+  indexes: [{ name: 'idx_expense_entries_user_date', fields: ['user_id', 'date'] }],
+})
 export class ExpenseEntry extends Model {
-  @Index('idx_expense_entries_user_date')
   @ForeignKey(() => User)
   @Column({ type: DataType.INTEGER, allowNull: false })
   declare userId: number;
@@ -35,7 +38,6 @@ export class ExpenseEntry extends Model {
   @Column({ type: MONEY, allowNull: false })
   declare amount: string;
 
-  @Index('idx_expense_entries_user_date')
   @Column({ type: DataType.DATEONLY, allowNull: false })
   declare date: string;
 

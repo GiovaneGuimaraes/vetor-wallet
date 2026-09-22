@@ -18,13 +18,10 @@
 
 ## Abertos
 
-### [2026-09-20] Instalar o Docker Desktop — sem ele o schema do Postgres não pode ser provado
+### [2026-09-20] ~~Instalar o Docker Desktop — sem ele o schema do Postgres não pode ser provado~~ — RESOLVIDO em 2026-09-22
 - **Origem**: orquestrador (T-112, PR #187)
-- **Bloqueia**: a **prova** do passo 4. Não bloqueia escrever o passo 5 (os cores trocam `db` por `query` com teste de mock), mas bloqueia rodar o app contra Postgres.
-- **Pendência**: o `packages/postgresdb` está escrito, com `docker-compose` e `db:sync`. O que **não** existe é Docker nesta máquina — conferi no bash e no PowerShell, e os dois dizem "command not found". O que está provado é o **DDL gerado** (teste sem banco, que já pegou um `updated_at` fantasma em 14 tabelas); o que não está é o Postgres **aceitar** esse DDL: extensões, permissões, ordem de criação dos `ENUM`.
-- **O que fazer**: instalar o Docker Desktop e rodar `pnpm --filter @vetor-wallet/postgresdb db:up` seguido de `db:sync`. Se der erro, ele é meu para consertar — o valor da sua ação é só produzir o erro.
-- **Por que não fiz por você**: instalar software na sua máquina não é coisa que eu faça sem você pedir, e é download grande.
-- **Resposta do humano**: _(preencher)_
+- **Bloqueava**: a **prova** do passo 4.
+- **Resposta do humano (2026-09-22)**: instalou o Docker Desktop. `db:up` + `db:sync` rodaram contra o Postgres 16 real — as 21 tabelas nasceram. **Apareceu exatamente o tipo de erro que a pendência previa**: `CREATE INDEX ... ("userId", "date")` falhou com `column "userId" does not exist` em `expense_entries`. Causa: `@Index('nome')` em nível de propriedade ignora `underscored: true` em índice composto (bug do `sequelize-typescript`, não do schema) — afetava 7 modelos (`ExpenseEntry`, `IncomeEntry`, `PluggyItem`, `PixCharge`, `RecurringExpense`, `QuoteSnapshot`, `Session`). Corrigido alinhando todos ao padrão que `CategoryBudget` já usava (`@Table({ indexes: [...] })` com nomes de coluna em snake_case explícitos). Reaplicado do zero (`db:down` + `db:up` + `db:sync`): schema aplicado limpo, 21 índices conferidos manualmente via `\d`. `pnpm test`/`lint`/`format:check`/`build` verdes. Detalhe em `packages/postgresdb/CLAUDE.md`.
 
 ### [2026-09-20] Ligar *required status check* no `main` — eu mergeei uma PR vermelha
 - **Origem**: orquestrador (erro próprio, na T-110d/PR #184)

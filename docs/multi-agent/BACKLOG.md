@@ -18,7 +18,7 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
-> **Retomar aqui (fechado em 2026-09-20).** A fase 1 da migração está em curso e é a
+> **Retomar aqui (atualizado em 2026-09-22).** A fase 1 da migração está em curso e é a
 > prioridade; T-091c/d e T-089e seguem parados atrás dela.
 >
 > 1. **Medir antes de repetir** — traduzir **um** core de `db` para `query` (`packages/query`,
@@ -26,13 +26,15 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 >    menor. Só depois repetir nos outros. Recomendação minha, não decidida pelo humano.
 > 2. **Passo 3, o que falta**: operations/wallets, alerts, budgets, expense-entries,
 >    portfolio/snapshots — no molde da T-110a/c/d.
-> 3. **Passo 4 só falta provar**: `db:up` + `db:sync` contra Postgres real. **Espera o humano
->    instalar o Docker** (`TODO-HUMANO.md`). O DDL já é testado sem banco.
+> 3. **Passo 4 PROVADO em 2026-09-22**: `db:up` + `db:sync` rodaram contra Postgres 16 real
+>    (o humano instalou o Docker). Achou e corrigiu um bug real no caminho — `@Index` de
+>    propriedade ignorando `underscored: true` em 7 modelos; detalhe em
+>    `packages/postgresdb/CLAUDE.md`. Schema aplicado limpo, suíte/lint/build verdes.
 > 4. **Passos 6–8 (VPC, Aurora, Lambdas, carga) seguem parados** por decisão do humano.
 >
-> Duas pendências dele: **Docker Desktop** e **autorizar o required status check no `main`**
-> (pedido depois de eu mergear a #184 com o CI vermelho). Decisão aberta: a **3 — sessão**
-> (store em Postgres × JWT no gateway), necessária só na fase 2.
+> Uma pendência dele: **autorizar o required status check no `main`** (pedido depois de eu
+> mergear a #184 com o CI vermelho). Decisão aberta: a **3 — sessão** (store em Postgres × JWT
+> no gateway), necessária só na fase 2.
 
 ### T-091c/d — Renda Fixa com dado real
 - **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-091a (#165) e b1 (#166)

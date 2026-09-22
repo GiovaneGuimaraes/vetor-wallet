@@ -1,4 +1,4 @@
-import { Column, DataType, Index, Model, Table } from 'sequelize-typescript';
+import { Column, DataType, Model, Table } from 'sequelize-typescript';
 import { MONEY } from '../money';
 
 /**
@@ -12,16 +12,19 @@ import { MONEY } from '../money';
  * **Sem ele não há idempotência da coleta** — dois boots no mesmo dia
  * duplicariam o fechamento.
  */
-@Table({ tableName: 'quote_snapshots', underscored: true, timestamps: false })
+@Table({
+  tableName: 'quote_snapshots',
+  underscored: true,
+  timestamps: false,
+  indexes: [{ name: 'idx_snapshots_ticker_time', fields: ['ticker', 'captured_at'] }],
+})
 export class QuoteSnapshot extends Model {
-  @Index('idx_snapshots_ticker_time')
   @Column({ type: DataType.TEXT, allowNull: false })
   declare ticker: string;
 
   @Column({ type: MONEY, allowNull: false })
   declare price: string;
 
-  @Index('idx_snapshots_ticker_time')
   @Column({ type: DataType.DATE, allowNull: false, defaultValue: DataType.NOW })
   declare capturedAt: Date;
 }

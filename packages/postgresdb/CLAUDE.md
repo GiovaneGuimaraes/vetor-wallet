@@ -61,16 +61,22 @@ Por isso existe `tests/unit/tests/ddl.test.ts`: ele gera o `CREATE TABLE` de
 cada modelo **sem conectar em banco nenhum** e afirma o que deve e o que não
 deve aparecer. É o teste a rodar primeiro ao mexer em qualquer modelo.
 
-## O que falta ser provado (e por quê ainda não foi)
+## Provado contra Postgres real (2026-09-22)
 
-O `db:sync` **nunca rodou contra um Postgres de verdade**: não há Docker nesta
-máquina. O que está provado é o DDL gerado, que pega erro de forma; o que não
-está é o banco aceitar esse DDL (extensões, permissões, ordem de criação de
-`ENUM`).
-
-**Como fechar essa lacuna**: instalar o Docker Desktop e rodar `db:up` +
-`db:sync`. Enquanto isso não acontece, nada depende deste package em runtime —
-ele não está no caminho de nenhuma request.
+`db:up` + `db:sync` rodaram contra o Postgres 16 do `docker-compose.yml` (não
+mock): as 21 tabelas nasceram, `ENUM` e `NUMERIC(14,2)` foram aceitos sem
+retrabalho de ordem de criação. **Um bug real apareceu, e só apareceu aqui**:
+`@Index('nome')` em nível de propriedade (usado em `ExpenseEntry`,
+`IncomeEntry`, `PluggyItem`, `PixCharge`, `RecurringExpense`, `QuoteSnapshot`,
+`Session`) ignora `underscored: true` e gera `CREATE INDEX` com o nome do
+atributo em camelCase (`"userId"`) em vez da coluna real (`user_id`) — o
+Postgres recusa com `column "userId" does not exist`. O `ddl.test.ts` não pega
+isso porque ele testa o `CREATE TABLE`, não o `CREATE INDEX` de composto. O
+`CategoryBudget` já usava o padrão certo (`@Table({ indexes: [...] })` com
+nomes de coluna explícitos em snake_case) — os outros sete modelos foram
+alinhados a ele. **Regra daqui pra frente**: índice composto ou multi-atributo
+sempre por `@Table({ indexes: [...] })`, nunca pelo decorator `@Index` na
+propriedade.
 
 ## Índices que o `sync` NÃO gera
 

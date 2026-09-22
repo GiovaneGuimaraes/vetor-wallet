@@ -1,4 +1,4 @@
-import { Column, CreatedAt, DataType, ForeignKey, Index, Model, Table } from 'sequelize-typescript';
+import { Column, CreatedAt, DataType, ForeignKey, Model, Table } from 'sequelize-typescript';
 import { MONEY } from '../money';
 import { User } from './User';
 
@@ -12,9 +12,13 @@ import { User } from './User';
  * o índice parcial continua valendo a pena: ele não indexa as linhas manuais.
  * Entra por migração explícita (o `sync` não gera índice parcial).
  */
-@Table({ tableName: 'income_entries', underscored: true, updatedAt: false })
+@Table({
+  tableName: 'income_entries',
+  underscored: true,
+  updatedAt: false,
+  indexes: [{ name: 'idx_income_entries_user_date', fields: ['user_id', 'date'] }],
+})
 export class IncomeEntry extends Model {
-  @Index('idx_income_entries_user_date')
   @ForeignKey(() => User)
   @Column({ type: DataType.INTEGER, allowNull: false })
   declare userId: number;
@@ -25,7 +29,6 @@ export class IncomeEntry extends Model {
   @Column({ type: MONEY, allowNull: false })
   declare amount: string;
 
-  @Index('idx_income_entries_user_date')
   @Column({ type: DataType.DATEONLY, allowNull: false })
   declare date: string;
 

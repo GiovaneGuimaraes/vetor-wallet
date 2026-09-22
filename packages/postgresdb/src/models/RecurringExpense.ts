@@ -4,7 +4,6 @@ import {
   DataType,
   Default,
   ForeignKey,
-  Index,
   Model,
   Table,
 } from 'sequelize-typescript';
@@ -16,9 +15,13 @@ import { User } from './User';
  * `expense_entries` normais com `recurringId` — editáveis e excluíveis uma a
  * uma, e contando nos totais sem caso especial.
  */
-@Table({ tableName: 'recurring_expenses', underscored: true, updatedAt: false })
+@Table({
+  tableName: 'recurring_expenses',
+  underscored: true,
+  updatedAt: false,
+  indexes: [{ name: 'idx_recurring_expenses_user_active', fields: ['user_id', 'active'] }],
+})
 export class RecurringExpense extends Model {
-  @Index('idx_recurring_expenses_user_active')
   @ForeignKey(() => User)
   @Column({ type: DataType.INTEGER, allowNull: false })
   declare userId: number;
@@ -41,7 +44,6 @@ export class RecurringExpense extends Model {
   @Column({ type: DataType.TEXT, allowNull: false })
   declare startMonth: string;
 
-  @Index('idx_recurring_expenses_user_active')
   @Default(true)
   @Column({ type: DataType.BOOLEAN, allowNull: false })
   declare active: boolean;
