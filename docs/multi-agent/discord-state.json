@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-09-22T19:44:41-03:00"
+    "atualizadoEm": "2026-09-22T19:50:52-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -105,6 +105,11 @@
       "messageId": "1548833851311399004",
       "status": "CONCLUIDA",
       "pr": 176
+    },
+    "T-113": {
+      "canal": "todo-ai",
+      "messageId": "1552089792769036320",
+      "status": "PENDENTE"
     }
   },
   "humanTodos": {

@@ -36,6 +36,11 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 > ruleset `main protegida`) — não bloqueia mais nada. Decisão aberta: a **3 — sessão** (store em
 > Postgres × JWT no gateway), necessária só na fase 2.
 
+### T-113 — Medir o custo real: `savings-core` de `db` para `query`
+- **Status**: PENDENTE · **Complexidade**: média · **Depende de**: nada (passo 4 provado, `packages/query` pronto)
+- **Objetivo**: passo 5 de `plano-migracao-aws.md` — trocar `db` injetado por `query({text, values})` num core só, para medir o custo real antes de repetir nos outros. `savings-core` é o candidato: já está no formato-alvo e é o menor.
+- **Aceite**: `savings-core` fala só com `query`; suíte do package e do `rest-api` continuam verdes (mesma contagem); registrar aqui o custo medido (pontos/tempo) antes de decidir se os outros cores entram na fila.
+
 ### T-091c/d — Renda Fixa com dado real
 - **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-091a (#165) e b1 (#166)
 - **Objetivo**: **(c)** posição sem ticker (valor aplicado, vencimento, taxa) — o layer hoje assume ticker da B3 + preço médio + cotação da brapi, e caixinha não tem nenhum dos três; **(d)** endpoint `/investments` da Pluggy para preencher. Em série. "Caixinha é Renda Fixa, irmã de Ações" está decidido — **não reabrir** (#165).
