@@ -23,6 +23,7 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **cognito-core** | Integration | Auth | Client HTTP do AWS Cognito (login, cadastro, confirmação, troca de senha) | ✅ existe (T-106) |
 | **portfolio-core** | Core | Portfolio | Posição, preço médio, histórico, snapshots, agendador | ✅ existe (T-099c) |
 | **operations-core** | Core | Portfolio | CRUD de `operations` + leitura de `wallets` (o SQL que estava nas rotas) | ✅ existe (T-104) |
+| **alerts-core** | Core | Portfolio | CRUD de `alert_rules` (o SQL que estava na rota `/api/alerts`) | ✅ existe (T-104) |
 | **brapi-core** | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | ✅ existe (T-098) |
 | **postgresdb** | Infra | — | Schema do Postgres (modelos + `sync`); não atende request | ✅ existe (T-112) |
 | **query** | Infra | — | `query({text,values})` com backend pg (fase 1) e Lambda (fase 3) | ✅ existe (T-112) |
@@ -181,6 +182,7 @@ migrar. Package novo já nasce assim; os antigos migram um por vez, em tarefas p
 | `expenses-core` | ✅ alvo completo (T-110c) — inclui a exceção `TransactionalDb` | Jest, cobertura 100%; 1 teste com client real (prova rollback) |
 | `income-core` | ✅ nasceu no formato-alvo (T-110d) | Jest, cobertura 100% |
 | `operations-core` | ✅ nasceu no formato-alvo (T-104) | Jest, cobertura 100% |
+| `alerts-core` | ✅ nasceu no formato-alvo (T-104) | Jest, cobertura 100% |
 | demais `*-core`, `db` | arquivo-balaio, `db` importado, teste em `src/**/*.test.ts` | Vitest |
 
 > `validation-core` foi o segundo package migrado e o **calibre** do formato:

@@ -10,6 +10,7 @@
     "esModuleInterop": true,
     "baseUrl": ".",
     "paths": {
+      "@vetor-wallet/alerts-core": ["../alerts-core/src/index.ts"],
       "@vetor-wallet/shared": ["../shared/src/index.ts"],
       "@vetor-wallet/db": ["../db/src/index.ts"],
       "@vetor-wallet/brapi-core": ["../brapi-core/src/index.ts"],
@@ -31,6 +32,7 @@
   "include": ["src"],
   "exclude": ["src/**/*.test.ts", "src/**/__fixtures__/**"],
   "references": [
+    { "path": "../alerts-core" },
     { "path": "../shared" },
     { "path": "../db" },
     { "path": "../brapi-core" },

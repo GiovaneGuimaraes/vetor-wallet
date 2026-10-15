@@ -80,6 +80,12 @@ ticker é `operations-core`, decidir se a venda cabe é `portfolio-core` (funç�
 puras), e cruzar os dois é papel da rota. `POST /api/import` (CSV) **não** foi
 migrado: o INSERT em lote dele continua na rota.
 
+Na mesma T-104 entrou `@vetor-wallet/alerts-core`, com o SQL que ainda estava
+em `routes/alerts.ts`. A rota ficou **sem nenhum SQL**: valida tipo/threshold
+do corpo (inclusive `isValidMoneyAmount`), normaliza o `ticker` e chama o
+core; a validação ficou aqui de propósito — é entrada de usuário, não acesso
+a dado, e já existia na rota antes da extração.
+
 Na T-106 entrou `@vetor-wallet/cognito-core` (Integração), e `auth/router.ts`
 virou o lugar onde **`auth-core` e `cognito-core` se cruzam** — mesmo arranjo de
 `routes/pluggy.ts`. O que mora só ali:
