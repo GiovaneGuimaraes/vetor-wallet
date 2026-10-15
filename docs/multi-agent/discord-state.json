@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-10-15T14:46:00-03:00"
+    "atualizadoEm": "2026-10-15T15:12:39-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -319,6 +319,12 @@
       "messageId": "1551419163426164857",
       "modo": "so emoji",
       "status": "RESOLVIDO 2026-09-22: humano respondeu 'pode ligar'. Ruleset main protegida ganhou required_status_checks (Install . Build . Lint . Test, modo estrito)."
+    },
+    "agente-insights-informativo": {
+      "canal": "todo-human",
+      "messageId": "1560354716461043775",
+      "modo": "so aviso",
+      "status": "DECIDIDO 2026-10-15 via chat: agente de insights de acoes/cripto e informativo, nunca consultivo (CVM regula recomendacao personalizada). Funcao deterministica antes de LLM onde der; MCP fica para depois. Candidata no BACKLOG.md, depende da fase 3 da migracao AWS."
     }
   },
   "lastSeen": {
