@@ -31,6 +31,7 @@ export default defineConfig({
       '@vetor-wallet/income-core': path.resolve(__dirname, '../income-core/src/index.ts'),
       '@vetor-wallet/expenses-core': path.resolve(__dirname, '../expenses-core/src/index.ts'),
       '@vetor-wallet/pluggy-core': path.resolve(__dirname, '../pluggy-core/src/index.ts'),
+      '@vetor-wallet/query': path.resolve(__dirname, '../query/src/index.ts'),
     },
   },
   test: {

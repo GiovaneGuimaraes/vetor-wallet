@@ -23,7 +23,8 @@
       "@vetor-wallet/portfolio-core": ["../portfolio-core/src/index.ts"],
       "@vetor-wallet/insights-core": ["../insights-core/src/index.ts"],
       "@vetor-wallet/auth-core": ["../auth-core/src/index.ts"],
-      "@vetor-wallet/pluggy-core": ["../pluggy-core/src/index.ts"]
+      "@vetor-wallet/pluggy-core": ["../pluggy-core/src/index.ts"],
+      "@vetor-wallet/query": ["../query/src/index.ts"]
     }
   },
   "include": ["src"],
@@ -42,6 +43,7 @@
     { "path": "../portfolio-core" },
     { "path": "../insights-core" },
     { "path": "../auth-core" },
-    { "path": "../pluggy-core" }
+    { "path": "../pluggy-core" },
+    { "path": "../query" }
   ]
 }
