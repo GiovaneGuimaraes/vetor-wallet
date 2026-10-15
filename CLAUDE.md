@@ -86,6 +86,10 @@ packages/
 ├── portfolio-core/   # @vetor-wallet/portfolio-core — preço médio ponderado,
 │                     # validação de SELL, série valor × custo, carteiras,
 │                     # snapshots + agendador (T-099c, Ciclo 19)
+├── operations-core/  # @vetor-wallet/operations-core — o CRUD de operations e
+│                     # a leitura de wallets que vivia nas rotas; nasceu no
+│                     # formato-alvo (T-104). A REGRA (preço médio, SELL) fica
+│                     # no portfolio-core — aqui só o acesso a dado
 ├── insights-core/    # @vetor-wallet/insights-core — benchmarks CDI/Ibovespa
 │                     # (T-099c, Ciclo 19). O job de insights horários saiu na
 │                     # T-109a (2026-09-20): volta como Lambda + EventBridge
@@ -129,6 +133,7 @@ pnpm --filter @vetor-wallet/validation-core test   # Jest (validation-core)
 pnpm --filter @vetor-wallet/savings-core test      # Jest (savings-core; cobertura 100%)
 pnpm --filter @vetor-wallet/expenses-core test     # Jest (expenses-core; cobertura 100%)
 pnpm --filter @vetor-wallet/income-core test       # Jest (income-core; cobertura 100%)
+pnpm --filter @vetor-wallet/operations-core test   # Jest (operations-core; cobertura 100%)
 pnpm --filter @vetor-wallet/postgresdb test        # Jest (schema + DDL gerado, sem banco)
 pnpm --filter @vetor-wallet/postgresdb db:up       # Postgres local em :5433 (Docker)
 pnpm --filter @vetor-wallet/postgresdb db:sync     # aplica o schema no Postgres local

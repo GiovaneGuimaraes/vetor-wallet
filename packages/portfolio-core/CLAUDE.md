@@ -168,6 +168,21 @@ Card "Preço por ação" em `/dash`, logo ABAIXO do "Evolução da carteira" (T-
 - **Estados**: `snapshots.length < 2` → "o histórico de preços deste ativo começa a ser coletado a partir de agora" (mesma mensagem em espírito da T-058b); falha do fetch → aviso discreto (`priceError`), sem derrubar o resto da página; sem posições → card oculto (mesmo guard dos outros cards de gráfico).
 - **Fora de escopo (segue pendente)**: comparação entre tickers, candles/OHLC. (Tooltip/hover saiu do pendente na T-067 — ver acima.)
 
+## O CRUD das rotas saiu daqui-ao-lado (T-104)
+
+`@vetor-wallet/operations-core` nasceu com o SQL de `operations`/`wallets` que
+ainda vivia em `routes/{operations,wallets}.ts` — listar, inserir, apagar e os
+re-SELECTs. **Este package não mudou**: continua com a REGRA (preço médio,
+`wouldExceedPosition`, histórico, snapshots) e com `wallets.ts`
+(`getOrCreateDefaultWallet`, `countWallets`, `withUserLock`), que é regra de
+carteira única, não CRUD.
+
+Nenhum dos dois importa o outro: `POST /api/operations` lê as operações do
+ticker pelo `operations-core` e decide com as funções **puras** daqui, e quem
+costura é a rota. Quando este package migrar para o formato-alvo (`db`
+injetado, Jest, uma função por arquivo), fundir os dois — ou dissolver o vizinho
+aqui dentro — é decisão daquela tarefa. Ver `packages/operations-core/CLAUDE.md`.
+
 ## Pendências / notas de arquitetura
 
 - **`fetchQuotesStrict` duplica o client da brapi.** `snapshots.ts` fala com
