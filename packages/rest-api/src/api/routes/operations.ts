@@ -9,11 +9,17 @@ import {
   wouldExceedPosition,
 } from '@vetor-wallet/portfolio-core';
 import {
+  createOperation,
+  deleteOperation,
+  listOperations,
+  listOperationsByTicker,
+} from '@vetor-wallet/operations-core';
+import {
   isValidIsoDate,
   isValidMoneyAmount,
   moneyAmountError,
 } from '@vetor-wallet/validation-core';
-import type { NewOperation, Operation } from '@vetor-wallet/shared';
+import type { NewOperation } from '@vetor-wallet/shared';
 
 const router = Router();
 
@@ -26,12 +32,7 @@ router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-
-    const result = await db.execute({
-      sql: 'SELECT * FROM operations WHERE user_id = ? ORDER BY date DESC, created_at DESC',
-      args: [userId],
-    });
-    res.json(result.rows);
+    res.json(await listOperations({ db, userId }));
   })
 );
 
@@ -72,12 +73,12 @@ router.post(
     const tickerUp = ticker.trim().toUpperCase();
 
     if (type === 'SELL') {
-      // Sem filtro de carteira (T-050): a posição é o consolidado do usuário.
-      const existing = await db.execute({
-        sql: 'SELECT * FROM operations WHERE ticker = ? AND user_id = ? ORDER BY date ASC, created_at ASC',
-        args: [tickerUp, userId],
-      });
-      const positionMap = buildPositionMap(existing.rows as unknown as Operation[]);
+      // A posição é a de HOJE, não a da DATA da venda — um SELL retroativo é
+      // validado contra o consolidado atual. É um bug conhecido (T-021 do
+      // `TODO-HUMANO.md`), preservado de propósito nesta extração: corrigi-lo
+      // aqui esconderia uma mudança de comportamento dentro de um refactor.
+      const existing = await listOperationsByTicker({ db, userId, ticker: tickerUp });
+      const positionMap = buildPositionMap(existing);
       if (wouldExceedPosition(positionMap, tickerUp, quantity)) {
         res.status(400).json({ error: 'venda maior que a posicao atual' });
         return;
@@ -86,18 +87,17 @@ router.post(
 
     const walletId = await getOrCreateDefaultWallet(userId);
 
-    const insert = await db.execute({
-      sql: 'INSERT INTO operations (ticker, type, quantity, price, date, user_id, wallet_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      args: [tickerUp, type, quantity, price, date, userId, walletId],
+    const operation = await createOperation({
+      db,
+      userId,
+      walletId,
+      ticker: tickerUp,
+      type,
+      quantity,
+      price,
+      date,
     });
-
-    const newId = insert.lastInsertRowid ?? 0;
-    // Re-SELECT também filtrado por user_id (T-059, simetria com o PATCH — T-051).
-    const row = await db.execute({
-      sql: 'SELECT * FROM operations WHERE id = ? AND user_id = ?',
-      args: [Number(newId), userId],
-    });
-    res.status(201).json(row.rows[0]);
+    res.status(201).json(operation);
   })
 );
 
@@ -106,11 +106,7 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const { id } = req.params;
-    const result = await db.execute({
-      sql: 'DELETE FROM operations WHERE id = ? AND user_id = ?',
-      args: [id, userId],
-    });
-    if (result.rowsAffected === 0) {
+    if (!(await deleteOperation({ db, userId, id }))) {
       res.status(404).json({ error: 'Operacao nao encontrada' });
       return;
     }

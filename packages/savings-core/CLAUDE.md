@@ -7,6 +7,19 @@ arquitetura em módulos). Categoria **Core**, módulo **Savings** (ver
 e, desde a **T-110a** (2026-09-20), é dono de verdade: o CRUD que vivia na rota
 veio para cá, com `db` **injetado**.
 
+**T-113 (2026-10-15, passo 5 de `docs/multi-agent/plano-migracao-aws.md`): o
+`db` do libSQL saiu.** Este foi o primeiro core trocado — o piloto da própria
+troca de facade, não só do formato. Toda função aqui recebe `query: Query`
+(`@vetor-wallet/query`) em vez de `db: Db`, com `{ text, values }` e
+placeholders `$1, $2, ...` (convenção Postgres), `RETURNING id` no lugar de
+`lastInsertRowid`, `rowCount` no lugar de `rowsAffected`. O `rest-api`
+**continua em SQLite** — os passos 6-8 da fase 1 (VPC, Aurora, migração dos
+dados) seguem parados por decisão do humano — então a rota injeta
+`createSqliteQuery(db)` (`packages/rest-api/src/api/sqliteQuery.ts`), um
+adaptador que traduz `$N` para `?` e devolve o `Db` de sempre por baixo.
+Nenhuma linha deste package sabe disso; quando o Postgres entrar de verdade, a
+rota troca para `createPgQuery(...)` sem tocar este core.
+
 Este arquivo substitui `docs/decisions/savings-goals.md` (hoje um stub apontando
 para cá — e o registro da remoção de Metas) e cobre o módulo Savings inteiro,
 incluindo o que vive nas rotas do `rest-api` e nas telas do `web`.
@@ -36,17 +49,17 @@ src/
 ├── computeBalance.ts       # PURO: DEPOSIT + YIELD − WITHDRAW
 ├── summariseSavings.ts     # PURO: o summary de GET /api/savings
 ├── SAVINGS_ENTRY_TYPES.ts  # os três tipos + isSavingsEntryType
-├── listSavingsEntries.ts   # db injetado
-├── createSavingsEntry.ts   # db injetado
-├── updateSavingsEntry.ts   # db injetado; devolve null = 404 da rota
-├── deleteSavingsEntry.ts   # db injetado; devolve false = 404 da rota
+├── listSavingsEntries.ts   # query injetado
+├── createSavingsEntry.ts   # query injetado
+├── updateSavingsEntry.ts   # query injetado; devolve null = 404 da rota
+├── deleteSavingsEntry.ts   # query injetado; devolve false = 404 da rota
 └── index.ts                # barrel
 
 tests/
 ├── tsconfig.json           # types: node + jest; isolatedModules
 └── unit/
     ├── jest.config.ts      # rootDir = raiz do package; threshold 100%
-    ├── testDb.ts           # helper: Db mockado
+    ├── testQuery.ts        # helper: Query mockada (era testDb.ts até a T-113)
     └── tests/              # 1 arquivo de teste por função
 ```
 
@@ -69,10 +82,12 @@ no mesmo barrel, nos mesmos configs e nos mesmos call sites:
    Express. Agora tem 138 linhas e **zero SQL**: valida entrada e traduz o
    resultado em status HTTP, que é o papel dela.
 
-**`db` é parâmetro, nunca import.** Nenhuma função aqui importa o singleton de
-`@vetor-wallet/db`; quem chama passa o client. É o que dispensa banco temporário
-no teste (`testDb.ts` devolve um mock puro) e o que o resolver do AppSync e o
-`lambda-postgres-query` vão exigir na migração para Postgres.
+**`query` é parâmetro, nunca import.** Nenhuma função aqui importa uma
+implementação concreta de `@vetor-wallet/query`; quem chama passa o client
+(desde a T-113, `db: Db` virou `query: Query` — ver nota no topo deste
+arquivo). É o que dispensa banco temporário no teste (`testQuery.ts` devolve um
+mock puro) e o que o resolver do AppSync e o `lambda-postgres-query` vão exigir
+na migração para Postgres.
 
 **Ausência é 404 da rota, não exceção aqui**: `updateSavingsEntry` devolve `null`
 e `deleteSavingsEntry` devolve `false` quando a linha não existe **ou** é de

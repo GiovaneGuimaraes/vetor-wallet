@@ -21,6 +21,7 @@ export default defineConfig({
       '@vetor-wallet/bank-import-core': path.resolve(__dirname, '../bank-import-core/src/index.ts'),
       '@vetor-wallet/portfolio-core': path.resolve(__dirname, '../portfolio-core/src/index.ts'),
       '@vetor-wallet/insights-core': path.resolve(__dirname, '../insights-core/src/index.ts'),
+      '@vetor-wallet/operations-core': path.resolve(__dirname, '../operations-core/src/index.ts'),
       '@vetor-wallet/auth-core': path.resolve(__dirname, '../auth-core/src/index.ts'),
       '@vetor-wallet/db': path.resolve(__dirname, '../db/src/index.ts'),
       '@vetor-wallet/brapi-core': path.resolve(__dirname, '../brapi-core/src/index.ts'),
@@ -31,6 +32,7 @@ export default defineConfig({
       '@vetor-wallet/income-core': path.resolve(__dirname, '../income-core/src/index.ts'),
       '@vetor-wallet/expenses-core': path.resolve(__dirname, '../expenses-core/src/index.ts'),
       '@vetor-wallet/pluggy-core': path.resolve(__dirname, '../pluggy-core/src/index.ts'),
+      '@vetor-wallet/query': path.resolve(__dirname, '../query/src/index.ts'),
     },
   },
   test: {

@@ -63,6 +63,9 @@ Packages:
 
 - `packages/portfolio-core` *(Core, T-099c)* — posição, preço médio, validação de SELL contra a
   posição atual, série valor × custo, carteiras, snapshots diários e o agendador de coleta.
+- `packages/operations-core` *(Core, T-104)* — o **CRUD** de `operations` e a leitura de
+  `wallets` que vivia nas rotas, no formato-alvo (`db` injetado). Tem o acesso a dado; a regra
+  continua no `portfolio-core`, e a fusão dos dois é decisão da migração daquele package.
 - `packages/brapi-core` *(Integração, T-098)* — client HTTP da [brapi.dev](https://brapi.dev):
   cotações e busca de tickers.
 - `packages/rest-api` — `/api/wallets`, `/api/operations`, `/api/portfolio`, `/api/snapshots`,

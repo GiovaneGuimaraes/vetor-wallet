@@ -22,6 +22,7 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **auth-core** | Core | Auth | Espelho de identidade (`cognito_sub`), perfil, papéis | ✅ existe (T-099c) |
 | **cognito-core** | Integration | Auth | Client HTTP do AWS Cognito (login, cadastro, confirmação, troca de senha) | ✅ existe (T-106) |
 | **portfolio-core** | Core | Portfolio | Posição, preço médio, histórico, snapshots, agendador | ✅ existe (T-099c) |
+| **operations-core** | Core | Portfolio | CRUD de `operations` + leitura de `wallets` (o SQL que estava nas rotas) | ✅ existe (T-104) |
 | **brapi-core** | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | ✅ existe (T-098) |
 | **postgresdb** | Infra | — | Schema do Postgres (modelos + `sync`); não atende request | ✅ existe (T-112) |
 | **query** | Infra | — | `query({text,values})` com backend pg (fase 1) e Lambda (fase 3) | ✅ existe (T-112) |
@@ -89,6 +90,13 @@ negócio, veja [`MODULES.md`](./MODULES.md).
    > T-099c, sendo movimentação mecânica, só os tornou explícitos — não os introduziu nem os
    > desfez. Desacoplar (a rota orquestrando os dois módulos) é tarefa futura; **não** use
    > isso como precedente para um novo core → core.
+
+   > **Dois cores no MESMO módulo** (`portfolio-core` + `operations-core`, T-104) não caem
+   > nesta regra, que fala de módulos diferentes — e mesmo assim nenhum dos dois importa o
+   > outro: `operations-core` tem o CRUD no formato-alvo, `portfolio-core` tem a regra no
+   > formato antigo, e quem os costura é a rota. É uma divisão **de migração**, com prazo:
+   > quando o `portfolio-core` migrar de formato, fundir ou dissolver é decisão daquela
+   > tarefa. Não abra um segundo core num módulo sem esse tipo de prazo.
 
 ### Nota sobre helpers duplicados server ↔ web
 
@@ -172,6 +180,7 @@ migrar. Package novo já nasce assim; os antigos migram um por vez, em tarefas p
 | `savings-core` | ✅ alvo completo (T-110a/b) — **primeiro com `db` injetado** | Jest, `tests/unit/tests/`, cobertura 100% por `coverageThreshold` |
 | `expenses-core` | ✅ alvo completo (T-110c) — inclui a exceção `TransactionalDb` | Jest, cobertura 100%; 1 teste com client real (prova rollback) |
 | `income-core` | ✅ nasceu no formato-alvo (T-110d) | Jest, cobertura 100% |
+| `operations-core` | ✅ nasceu no formato-alvo (T-104) | Jest, cobertura 100% |
 | demais `*-core`, `db` | arquivo-balaio, `db` importado, teste em `src/**/*.test.ts` | Vitest |
 
 > `validation-core` foi o segundo package migrado e o **calibre** do formato:

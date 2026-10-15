@@ -3,6 +3,7 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { countWallets, getOrCreateDefaultWallet, withUserLock } from '@vetor-wallet/portfolio-core';
+import { findWalletById, listWallets } from '@vetor-wallet/operations-core';
 import type { NewWallet } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -18,12 +19,7 @@ router.get(
 
     await getOrCreateDefaultWallet(userId);
 
-    const result = await db.execute({
-      sql: 'SELECT * FROM wallets WHERE user_id = ? ORDER BY created_at ASC, id ASC',
-      args: [userId],
-    });
-
-    res.json(result.rows);
+    res.json(await listWallets({ db, userId }));
   })
 );
 
@@ -62,12 +58,7 @@ router.post(
       // re-SELECT de operations/alerts) — walletId vem do próprio
       // getOrCreateDefaultWallet deste request, seguro na prática, mas o
       // filtro fecha o mesmo descuido.
-      const row = await db.execute({
-        sql: 'SELECT * FROM wallets WHERE id = ? AND user_id = ?',
-        args: [walletId, userId],
-      });
-
-      const wallet = row.rows[0];
+      const wallet = await findWalletById({ db, userId, id: walletId });
       if (!wallet) {
         throw new Error(`wallet ${walletId} not found right after getOrCreateDefaultWallet`);
       }
