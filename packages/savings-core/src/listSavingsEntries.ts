@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { SavingsEntry } from '@vetor-wallet/shared';
 
 export interface ListSavingsEntriesParams {
-  db: Db;
+  query: Query;
   userId: number;
 }
 
@@ -16,10 +16,10 @@ export interface ListSavingsEntriesParams {
 export async function listSavingsEntries(
   params: ListSavingsEntriesParams
 ): Promise<SavingsEntry[]> {
-  const { db, userId } = params;
-  const result = await db.execute({
-    sql: 'SELECT * FROM savings_entries WHERE user_id = ? ORDER BY date DESC, created_at DESC',
-    args: [userId],
+  const { query, userId } = params;
+  const result = await query<SavingsEntry>({
+    text: 'SELECT * FROM savings_entries WHERE user_id = $1 ORDER BY date DESC, created_at DESC',
+    values: [userId],
   });
-  return result.rows as unknown as SavingsEntry[];
+  return result.rows;
 }

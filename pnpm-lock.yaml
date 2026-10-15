@@ -439,6 +439,9 @@ importers:
       '@vetor-wallet/portfolio-core':
         specifier: workspace:*
         version: link:../portfolio-core
+      '@vetor-wallet/query':
+        specifier: workspace:*
+        version: link:../query
       '@vetor-wallet/savings-core':
         specifier: workspace:*
         version: link:../savings-core
@@ -512,9 +515,9 @@ importers:
 
   packages/savings-core:
     dependencies:
-      '@vetor-wallet/db':
+      '@vetor-wallet/query':
         specifier: workspace:*
-        version: link:../db
+        version: link:../query
       '@vetor-wallet/shared':
         specifier: workspace:*
         version: link:../shared

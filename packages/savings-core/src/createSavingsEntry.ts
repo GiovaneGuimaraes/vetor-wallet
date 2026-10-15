@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { SavingsEntry, SavingsEntryType } from '@vetor-wallet/shared';
 
 export interface CreateSavingsEntryParams {
-  db: Db;
+  query: Query;
   userId: number;
   type: SavingsEntryType;
   amount: number;
@@ -19,21 +19,25 @@ export interface CreateSavingsEntryParams {
  * leitura sem dono, e a regra do app é que **toda** consulta de dado carregue o
  * usuário na cláusula.
  *
+ * `RETURNING id` no lugar do `lastInsertRowid` do SQLite (T-113, passo 5 de
+ * `docs/multi-agent/plano-migracao-aws.md`) — o mesmo formato nos dois backends
+ * do `@vetor-wallet/query`.
+ *
  * A coluna `goal_id` foi removida do banco na T-091b2 — não há mais nem onde
  * gravar o vínculo com meta.
  */
 export async function createSavingsEntry(params: CreateSavingsEntryParams): Promise<SavingsEntry> {
-  const { db, userId, type, amount, date, note = '' } = params;
+  const { query, userId, type, amount, date, note = '' } = params;
 
-  const insert = await db.execute({
-    sql: 'INSERT INTO savings_entries (user_id, type, amount, date, note) VALUES (?, ?, ?, ?, ?)',
-    args: [userId, type, amount, date, note ?? ''],
+  const insert = await query<{ id: number }>({
+    text: 'INSERT INTO savings_entries (user_id, type, amount, date, note) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+    values: [userId, type, amount, date, note ?? ''],
   });
 
-  const newId = insert.lastInsertRowid ?? 0;
-  const row = await db.execute({
-    sql: 'SELECT * FROM savings_entries WHERE id = ? AND user_id = ?',
-    args: [Number(newId), userId],
+  const newId = insert.rows[0]?.id ?? 0;
+  const row = await query<SavingsEntry>({
+    text: 'SELECT * FROM savings_entries WHERE id = $1 AND user_id = $2',
+    values: [newId, userId],
   });
-  return row.rows[0] as unknown as SavingsEntry;
+  return row.rows[0];
 }
