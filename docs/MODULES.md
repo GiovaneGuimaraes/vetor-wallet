@@ -66,6 +66,8 @@ Packages:
 - `packages/operations-core` *(Core, T-104)* — o **CRUD** de `operations` e a leitura de
   `wallets` que vivia nas rotas, no formato-alvo (`db` injetado). Tem o acesso a dado; a regra
   continua no `portfolio-core`, e a fusão dos dois é decisão da migração daquele package.
+- `packages/alerts-core` *(Core, T-104)* — o **CRUD** de `alert_rules` que vivia na rota
+  `/api/alerts`, no formato-alvo (`db` injetado). Validação de tipo/threshold continua na rota.
 - `packages/brapi-core` *(Integração, T-098)* — client HTTP da [brapi.dev](https://brapi.dev):
   cotações e busca de tickers.
 - `packages/rest-api` — `/api/wallets`, `/api/operations`, `/api/portfolio`, `/api/snapshots`,
