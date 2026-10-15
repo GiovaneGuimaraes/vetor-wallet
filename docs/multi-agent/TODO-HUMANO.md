@@ -18,6 +18,15 @@
 
 ## Abertos
 
+### [2026-10-15] Agente de insights de ações/cripto: informativo, nunca consultivo
+- **Origem**: orquestrador (conversa com o humano sobre os próximos passos da AWS)
+- **Bloqueia**: nada hoje — candidata no `BACKLOG.md`, depende da fase 3 de `plano-migracao-aws.md` (onde o cron Lambda vai rodar).
+- **O desenho combinado**: um cron Lambda diário grava o snapshot da posição do usuário (ações + cripto); uma rota do `rest-api` lê esse snapshot e devolve observações em linguagem natural sobre a carteira.
+- **A trava, decidida e para não reabrir sem nova decisão do humano**: o agente é **informativo, nunca consultivo**. Pode dizer o que os dados mostram sobre a carteira do próprio usuário — concentração ("68% do seu patrimônio em renda variável está num único ativo"), comparação com benchmark (CDI/Ibovespa), ausência estrutural ("você não tem posição em renda fixa"), conteúdo educativo genérico sem citar ticker. **Nunca** recomenda comprar/vender um ativo específico, nem sugere alocação-alvo. Se o usuário perguntar direto "o que eu devo comprar?", o agente recusa e explica por que não é credenciado para isso.
+- **Por quê**: recomendação personalizada de investimento é regulada pela CVM (consultor de valores mobiliários exige credenciamento); o humano levantou a dúvida, e a régua acima é o que mantém o agente do lado informativo da linha sem deixar de ser útil.
+- **Duas decisões de engenharia junto**: (1) **função determinística antes de LLM onde der** — cálculo de concentração/comparação com benchmark é matemática, não precisa de IA; o LLM entra só para costurar a narrativa em linguagem natural (ideia do humano, para não gastar token à toa); (2) **MCP fica para depois** — só faria sentido se outro consumidor (CLI, outro app) precisasse falar com o mesmo agente; hoje a chamada seria direta do SDK do Claude na rota, com o snapshot no prompt.
+- **Resposta do humano**: concordou com o desenho informativo e com adiar MCP; a ideia de preferir função a LLM é dele. _(a entrar na fila quando a fase 3 da AWS chegar)_
+
 ### [2026-09-20] ~~Instalar o Docker Desktop — sem ele o schema do Postgres não pode ser provado~~ — RESOLVIDO em 2026-09-22
 - **Origem**: orquestrador (T-112, PR #187)
 - **Bloqueava**: a **prova** do passo 4.
