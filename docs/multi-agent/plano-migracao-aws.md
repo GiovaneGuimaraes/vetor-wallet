@@ -186,6 +186,30 @@ chega do API Gateway possivelmente em base64 (`isBase64Encoded`) — se isso for
 ordem errada, a assinatura falha em produção e passa em teste. É o primeiro caso a provar na
 fase 2, não o último.
 
+### 4.1 O que o `rest-api` da OCA (`oneclickads/monorepo`) ensina, e o que NÃO copiamos
+
+Lido em 2026-10-15 (`packages/rest-api` de lá) a pedido do humano, como referência para esta
+fase. Duas escolhas de lá **contrariam** decisões já travadas aqui e **não entram**: (1) IaC via
+`carlin`/SAM — a decisão 2 (§8) já escolheu SDK puro, de propósito ("quer ver como o deploy
+funciona por baixo"); (2) **um Lambda por rota+método**, registrado num array explícito
+(`apiHandlers` em `cloudformation.ts`) que o `carlin` expande em `AWS::Serverless::Function` —
+faz sentido lá (~30 integrações desacopladas, isolar blast radius de cada webhook de terceiro),
+mas aqui reimplementaria o roteador do Express em infra sem necessidade, contrariando a escolha
+de **um Lambda só** desta §4.
+
+O que **é** portável e vale aplicar quando a fase 3 chegar:
+
+- **Um wrapper de boundary único**, tipo o `withRestApiRoute` de lá: todo handler (lá, cada
+  `export const GET/POST`; aqui, o único handler do `serverless-http`) passa por ele, garantindo
+  log de entrada (`path`, `method`) e flush de log no fim do Lambda, **antes** do corpo da lógica.
+  Sem isso, uma rota que só loga no erro é indistinguível de um pipeline de log quebrado (foi
+  achado real de lá, não hipotético).
+- **Secret de caller externo lido do SSM Parameter Store em runtime, nunca do `.env`/variável de
+  ambiente do Lambda**, comparado com `crypto.timingSafeEqual` (nunca `!==`). Aplica-se ao webhook
+  da AbacatePay quando ele for para a nuvem — hoje o segredo vive em `.env` local porque não há
+  onde mais guardá-lo; na AWS o SSM já é o destino dos ids de infra (decisão 2), e o segredo do
+  webhook deveria ir junto.
+
 ## 5. A fase 1 é a migração do banco — o tamanho real dela
 
 O humano está certo: isto vem primeiro. Não dá para ter resolver antes de ter onde ler.
