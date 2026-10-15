@@ -27,8 +27,8 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 >    traduz `$N` → `?` para o rest-api continuar rodando em SQLite). Decisão para os próximos
 >    cores da T-104: **reusar esse mesmo adaptador genérico** por ponto de injeção, em vez de
 >    criar um por domínio — ele não depende do core, só da convenção de placeholder.
-> 2. **Passo 3, o que falta**: alerts, budgets, expense-entries, portfolio/snapshots — no molde
->    da T-110a/c/d. operations/wallets **saiu da lista** (T-104, PR #196).
+> 2. **Passo 3, o que falta**: budgets, expense-entries, portfolio/snapshots — no molde
+>    da T-110a/c/d. operations/wallets (PR #196) e alerts (PR #201) **saíram da lista**.
 > 3. **Passo 4 PROVADO em 2026-09-22**: `db:up` + `db:sync` rodaram contra Postgres 16 real
 >    (o humano instalou o Docker). Achou e corrigiu um bug real no caminho — `@Index` de
 >    propriedade ignorando `underscored: true` em 7 modelos; detalhe em
@@ -46,11 +46,11 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Aceite**: carteira B3 com os mesmos números; suítes verdes.
 
 ### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva)
-- **Status**: EM_ANDAMENTO (4 de ~8; fatia da vez: alerts) · **Complexidade**: alta
+- **Status**: EM_ANDAMENTO (5 de ~8; fatia da vez: expense-entries) · **Complexidade**: alta
 - **Objetivo**: **1 função por arquivo**, **`db` injetado**, **Jest**, cobertura **100% por threshold** — e, na MESMA PR, tirar o CRUD da rota. É o passo 3 de `plano-migracao-aws.md`; não depende de AWS.
-- **Molde**: `packages/savings-core` (T-110a/b). operations/wallets concluído na PR #196 (`packages/operations-core`). Reusar `createSqliteQuery` como adaptador se o core novo for direto para `query` (achado da T-113) — opcional nesta fatia, pode ficar com `db` como os demais já migrados.
-- **Faltam**: alerts (em andamento) · budgets · expense-entries · portfolio/snapshots.
-- **Nota sobre budgets**: backend sem UI, "nada consome" (ver Candidatas) — avaliar remoção em vez de migração quando chegar a vez, não gastar o formato-alvo em código morto.
+- **Molde**: `packages/alerts-core` (PR #201, mais recente) e `packages/operations-core` (PR #196). Validação/normalização de entrada fica na ROTA, não no core — convenção já estabelecida nas duas últimas fatias.
+- **Faltam**: budgets (pulada por ora, ver nota) · expense-entries (em andamento) · portfolio/snapshots.
+- **Nota sobre budgets**: backend sem UI, "nada consome" (ver Candidatas) — avaliar remoção em vez de migração quando chegar a vez, não gastar o formato-alvo em código morto. Pulada nesta rodada para não desperdiçar trabalho se a decisão for apagar.
 - **Aceite (por package)**: cobertura 100%; `build`, `lint`, `format:check` e `pnpm test` verdes; **contagem de testes do `rest-api` preservada** — é ela que prova que o comportamento não mudou.
 
 ### T-089e — Patrimônio total com saldo das contas da Pluggy
