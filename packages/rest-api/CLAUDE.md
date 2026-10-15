@@ -72,6 +72,14 @@ Na T-099c (Ciclo 19) saiu o resto, esvaziando `services/`:
 
 Cada um tem seu `CLAUDE.md` com as invariantes do domínio — leia antes de mexer.
 
+Na T-104 entrou `@vetor-wallet/operations-core`, com o SQL que ainda estava em
+`routes/{operations,wallets}.ts`. As duas rotas ficaram **sem nenhum SQL**:
+validam o corpo, chamam o core e traduzem o resultado em status HTTP. A
+costura de `POST /api/operations` fica aqui de propósito — ler as operações do
+ticker é `operations-core`, decidir se a venda cabe é `portfolio-core` (funções
+puras), e cruzar os dois é papel da rota. `POST /api/import` (CSV) **não** foi
+migrado: o INSERT em lote dele continua na rota.
+
 Na T-106 entrou `@vetor-wallet/cognito-core` (Integração), e `auth/router.ts`
 virou o lugar onde **`auth-core` e `cognito-core` se cruzam** — mesmo arranjo de
 `routes/pluggy.ts`. O que mora só ali:

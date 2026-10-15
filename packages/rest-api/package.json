@@ -19,6 +19,7 @@
     "@vetor-wallet/expenses-core": "workspace:*",
     "@vetor-wallet/income-core": "workspace:*",
     "@vetor-wallet/insights-core": "workspace:*",
+    "@vetor-wallet/operations-core": "workspace:*",
     "@vetor-wallet/pluggy-core": "workspace:*",
     "@vetor-wallet/portfolio-core": "workspace:*",
     "@vetor-wallet/savings-core": "workspace:*",
