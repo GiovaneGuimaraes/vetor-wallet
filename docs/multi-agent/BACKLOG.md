@@ -18,28 +18,25 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
-> **Retomar aqui (atualizado em 2026-09-22).** A fase 1 da migração está em curso e é a
+> **Retomar aqui (atualizado em 2026-10-15).** A fase 1 da migração está em curso e é a
 > prioridade; T-091c/d e T-089e seguem parados atrás dela.
 >
-> 1. **Medir antes de repetir** — traduzir **um** core de `db` para `query` (`packages/query`,
->    já pronto) e medir o custo real. **`savings-core` é o candidato**: já está no formato e é o
->    menor. Só depois repetir nos outros. Recomendação minha, não decidida pelo humano.
-> 2. **Passo 3, o que falta**: operations/wallets, alerts, budgets, expense-entries,
->    portfolio/snapshots — no molde da T-110a/c/d.
+> 1. **T-113 CONCLUÍDA (PR #195)**: `savings-core` fala só com `query`. Custo medido: tradução
+>    de cada função é barata (mecânica), mas **cada core migrado antes do Postgres estar no ar
+>    exige um adaptador próprio** (`createSqliteQuery` em `packages/rest-api/src/api/sqliteQuery.ts`,
+>    traduz `$N` → `?` para o rest-api continuar rodando em SQLite). Decisão para os próximos
+>    cores da T-104: **reusar esse mesmo adaptador genérico** por ponto de injeção, em vez de
+>    criar um por domínio — ele não depende do core, só da convenção de placeholder.
+> 2. **Passo 3, o que falta**: alerts, budgets, expense-entries, portfolio/snapshots — no molde
+>    da T-110a/c/d. operations/wallets **saiu da lista** (T-104, PR #196).
 > 3. **Passo 4 PROVADO em 2026-09-22**: `db:up` + `db:sync` rodaram contra Postgres 16 real
 >    (o humano instalou o Docker). Achou e corrigiu um bug real no caminho — `@Index` de
 >    propriedade ignorando `underscored: true` em 7 modelos; detalhe em
 >    `packages/postgresdb/CLAUDE.md`. Schema aplicado limpo, suíte/lint/build verdes.
 > 4. **Passos 6–8 (VPC, Aurora, Lambdas, carga) seguem parados** por decisão do humano.
 >
-> **Required status check ligado em 2026-09-22** (`Install · Build · Lint · Test` no `main`,
-> ruleset `main protegida`) — não bloqueia mais nada. Decisão aberta: a **3 — sessão** (store em
-> Postgres × JWT no gateway), necessária só na fase 2.
-
-### T-113 — Medir o custo real: `savings-core` de `db` para `query`
-- **Status**: EM_ANDAMENTO · **Complexidade**: média · **Depende de**: nada (passo 4 provado, `packages/query` pronto)
-- **Objetivo**: passo 5 de `plano-migracao-aws.md` — trocar `db` injetado por `query({text, values})` num core só, para medir o custo real antes de repetir nos outros. `savings-core` é o candidato: já está no formato-alvo e é o menor.
-- **Aceite**: `savings-core` fala só com `query`; suíte do package e do `rest-api` continuam verdes (mesma contagem); registrar aqui o custo medido (pontos/tempo) antes de decidir se os outros cores entram na fila.
+> **Decisão 3 (sessão) fechada em 2026-10-15**: store da sessão vai para Postgres na fase 2
+> (não JWT no gateway) — vira tarefa própria quando a fase 2 começar.
 
 ### T-091c/d — Renda Fixa com dado real
 - **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-091a (#165) e b1 (#166)
@@ -49,10 +46,10 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Aceite**: carteira B3 com os mesmos números; suítes verdes.
 
 ### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva)
-- **Status**: EM_ANDAMENTO (3 de ~8; fatia da vez: operations/wallets) · **Complexidade**: alta
+- **Status**: EM_ANDAMENTO (4 de ~8) · **Complexidade**: alta
 - **Objetivo**: **1 função por arquivo**, **`db` injetado**, **Jest**, cobertura **100% por threshold** — e, na MESMA PR, tirar o CRUD da rota. É o passo 3 de `plano-migracao-aws.md`; não depende de AWS.
-- **Molde**: `packages/savings-core` (T-110a/b). Quem já migrou e o que cada um decidiu: `docs/PACKAGES.md` e o `CLAUDE.md` de cada package.
-- **Faltam**: operations/wallets (em andamento) · alerts · budgets · expense-entries · portfolio/snapshots.
+- **Molde**: `packages/savings-core` (T-110a/b). operations/wallets concluído na PR #196 como `packages/operations-core` (CRUD separado do `portfolio-core`, que mantém a regra de preço médio/SELL — fusão fica para quando o `portfolio-core` migrar de formato). `routes/import.ts` (CSV) ainda tem SQL direto de operations — candidato à próxima fatia.
+- **Faltam**: alerts · budgets · expense-entries · portfolio/snapshots.
 - **Aceite (por package)**: cobertura 100%; `build`, `lint`, `format:check` e `pnpm test` verdes; **contagem de testes do `rest-api` preservada** — é ela que prova que o comportamento não mudou.
 
 ### T-089e — Patrimônio total com saldo das contas da Pluggy
