@@ -36,6 +36,10 @@ intuição. **Uma linha por fato; se não muda decisão de roteamento, não entr
   pages lado a lado**, nunca pelo relatório do executor (T-020).
 - **Haiku acerta o código e pode errar o relato** (T-095). Com Haiku, verifique o diff, não a
   prosa do retorno.
+- **Sonnet também erra a citação de evidência sem errar o código** (T-113): o executor alegou
+  que um teste pré-existente provava `RETURNING id`, mas esse teste nem passava pelo caminho
+  tocado — o revisor pegou rodando a suíte, não lendo a prosa. Reforça a regra: revisor roda os
+  comandos, nunca aceita "testei e passou" como prova.
 - **Uma reprovação foi culpa do prompt do orquestrador** (T-053). Antes de escalar modelo,
   verifique se a instrução estava certa.
 - **Risco sem teste exige execução, não leitura**: `snapshotScheduler` roda no boot e nenhum
