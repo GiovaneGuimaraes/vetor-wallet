@@ -46,10 +46,11 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Aceite**: carteira B3 com os mesmos números; suítes verdes.
 
 ### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva)
-- **Status**: EM_ANDAMENTO (4 de ~8) · **Complexidade**: alta
+- **Status**: EM_ANDAMENTO (4 de ~8; fatia da vez: alerts) · **Complexidade**: alta
 - **Objetivo**: **1 função por arquivo**, **`db` injetado**, **Jest**, cobertura **100% por threshold** — e, na MESMA PR, tirar o CRUD da rota. É o passo 3 de `plano-migracao-aws.md`; não depende de AWS.
-- **Molde**: `packages/savings-core` (T-110a/b). operations/wallets concluído na PR #196 como `packages/operations-core` (CRUD separado do `portfolio-core`, que mantém a regra de preço médio/SELL — fusão fica para quando o `portfolio-core` migrar de formato). `routes/import.ts` (CSV) ainda tem SQL direto de operations — candidato à próxima fatia.
-- **Faltam**: alerts · budgets · expense-entries · portfolio/snapshots.
+- **Molde**: `packages/savings-core` (T-110a/b). operations/wallets concluído na PR #196 (`packages/operations-core`). Reusar `createSqliteQuery` como adaptador se o core novo for direto para `query` (achado da T-113) — opcional nesta fatia, pode ficar com `db` como os demais já migrados.
+- **Faltam**: alerts (em andamento) · budgets · expense-entries · portfolio/snapshots.
+- **Nota sobre budgets**: backend sem UI, "nada consome" (ver Candidatas) — avaliar remoção em vez de migração quando chegar a vez, não gastar o formato-alvo em código morto.
 - **Aceite (por package)**: cobertura 100%; `build`, `lint`, `format:check` e `pnpm test` verdes; **contagem de testes do `rest-api` preservada** — é ela que prova que o comportamento não mudou.
 
 ### T-089e — Patrimônio total com saldo das contas da Pluggy
