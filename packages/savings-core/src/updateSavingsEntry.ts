@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { SavingsEntry, SavingsEntryUpdate } from '@vetor-wallet/shared';
 
 export interface UpdateSavingsEntryParams {
-  db: Db;
+  query: Query;
   userId: number;
   id: string | number;
   changes: SavingsEntryUpdate;
@@ -21,48 +21,52 @@ export interface UpdateSavingsEntryParams {
  * A checagem de existência e o `UPDATE` carregam os dois `user_id`: a primeira
  * decide o 404, e o segundo garante que nem uma corrida entre as duas consultas
  * poderia escrever em linha alheia.
+ *
+ * Placeholders `$1, $2, ...` (T-113, passo 5) — o índice do `SET` é montado em
+ * ordem porque o número de campos enviados varia por chamada.
  */
 export async function updateSavingsEntry(
   params: UpdateSavingsEntryParams
 ): Promise<SavingsEntry | null> {
-  const { db, userId, id, changes } = params;
+  const { query, userId, id, changes } = params;
 
-  const existing = await db.execute({
-    sql: 'SELECT id FROM savings_entries WHERE id = ? AND user_id = ?',
-    args: [id, userId],
+  const existing = await query({
+    text: 'SELECT id FROM savings_entries WHERE id = $1 AND user_id = $2',
+    values: [id, userId],
   });
   if (existing.rows.length === 0) return null;
 
   const fields: string[] = [];
-  const args: (string | number | null)[] = [];
+  const values: (string | number | null)[] = [];
+  let paramIndex = 1;
   if (changes.type !== undefined) {
-    fields.push('type = ?');
-    args.push(changes.type);
+    fields.push(`type = $${paramIndex++}`);
+    values.push(changes.type);
   }
   if (changes.amount !== undefined) {
-    fields.push('amount = ?');
-    args.push(changes.amount);
+    fields.push(`amount = $${paramIndex++}`);
+    values.push(changes.amount);
   }
   if (changes.date !== undefined) {
-    fields.push('date = ?');
-    args.push(changes.date);
+    fields.push(`date = $${paramIndex++}`);
+    values.push(changes.date);
   }
   if (changes.note !== undefined) {
-    fields.push('note = ?');
-    args.push(changes.note);
+    fields.push(`note = $${paramIndex++}`);
+    values.push(changes.note);
   }
 
   if (fields.length > 0) {
-    args.push(id, userId);
-    await db.execute({
-      sql: `UPDATE savings_entries SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`,
-      args,
+    values.push(id as string | number, userId);
+    await query({
+      text: `UPDATE savings_entries SET ${fields.join(', ')} WHERE id = $${paramIndex++} AND user_id = $${paramIndex++}`,
+      values,
     });
   }
 
-  const row = await db.execute({
-    sql: 'SELECT * FROM savings_entries WHERE id = ? AND user_id = ?',
-    args: [id, userId],
+  const row = await query<SavingsEntry>({
+    text: 'SELECT * FROM savings_entries WHERE id = $1 AND user_id = $2',
+    values: [id, userId],
   });
-  return row.rows[0] as unknown as SavingsEntry;
+  return row.rows[0];
 }

@@ -22,6 +22,7 @@
     "@vetor-wallet/operations-core": "workspace:*",
     "@vetor-wallet/pluggy-core": "workspace:*",
     "@vetor-wallet/portfolio-core": "workspace:*",
+    "@vetor-wallet/query": "workspace:*",
     "@vetor-wallet/savings-core": "workspace:*",
     "@vetor-wallet/shared": "workspace:*",
     "@vetor-wallet/subscription-core": "workspace:*",

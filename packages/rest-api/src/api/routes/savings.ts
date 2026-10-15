@@ -3,6 +3,7 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
+import { createSqliteQuery } from '../sqliteQuery';
 import {
   SAVINGS_ENTRY_TYPES,
   isSavingsEntryType,
@@ -21,6 +22,14 @@ import type { NewSavingsEntry, SavingsEntryUpdate } from '@vetor-wallet/shared';
 
 const router = Router();
 
+// `savings-core` fala `Query` (T-113, passo 5 de docs/multi-agent/plano-migracao-aws.md),
+// não mais o `Db` do libSQL. Enquanto a fase 1 não liga o Postgres de verdade
+// (passos 6-8, parados por decisão do humano), esta rota é quem bridgeia os
+// dois: `createSqliteQuery(db)` traduz `$1, $2, ...` para `?` e devolve o
+// mesmo `db` de sempre por baixo. Quando o Postgres entrar, troca-se por
+// `createPgQuery(...)` aqui — nenhum core muda.
+const query = createSqliteQuery(db);
+
 router.use(requireAuth);
 router.use(requireActiveSubscription);
 
@@ -28,7 +37,7 @@ router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    const entries = await listSavingsEntries({ db, userId });
+    const entries = await listSavingsEntries({ query, userId });
     res.json({ entries, summary: summariseSavings(entries) });
   })
 );
@@ -59,7 +68,7 @@ router.post(
       return;
     }
 
-    const entry = await createSavingsEntry({ db, userId, type, amount, date, note });
+    const entry = await createSavingsEntry({ query, userId, type, amount, date, note });
     res.status(201).json(entry);
   })
 );
@@ -108,7 +117,7 @@ router.patch(
     }
 
     const entry = await updateSavingsEntry({
-      db,
+      query,
       userId,
       id,
       changes: { type, amount, date, note },
@@ -126,7 +135,7 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const { id } = req.params;
-    const apagou = await deleteSavingsEntry({ db, userId, id });
+    const apagou = await deleteSavingsEntry({ query, userId, id });
     if (!apagou) {
       res.status(404).json({ error: 'Lançamento de poupança não encontrado' });
       return;
