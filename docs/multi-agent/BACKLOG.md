@@ -37,7 +37,7 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 > Postgres × JWT no gateway), necessária só na fase 2.
 
 ### T-113 — Medir o custo real: `savings-core` de `db` para `query`
-- **Status**: PENDENTE · **Complexidade**: média · **Depende de**: nada (passo 4 provado, `packages/query` pronto)
+- **Status**: EM_ANDAMENTO · **Complexidade**: média · **Depende de**: nada (passo 4 provado, `packages/query` pronto)
 - **Objetivo**: passo 5 de `plano-migracao-aws.md` — trocar `db` injetado por `query({text, values})` num core só, para medir o custo real antes de repetir nos outros. `savings-core` é o candidato: já está no formato-alvo e é o menor.
 - **Aceite**: `savings-core` fala só com `query`; suíte do package e do `rest-api` continuam verdes (mesma contagem); registrar aqui o custo medido (pontos/tempo) antes de decidir se os outros cores entram na fila.
 
@@ -49,10 +49,10 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Aceite**: carteira B3 com os mesmos números; suítes verdes.
 
 ### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva)
-- **Status**: EM ANDAMENTO (3 de ~8) · **Complexidade**: alta
+- **Status**: EM_ANDAMENTO (3 de ~8; fatia da vez: operations/wallets) · **Complexidade**: alta
 - **Objetivo**: **1 função por arquivo**, **`db` injetado**, **Jest**, cobertura **100% por threshold** — e, na MESMA PR, tirar o CRUD da rota. É o passo 3 de `plano-migracao-aws.md`; não depende de AWS.
 - **Molde**: `packages/savings-core` (T-110a/b). Quem já migrou e o que cada um decidiu: `docs/PACKAGES.md` e o `CLAUDE.md` de cada package.
-- **Faltam**: operations/wallets · alerts · budgets · expense-entries · portfolio/snapshots.
+- **Faltam**: operations/wallets (em andamento) · alerts · budgets · expense-entries · portfolio/snapshots.
 - **Aceite (por package)**: cobertura 100%; `build`, `lint`, `format:check` e `pnpm test` verdes; **contagem de testes do `rest-api` preservada** — é ela que prova que o comportamento não mudou.
 
 ### T-089e — Patrimônio total com saldo das contas da Pluggy
