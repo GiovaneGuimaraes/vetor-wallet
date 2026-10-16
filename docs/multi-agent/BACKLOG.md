@@ -18,8 +18,7 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
-> **PAUSADO A PEDIDO DO HUMANO em 2026-10-15.** Nenhum executor/revisor deve ser disparado até
-> o humano pedir para retomar. Ponto exato de retomada: T-104, fatia expense-entries, abaixo.
+> **RETOMADO em 2026-10-16** — pausa de 2026-10-15 encerrada a pedido do humano.
 >
 > **Retomar aqui.** A fase 1 da migração está em curso; T-091c/d e T-089e seguem atrás dela.
 > T-113 concluída (PR #195): achado reusável para a T-104 é o adaptador `createSqliteQuery`
@@ -35,10 +34,10 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Aceite**: carteira B3 com os mesmos números; suítes verdes.
 
 ### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva)
-- **Status**: BLOQUEADA (pausa do humano) · fatia expense-entries · **Complexidade**: alta
+- **Status**: EM_ANDAMENTO · fatia expense-entries (retomada 2026-10-16) · **Complexidade**: alta
 - **Objetivo**: **1 função por arquivo**, **`db` injetado**, **Jest**, cobertura **100% por threshold** — e, na MESMA PR, tirar o CRUD da rota. É o passo 3 de `plano-migracao-aws.md`; não depende de AWS.
 - **Molde**: `packages/alerts-core` (PR #201) e `packages/operations-core` (PR #196). Validação/normalização de entrada fica na ROTA, não no core.
-- **Retomada da fatia expense-entries**: executor (Opus) foi **interrompido a pedido do humano em 2026-10-15** antes de terminar. WIP preservado na branch `worktree-agent-ae5d581209816c6cd` (sem PR aberto), commit "wip(expenses-core): T-104 fatia expense-entries (interrompida a pedido)". Decisão já tomada pelo executor: **estender `packages/expenses-core`** em vez de criar package novo (despesa fixa/recorrência e lançamento variável convivem no mesmo core). Já criado e com teste: `listExpenseEntriesByMonth`, `getExpenseEntry`, `updateExpenseEntry`, `deleteExpenseEntry`, `summarizeExpenseEntries`. **Faltando/não verificado**: `createExpenseEntry` (recorrência + dedupe por `externalId`, a parte mais arriscada) não aparece entre os arquivos novos — checar se ficou pendente ou se passou despercebido; suíte completa do monorepo não chegou a rodar até o fim. Próximo passo ao retomar: abrir a branch como worktree de novo (ou um executor novo lendo o WIP), terminar `createExpenseEntry`, rodar tudo e só então abrir PR — não assumir que o que está lá passa.
+- **Expense-entries**: retomado a partir do WIP da pausa de 2026-10-15 (branch `worktree-agent-ae5d581209816c6cd`, commit `5e6c5f3`). Já tinha, sem suíte completa confirmada: `listExpenseEntriesByMonth`, `getExpenseEntry`, `updateExpenseEntry`, `deleteExpenseEntry`, `summarizeExpenseEntries` em `expenses-core`. Faltava `createExpenseEntry` (recorrência + dedupe por `externalId`). Executor novo (Opus) herdou o WIP via merge e está terminando.
 - **Faltam depois desta**: budgets (pulada por ora, ver nota) · portfolio/snapshots.
 - **Nota sobre budgets**: backend sem UI, "nada consome" (ver Candidatas) — avaliar remoção em vez de migração quando chegar a vez.
 - **Aceite (por package)**: cobertura 100%; `build`, `lint`, `format:check` e `pnpm test` verdes; **contagem de testes do `rest-api` preservada** — é ela que prova que o comportamento não mudou.
