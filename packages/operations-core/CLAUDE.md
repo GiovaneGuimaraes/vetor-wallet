@@ -22,16 +22,17 @@ que o app passou quatro tarefas tirando do caminho.
 
 `portfolio-core` já é dono das mesmas tabelas e continua sendo: ele tem a
 **regra** (preço médio ponderado, validação de SELL, série histórica,
-snapshots) e ainda está no formato antigo (arquivo-balaio, `db` importado como
-singleton, Vitest). Este package tem só o **acesso a dado** das rotas, no
-formato-alvo.
+snapshots). Quando este package nasceu, aquele ainda estava no formato antigo
+(arquivo-balaio, `db` importado como singleton, Vitest); este tem só o
+**acesso a dado** das rotas, no formato-alvo.
 
-A separação é deliberadamente **temporária**: quando o `portfolio-core` migrar
-de formato (tarefa própria da T-104), fundir os dois — ou dissolver este dentro
-dele — é decisão daquela tarefa. Fazer as duas coisas numa PR só significaria
-mexer no cálculo financeiro mais sensível do app no mesmo diff que move SQL de
-lugar, e é exatamente o tipo de mistura que o `README.md` do multi-agente manda
-evitar.
+A separação é deliberadamente **temporária**. O `portfolio-core` terminou a
+migração de formato na fatia 2/2 da T-104, e ali a fusão foi **avaliada e
+adiada para tarefa própria** — o porquê está em
+`packages/portfolio-core/CLAUDE.md` → "Fusão com `operations-core`". Fazer as
+duas coisas numa PR só significaria mexer no caminho do boot e no cálculo
+financeiro mais sensível do app no mesmo diff que move SQL de lugar, e é
+exatamente o tipo de mistura que o `README.md` do multi-agente manda evitar.
 
 Consequência prática ao mexer aqui: **regra nova de domínio não entra neste
 package**. Se a função precisa de `applyOperation`/`buildPositionMap`, ela
@@ -46,10 +47,13 @@ pertence ao `portfolio-core`.
 - **Nenhum filtro de carteira em lugar nenhum** (T-050): o escopo é o usuário,
   e a lista/posição é sempre o consolidado — inclusive sobre carteiras legadas.
   `?walletId=` da rota é ignorado em vez de virar parâmetro aqui.
-- **`listOperations` é ordem de EXIBIÇÃO (`DESC`); `listOperationsByTicker` é
-  ordem CRONOLÓGICA (`ASC`).** A segunda é contrato, não detalhe: quem a
-  consome monta a posição com `applyOperation`, e uma SELL aplicada antes da BUY
-  que a cobre distorceria o preço médio.
+- **`listOperations` é ordem de EXIBIÇÃO (`DESC`); `listOperationsByTicker` e
+  `listOperationsChronological` são ordem CRONOLÓGICA (`ASC`).** As duas
+  últimas são contrato, não detalhe: quem as consome monta a posição com
+  `applyOperation`, e uma SELL aplicada antes da BUY que a cobre distorceria o
+  preço médio. `listOperationsChronological` (fatia 2/2 do `portfolio-core`,
+  T-104) é a leitura de `GET /api/portfolio` (sem teto) e de `/history` (com
+  `until` = o "hoje" BRT da janela).
 - **Ausência é `null`/`false`, não exceção.** `deleteOperation` devolve `false`
   e `findWalletById` devolve `null` quando a linha não existe **ou** é de outro
   usuário; a rota traduz os dois no mesmo 404 — distinguir transformaria a rota
@@ -70,11 +74,13 @@ cruza dois cores é a rota, não um core.
 
 Houve a alternativa de uma função `exceedsCurrentPosition` aqui, importando o
 `portfolio-core`. Foi recusada por um motivo concreto além da regra: o barrel do
-`portfolio-core` carrega `snapshots.ts`, que importa o **singleton**
-`@vetor-wallet/db` no topo do módulo (até a fatia 2/2 da migração de formato do
-`portfolio-core`; `wallets.ts` já saiu na fatia 1) — e esse singleton cria um `data/wallet.db`
+`portfolio-core` carregava `snapshots.ts`, que importava o **singleton**
+`@vetor-wallet/db` no topo do módulo — e esse singleton cria um `data/wallet.db`
 no `cwd` quando não há `DATABASE_URL`. A suíte unitária deste package, que existe
-justamente para não precisar de banco, passaria a criar um.
+justamente para não precisar de banco, passaria a criar um. **Esse impedimento
+técnico acabou na fatia 2/2 da migração do `portfolio-core`** (T-104): nada lá
+importa mais o singleton. A costura continua na rota porque a fusão dos dois
+packages, se sair, torna a pergunta "quem importa quem" sem objeto.
 
 ## Bug conhecido que esta extração PRESERVOU (T-021)
 
@@ -92,7 +98,11 @@ regra (`portfolio-core`), não este package.
   `withUserLock`** continuam no `portfolio-core` (um arquivo cada desde a fatia
   1/2 da migração de formato dele, já com `db` injetado). São regra (carteira
   única, adoção de operações órfãs, lock por usuário), não CRUD. Fundir os dois
-  packages ficou para depois da fatia 2/2 — ver `packages/portfolio-core/CLAUDE.md`.
+  packages foi adiado para tarefa própria — ver `packages/portfolio-core/CLAUDE.md`.
+- **As leituras de `quote_snapshots`** (`getPreviousCloseSnapshots`,
+  `listSnapshotPointsForWindow`, `getSnapshotHistory`) ficaram no
+  `portfolio-core`, que é dono daquela tabela; só a leitura de `operations` de
+  `routes/portfolio.ts` veio para cá.
 - **O INSERT em lote de `POST /api/import`** (CSV) continua na rota: ele usa
   `db.batch` e uma query com `IN (...)` próprios, e pertence ao fluxo de
   importação. Candidato natural à próxima fatia, não a esta.

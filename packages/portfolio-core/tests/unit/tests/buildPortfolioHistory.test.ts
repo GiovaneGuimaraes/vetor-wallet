@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
 import type { Operation } from '@vetor-wallet/shared';
-import {
-  buildDateWindow,
-  buildPortfolioHistory,
-  shiftDate,
-  type SnapshotPoint,
-} from './portfolioHistory';
+import { buildDateWindow } from 'src/buildDateWindow';
+import { buildPortfolioHistory } from 'src/buildPortfolioHistory';
+import { shiftDate } from 'src/shiftDate';
+import type { SnapshotPoint } from 'src/types';
+
+// Portado do Vitest (portfolioHistory.test.ts) na T-104, fatia 2/2 — assertivas
+// intactas. `shiftDate`/`buildDateWindow` foram para arquivos de teste próprios.
 
 // Datas SEMPRE relativas a hoje — nada fixo no calendário.
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -26,25 +26,6 @@ const snap = (ticker: string, date: string, price: number): SnapshotPoint => ({
   ticker,
   date,
   price,
-});
-
-describe('shiftDate', () => {
-  it('shifts across a month boundary', () => {
-    expect(shiftDate('2026-03-01', -1)).toBe('2026-02-28');
-    expect(shiftDate('2024-03-01', -1)).toBe('2024-02-29'); // bissexto
-    expect(shiftDate('2026-12-31', 1)).toBe('2027-01-01');
-    expect(shiftDate('2026-07-10', 0)).toBe('2026-07-10');
-  });
-});
-
-describe('buildDateWindow', () => {
-  it('returns `days` dates ending at endDate, ascending', () => {
-    expect(buildDateWindow('2026-07-03', 3)).toEqual(['2026-07-01', '2026-07-02', '2026-07-03']);
-  });
-
-  it('days = 1 returns only the end date', () => {
-    expect(buildDateWindow('2026-07-03', 1)).toEqual(['2026-07-03']);
-  });
 });
 
 describe('buildPortfolioHistory', () => {
@@ -220,5 +201,43 @@ describe('buildPortfolioHistory', () => {
 
   it('returns [] when the window is empty', () => {
     expect(buildPortfolioHistory([op('PETR4', 'BUY', 1, 1, d(-1))], [], [])).toEqual([]);
+  });
+
+  // ── Testes novos da fatia 2/2 (T-104): o que a trava de 100% expôs ──
+
+  it('ordena operações e fechamentos por data, mesmo vindo fora de ordem e com empates', () => {
+    const buy1 = op('PETR4', 'BUY', 10, 10, d(-3));
+    const buy2 = op('VALE3', 'BUY', 2, 50, d(-3));
+    const sell = op('PETR4', 'SELL', 5, 20, d(-1));
+    const snaps = [
+      snap('VALE3', d(-1), 60),
+      snap('PETR4', d(-3), 10),
+      snap('PETR4', d(-1), 12),
+      snap('VALE3', d(-3), 50),
+    ];
+    const dates = [d(-3), d(-2), d(-1)];
+
+    const inOrder = buildPortfolioHistory([buy1, buy2, sell], [...snaps].reverse(), dates);
+    const shuffled = buildPortfolioHistory([sell, buy2, buy1], snaps, dates);
+
+    expect(shuffled).toEqual(inOrder);
+    expect(shuffled).toEqual([
+      { date: d(-3), value: 200, invested: 200 },
+      { date: d(-2), value: 200, invested: 200 },
+      { date: d(-1), value: 180, invested: 150 },
+    ]);
+  });
+
+  // A defesa "ticker detido sem preço" é inalcançável com dado bem formado (ver
+  // o teste acima de "never drops a day"). O único caminho até ela é uma linha
+  // corrompida — BUY sem preço — e aí o dia some em vez de virar um número
+  // errado.
+  it('drops the day instead of guessing when a held ticker has no usable price (defesa)', () => {
+    const corrupted = {
+      ...op('PETR4', 'BUY', 10, 10, d(-2)),
+      price: undefined,
+    } as unknown as Operation;
+
+    expect(buildPortfolioHistory([corrupted], [], [d(-2), d(-1)])).toEqual([]);
   });
 });

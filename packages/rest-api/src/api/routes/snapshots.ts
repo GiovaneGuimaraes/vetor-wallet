@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { db } from '@vetor-wallet/db';
 import { requireAuth } from '../auth/middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { getSnapshotHistory } from '@vetor-wallet/portfolio-core';
@@ -13,7 +14,7 @@ router.get(
     const from = typeof req.query.from === 'string' ? req.query.from : undefined;
     const to = typeof req.query.to === 'string' ? req.query.to : undefined;
 
-    const data = await getSnapshotHistory(ticker, from, to);
+    const data = await getSnapshotHistory({ db, ticker, from, to });
     res.json(data);
   })
 );

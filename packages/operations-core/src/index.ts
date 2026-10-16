@@ -2,6 +2,8 @@ export { listOperations } from './listOperations';
 export type { ListOperationsParams } from './listOperations';
 export { listOperationsByTicker } from './listOperationsByTicker';
 export type { ListOperationsByTickerParams } from './listOperationsByTicker';
+export { listOperationsChronological } from './listOperationsChronological';
+export type { ListOperationsChronologicalParams } from './listOperationsChronological';
 export { createOperation } from './createOperation';
 export type { CreateOperationParams } from './createOperation';
 export { deleteOperation } from './deleteOperation';

@@ -74,7 +74,8 @@ mês pedido cabe no horizonte, chama o core e traduz `null`/`false` em 404.
 `createRecurringExpenseEntry`. Um package separado colocaria duas funções
 escrevendo na mesma tabela em packages diferentes, e o `operations-core`
 (T-104) só pôde ser um core irmão porque tinha prazo: o `portfolio-core` ainda
-não migrou de formato. Aqui não há esse prazo. Precedente direto: `income-core`
+não tinha migrado de formato (migrou depois, na fatia 2/2 da T-104). Aqui não
+há esse prazo. Precedente direto: `income-core`
 guarda `income_sources` e `income_entries` juntos (T-110d).
 
 ### O que NÃO veio para cá
