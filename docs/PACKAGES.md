@@ -30,6 +30,7 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **income-core** | Core | Income | CRUD de fontes fixas e lançamentos avulsos (T-110d) | ✅ existe (T-110d) |
 | **expenses-core** | Core | Expenses | Recorrência lazy + CRUD de despesa fixa + CRUD de lançamento variável (`expense_entries`, T-104) (a normalização de categoria é chamada aqui, mas mora em `validation-core`, T-099a) | ✅ existe (T-099b), formato-alvo na T-110c |
 | **savings-core** | Core | Savings | Saldo da poupança em centavos + CRUD de `savings_entries` (metas saíram na T-091b1) | ✅ existe (T-099b), formato-alvo na T-110a |
+| **fixed-income-core** | Core | FixedIncome | CRUD de `fixed_income_positions` + resumo aplicado × atual (Renda Fixa manual; não estima rendimento) | ✅ existe (T-091c/d, fatia c1) |
 | **subscription-core** | Core | Subscriptions | Datas, ativação idempotente, gating + provider AbacatePay | ✅ existe (T-103) |
 | **insights-core** | Core | Insights | Benchmarks CDI/Ibovespa | ✅ existe (T-099c) |
 | **bank-import-core** | Core | BankImport | Parser OFX, dedupe por `external_id` | ✅ existe (T-099c) |
@@ -194,6 +195,7 @@ migrar. Package novo já nasce assim; os antigos migram um por vez, em tarefas p
 | `income-core` | ✅ nasceu no formato-alvo (T-110d) | Jest, cobertura 100% |
 | `operations-core` | ✅ nasceu no formato-alvo (T-104) | Jest, cobertura 100% |
 | `alerts-core` | ✅ nasceu no formato-alvo (T-104) | Jest, cobertura 100% |
+| `fixed-income-core` | ✅ nasceu no formato-alvo (T-091c/d) — já com `query: Query` injetado (convenção da T-113), não `db` | Jest, cobertura 100% |
 | `portfolio-core` | ✅ alvo completo (T-104, fatias 1/2 e 2/2) — posição, carteira única, série histórica e snapshots; `db` injetado inclusive no `catchUpIfNeeded` do boot | Jest, cobertura 100% |
 | demais `*-core`, `db` | arquivo-balaio, `db` importado, teste em `src/**/*.test.ts` | Vitest |
 

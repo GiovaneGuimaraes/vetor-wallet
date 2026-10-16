@@ -46,6 +46,10 @@ do que fica para trás. "Não criar no destino" não é o mesmo que "não ter ti
   não é data — `start_month` e `recurring_expense_months.month` são chaves.
 - **`CHECK(... IN ...)` vira `ENUM`.** É o tipo honesto no Postgres e recusa
   valor inválido no banco, não só na rota.
+- **Percentual não é dinheiro** (`fixed_income_positions.rate`, T-091c/d): é
+  `DOUBLE PRECISION`, o mesmo tipo do `REAL` do SQLite. A rota não limita as
+  casas da taxa, e um `DECIMAL(p,s)` cortaria em silêncio o que o usuário
+  digitou. `invested_amount`/`current_value` são dinheiro e seguem `MONEY`.
 - **`sessions` está modelada, mas só nasce se a decisão 3 for "trocar o
   store"** (§6.1 do plano). Ter o modelo sem usar não custa nada; descobrir na
   hora que ele falta custaria um deploy.

@@ -86,6 +86,30 @@ como `quotesUnavailable`, nunca derruba a request.
 
 ---
 
+## 2b. Renda Fixa
+
+**id**: `FixedIncome` *(T-091c/d, fatia c1)*
+**Responsabilidade**: posições de Renda Fixa (caixinha, CDB, LCI/LCA, Tesouro, debênture,
+CRI/CRA) — irmã de `Portfolio` dentro de Investimentos, **não** parte dele (decisão do humano:
+"caixinha é Renda Fixa, irmã de Ações").
+
+Packages:
+
+- `packages/fixed-income-core` *(Core, nasceu no formato-alvo com `query: Query` injetado)* —
+  CRUD de `fixed_income_positions` e o resumo (total aplicado × total atual, somado em
+  centavos). Valor exibido = `current_value ?? invested_amount`; **não estima rendimento** por
+  taxa (cálculo financeiro real, cruzaria com `insights-core` — fica para tarefa própria).
+- `packages/rest-api` — `/api/fixed-income` (GET/POST/PATCH/DELETE). A validação de entrada
+  mora na rota.
+- `packages/web` — ainda nada (fatias c2/c3 da T-091c/d).
+
+Por que é core próprio: não pode ir para o `portfolio-core` (regra dura — os números da B3 não
+mudam por causa de Renda Fixa) nem para o `savings-core` (poupança é livro-razão de lançamentos;
+isto é **posição**). A integração com a Pluggy (fatias d1–d4) entra depois, com
+`source`/`external_id`; esta fatia é só a parte manual.
+
+---
+
 ## 3. Renda
 
 **id**: `Income`

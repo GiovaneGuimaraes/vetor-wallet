@@ -26,8 +26,8 @@ function attrs(model: { getAttributes(): unknown }): Attrs {
 }
 
 describe('schema do Postgres', () => {
-  it('modela as 19 tabelas vivas', () => {
-    expect(Object.keys(models)).toHaveLength(19);
+  it('modela as 20 tabelas vivas', () => {
+    expect(Object.keys(models)).toHaveLength(20);
   });
 
   it('cada modelo aponta para a tabela com o nome que o SQLite já usa', () => {
@@ -44,6 +44,7 @@ describe('schema do Postgres', () => {
       RecurringExpense: 'recurring_expenses',
       RecurringExpenseMonth: 'recurring_expense_months',
       SavingsEntry: 'savings_entries',
+      FixedIncomePosition: 'fixed_income_positions',
       CategoryBudget: 'category_budgets',
       Plan: 'plans',
       Subscription: 'subscriptions',
@@ -82,6 +83,8 @@ describe('schema do Postgres', () => {
       ['ExpenseEntry', 'amount'],
       ['RecurringExpense', 'amount'],
       ['SavingsEntry', 'amount'],
+      ['FixedIncomePosition', 'investedAmount'],
+      ['FixedIncomePosition', 'currentValue'],
       ['CategoryBudget', 'amount'],
     ];
     for (const [nome, coluna] of dinheiro) {

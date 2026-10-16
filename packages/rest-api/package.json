@@ -18,6 +18,7 @@
     "@vetor-wallet/cognito-core": "workspace:*",
     "@vetor-wallet/db": "workspace:*",
     "@vetor-wallet/expenses-core": "workspace:*",
+    "@vetor-wallet/fixed-income-core": "workspace:*",
     "@vetor-wallet/income-core": "workspace:*",
     "@vetor-wallet/insights-core": "workspace:*",
     "@vetor-wallet/operations-core": "workspace:*",

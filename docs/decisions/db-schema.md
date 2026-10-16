@@ -204,6 +204,34 @@ CREATE TABLE IF NOT EXISTS savings_entries (
 -- REMOVIDO na T-091b2: goal_id INTEGER REFERENCES goals(id) (T-024) e o índice
 --   idx_savings_entries_goal (user_id, goal_id). Ver "Metas saiu do banco" abaixo.
 
+-- Renda Fixa manual (T-091c/d, fatia c1) — dona: @vetor-wallet/fixed-income-core.
+-- Uma linha por POSIÇÃO (CDB, caixinha, Tesouro…), não por lançamento: é isso
+-- que a separa de savings_entries (livro-razão). Irmã de Ações em Investimentos.
+-- Valor exibido = current_value ?? invested_amount. rate_type/rate são só
+-- informativos — o app NÃO estima rendimento por CDI/IPCA/taxa (decisão do humano).
+-- Validado na ROTA, não por CHECK: invested_amount > 0 com no máx. 2 casas;
+-- current_value >= 0; current_value e current_value_date juntos ou nenhum;
+-- maturity_date >= invested_at. Sem source/external_id nesta fatia — entram com
+-- a integração da Pluggy (fatias d2/d3).
+CREATE TABLE IF NOT EXISTS fixed_income_positions (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id            INTEGER NOT NULL REFERENCES users(id),
+  name               TEXT    NOT NULL,              -- "Caixinha viagem", "CDB Banco X"
+  kind               TEXT    NOT NULL CHECK(kind IN
+                       ('CAIXINHA','CDB','LCI','LCA','TESOURO','DEBENTURE','CRI_CRA','OUTRO')),
+  institution        TEXT    NOT NULL DEFAULT '',
+  invested_amount    REAL    NOT NULL,              -- valor aplicado
+  invested_at        TEXT    NOT NULL,              -- YYYY-MM-DD
+  maturity_date      TEXT,                          -- NULL = liquidez diária / sem vencimento
+  rate_type          TEXT    NOT NULL CHECK(rate_type IN ('PRE','CDI','IPCA','SELIC')),
+  rate               REAL    NOT NULL,              -- PRE: % a.a. | CDI: % do CDI | IPCA/SELIC: spread % a.a.
+  current_value      REAL,                          -- saldo informado pelo usuário (opcional)
+  current_value_date TEXT,                          -- YYYY-MM-DD; presente sse current_value
+  created_at         TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_fixed_income_positions_user
+  ON fixed_income_positions(user_id, invested_at);
+
 -- A tabela `goals` foi REMOVIDA do banco na T-091b2 (2026-08-18) — ver a seção
 -- "Metas saiu do banco (T-091b2)" no fim deste arquivo.
 

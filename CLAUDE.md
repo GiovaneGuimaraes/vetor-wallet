@@ -68,6 +68,11 @@ packages/
 ├── query/            # @vetor-wallet/query — query({text,values}) que vai
 │                     # substituir o `db` injetado nos cores; backend pg na
 │                     # fase 1 e Lambda na fase 3 (T-112)
+├── fixed-income-core/ # @vetor-wallet/fixed-income-core — Renda Fixa manual
+│                     # (posições em fixed_income_positions; irmã de Ações,
+│                     # não parte do portfolio-core). Nasceu no formato-alvo
+│                     # com `query` injetado (T-091c/d, fatia c1). Valor =
+│                     # current_value ?? invested_amount; NÃO estima rendimento
 ├── income-core/      # @vetor-wallet/income-core — CRUD de fontes fixas e de
 │                     # lançamentos avulsos de renda; nasceu no formato-alvo
 │                     # (T-110d), extraído das rotas
@@ -142,6 +147,7 @@ pnpm --filter @vetor-wallet/validation-core test   # Jest (validation-core)
 pnpm --filter @vetor-wallet/savings-core test      # Jest (savings-core; cobertura 100%)
 pnpm --filter @vetor-wallet/expenses-core test     # Jest (expenses-core; cobertura 100%)
 pnpm --filter @vetor-wallet/income-core test       # Jest (income-core; cobertura 100%)
+pnpm --filter @vetor-wallet/fixed-income-core test # Jest (fixed-income-core; cobertura 100%)
 pnpm --filter @vetor-wallet/operations-core test   # Jest (operations-core; cobertura 100%)
 pnpm --filter @vetor-wallet/alerts-core test       # Jest (alerts-core; cobertura 100%)
 pnpm --filter @vetor-wallet/postgresdb test        # Jest (schema + DDL gerado, sem banco)
@@ -192,6 +198,7 @@ O SQLite (`packages/rest-api/data/wallet.db`) é criado no primeiro boot.
 | expense-entries | CRUD /api/expense-entries[/:id]?month=, GET /summary?months=&endMonth= | variáveis datadas; `recurring: true` cria recorrência (T-035); POST aceita `externalId` opcional — repetido responde 409 `{ duplicate: true, entry }`; junto de `recurring` → 400 (T-084) |
 | recurring-expenses | GET, PATCH (`{active:false}`), DELETE /api/recurring-expenses[/:id] | só encerrar (soft); criação nasce no POST de expense-entries |
 | savings | CRUD /api/savings[/:id] | DEPOSIT/WITHDRAW/YIELD + summary; o saldo é também o saldo livre (não há mais reserva — T-091b1) |
+| fixed-income | GET, POST, PATCH, DELETE /api/fixed-income[/:id] | Renda Fixa manual (T-091c/d, fatia c1). GET → `{ positions, summary: { totalInvested, totalCurrent } }`; corpo em camelCase (`investedAmount`, `investedAt`, `maturityDate`, `rateType`, `rate`, `currentValue`+`currentValueDate` juntos ou nenhum), resposta em snake_case. `kind` ∈ CAIXINHA/CDB/LCI/LCA/TESOURO/DEBENTURE/CRI_CRA/OUTRO; `rateType` ∈ PRE/CDI/IPCA/SELIC. Valor = `current_value ?? invested_amount` — **não estima rendimento**. Gates `requireAuth` + `requireActiveSubscription` |
 | budgets | GET, POST (upsert), DELETE /api/budgets[/:id] | teto por categoria, sem vínculo com mês |
 | plans | GET /api/plans | catálogo global de planos (`active = 1`); ÚNICA rota de dados sem filtro por `user_id` |
 | subscriptions | POST /api/subscriptions, GET /api/subscriptions/me | assina (cria/reaproveita cobrança Pix) e lê estado de billing (T-070) |

@@ -494,6 +494,94 @@ export interface SavingsSummary {
 }
 
 /**
+ * Renda Fixa manual (T-091c/d, fatia c1) — irmã de Ações dentro de
+ * Investimentos, dona da tabela `fixed_income_positions`
+ * (`@vetor-wallet/fixed-income-core`).
+ *
+ * O vocabulário de `kind` foi aprovado pelo humano; mudar a lista é mudar o
+ * CHECK do SQLite e o ENUM do Postgres junto.
+ */
+export type FixedIncomeKind =
+  'CAIXINHA' | 'CDB' | 'LCI' | 'LCA' | 'TESOURO' | 'DEBENTURE' | 'CRI_CRA' | 'OUTRO';
+
+/**
+ * Indexador da taxa. O significado de `rate` depende dele:
+ * `PRE` = % a.a.; `CDI` = % do CDI; `IPCA`/`SELIC` = spread % a.a.
+ *
+ * É só informativo: o app **não** estima rendimento a partir da taxa (decisão
+ * do humano). O valor exibido é `current_value ?? invested_amount`.
+ */
+export type FixedIncomeRateType = 'PRE' | 'CDI' | 'IPCA' | 'SELIC';
+
+/** Linha de `fixed_income_positions` como a API devolve (snake_case, como o resto). */
+export interface FixedIncomePosition {
+  id: number;
+  user_id: number;
+  name: string;
+  kind: FixedIncomeKind;
+  institution: string;
+  invested_amount: number;
+  /** YYYY-MM-DD */
+  invested_at: string;
+  /** YYYY-MM-DD; `null` = liquidez diária / sem vencimento. */
+  maturity_date: string | null;
+  rate_type: FixedIncomeRateType;
+  rate: number;
+  /** Saldo informado pelo usuário; `null` = só o valor aplicado é conhecido. */
+  current_value: number | null;
+  /** YYYY-MM-DD; presente se e somente se `current_value` estiver presente. */
+  current_value_date: string | null;
+  created_at: string;
+}
+
+/**
+ * Corpo de `POST /api/fixed-income`. camelCase, como o resto dos corpos da API
+ * (`externalId`, `walletId`); a resposta é a linha em snake_case.
+ */
+export interface NewFixedIncomePosition {
+  name: string;
+  kind: FixedIncomeKind;
+  institution?: string;
+  investedAmount: number;
+  /** YYYY-MM-DD */
+  investedAt: string;
+  /** YYYY-MM-DD; ausente ou `null` = sem vencimento. */
+  maturityDate?: string | null;
+  rateType: FixedIncomeRateType;
+  rate: number;
+  /** Vem junto de `currentValueDate`, ou nenhum dos dois. */
+  currentValue?: number | null;
+  currentValueDate?: string | null;
+}
+
+/**
+ * Corpo de `PATCH /api/fixed-income/:id` — parcial. `null` em `maturityDate`
+ * limpa o vencimento; `null` no par `currentValue`/`currentValueDate` limpa o
+ * saldo informado (o par vai junto, sempre).
+ */
+export interface FixedIncomePositionUpdate {
+  name?: string;
+  kind?: FixedIncomeKind;
+  institution?: string;
+  investedAmount?: number;
+  investedAt?: string;
+  maturityDate?: string | null;
+  rateType?: FixedIncomeRateType;
+  rate?: number;
+  currentValue?: number | null;
+  currentValueDate?: string | null;
+}
+
+/**
+ * O `summary` de `GET /api/fixed-income`, em reais (somado em centavos
+ * inteiros). `totalCurrent` usa `current_value ?? invested_amount` por posição.
+ */
+export interface FixedIncomeSummary {
+  totalInvested: number;
+  totalCurrent: number;
+}
+
+/**
  * Orçamento mensal por categoria (T-023). Único por `user_id` + `category`
  * (upsert em `POST /api/budgets`) — não tem vínculo com mês: o teto vale para
  * qualquer mês exibido em Despesas, só o gasto comparado é que varia.
