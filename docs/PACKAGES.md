@@ -21,7 +21,7 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **validation-core** | Core | – | `isValidIsoDate`, `isValidMoneyAmount`, `normalizeCategory` | ✅ existe (T-099a) |
 | **auth-core** | Core | Auth | Espelho de identidade (`cognito_sub`), perfil, papéis | ✅ existe (T-099c) |
 | **cognito-core** | Integration | Auth | Client HTTP do AWS Cognito (login, cadastro, confirmação, troca de senha) | ✅ existe (T-106) |
-| **portfolio-core** | Core | Portfolio | Posição, preço médio, histórico, snapshots, agendador | ✅ existe (T-099c) |
+| **portfolio-core** | Core | Portfolio | Posição, preço médio, carteira única, histórico, snapshots (gatilho no boot) | ✅ existe (T-099c), formato-alvo pela metade (T-104, fatia 1/2) |
 | **operations-core** | Core | Portfolio | CRUD de `operations` + leitura de `wallets` (o SQL que estava nas rotas) | ✅ existe (T-104) |
 | **alerts-core** | Core | Portfolio | CRUD de `alert_rules` (o SQL que estava na rota `/api/alerts`) | ✅ existe (T-104) |
 | **brapi-core** | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | ✅ existe (T-098) |
@@ -94,10 +94,11 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 
    > **Dois cores no MESMO módulo** (`portfolio-core` + `operations-core`, T-104) não caem
    > nesta regra, que fala de módulos diferentes — e mesmo assim nenhum dos dois importa o
-   > outro: `operations-core` tem o CRUD no formato-alvo, `portfolio-core` tem a regra no
-   > formato antigo, e quem os costura é a rota. É uma divisão **de migração**, com prazo:
-   > quando o `portfolio-core` migrar de formato, fundir ou dissolver é decisão daquela
-   > tarefa. Não abra um segundo core num módulo sem esse tipo de prazo.
+   > outro: `operations-core` tem o CRUD no formato-alvo, `portfolio-core` tem a regra
+   > (metade já migrada — T-104, fatia 1/2), e quem os costura é a rota. É uma divisão
+   > **de migração**, com prazo: fundir ou dissolver ficou para depois da fatia 2/2 do
+   > `portfolio-core` (quando o barrel dele deixa de carregar o `db` singleton). Não abra
+   > um segundo core num módulo sem esse tipo de prazo.
 
    > **Contraexemplo da mesma T-104**: o CRUD de `expense_entries` **não** virou um
    > `expense-entries-core`. O `expenses-core` já é dono daquela tabela (a ocorrência de
@@ -191,6 +192,7 @@ migrar. Package novo já nasce assim; os antigos migram um por vez, em tarefas p
 | `income-core` | ✅ nasceu no formato-alvo (T-110d) | Jest, cobertura 100% |
 | `operations-core` | ✅ nasceu no formato-alvo (T-104) | Jest, cobertura 100% |
 | `alerts-core` | ✅ nasceu no formato-alvo (T-104) | Jest, cobertura 100% |
+| `portfolio-core` | ⏳ **metade** (T-104, fatia 1/2): posição (`applyOperation`…`buildPortfolioSummary`) e carteira única (`db` injetado) migraram; `snapshots.ts`/`portfolioHistory.ts` seguem balaio com `db` singleton | Jest (100% sobre os migrados) **e** Vitest (os dois antigos) no mesmo `test`, até a fatia 2 |
 | demais `*-core`, `db` | arquivo-balaio, `db` importado, teste em `src/**/*.test.ts` | Vitest |
 
 > `validation-core` foi o segundo package migrado e o **calibre** do formato:

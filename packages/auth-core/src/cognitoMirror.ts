@@ -106,7 +106,7 @@ export async function createCognitoUser(email: string, cognitoSub: string): Prom
   const id = Number(insert.lastInsertRowid ?? 0);
 
   try {
-    await getOrCreateDefaultWallet(id);
+    await getOrCreateDefaultWallet({ db, userId: id });
   } catch (err) {
     console.error('Falha ao criar a carteira padrao do usuario', id, err);
   }

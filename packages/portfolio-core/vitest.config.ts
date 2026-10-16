@@ -13,6 +13,8 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // Só os testes do formato ANTIGO (snapshots, portfolioHistory) — o que já
+    // migrou roda no Jest (`tests/unit/`). Este arquivo some na fatia 2/2 da T-104.
     include: ['src/**/*.test.ts'],
   },
 });

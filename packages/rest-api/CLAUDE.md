@@ -61,7 +61,10 @@ Na T-099c (Ciclo 19) saiu o resto, esvaziando `services/`:
   — preço médio ponderado, validação de SELL, série valor × custo, carteiras e a
   coleta de snapshots. **`api/index.ts` continua ligando `catchUpIfNeeded()` no
   boot**; o `startSnapshotScheduler(30min, …)` que acompanhava essa chamada foi
-  removido na T-109b.
+  removido na T-109b. Desde a T-104 (fatia 1/2 da migração de formato) as
+  funções de carteira recebem `db` injetado — `getOrCreateDefaultWallet({ db,
+  userId })`, `countWallets({ db, userId })` — e quem passa é a rota; as de
+  snapshot ainda usam o singleton até a fatia 2.
 - `@vetor-wallet/insights-core` (de `services/{benchmarks,benchmarkHistory}.ts`)
   — benchmarks CDI/Ibovespa. O job horário saiu na T-109a.
 - `@vetor-wallet/auth-core` (de `api/auth/service.ts`) — credenciais, perfil e

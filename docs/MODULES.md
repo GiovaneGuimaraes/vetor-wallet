@@ -61,11 +61,14 @@ cotações em tempo real, histórico de preços e projeções.
 
 Packages:
 
-- `packages/portfolio-core` *(Core, T-099c)* — posição, preço médio, validação de SELL contra a
-  posição atual, série valor × custo, carteiras, snapshots diários e o agendador de coleta.
+- `packages/portfolio-core` *(Core, T-099c; formato-alvo pela metade na T-104)* — posição,
+  preço médio, validação de SELL contra a posição atual, série valor × custo, carteira única,
+  snapshots diários e o gatilho de coleta no boot. A posição e a carteira já estão no
+  formato-alvo (`db` injetado, Jest); snapshots e histórico migram na fatia 2/2.
 - `packages/operations-core` *(Core, T-104)* — o **CRUD** de `operations` e a leitura de
   `wallets` que vivia nas rotas, no formato-alvo (`db` injetado). Tem o acesso a dado; a regra
-  continua no `portfolio-core`, e a fusão dos dois é decisão da migração daquele package.
+  continua no `portfolio-core`, e a fusão dos dois ficou para depois da fatia 2/2 da migração
+  daquele package.
 - `packages/alerts-core` *(Core, T-104)* — o **CRUD** de `alert_rules` que vivia na rota
   `/api/alerts`, no formato-alvo (`db` injetado). Validação de tipo/threshold continua na rota.
 - `packages/brapi-core` *(Integração, T-098)* — client HTTP da [brapi.dev](https://brapi.dev):

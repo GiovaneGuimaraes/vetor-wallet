@@ -17,7 +17,7 @@ router.get(
   asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
 
-    await getOrCreateDefaultWallet(userId);
+    await getOrCreateDefaultWallet({ db, userId });
 
     res.json(await listWallets({ db, userId }));
   })
@@ -44,14 +44,14 @@ router.post(
     // do mesmo usuário passavam os dois pela checagem de countWallets antes
     // de qualquer INSERT, e os dois criavam carteira (violando T-050).
     const outcome = await withUserLock(userId, async () => {
-      if ((await countWallets(userId)) > 0) {
+      if ((await countWallets({ db, userId })) > 0) {
         return { conflict: true as const };
       }
 
-      const walletId = await getOrCreateDefaultWallet(userId, {
-        name: name.trim(),
-        description,
-        color,
+      const walletId = await getOrCreateDefaultWallet({
+        db,
+        userId,
+        overrides: { name: name.trim(), description, color },
       });
 
       // T-065: re-SELECT também filtrado por user_id (mesmo padrão do

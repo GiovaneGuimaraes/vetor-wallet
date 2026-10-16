@@ -85,7 +85,7 @@ router.post(
       }
     }
 
-    const walletId = await getOrCreateDefaultWallet(userId);
+    const walletId = await getOrCreateDefaultWallet({ db, userId });
 
     const operation = await createOperation({
       db,

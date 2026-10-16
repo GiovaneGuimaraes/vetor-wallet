@@ -2,7 +2,7 @@
 
 Carteira e ações da B3: posição por **preço médio ponderado**, validação de SELL
 contra a posição atual, série histórica valor × custo, snapshots diários de
-fechamento e o agendador in-process da coleta. Extraído de
+fechamento e o gatilho da coleta no boot (o agendador in-process saiu na T-109b). Extraído de
 `packages/rest-api/src/api/services/{portfolio,portfolioHistory,wallets,snapshots}.ts`
 na T-099c (Ciclo 19 — arquitetura em módulos). Categoria **Core**, módulo
 **Portfolio** (ver `docs/MODULES.md` / `docs/PACKAGES.md`).
@@ -19,20 +19,32 @@ horários foram para `packages/insights-core/CLAUDE.md`.
 
 ## Estrutura
 
+**Package em transição de formato (T-104, duas fatias)** — ver "Migração de
+formato em duas fatias" abaixo. Metade já está no formato-alvo; a outra metade
+segue arquivo-balaio com `db` singleton e Vitest.
+
 ```
 src/
-├── portfolio.ts          # applyOperation (preço médio ponderado),
-│                         # buildPositionMap, getPositionQuantity,
-│                         # wouldExceedPosition, computeDayProfitLoss,
-│                         # buildPortfolioSummary  — TUDO puro, sem I/O
+│   ── formato-alvo (fatia 1/2): uma função por arquivo, Jest ──
+├── types.ts                    # PositionEntry
+├── applyOperation.ts           # preço médio ponderado — a ÚNICA implementação
+├── buildPositionMap.ts         # aplica as operações em ordem
+├── getPositionQuantity.ts
+├── wouldExceedPosition.ts      # validação de SELL
+├── computeDayProfitLoss.ts     # P&L do dia (T-016)
+├── buildPortfolioSummary.ts    # resumo do GET /api/portfolio — puro, sem I/O
+├── findDefaultWallet.ts        # `{ db, userId }` — carteira mais antiga
+├── countWallets.ts             # `{ db, userId }`
+├── withUserLock.ts             # lock em memória por usuário (T-065), sem db
+├── getOrCreateDefaultWallet.ts # `{ db, userId, overrides? }` + DEFAULT_WALLET
+│   ── formato ANTIGO (fatia 2/2 pendente): balaio, `db` singleton, Vitest ──
 ├── portfolioHistory.ts   # shiftDate, buildDateWindow, buildPortfolioHistory
 │                         # (forward-fill + positionMap incremental) — puro
-├── wallets.ts            # DEFAULT_WALLET, findDefaultWallet, countWallets,
-│                         # withUserLock, getOrCreateDefaultWallet (SQL)
 ├── snapshots.ts          # getBRTDate/isBusinessDay/withRetry (puros) +
 │                         # persistência e leitura de quote_snapshots +
 │                         # runSnapshotJob / catchUpIfNeeded
 └── index.ts              # barrel
+tests/unit/               # Jest (jest.config.ts, testDb.ts, makeOp.ts, tests/)
 ```
 
 Rotas: `packages/rest-api/src/api/routes/{wallets,operations,portfolio,snapshots,import,alerts}.ts`.
@@ -48,6 +60,11 @@ Telas: `packages/web/src/routes/DashboardPage.tsx` e os módulos puros ao lado.
   por ela; nunca duplique a fórmula.
 - **Carteira ÚNICA por usuário** (T-050): `POST /api/wallets` recusa a segunda;
   `walletId` vindo do cliente é sempre ignorado.
+- **Nos arquivos do formato-alvo, `db` é injetado** (`{ db, userId, ... }`),
+  nunca importado. Quem passa o client é a rota (`rest-api`) ou o core
+  chamador (`auth-core`). As funções puras de posição mantêm a assinatura
+  posicional de sempre — não há `db` para injetar nelas, e trocar a forma da
+  chamada em 5 consumidores sem ganho seria só ruído na review.
 - **Falha de cotação nunca derruba a request** — degrada em
   `quotesUnavailable`.
 - **A coleta de snapshots só é idempotente por causa do banco**
@@ -84,7 +101,7 @@ Decisão do humano (2026-07-25): "remover a lógica que permite o user ter mais 
 - **Fora de escopo**: remover `wallet_id` do schema, qualquer migração destrutiva do legado, e tirar `Wallet`/`NewWallet` de `shared/` (ainda usados por `getWallets`/`createWallet`).
 
 ### Validação de SELL contra a posição atual
-`POST /api/operations` e `POST /api/import` (CSV) rejeitam com `400` qualquer SELL que exceda a posição consolidada **atual** do ticker **do usuário** — soma de todas as operações já registradas por ele, sem nenhum filtro de carteira (T-050), e independente da data da nova operação; não há validação por data histórica, um SELL retroativo é validado contra a posição de hoje. Numa base legada com 2+ carteiras, um SELL coberto pela **soma** delas é aceito (antes da T-050 era rejeitado por não caber na carteira alvo) — coerente com o escopo virar o usuário. A checagem usa `wouldExceedPosition`/`getPositionQuantity` em `packages/portfolio-core/src/portfolio.ts`, reaproveitando o mesmo `buildPositionMap` do cálculo de preço médio (sem duplicar lógica). No CSV, a rejeição é **por linha**: linhas de SELL inválidas entram no relatório de erros (`CsvImportResult.errors`, com número da linha) e o restante do arquivo é importado normalmente. `applyOperation` mantém `Math.max(0, newQty)` como cláusula de defesa (não como validação) — dados históricos podem já conter vendas a descoberto gravadas antes desta validação existir, e o cálculo de posição não pode quebrar/ficar negativo ao processá-los.
+`POST /api/operations` e `POST /api/import` (CSV) rejeitam com `400` qualquer SELL que exceda a posição consolidada **atual** do ticker **do usuário** — soma de todas as operações já registradas por ele, sem nenhum filtro de carteira (T-050), e independente da data da nova operação; não há validação por data histórica, um SELL retroativo é validado contra a posição de hoje. Numa base legada com 2+ carteiras, um SELL coberto pela **soma** delas é aceito (antes da T-050 era rejeitado por não caber na carteira alvo) — coerente com o escopo virar o usuário. A checagem usa `wouldExceedPosition`/`getPositionQuantity` em `packages/portfolio-core/src/{applyOperation,getPositionQuantity}.ts`, reaproveitando o mesmo `buildPositionMap` do cálculo de preço médio (sem duplicar lógica). No CSV, a rejeição é **por linha**: linhas de SELL inválidas entram no relatório de erros (`CsvImportResult.errors`, com número da linha) e o restante do arquivo é importado normalmente. `applyOperation` mantém `Math.max(0, newQty)` como cláusula de defesa (não como validação) — dados históricos podem já conter vendas a descoberto gravadas antes desta validação existir, e o cálculo de posição não pode quebrar/ficar negativo ao processá-los.
 
 ### Projeção de ganhos na dash de ações (T-056)
 O card "Projeção de ganhos" em `/dash`, entre `PortfolioDashboard` e `OperationsList`, simula juros compostos mensais sobre o valor de mercado atual da carteira — mesmo precedente **client-side sem persistência** da T-040 (previsão de rendimento da poupança): nenhum endpoint novo, tudo calculado no browser.
@@ -163,7 +180,7 @@ Card "Preço por ação" em `/dash`, logo ABAIXO do "Evolução da carteira" (T-
 - **Seletores independentes**: um `<select>` de ticker (as posições atuais de `walletSummary.positions`, default a maior alocação via `selectDefaultTicker`, `packages/web/src/routes/priceChart.ts`) + o MESMO padrão de botões de janela 30/90/365 do `HistoryChart`, mas com estado PRÓPRIO (`priceDays`, independente de `historyDays`) — são dois gráficos com propósitos diferentes (carteira consolidada vs. um ativo), trocar a janela de um não deve afetar o outro. Reusa as classes `.vw-history-window*` (`dashboard.css`) por serem um seletor de janela genérico, sem nada específico do card de carteira.
 - **Fetch com `from` derivado da janela**: `computeFromDate(days)` (`priceChart.ts`) evita trafegar o histórico inteiro do ticker — mesmo espírito de `?days=` no histórico da carteira. Trocar o TICKER **ou** a JANELA refaz o fetch, com a MESMA guarda de resposta obsoleta da T-058b (`priceRequestRef`, um contador — o `useEffect` depende dos dois, então qualquer uma das trocas invalida a resposta anterior em voo).
 - **`PriceChart.tsx`** (`packages/web/src/components/`) é irmão de `HistoryChart`/`ProjectionChart`: SVG à mão, sem lib, só de render. Eixo X por ÍNDICE do ponto (mesmo motivo do `HistoryChart` — a série de fechamentos tem buracos de fim de semana/feriado, `formatDayMonth` rotula com a data REAL de cada ponto). A linha de preço médio de compra é uma referência HORIZONTAL tracejada (não uma segunda série ao longo do tempo, diferente de `invested` no `HistoryChart`) — o preço médio é um único número, não varia por dia.
-- **`computeAveragePrice(operations, ticker)`** (`priceChart.ts`) replica a MESMA semântica de `applyOperation`/`buildPositionMap` do server (`packages/portfolio-core/src/portfolio.ts`): média ponderada das BUYs remanescentes, SELL reduz quantidade sem alterar o preço médio. Sem endpoint novo — deriva das `operations` já carregadas na página (mesmo precedente client-side da T-040/T-056). As operações do ticker são reordenadas por `date` ASC (desempate por `id` ASC) antes de aplicar, porque `GET /api/operations` devolve DESC e a ordem de aplicação importa (uma SELL processada antes da BUY que a cobre distorceria o resultado). Devolve `null` — e o gráfico OMITE a referência — quando a posição foi zerada (tudo vendido) ou não há nenhuma BUY do ticker.
+- **`computeAveragePrice(operations, ticker)`** (`priceChart.ts`) replica a MESMA semântica de `applyOperation`/`buildPositionMap` do server (`packages/portfolio-core/src/applyOperation.ts`): média ponderada das BUYs remanescentes, SELL reduz quantidade sem alterar o preço médio. Sem endpoint novo — deriva das `operations` já carregadas na página (mesmo precedente client-side da T-040/T-056). As operações do ticker são reordenadas por `date` ASC (desempate por `id` ASC) antes de aplicar, porque `GET /api/operations` devolve DESC e a ordem de aplicação importa (uma SELL processada antes da BUY que a cobre distorceria o resultado). Devolve `null` — e o gráfico OMITE a referência — quando a posição foi zerada (tudo vendido) ou não há nenhuma BUY do ticker.
 - **`computePriceDomain(prices, avgPrice)`** reusa `computeValueDomain` de `chartGeometry.ts` (mesma margem de 10%/piso absoluto), garantindo que o preço médio nunca fique fora do desenho quando existir; sem preço médio, a baseline cai para o primeiro fechamento da série (já incluso em `prices`).
 - **Estados**: `snapshots.length < 2` → "o histórico de preços deste ativo começa a ser coletado a partir de agora" (mesma mensagem em espírito da T-058b); falha do fetch → aviso discreto (`priceError`), sem derrubar o resto da página; sem posições → card oculto (mesmo guard dos outros cards de gráfico).
 - **Fora de escopo (segue pendente)**: comparação entre tickers, candles/OHLC. (Tooltip/hover saiu do pendente na T-067 — ver acima.)
@@ -172,16 +189,59 @@ Card "Preço por ação" em `/dash`, logo ABAIXO do "Evolução da carteira" (T-
 
 `@vetor-wallet/operations-core` nasceu com o SQL de `operations`/`wallets` que
 ainda vivia em `routes/{operations,wallets}.ts` — listar, inserir, apagar e os
-re-SELECTs. **Este package não mudou**: continua com a REGRA (preço médio,
-`wouldExceedPosition`, histórico, snapshots) e com `wallets.ts`
-(`getOrCreateDefaultWallet`, `countWallets`, `withUserLock`), que é regra de
-carteira única, não CRUD.
+re-SELECTs. Este package continua com a REGRA (preço médio,
+`wouldExceedPosition`, histórico, snapshots) e com a carteira única
+(`getOrCreateDefaultWallet`, `countWallets`, `withUserLock`), que é regra, não
+CRUD.
 
 Nenhum dos dois importa o outro: `POST /api/operations` lê as operações do
 ticker pelo `operations-core` e decide com as funções **puras** daqui, e quem
-costura é a rota. Quando este package migrar para o formato-alvo (`db`
-injetado, Jest, uma função por arquivo), fundir os dois — ou dissolver o vizinho
-aqui dentro — é decisão daquela tarefa. Ver `packages/operations-core/CLAUDE.md`.
+costura é a rota. Ver `packages/operations-core/CLAUDE.md`.
+
+**Fundir os dois NÃO foi feito na fatia 1/2** (decisão registrada abaixo, em
+"Migração de formato"): fica para quando a fatia 2 terminar.
+
+## Migração de formato em duas fatias (T-104)
+
+**Decisão: dividir.** O package tinha ~700 linhas de código e ~800 de teste em
+quatro arquivos-balaio, e a metade de snapshots carrega o único gatilho de
+coleta do app (`catchUpIfNeeded` no boot), que nenhum teste de suíte prova
+estar ligado (`CALIBRAGEM.md`, T-099c). Uma PR só misturaria "mudar a forma de
+chamada de 5 consumidores" com "reescrever o caminho do boot" — duas revisões
+de natureza diferente no mesmo diff. O corte segue a linha natural de risco:
+
+- **Fatia 1/2 (feita):** `portfolio.ts` + `wallets.ts` → 11 arquivos de uma
+  função cada; `db` injetado em `findDefaultWallet`/`countWallets`/
+  `getOrCreateDefaultWallet`; 31 testes Vitest portados para Jest sem mudar
+  nenhuma assertiva + testes novos para o que não tinha teste direto
+  (`applyOperation`, `getPositionQuantity`, os três de carteira e
+  `withUserLock`), cobertura 100% travada por `coverageThreshold` **só sobre os
+  arquivos migrados**. Consumidores atualizados: `routes/{wallets,operations,
+  import}.ts` e `auth-core` (`createUser`, `cognitoMirror`).
+- **Fatia 2/2 (pendente):** `snapshots.ts` + `portfolioHistory.ts` +
+  tirar o SQL de `routes/portfolio.ts` (SELECT de operations e as duas queries
+  de `quote_snapshots` do `/history`) e o de `routes/snapshots.ts`
+  (`getSnapshotHistory`). Inclui reescrever `catchUpIfNeeded`/`runSnapshotJob`
+  com `db` injetado — o que obriga `rest-api/src/api/index.ts` a passar o `db`
+  no boot — e **repetir a verificação no server compilado** (subir
+  `dist/api/index.js` com um preload que instrumenta `catchUpIfNeeded`). Ao
+  final: tirar as exclusões de `collectCoverageFrom` do `jest.config.ts`, o
+  `vitest run` do script `test`, o `vitest.config.ts` e as devDeps do Vitest.
+
+**Estado transitório, e por que é aceitável.** O script `test` roda os dois
+runners (`jest --projects tests/unit && vitest run`); o Jest só enxerga
+`tests/unit/tests/` e o Vitest só `src/**/*.test.ts`, então nenhum teste roda
+duas vezes nem fica de fora. O barrel ainda re-exporta `snapshots.ts`, que
+importa o **singleton** de `@vetor-wallet/db` — importar o barrel continua
+instanciando o client libsql até a fatia 2. Nenhum consumidor depende desse
+efeito colateral para funcionar (todos os que leem banco passam `db` ou
+importam o singleton eles mesmos), mas a cautela do `operations-core` (não
+importar o barrel) segue valendo até lá.
+
+**Fusão com `operations-core`: adiada para depois da fatia 2.** Fundir agora
+somaria "mover CRUD entre packages" a "mudar formato" na mesma PR, e o motivo
+concreto que impedia o `operations-core` de importar daqui (o barrel carregar o
+singleton) só desaparece na fatia 2.
 
 ## Pendências / notas de arquitetura
 
@@ -200,9 +260,13 @@ aqui dentro — é decisão daquela tarefa. Ver `packages/operations-core/CLAUDE
 
 ## Convenções
 
-- Teste ao lado do código (`src/**/*.test.ts`), Vitest. Teste que toca banco
-  define `DATABASE_URL` **antes** do `await import('@vetor-wallet/db')` — o
-  client lê o env no top-level do módulo.
+- **Código novo e o que já migrou**: formato-alvo (molde `alerts-core`/
+  `operations-core`) — uma função por arquivo, `db` injetado, Jest em
+  `tests/unit/tests/` importando por `src/...`, mock de `db` em
+  `tests/unit/testDb.ts`, cobertura 100%.
+- **`snapshots.ts`/`portfolioHistory.ts` (até a fatia 2)**: teste ao lado do
+  código, Vitest, `vi.mock('@vetor-wallet/db')` no singleton. Não acrescente
+  função nova a esses dois arquivos — nasça no formato-alvo.
 - Nenhuma cor literal nos gráficos do web: sempre CSS custom properties.
 
 Ver também `CLAUDE.md` da raiz, `docs/PACKAGES.md` (regras de dependência),
