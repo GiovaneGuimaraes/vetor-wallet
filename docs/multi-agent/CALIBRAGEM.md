@@ -46,6 +46,11 @@ intuição. **Uma linha por fato; se não muda decisão de roteamento, não entr
   teste pega se parar de ser chamado — executor e revisor confirmaram subindo o server
   compilado com `setInterval` instrumentado (T-099c). Repetir em qualquer mudança no
   `api/index.ts`.
+- **Pausar e retomar um executor no meio não perde trabalho, se o WIP for commitado antes de
+  matar o processo** (T-104, fatia expense-entries, 2026-10-15/16): `TaskStop` + commit do
+  worktree sujo numa branch própria preservou o progresso; o executor que retomou só precisou
+  dar `git merge` na branch e verificar, sem refazer nada. Confirma a prática: nunca descartar
+  um worktree de executor interrompido sem antes checar `git status` e commitar o que houver.
 
 ## Versões dos prompts dos agentes
 
