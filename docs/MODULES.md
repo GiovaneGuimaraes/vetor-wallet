@@ -111,10 +111,15 @@ Packages:
 
 - `packages/validation-core` *(Core transversal, T-099a)* — normalização de categoria
   (`normalizeCategory`, T-028), consumida por `db` (migração de dados) e `rest-api`.
-- `packages/expenses-core` *(Core, T-099b)* — materialização lazy/idempotente de recorrências
-  (T-035). Hoje: `services/recurringExpenses.ts`.
+- `packages/expenses-core` *(Core, T-099b; formato-alvo na T-110c)* — materialização
+  lazy/idempotente de recorrências (T-035), o CRUD de despesa **fixa** (T-110c) e o CRUD de
+  **lançamento variável** (T-104, fatia expense-entries: lista por mês, `/summary`, PATCH,
+  DELETE). O POST de lançamento **não** está aqui — passa por `insertEntryWithExternalId`
+  (`bank-import-core`), porque a dedupe por `external_id` é política do módulo BankImport.
 - `packages/rest-api` — `/api/expenses`, `/api/expense-entries` (+ `/summary`),
-  `/api/recurring-expenses`, `/api/budgets`.
+  `/api/recurring-expenses`, `/api/budgets`. As duas primeiras ficaram **sem SQL**;
+  `currentMonth`/`shiftMonthKey`/`MATERIALIZATION_HORIZON_MONTHS` continuam na rota por
+  serem interpretação do parâmetro da request.
 - `packages/web/src/routes` — página de despesas, histórico mensal, edição inline (T-031).
 
 Invariante: `normalizeCategory` existe em **duas cópias** (`validation-core` e web) porque

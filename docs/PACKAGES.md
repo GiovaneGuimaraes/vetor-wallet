@@ -28,7 +28,7 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **postgresdb** | Infra | — | Schema do Postgres (modelos + `sync`); não atende request | ✅ existe (T-112) |
 | **query** | Infra | — | `query({text,values})` com backend pg (fase 1) e Lambda (fase 3) | ✅ existe (T-112) |
 | **income-core** | Core | Income | CRUD de fontes fixas e lançamentos avulsos (T-110d) | ✅ existe (T-110d) |
-| **expenses-core** | Core | Expenses | Recorrência lazy + CRUD de despesa fixa (a normalização de categoria é chamada aqui, mas mora em `validation-core`, T-099a) | ✅ existe (T-099b), formato-alvo na T-110c |
+| **expenses-core** | Core | Expenses | Recorrência lazy + CRUD de despesa fixa + CRUD de lançamento variável (`expense_entries`, T-104) (a normalização de categoria é chamada aqui, mas mora em `validation-core`, T-099a) | ✅ existe (T-099b), formato-alvo na T-110c |
 | **savings-core** | Core | Savings | Saldo da poupança em centavos + CRUD de `savings_entries` (metas saíram na T-091b1) | ✅ existe (T-099b), formato-alvo na T-110a |
 | **subscription-core** | Core | Subscriptions | Datas, ativação idempotente, gating + provider AbacatePay | ✅ existe (T-103) |
 | **insights-core** | Core | Insights | Benchmarks CDI/Ibovespa | ✅ existe (T-099c) |
@@ -98,6 +98,14 @@ negócio, veja [`MODULES.md`](./MODULES.md).
    > formato antigo, e quem os costura é a rota. É uma divisão **de migração**, com prazo:
    > quando o `portfolio-core` migrar de formato, fundir ou dissolver é decisão daquela
    > tarefa. Não abra um segundo core num módulo sem esse tipo de prazo.
+
+   > **Contraexemplo da mesma T-104**: o CRUD de `expense_entries` **não** virou um
+   > `expense-entries-core`. O `expenses-core` já é dono daquela tabela (a ocorrência de
+   > recorrência é uma linha dela) e já está no formato-alvo, então não havia o prazo de
+   > migração que justificou o `operations-core`. Um package separado deixaria duas funções
+   > escrevendo na mesma tabela em packages diferentes — que é o acoplamento que a regra 6
+   > existe para evitar. Precedente direto: `income-core` guarda `income_sources` **e**
+   > `income_entries` juntos (T-110d).
 
 ### Nota sobre helpers duplicados server ↔ web
 

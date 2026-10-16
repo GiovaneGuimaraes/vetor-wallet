@@ -73,7 +73,10 @@ packages/
 │                     # (T-110d), extraído das rotas
 ├── expenses-core/    # @vetor-wallet/expenses-core — recorrência lazy e
 │                     # idempotente + o CRUD de despesa fixa que vivia na
-│                     # rota (T-099b, Ciclo 19; formato-alvo na T-110c)
+│                     # rota (T-099b, Ciclo 19; formato-alvo na T-110c) e o
+│                     # CRUD de lançamento variável, expense_entries (T-104).
+│                     # O POST de lançamento NÃO está lá: passa pelo dedupe do
+│                     # bank-import-core, como o de renda
 ├── auth-core/        # @vetor-wallet/auth-core — dono da tabela users: espelho
 │                     # da identidade (cognito_sub, vínculo por e-mail — T-106),
 │                     # perfil, papéis (T-099c, Ciclo 19). O login NÃO usa mais

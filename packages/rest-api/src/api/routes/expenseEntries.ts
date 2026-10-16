@@ -12,7 +12,12 @@ import {
 } from '@vetor-wallet/validation-core';
 import {
   createRecurringExpenseEntry,
+  deleteExpenseEntry,
+  getExpenseEntry,
+  listExpenseEntriesByMonth,
   materializeRecurringExpenses,
+  summarizeExpenseEntries,
+  updateExpenseEntry,
 } from '@vetor-wallet/expenses-core';
 import {
   duplicateEntryResponse,
@@ -28,6 +33,13 @@ const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
  * Mês corrente no fuso local do processo (YYYY-MM). Usado como default de
  * `GET /api/expense-entries` quando o cliente não informa `?month=`.
  * `toISOString()` seria UTC e viraria o mês cedo demais no BRT (UTC-3).
+ *
+ * Fica aqui (e não no `expenses-core`) de propósito, junto de `shiftMonthKey` e
+ * de `MATERIALIZATION_HORIZON_MONTHS`: as três servem para **interpretar o
+ * parâmetro da request** — qual mês foi pedido, qual janela ele define, até
+ * onde um GET pode materializar. É validação/normalização de entrada, a mesma
+ * fronteira já fixada em `alerts.ts`/`operations.ts` na T-104. `incomeEntries.ts`
+ * importa `currentMonth` daqui pelo mesmo motivo.
  */
 export function currentMonth(now: Date = new Date()): string {
   const year = now.getFullYear();
@@ -115,7 +127,7 @@ router.get(
     // futuro; agora que o cliente pode informar `endMonth`, um `endMonth`
     // futuro entraria na janela — por isso o mesmo teto de horizonte usado em
     // `GET /?month=` é aplicado aqui: meses além dele ainda são agregados
-    // (o SELECT abaixo não tem teto), apenas não geram ocorrência nova.
+    // (`summarizeExpenseEntries` não tem teto), apenas não geram ocorrência nova.
     const windowMonths: string[] = [];
     for (let i = 0; i < months; i += 1) {
       windowMonths.push(shiftMonthKey(startMonth, i));
@@ -126,19 +138,7 @@ router.get(
       await materializeRecurringExpenses({ db, userId, months: materializableMonths });
     }
 
-    const result = await db.execute({
-      sql: `SELECT substr(date, 1, 7) as month, SUM(amount) as total FROM expense_entries
-            WHERE user_id = ? AND substr(date, 1, 7) BETWEEN ? AND ?
-            GROUP BY month
-            ORDER BY month ASC`,
-      args: [userId, startMonth, endMonth],
-    });
-
-    const monthsSummary = result.rows.map((row) => ({
-      month: String(row.month),
-      total: Number(row.total),
-    }));
-    res.json({ months: monthsSummary });
+    res.json({ months: await summarizeExpenseEntries({ db, userId, startMonth, endMonth }) });
   })
 );
 
@@ -159,7 +159,7 @@ router.get(
     }
 
     // T-035: materialização lazy das recorrências ativas do mês consultado —
-    // inclusive meses futuros navegados. Roda antes do SELECT para que as
+    // inclusive meses futuros navegados. Roda antes da leitura para que as
     // ocorrências geradas já apareçam nesta mesma resposta.
     //
     // Teto de horizonte: um GET de `9999-12` não pode virar escrita de
@@ -170,13 +170,7 @@ router.get(
       await materializeRecurringExpenses({ db, userId, months: [month] });
     }
 
-    const result = await db.execute({
-      sql: `SELECT * FROM expense_entries
-            WHERE user_id = ? AND substr(date, 1, 7) = ?
-            ORDER BY date DESC, created_at DESC`,
-      args: [userId, month],
-    });
-    res.json({ month, entries: result.rows });
+    res.json({ month, entries: await listExpenseEntriesByMonth({ db, userId, month }) });
   })
 );
 
@@ -265,6 +259,10 @@ router.post(
     if (recurring !== true) {
       // Caminho comum (inclusive importação): a dedupe por `external_id` é do
       // banco e a violação de unicidade vira 409 — ver @vetor-wallet/bank-import-core.
+      // É a ÚNICA escrita desta rota que não passa pelo `expenses-core`: o POST
+      // de lançamento é a porta de entrada compartilhada com OFX/Pluggy, e a
+      // política de importação é do módulo BankImport (mesmo arranjo do
+      // `incomeEntries.ts`, T-110d).
       const result = await insertEntryWithExternalId({
         table: 'expense_entries',
         userId,
@@ -305,18 +303,12 @@ router.post(
       startMonth,
       entryMonth,
     });
-    const newId = created.entryId;
 
-    // Re-SELECT também filtrado por user_id (T-059, simetria com o PATCH — T-051).
-    const row = await db.execute({
-      sql: 'SELECT * FROM expense_entries WHERE id = ? AND user_id = ?',
-      args: [newId, userId],
-    });
-    res.status(201).json(row.rows[0]);
+    res.status(201).json(await getExpenseEntry({ db, userId, id: created.entryId }));
   })
 );
 
-// T-031: edição parcial, espelhando o padrão de PATCH /api/goals/:id. Editar
+// T-031: edição parcial, espelhando o padrão dos outros layers básicos. Editar
 // `date` pode mover o lançamento para outro mês — a rota não impede isso; a
 // visão mensal do cliente é que deve tirar o item da lista exibida.
 router.patch(
@@ -359,47 +351,17 @@ router.patch(
       return;
     }
 
-    const existing = await db.execute({
-      sql: 'SELECT id FROM expense_entries WHERE id = ? AND user_id = ?',
-      args: [id, userId],
+    const entry = await updateExpenseEntry({
+      db,
+      userId,
+      id,
+      changes: { description, category, amount, date },
     });
-    if (existing.rows.length === 0) {
+    if (entry === null) {
       res.status(404).json({ error: 'Lançamento de despesa não encontrado' });
       return;
     }
-
-    const fields: string[] = [];
-    const args: (string | number)[] = [];
-    if (description !== undefined) {
-      fields.push('description = ?');
-      args.push(description.trim());
-    }
-    if (category !== undefined) {
-      // Mesma forma canônica da criação (T-028) — ver @vetor-wallet/validation-core/src/categories.ts.
-      fields.push('category = ?');
-      args.push(normalizeCategory(category));
-    }
-    if (amount !== undefined) {
-      fields.push('amount = ?');
-      args.push(amount);
-    }
-    if (date !== undefined) {
-      fields.push('date = ?');
-      args.push(date);
-    }
-    args.push(id, userId);
-
-    await db.execute({
-      sql: `UPDATE expense_entries SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`,
-      args,
-    });
-
-    // Re-SELECT também filtrado por user_id (T-051).
-    const row = await db.execute({
-      sql: 'SELECT * FROM expense_entries WHERE id = ? AND user_id = ?',
-      args: [id, userId],
-    });
-    res.json(row.rows[0]);
+    res.json(entry);
   })
 );
 
@@ -408,11 +370,7 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const { id } = req.params;
-    const result = await db.execute({
-      sql: 'DELETE FROM expense_entries WHERE id = ? AND user_id = ?',
-      args: [id, userId],
-    });
-    if (result.rowsAffected === 0) {
+    if (!(await deleteExpenseEntry({ db, userId, id }))) {
       res.status(404).json({ error: 'Lançamento de despesa não encontrado' });
       return;
     }
