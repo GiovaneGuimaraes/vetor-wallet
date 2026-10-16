@@ -29,12 +29,12 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 > Decisão 3 (sessão) fechada: store vai para Postgres na fase 2, não JWT no gateway.
 
 ### T-091c/d — Investimentos como dashboard real (guarda-chuva, spike concluído 2026-10-16)
-- **Status**: EM_ANDAMENTO · fatia c1 (schema + `fixed-income-core` + CRUD manual) · **Complexidade**: alta · **Depende de**: T-091a (#165) e b1 (#166)
+- **Status**: EM_ANDAMENTO · fatia c2 (página Renda Fixa no web) · **Complexidade**: alta · **Depende de**: T-091a (#165) e b1 (#166)
 - **Escopo**: página de Investimentos vira dashboard com dado real, pra quem lança na mão E pra quem integrou a Pluggy — Ações (já existe, **não mexer nos números**) + Renda Fixa (hoje só placeholder). IA fica para depois.
-- **Decisões travadas (humano, 2026-10-16)**: Renda Fixa manual é tabela nova, core novo `fixed-income-core` (não entra no `portfolio-core`/`savings-core`) — "não reabrir" (#165). Valor exibido = **só valor aplicado/saldo informado, sem estimar rendimento**. Vocabulário de `kind` **aprovado**: `CAIXINHA, CDB, LCI, LCA, TESOURO, DEBENTURE, CRI_CRA, OUTRO`.
-- **Roadmap em 7 fatias**: **c1** (em andamento) schema+core+CRUD manual · **c2** página RF no web · **c3** hub vira dashboard (resolve o "herdado da (a)": valor por `node.key`) · **d1** `pluggy-core` lê `/investments` + CLI de diagnóstico (dry-run, sem valor/nome) · **d2** RF lê Pluggy ao vivo, sem gravar (mesma doutrina da T-089e: "saldo é posição") · **d3** vínculo manual↔Pluggy pra não duplicar · **d4** RF entra no patrimônio da Home (depende da T-089e — **não rodar d1 e T-089e em paralelo**, as duas mexem em `pluggy-core/toPluggyAccount.ts`).
-- **Pendências não-bloqueantes** (ver `TODO-HUMANO.md`, travam d2/d4, não c1-c3): gravar ou não a posição da Pluggy, RF no patrimônio da Home, ações de outras corretoras via Pluggy, caixinha já lançada em Poupança.
-- **Aceite (geral)**: carteira B3 com os mesmos números em todo lugar; cada fatia com suíte verde e PR própria, no espírito da T-104.
+- **c1 CONCLUÍDA (PR #214)**: `fixed-income-core` + `/api/fixed-income` (CRUD, isolamento por usuário testado). Desvio documentado: `rate` é `DOUBLE PRECISION` no Postgres (não `NUMERIC`) porque a rota não limita casas decimais dela.
+- **Roadmap**: **c2** (em andamento) página RF no web, consumindo `/api/fixed-income` · **c3** hub vira dashboard (resolve "herdado da (a)": valor por `node.key`) · **d1** `pluggy-core` lê `/investments` + CLI de diagnóstico · **d2** RF lê Pluggy ao vivo, sem gravar · **d3** vínculo manual↔Pluggy · **d4** RF no patrimônio da Home (depende da T-089e — não rodar d1 e T-089e em paralelo).
+- **Pendências não-bloqueantes** (ver `TODO-HUMANO.md`, travam d2/d4, não c2/c3): gravar ou não a posição da Pluggy, RF no patrimônio, ações de outras corretoras via Pluggy, caixinha já lançada em Poupança.
+- **Aceite (geral)**: carteira B3 com os mesmos números em todo lugar; cada fatia com suíte verde e PR própria.
 
 ### T-089e — Patrimônio total com saldo das contas da Pluggy
 - **Status**: PENDENTE · **Complexidade**: média · **Depende de**: T-089 (#163)
