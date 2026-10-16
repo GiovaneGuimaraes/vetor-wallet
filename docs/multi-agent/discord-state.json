@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-10-16T16:05:31-03:00"
+    "atualizadoEm": "2026-10-16T16:32:34-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -148,7 +148,7 @@
       "canal": "todo-ai",
       "messageId": "1560712000353468489",
       "status": "EM_ANDAMENTO",
-      "nota": "Fatia c1 concluida (PR #214). Fatia c2 (pagina Renda Fixa no web) em andamento."
+      "nota": "c1 e c2 concluidas (PRs #214/#216). Fatia c3 (hub vira dashboard) em andamento."
     }
   },
   "humanTodos": {
