@@ -59,12 +59,14 @@ Na T-099c (Ciclo 19) saiu o resto, esvaziando `services/`:
   prefixo do Vite).
 - `@vetor-wallet/portfolio-core` (de `services/{portfolio,portfolioHistory,wallets,snapshots}.ts`)
   — preço médio ponderado, validação de SELL, série valor × custo, carteiras e a
-  coleta de snapshots. **`api/index.ts` continua ligando `catchUpIfNeeded()` no
-  boot**; o `startSnapshotScheduler(30min, …)` que acompanhava essa chamada foi
-  removido na T-109b. Desde a T-104 (fatia 1/2 da migração de formato) as
-  funções de carteira recebem `db` injetado — `getOrCreateDefaultWallet({ db,
-  userId })`, `countWallets({ db, userId })` — e quem passa é a rota; as de
-  snapshot ainda usam o singleton até a fatia 2.
+  coleta de snapshots. **`api/index.ts` continua ligando `catchUpIfNeeded({ db })`
+  no boot** — é o único gatilho da coleta; o `startSnapshotScheduler(30min, …)`
+  que acompanhava essa chamada foi removido na T-109b. Desde a T-104 (fatias 1/2
+  e 2/2 da migração de formato) **toda** função do package que toca banco recebe
+  `db` injetado — `getOrCreateDefaultWallet({ db, userId })`,
+  `getPreviousCloseSnapshots({ db, tickers, beforeDateISO })`,
+  `getSnapshotHistory({ db, ticker, from, to })`, `catchUpIfNeeded({ db })` — e
+  quem passa é a rota (ou o entry, no boot).
 - `@vetor-wallet/insights-core` (de `services/{benchmarks,benchmarkHistory}.ts`)
   — benchmarks CDI/Ibovespa. O job horário saiu na T-109a.
 - `@vetor-wallet/auth-core` (de `api/auth/service.ts`) — credenciais, perfil e
@@ -82,6 +84,13 @@ costura de `POST /api/operations` fica aqui de propósito — ler as operações
 ticker é `operations-core`, decidir se a venda cabe é `portfolio-core` (funções
 puras), e cruzar os dois é papel da rota. `POST /api/import` (CSV) **não** foi
 migrado: o INSERT em lote dele continua na rota.
+
+Na fatia 2/2 da migração do `portfolio-core` (T-104), `routes/portfolio.ts` e
+`routes/snapshots.ts` também ficaram **sem nenhum SQL**: `GET /api/portfolio` e
+`/history` leem as operações por `listOperationsChronological`
+(`operations-core`) e os fechamentos por `getPreviousCloseSnapshots`/
+`listSnapshotPointsForWindow` (`portfolio-core`), e montam a resposta com as
+funções puras daquele package — de novo, a rota é quem cruza os dois cores.
 
 Ainda na T-104, o SQL de `routes/expenseEntries.ts` desceu para o
 `@vetor-wallet/expenses-core` (que já era dono de `expense_entries`): a rota

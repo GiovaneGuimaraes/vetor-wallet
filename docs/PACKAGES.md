@@ -94,11 +94,13 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 
    > **Dois cores no MESMO módulo** (`portfolio-core` + `operations-core`, T-104) não caem
    > nesta regra, que fala de módulos diferentes — e mesmo assim nenhum dos dois importa o
-   > outro: `operations-core` tem o CRUD no formato-alvo, `portfolio-core` tem a regra
-   > (metade já migrada — T-104, fatia 1/2), e quem os costura é a rota. É uma divisão
-   > **de migração**, com prazo: fundir ou dissolver ficou para depois da fatia 2/2 do
-   > `portfolio-core` (quando o barrel dele deixa de carregar o `db` singleton). Não abra
-   > um segundo core num módulo sem esse tipo de prazo.
+   > outro: `operations-core` tem o CRUD, `portfolio-core` tem a regra, e quem os costura
+   > é a rota. Nasceu como divisão **de migração**, com prazo. O prazo venceu na fatia 2/2
+   > da T-104 — os dois estão no formato-alvo e o barrel do `portfolio-core` não carrega
+   > mais o `db` singleton —, e a fusão foi **decidida mas não executada** naquela PR
+   > (motivo em `packages/portfolio-core/CLAUDE.md` → "Fusão com `operations-core`").
+   > Até ela sair, não acrescente outro core dono de `operations`/`wallets` ao módulo, e
+   > não abra um segundo core sobre as mesmas tabelas sem esse tipo de prazo.
 
    > **Contraexemplo da mesma T-104**: o CRUD de `expense_entries` **não** virou um
    > `expense-entries-core`. O `expenses-core` já é dono daquela tabela (a ocorrência de
@@ -192,7 +194,7 @@ migrar. Package novo já nasce assim; os antigos migram um por vez, em tarefas p
 | `income-core` | ✅ nasceu no formato-alvo (T-110d) | Jest, cobertura 100% |
 | `operations-core` | ✅ nasceu no formato-alvo (T-104) | Jest, cobertura 100% |
 | `alerts-core` | ✅ nasceu no formato-alvo (T-104) | Jest, cobertura 100% |
-| `portfolio-core` | ⏳ **metade** (T-104, fatia 1/2): posição (`applyOperation`…`buildPortfolioSummary`) e carteira única (`db` injetado) migraram; `snapshots.ts`/`portfolioHistory.ts` seguem balaio com `db` singleton | Jest (100% sobre os migrados) **e** Vitest (os dois antigos) no mesmo `test`, até a fatia 2 |
+| `portfolio-core` | ✅ alvo completo (T-104, fatias 1/2 e 2/2) — posição, carteira única, série histórica e snapshots; `db` injetado inclusive no `catchUpIfNeeded` do boot | Jest, cobertura 100% |
 | demais `*-core`, `db` | arquivo-balaio, `db` importado, teste em `src/**/*.test.ts` | Vitest |
 
 > `validation-core` foi o segundo package migrado e o **calibre** do formato:

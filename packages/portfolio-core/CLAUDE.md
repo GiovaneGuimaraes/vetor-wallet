@@ -8,8 +8,9 @@ na T-099c (Ciclo 19 — arquitetura em módulos). Categoria **Core**, módulo
 **Portfolio** (ver `docs/MODULES.md` / `docs/PACKAGES.md`).
 
 É dono das tabelas `wallets`, `operations` e `quote_snapshots`, e por isso
-importa `@vetor-wallet/db` — "Core" é *dono das regras/dados do domínio*, não
-*nunca faz I/O*.
+fala com o banco — "Core" é *dono das regras/dados do domínio*, não *nunca faz
+I/O*. Desde a T-104 o `db` chega **injetado**: de `@vetor-wallet/db` o package
+importa só o tipo `Db`, e importar o barrel não abre conexão.
 
 Este arquivo substitui `docs/decisions/wallets-portfolio.md` e a parte de
 Portfolio de `docs/decisions/snapshots-history.md` (ambos hoje stubs apontando
@@ -19,36 +20,50 @@ horários foram para `packages/insights-core/CLAUDE.md`.
 
 ## Estrutura
 
-**Package em transição de formato (T-104, duas fatias)** — ver "Migração de
-formato em duas fatias" abaixo. Metade já está no formato-alvo; a outra metade
-segue arquivo-balaio com `db` singleton e Vitest.
+**Formato-alvo completo desde a T-104** (duas fatias — ver "Migração de formato
+em duas fatias" abaixo): uma função por arquivo, `db` injetado nas que tocam
+banco, só Jest, cobertura 100% travada por `coverageThreshold`.
 
 ```
 src/
-│   ── formato-alvo (fatia 1/2): uma função por arquivo, Jest ──
-├── types.ts                    # PositionEntry
+│   ── posição e resumo (puros) ──
+├── types.ts                    # PositionEntry, SnapshotPoint
 ├── applyOperation.ts           # preço médio ponderado — a ÚNICA implementação
 ├── buildPositionMap.ts         # aplica as operações em ordem
 ├── getPositionQuantity.ts
 ├── wouldExceedPosition.ts      # validação de SELL
 ├── computeDayProfitLoss.ts     # P&L do dia (T-016)
 ├── buildPortfolioSummary.ts    # resumo do GET /api/portfolio — puro, sem I/O
+│   ── carteira única ──
 ├── findDefaultWallet.ts        # `{ db, userId }` — carteira mais antiga
 ├── countWallets.ts             # `{ db, userId }`
 ├── withUserLock.ts             # lock em memória por usuário (T-065), sem db
 ├── getOrCreateDefaultWallet.ts # `{ db, userId, overrides? }` + DEFAULT_WALLET
-│   ── formato ANTIGO (fatia 2/2 pendente): balaio, `db` singleton, Vitest ──
-├── portfolioHistory.ts   # shiftDate, buildDateWindow, buildPortfolioHistory
-│                         # (forward-fill + positionMap incremental) — puro
-├── snapshots.ts          # getBRTDate/isBusinessDay/withRetry (puros) +
-│                         # persistência e leitura de quote_snapshots +
-│                         # runSnapshotJob / catchUpIfNeeded
-└── index.ts              # barrel
-tests/unit/               # Jest (jest.config.ts, testDb.ts, makeOp.ts, tests/)
+│   ── série histórica (puros) ──
+├── shiftDate.ts
+├── buildDateWindow.ts
+├── roundCents.ts               # fora do barrel — só a série usa
+├── buildPortfolioHistory.ts    # forward-fill + positionMap incremental
+│   ── snapshots ──
+├── getBRTDate.ts / isBusinessDay.ts   # puros
+├── withRetry.ts                # backoff linear, relança o último erro
+├── fetchQuotesStrict.ts        # brapi que LANÇA — fora do barrel
+├── resolveActiveTickers.ts     # `{ db }`
+├── saveSnapshot.ts             # `{ db, ticker, price }` — INSERT OR IGNORE
+├── saveSnapshotForDate.ts      # `{ db, ticker, price, isoDate }` — backfill
+├── getPreviousCloseSnapshots.ts # `{ db, tickers, beforeDateISO }` — P&L do dia
+├── getSnapshotHistory.ts       # `{ db, ticker, from?, to? }` — GET /api/snapshots
+├── listSnapshotPointsForWindow.ts # `{ db, tickers, windowStart, endDate }` — /history
+├── runSnapshotJob.ts           # `{ db }` — a coleta
+├── catchUpIfNeeded.ts          # `{ db }` — o gatilho do boot
+└── index.ts                    # barrel (não abre conexão)
+tests/unit/               # Jest (jest.config.ts, testDb.ts, mockDb.ts, makeOp.ts, tests/)
 ```
 
-Rotas: `packages/rest-api/src/api/routes/{wallets,operations,portfolio,snapshots,import,alerts}.ts`.
-Boot: `packages/rest-api/src/api/index.ts` chama `catchUpIfNeeded()` — ver
+Rotas: `packages/rest-api/src/api/routes/{wallets,operations,portfolio,snapshots,import,alerts}.ts`
+— `portfolio.ts` e `snapshots.ts` sem nenhum SQL desde a fatia 2/2 (a leitura de
+`operations` delas é `listOperationsChronological`, do `operations-core`).
+Boot: `packages/rest-api/src/api/index.ts` chama `catchUpIfNeeded({ db })` — ver
 "Coleta diária" abaixo.
 Telas: `packages/web/src/routes/DashboardPage.tsx` e os módulos puros ao lado.
 
@@ -60,17 +75,18 @@ Telas: `packages/web/src/routes/DashboardPage.tsx` e os módulos puros ao lado.
   por ela; nunca duplique a fórmula.
 - **Carteira ÚNICA por usuário** (T-050): `POST /api/wallets` recusa a segunda;
   `walletId` vindo do cliente é sempre ignorado.
-- **Nos arquivos do formato-alvo, `db` é injetado** (`{ db, userId, ... }`),
-  nunca importado. Quem passa o client é a rota (`rest-api`) ou o core
-  chamador (`auth-core`). As funções puras de posição mantêm a assinatura
-  posicional de sempre — não há `db` para injetar nelas, e trocar a forma da
-  chamada em 5 consumidores sem ganho seria só ruído na review.
+- **`db` é injetado** (`{ db, userId, ... }`), nunca importado — em todo o
+  package. Quem passa o client é a rota (`rest-api`), o entry no boot
+  (`catchUpIfNeeded({ db })`) ou o core chamador (`auth-core`). As funções
+  puras (posição, série, datas, `withRetry`) mantêm a assinatura posicional de
+  sempre — não há `db` para injetar nelas, e trocar a forma da chamada em vários
+  consumidores sem ganho seria só ruído na review.
 - **Falha de cotação nunca derruba a request** — degrada em
   `quotesUnavailable`.
 - **A coleta de snapshots só é idempotente por causa do banco**
   (`UNIQUE(ticker, date(captured_at))`) somado às guardas de `catchUpIfNeeded`.
   Não invente guarda nova.
-- **`snapshots.ts` tem `fetchQuotesStrict` PRÓPRIO** (que *lança* em erro, para o
+- **A coleta tem `fetchQuotesStrict` PRÓPRIO** (que *lança* em erro, para o
   `withRetry` agir), separado do `fetchQuotes` de `@vetor-wallet/brapi-core` (que
   degrada em silêncio). São contratos de erro opostos de propósito; este package
   **não** importa `brapi-core` hoje. Ver "Pendências".
@@ -85,7 +101,7 @@ Decisão do humano (2026-07-25): "remover a lógica que permite o user ter mais 
 - **A invariante é de aplicação, não de banco**: **não** existe índice `UNIQUE(user_id)` em `wallets` — ele quebraria o boot de uma base legada que já tem 2+. Essas carteiras continuam existindo e sendo **listadas** pelo `GET`; o que muda é que nenhuma leitura filtra por elas e nenhuma nova pode ser criada.
 - **Semântica do legado**: as leituras (`GET /api/operations`, `GET /api/portfolio`) agregam **todas** as operações do usuário. Numa base com 2+ carteiras, o P&L exibido passa a ser o **consolidado** delas — nenhuma operação some, mas o número muda. A alternativa (mostrar só a carteira mais antiga) esconderia operações reais e foi rejeitada; a decisão está registrada no `TODO-HUMANO.md`.
 - **`walletId`/`wallet_id` do cliente é ignorado** nas três rotas de dados (query string em operations/portfolio/import, body em `POST /api/operations`). Isso é retrocompatível — o web atual continua funcionando enviando o parâmetro — e fecha de quebra um buraco: o `wallet_id` do body era gravado sem checagem de posse, então dava para registrar uma operação numa carteira de **outro** usuário.
-- **`packages/portfolio-core/src/wallets.ts`** concentra `DEFAULT_WALLET`, `findDefaultWallet` (mais antiga: `ORDER BY created_at ASC, id ASC` — desempate por `id` porque `created_at` tem resolução de segundos), `countWallets` e `getOrCreateDefaultWallet`. Este último também adota as operações órfãs (`UPDATE operations SET wallet_id = ? WHERE user_id = ? AND wallet_id IS NULL`, dado de antes de `wallets` existir) e relê a mais antiga depois do INSERT, para que dois requests simultâneos convirjam para a mesma carteira em vez de cada um usar a sua.
+- **`packages/portfolio-core/src/{getOrCreateDefaultWallet,findDefaultWallet,countWallets}.ts`** (um único `wallets.ts` até a T-104) concentram `DEFAULT_WALLET`, `findDefaultWallet` (mais antiga: `ORDER BY created_at ASC, id ASC` — desempate por `id` porque `created_at` tem resolução de segundos), `countWallets` e `getOrCreateDefaultWallet`. Este último também adota as operações órfãs (`UPDATE operations SET wallet_id = ? WHERE user_id = ? AND wallet_id IS NULL`, dado de antes de `wallets` existir) e relê a mais antiga depois do INSERT, para que dois requests simultâneos convirjam para a mesma carteira em vez de cada um usar a sua.
 - **`POST /api/wallets` cria via `getOrCreateDefaultWallet(userId, overrides)` (T-053)**, em vez de um `INSERT` próprio: o `overrides` opcional (`{ name, description, color }`) substitui `DEFAULT_WALLET` já no INSERT do service, então a rota volta com a carteira do body **e** com a adoção de operações órfãs num único caminho — sem UPDATE depois de criar (a janela create→UPDATE não tinha reparo: uma falha no meio deixaria a carteira parada no nome default, sem nenhum `PATCH /api/wallets` para corrigi-la). `GET /api/wallets` e `createUser` continuam chamando sem `overrides` (comportamento inalterado: sempre `DEFAULT_WALLET`). Na corrida de dois `POST` simultâneos, o primeiro `INSERT` a rodar vence — é o que `findDefaultWallet` releria como mais antigo — e o corpo do segundo perde (o perdedor deixa a carteira órfã já documentada no JSDoc de `getOrCreateDefaultWallet`, agora também com o nome do corpo perdedor descartado). O handler joga (`throw`) um erro explícito se o `SELECT` final não encontrar a linha recém-criada, em vez de responder `200`/`201` com corpo `undefined`.
 
 **A metade web (T-050b)** — o usuário deixou de ver o conceito de "várias carteiras" em qualquer lugar da UI:
@@ -146,13 +162,13 @@ Decisão do humano (`TODO-HUMANO.md`, 2026-07-24, opção b): os componentes `Al
 ## Decisões: snapshots e histórico de preços
 
 ### Coleta diária de snapshots ligada no boot + série histórica (T-058a)
-Até a T-058a, `runSnapshotJob()`/`catchUpIfNeeded()` (`packages/portfolio-core/src/snapshots.ts`) existiam mas **nunca eram chamados** — código morto, e `quote_snapshots` de uma base típica tinha uma dúzia de linhas paradas. Agora `index.ts` chama `catchUpIfNeeded()` logo depois do `initDb()`.
+Até a T-058a, `runSnapshotJob()`/`catchUpIfNeeded()` (hoje `packages/portfolio-core/src/{runSnapshotJob,catchUpIfNeeded}.ts`; um `snapshots.ts` só até a T-104) existiam mas **nunca eram chamados** — código morto, e `quote_snapshots` de uma base típica tinha uma dúzia de linhas paradas. Agora `index.ts` chama `catchUpIfNeeded({ db })` logo depois do `initDb()`.
 
 - **Por que o boot basta como "guarda"**: `catchUpIfNeeded` já só roda em **dia útil, depois das 18:15 BRT e apenas se não houver snapshot do dia**; o `UNIQUE(ticker, date(captured_at))` fecha a idempotência no banco. Nenhuma guarda nova foi inventada.
 - **Não-fatal e não-bloqueante**: a chamada vem **depois** do `app.listen` e num `.catch` que só loga — mesmo espírito do `createUser` da T-050a. `runSnapshotJob` já engole a falha de fetch (3 tentativas com backoff via `withRetry`); o `catch` do boot cobre o resto (erro de banco, rejeição inesperada). Coberto por teste: `catchUpIfNeeded` **resolve** com a brapi indisponível, sem gravar nada.
 - **O agendador in-process da T-061 foi REMOVIDO na T-109b (2026-09-20)** — e com ele `snapshotScheduler.ts`, seu teste de fake timers e os dois exports do barrel. Ele reexecutava `catchUpIfNeeded()` a cada 30min para cobrir o server que sobe de manhã e fica no ar o dia inteiro, nunca cruzando a guarda das 18:15 BRT. **O gatilho voltou a ser só o boot**, de propósito: era o último cron vivo no app, e ele renasce como EventBridge + Lambda quando a infra da AWS existir (decisão do humano — tirar antes da migração, para não traduzir um agendador in-process para Postgres e carregá-lo adiante). **A consequência aceita**: num dia em que o server suba de manhã e não reinicie, o fechamento daquele dia não é capturado. Isso NÃO abre buraco no gráfico — o forward-fill da série (bullet abaixo) repete o último fechamento conhecido, e o próximo boot depois das 18:15 BRT de um dia útil captura o que faltou. O que se perde é a linha daquele dia em `quote_snapshots`, não a continuidade da curva.
 
-`GET /api/portfolio/history?days=N` monta a série a partir dessas linhas, com a lógica pura em `packages/portfolio-core/src/portfolioHistory.ts` (`buildPortfolioHistory`, `buildDateWindow`, `shiftDate` — testadas):
+`GET /api/portfolio/history?days=N` monta a série a partir dessas linhas, com a lógica pura em `packages/portfolio-core/src/{buildPortfolioHistory,buildDateWindow,shiftDate}.ts` (um `portfolioHistory.ts` só até a T-104 — testadas) e as duas queries de fechamento em `listSnapshotPointsForWindow.ts` (na rota até a fatia 2/2 da T-104):
 
 - **Quantidade detida** vem de um `positionMap` **incremental** (T-063): o laço percorre os dias da janela uma vez e aplica só as operações NOVAS de cada dia via `applyOperation` — a mesma função que `buildPositionMap` chama por trás, sem reimplementar a regra de preço médio ponderado. Antes da T-063 o laço reconstruía o mapa inteiro a cada dia (`buildPositionMap(ops.slice(0, opIdx))`, O(dias × operações)); o resultado é idêntico, só o custo mudou (O(operações + dias)).
 - **Preço** é o último fechamento conhecido do ticker até aquela data (**forward-fill**): `quote_snapshots` só tem linha nos dias em que o job rodou, e sem o preenchimento cada fim de semana/feriado/dia de server desligado viraria um vale falso no gráfico. **A query de snapshots tem piso de data (T-063)**: só traz as linhas DENTRO da janela pedida + uma linha de BASE por ticker (o último fechamento anterior ao início da janela, via `MAX(date(captured_at))` agrupado por ticker) — o suficiente para o forward-fill do primeiro dia da janela, sem trafegar o histórico inteiro do ticker. Antes da T-063 a query não tinha piso nenhum; com a coleta diária ligada de verdade (T-058a/T-061), `quote_snapshots` cresce sem parar e ler a tabela inteira a cada request ficaria cada vez mais caro. O seed da primeira BUY (bullet seguinte) continua sendo a defesa para o caso em que nem a janela nem a base têm preço nenhum.
@@ -198,54 +214,83 @@ Nenhum dos dois importa o outro: `POST /api/operations` lê as operações do
 ticker pelo `operations-core` e decide com as funções **puras** daqui, e quem
 costura é a rota. Ver `packages/operations-core/CLAUDE.md`.
 
-**Fundir os dois NÃO foi feito na fatia 1/2** (decisão registrada abaixo, em
-"Migração de formato"): fica para quando a fatia 2 terminar.
+**Fundir os dois foi avaliado ao fim da migração e adiado** — ver "Fusão com
+`operations-core`" abaixo.
 
-## Migração de formato em duas fatias (T-104)
+## Migração de formato em duas fatias (T-104) — concluída
+
+Registro histórico: as duas fatias estão mergeadas, e o package não tem mais
+nenhum arquivo no formato antigo nem estado transitório.
 
 **Decisão: dividir.** O package tinha ~700 linhas de código e ~800 de teste em
 quatro arquivos-balaio, e a metade de snapshots carrega o único gatilho de
 coleta do app (`catchUpIfNeeded` no boot), que nenhum teste de suíte prova
 estar ligado (`CALIBRAGEM.md`, T-099c). Uma PR só misturaria "mudar a forma de
 chamada de 5 consumidores" com "reescrever o caminho do boot" — duas revisões
-de natureza diferente no mesmo diff. O corte segue a linha natural de risco:
+de natureza diferente no mesmo diff. O corte seguiu a linha natural de risco:
 
-- **Fatia 1/2 (feita):** `portfolio.ts` + `wallets.ts` → 11 arquivos de uma
+- **Fatia 1/2 (PR #207):** `portfolio.ts` + `wallets.ts` → 11 arquivos de uma
   função cada; `db` injetado em `findDefaultWallet`/`countWallets`/
   `getOrCreateDefaultWallet`; 31 testes Vitest portados para Jest sem mudar
-  nenhuma assertiva + testes novos para o que não tinha teste direto
-  (`applyOperation`, `getPositionQuantity`, os três de carteira e
-  `withUserLock`), cobertura 100% travada por `coverageThreshold` **só sobre os
-  arquivos migrados**. Consumidores atualizados: `routes/{wallets,operations,
-  import}.ts` e `auth-core` (`createUser`, `cognitoMirror`).
-- **Fatia 2/2 (pendente):** `snapshots.ts` + `portfolioHistory.ts` +
-  tirar o SQL de `routes/portfolio.ts` (SELECT de operations e as duas queries
-  de `quote_snapshots` do `/history`) e o de `routes/snapshots.ts`
-  (`getSnapshotHistory`). Inclui reescrever `catchUpIfNeeded`/`runSnapshotJob`
-  com `db` injetado — o que obriga `rest-api/src/api/index.ts` a passar o `db`
-  no boot — e **repetir a verificação no server compilado** (subir
-  `dist/api/index.js` com um preload que instrumenta `catchUpIfNeeded`). Ao
-  final: tirar as exclusões de `collectCoverageFrom` do `jest.config.ts`, o
-  `vitest run` do script `test`, o `vitest.config.ts` e as devDeps do Vitest.
+  nenhuma assertiva + testes novos para o que não tinha teste direto.
+  Consumidores atualizados: `routes/{wallets,operations,import}.ts` e
+  `auth-core` (`createUser`, `cognitoMirror`). Durante ela, o package rodou os
+  dois runners no mesmo `test` e a trava de 100% valia só para os migrados.
+- **Fatia 2/2:** `snapshots.ts` → 11 arquivos e `portfolioHistory.ts` → 4
+  (`roundCents` ganhou arquivo próprio), `db` injetado em todas as funções de
+  snapshot, inclusive `runSnapshotJob`/`catchUpIfNeeded` — e por isso
+  `rest-api/src/api/index.ts` passou a chamar `catchUpIfNeeded({ db })`. O SQL
+  que restava nas rotas saiu: as duas queries de `quote_snapshots` do
+  `/history` viraram `listSnapshotPointsForWindow` (aqui, dono da tabela), o
+  SELECT de `operations` de `GET /` e `/history` virou
+  `listOperationsChronological` (`operations-core`, que tem o SQL de
+  `operations`), e `routes/snapshots.ts` passa o `db` a `getSnapshotHistory`.
+  38 testes Vitest portados para Jest sem mudar assertiva (o `vi.mock` do
+  singleton virou `db` injetado — `tests/unit/mockDb.ts`) + testes novos para o
+  que não tinha teste direto e para dois ramos do `buildPortfolioHistory` que a
+  trava de 100% expôs (ordenação com empates e a defesa de "ticker sem preço",
+  só alcançável com linha corrompida). Saíram o `vitest run`, o
+  `vitest.config.ts`, as devDeps do Vitest e as exclusões de
+  `collectCoverageFrom`.
 
-**Estado transitório, e por que é aceitável.** O script `test` roda os dois
-runners (`jest --projects tests/unit && vitest run`); o Jest só enxerga
-`tests/unit/tests/` e o Vitest só `src/**/*.test.ts`, então nenhum teste roda
-duas vezes nem fica de fora. O barrel ainda re-exporta `snapshots.ts`, que
-importa o **singleton** de `@vetor-wallet/db` — importar o barrel continua
-instanciando o client libsql até a fatia 2. Nenhum consumidor depende desse
-efeito colateral para funcionar (todos os que leem banco passam `db` ou
-importam o singleton eles mesmos), mas a cautela do `operations-core` (não
-importar o barrel) segue valendo até lá.
+**Verificação de boot (as duas fatias).** O gatilho da coleta só existe no
+boot, e nenhuma suíte o prova ligado — então cada fatia subiu o
+`dist/api/index.js` compilado com um preload que força o relógio, envolve o
+`catchUpIfNeeded` do barrel (Proxy no `require`) e o `setInterval`. Na fatia
+2/2: segunda 19h BRT com banco vazio → chamado com `{ db }`, "Catch-up: no
+snapshots… running job now", "No active tickers", resolveu; mesmo horário com
+um snapshot do dia já gravado → chamado e resolveu **sem** rodar o job (a
+guarda lê o `db` injetado); sábado e segunda 18:14 BRT → chamado, nada roda.
+Nenhum `setInterval` em nenhum dos cenários (o scheduler saiu na T-109b).
 
-**Fusão com `operations-core`: adiada para depois da fatia 2.** Fundir agora
-somaria "mover CRUD entre packages" a "mudar formato" na mesma PR, e o motivo
-concreto que impedia o `operations-core` de importar daqui (o barrel carregar o
-singleton) só desaparece na fatia 2.
+## Fusão com `operations-core`: avaliada e adiada (fatia 2/2 da T-104)
+
+**Decisão: não fundir nesta migração.** O impedimento técnico que segurava a
+fusão acabou — nada aqui importa mais o singleton, então o `operations-core`
+poderia importar daqui sem criar `data/wallet.db` na suíte dele —, mas sobram
+dois motivos para fazê-la em PR própria:
+
+1. **É uma mudança de fronteira, não de formato.** Fundir move 7 funções e
+   seus testes entre packages e troca o import de 3 rotas
+   (`operations`, `wallets`, `portfolio`) e do `package.json`/aliases
+   do `rest-api` — um diff que precisa ser lido como "nada mudou de
+   comportamento". Somado a esta fatia (que já mexe no caminho do boot), seriam
+   de novo duas revisões de natureza diferente no mesmo diff — exatamente o
+   que a divisão em fatias existiu para evitar.
+2. **O custo de esperar é baixo.** Os dois estão no mesmo formato, nenhum
+   importa o outro, e a rota já é quem costura — não há duplicação de regra
+   nem acoplamento escondido acumulando enquanto a fusão não sai.
+
+**Direção recomendada quando sair**: dissolver o `operations-core` **dentro
+deste** package (e não o contrário) — aqui está a regra e a maior parte das
+funções, e as tabelas já são deste dono. Até lá, vale a regra de
+`docs/PACKAGES.md`: nenhum core novo de `operations`/`wallets`/`quote_snapshots`
+no módulo Portfolio (o `alerts-core` é dono de outra tabela e não entra nesta
+conta).
 
 ## Pendências / notas de arquitetura
 
-- **`fetchQuotesStrict` duplica o client da brapi.** `snapshots.ts` fala com
+- **`fetchQuotesStrict` duplica o client da brapi.** `fetchQuotesStrict.ts` fala com
   `https://brapi.dev/api/quote` por conta própria porque precisa **lançar** em
   erro (o `withRetry` depende disso), enquanto `@vetor-wallet/brapi-core`
   degrada em silêncio. Unificar (ex.: `fetchQuotesStrict` migrar para
@@ -260,13 +305,12 @@ singleton) só desaparece na fatia 2.
 
 ## Convenções
 
-- **Código novo e o que já migrou**: formato-alvo (molde `alerts-core`/
-  `operations-core`) — uma função por arquivo, `db` injetado, Jest em
-  `tests/unit/tests/` importando por `src/...`, mock de `db` em
-  `tests/unit/testDb.ts`, cobertura 100%.
-- **`snapshots.ts`/`portfolioHistory.ts` (até a fatia 2)**: teste ao lado do
-  código, Vitest, `vi.mock('@vetor-wallet/db')` no singleton. Não acrescente
-  função nova a esses dois arquivos — nasça no formato-alvo.
+- **Formato-alvo** (molde `alerts-core`/`operations-core`) — uma função por
+  arquivo, `db` injetado, Jest em `tests/unit/tests/` importando por `src/...`,
+  cobertura 100%. Mock de `db`: `tests/unit/testDb.ts` (`makeTestDb`, fila de
+  resultados — prefira para teste novo) ou `tests/unit/mockDb.ts`
+  (`makeMockDb`, `execute` como `jest.fn()` cru — o molde dos testes portados
+  do Vitest).
 - Nenhuma cor literal nos gráficos do web: sempre CSS custom properties.
 
 Ver também `CLAUDE.md` da raiz, `docs/PACKAGES.md` (regras de dependência),
