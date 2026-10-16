@@ -18,21 +18,15 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
-> **Retomar aqui.** **T-104 CONCLUÍDA em 2026-10-16** — passo 3 da migração fechado: todos os
-> cores vivos no formato-alvo (PRs #196/#201/#205/#207/#209). Só falta `budgets`, que não migra
-> — é candidata à remoção, não ao formato (ver Candidatas). Achado final (portfolio-core,
-> PR #209): o scheduler `setInterval` não existe mais (saiu na T-109b); o único gatilho de
-> coleta é `catchUpIfNeeded()` no boot, verificado 2x com o server compilado de verdade.
-> T-113 concluída (PR #195): achado reusável foi o adaptador `createSqliteQuery`
-> (`packages/rest-api/src/api/sqliteQuery.ts`) — só usar se um core for direto para `query`.
-> Passo 4 provado em 2026-09-22 contra Postgres real; passos 6–8 parados por decisão do humano.
-> Decisão 3 (sessão) fechada: store vai para Postgres na fase 2, não JWT no gateway.
+> **Retomar aqui.** Fase 1 da migração AWS (T-104/T-113) **concluída** — detalhe no histórico de
+> PRs, não repetir aqui. Foco atual: T-091c/d (dashboard de Investimentos).
 
 ### T-091c/d — Investimentos como dashboard real (guarda-chuva, spike concluído 2026-10-16)
-- **Status**: EM_ANDAMENTO · fatia c2 (página Renda Fixa no web) · **Complexidade**: alta · **Depende de**: T-091a (#165) e b1 (#166)
-- **Escopo**: página de Investimentos vira dashboard com dado real, pra quem lança na mão E pra quem integrou a Pluggy — Ações (já existe, **não mexer nos números**) + Renda Fixa (hoje só placeholder). IA fica para depois.
-- **c1 CONCLUÍDA (PR #214)**: `fixed-income-core` + `/api/fixed-income` (CRUD, isolamento por usuário testado). Desvio documentado: `rate` é `DOUBLE PRECISION` no Postgres (não `NUMERIC`) porque a rota não limita casas decimais dela.
-- **Roadmap**: **c2** (em andamento) página RF no web, consumindo `/api/fixed-income` · **c3** hub vira dashboard (resolve "herdado da (a)": valor por `node.key`) · **d1** `pluggy-core` lê `/investments` + CLI de diagnóstico · **d2** RF lê Pluggy ao vivo, sem gravar · **d3** vínculo manual↔Pluggy · **d4** RF no patrimônio da Home (depende da T-089e — não rodar d1 e T-089e em paralelo).
+- **Status**: EM_ANDAMENTO · fatia c3 (hub vira dashboard) · **Complexidade**: alta · **Depende de**: T-091a (#165) e b1 (#166)
+- **Escopo**: página de Investimentos vira dashboard com dado real, pra quem lança na mão E pra quem integrou a Pluggy — Ações (já existe, **não mexer nos números**) + Renda Fixa (c1/c2 concluídas). IA fica para depois.
+- **c1 CONCLUÍDA (PR #214)**: `fixed-income-core` + `/api/fixed-income` (CRUD, isolamento por usuário testado).
+- **c2 CONCLUÍDA (PR #216, 1 reprovação corrigida)**: página real de Renda Fixa no web. Achado do revisor: ligar `comingSoon: false` acendeu um card em `InvestimentosPage.tsx` (fora do diff) que mostrava o total da B3 rotulado como Renda Fixa — corrigido na mesma PR (card de RF mostra placeholder até a c3).
+- **Roadmap**: **c3** (em andamento) hub vira dashboard de verdade (resolve "herdado da (a)": valor por `node.key`, e o placeholder que a c2 deixou) · **d1** `pluggy-core` lê `/investments` + CLI de diagnóstico · **d2** RF lê Pluggy ao vivo, sem gravar · **d3** vínculo manual↔Pluggy · **d4** RF no patrimônio da Home (depende da T-089e — não rodar d1 e T-089e em paralelo).
 - **Pendências não-bloqueantes** (ver `TODO-HUMANO.md`, travam d2/d4, não c2/c3): gravar ou não a posição da Pluggy, RF no patrimônio, ações de outras corretoras via Pluggy, caixinha já lançada em Poupança.
 - **Aceite (geral)**: carteira B3 com os mesmos números em todo lugar; cada fatia com suíte verde e PR própria.
 

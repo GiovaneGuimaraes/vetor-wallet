@@ -25,6 +25,7 @@ intuição. **Uma linha por fato; se não muda decisão de roteamento, não entr
 | T-013 | Sonnet | lógica de cálculo em módulo puro sem teste (CLAUDE.md exige) |
 | T-049 | Sonnet | CLAUDE.md contraditório + lacuna de teste positivo |
 | T-053 | Sonnet | instrução equivocada **do orquestrador** (remoção de acentos contra o padrão do repo) |
+| T-091c2 | Sonnet | fatia tocou só o arquivo pedido (`RendaFixaPage`), mas `comingSoon: false` em `investmentsTree.ts` ativou um card no hub (`InvestimentosPage.tsx`) que o diff não tocou — card de Renda Fixa passou a mostrar o total da carteira B3. Corrigido na mesma rodada (1 reprovação). |
 
 ## Padrões que valem como regra
 
@@ -51,6 +52,12 @@ intuição. **Uma linha por fato; se não muda decisão de roteamento, não entr
   worktree sujo numa branch própria preservou o progresso; o executor que retomou só precisou
   dar `git merge` na branch e verificar, sem refazer nada. Confirma a prática: nunca descartar
   um worktree de executor interrompido sem antes checar `git status` e commitar o que houver.
+- **"Não toquei em X" não prova que X não quebrou** (T-091c2): o executor só editou
+  `RendaFixaPage.tsx`/`investmentsTree.ts`, mas uma flag booleana (`comingSoon: false`) num
+  desses arquivos ativou uma condição em `InvestimentosPage.tsx`, que ninguém tocou, e essa
+  condição assumia dado que não existia ainda. O revisor pegou porque leu o CONSUMIDOR da flag,
+  não só o diff. Regra: quando uma fatia liga uma flag que outro arquivo lê condicionalmente,
+  o revisor precisa seguir essa flag até onde ela é lida, mesmo fora do diff.
 
 ## Versões dos prompts dos agentes
 
@@ -84,6 +91,7 @@ ficou melhor.
 | T-049 | `CLAUDE.md` contraditório + faltando teste do caminho positivo | política de testes |
 | T-053 | a **instrução do orquestrador** estava errada, não o código | prompt, não modelo |
 | T-108b | duas funções com a **mesma assinatura** (`email => Promise<void>`) trocáveis sem erro de tipo | comportamento errado em silêncio |
+| T-091c2 | `comingSoon: false` num arquivo ativou um card em OUTRO arquivo, fora do diff, que passou a mostrar o total errado | efeito colateral fora do escopo do diff |
 
 **Limite honesto**: o diff exato que foi reprovado nem sempre sobrevive (foi corrigido na mesma
 branch antes do merge). O que se reusa aqui é o **caso** — a situação e o sinal —, não um
