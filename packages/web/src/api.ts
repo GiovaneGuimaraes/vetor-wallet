@@ -31,6 +31,10 @@ import type {
   NewSavingsEntry,
   SavingsEntryUpdate,
   SavingsSummary,
+  FixedIncomePosition,
+  NewFixedIncomePosition,
+  FixedIncomePositionUpdate,
+  FixedIncomeSummary,
   Plan,
   MySubscriptionResponse,
   CreateSubscriptionResponse,
@@ -681,6 +685,54 @@ export async function updateSavingsEntry(
 export async function deleteSavingsEntry(id: number): Promise<void> {
   const res = await apiFetch(`/api/savings/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Falha ao remover lançamento de poupança');
+}
+
+// ── Renda Fixa manual (T-091c/d, fatia c2) ───────────────────────────────────
+
+export async function getFixedIncome(): Promise<{
+  positions: FixedIncomePosition[];
+  summary: FixedIncomeSummary;
+}> {
+  const res = await apiFetch('/api/fixed-income');
+  if (!res.ok) throw new Error('Falha ao buscar posições de renda fixa');
+  return res.json();
+}
+
+export async function createFixedIncomePosition(
+  position: NewFixedIncomePosition
+): Promise<FixedIncomePosition> {
+  const res = await apiFetch('/api/fixed-income', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(position),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao criar posição de renda fixa');
+  }
+  return res.json();
+}
+
+/** Edição parcial (mesmo padrão T-031 do resto da API). */
+export async function updateFixedIncomePosition(
+  id: number,
+  update: FixedIncomePositionUpdate
+): Promise<FixedIncomePosition> {
+  const res = await apiFetch(`/api/fixed-income/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(update),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+    throw new Error(err.error ?? 'Falha ao atualizar posição de renda fixa');
+  }
+  return res.json();
+}
+
+export async function deleteFixedIncomePosition(id: number): Promise<void> {
+  const res = await apiFetch(`/api/fixed-income/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Falha ao remover posição de renda fixa');
 }
 
 // ── Billing / assinatura Pix (T-072) ─────────────────────────────────────────

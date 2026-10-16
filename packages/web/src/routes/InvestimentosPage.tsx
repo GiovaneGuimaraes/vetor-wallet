@@ -17,6 +17,12 @@ const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BR
  * `HomePage` (o portfolio já foi buscado uma vez por `App.refreshWallet`).
  * Reimplementar a soma aqui seria a maneira mais fácil de a carteira B3
  * passar a mostrar dois números diferentes em duas telas.
+ *
+ * Só o nó `acoes` mostra `stockTotals.current` — é o único valor que este
+ * componente sabe calcular. Renda Fixa tem dado real desde a T-091c2 (fatia
+ * c2), mas o resumo dela ainda não foi buscado aqui: mostrar o traço até a
+ * fatia c3 trazer `GET /api/fixed-income` evita reaproveitar por engano o
+ * total da B3 como se fosse o de Renda Fixa — achado do revisor da c2.
  */
 export function InvestimentosPage() {
   const navigate = useNavigate();
@@ -55,7 +61,7 @@ export function InvestimentosPage() {
             <p className="vw-layer-card-name">{node.name}</p>
             <p className="vw-layer-card-desc">{node.desc}</p>
             <p className="vw-layer-card-value">
-              {node.comingSoon ? dash : fmtCur.format(stockTotals.current)}
+              {!node.comingSoon && node.key === 'acoes' ? fmtCur.format(stockTotals.current) : dash}
             </p>
             {node.comingSoon && <span className="vw-layer-card-chip">em breve</span>}
             <img

@@ -25,12 +25,12 @@ describe('INVESTMENT_NODES', () => {
     expect(INVESTMENT_NODES.map((n) => n.key)).toEqual(['acoes', 'cripto', 'renda-fixa']);
   });
 
-  // Marcar Ações como "em breve" sumiria com a carteira B3 do hub sem quebrar
-  // build, lint nem nenhum outro teste — daí a asserção explícita.
-  it('só Ações NÃO é "em breve"', () => {
+  // Marcar Ações ou Renda Fixa como "em breve" sumiria com dado real do hub
+  // sem quebrar build, lint nem nenhum outro teste — daí a asserção explícita.
+  it('Ações e Renda Fixa têm dado real; só Cripto segue "em breve"', () => {
     expect(investmentNodeByKey('acoes')?.comingSoon).toBe(false);
     expect(investmentNodeByKey('cripto')?.comingSoon).toBe(true);
-    expect(investmentNodeByKey('renda-fixa')?.comingSoon).toBe(true);
+    expect(investmentNodeByKey('renda-fixa')?.comingSoon).toBe(false);
   });
 
   it('todo nó tem mascote, nome e descrição preenchidos', () => {
