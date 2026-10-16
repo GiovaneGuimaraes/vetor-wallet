@@ -17,6 +17,16 @@ export { updateFixedExpense } from './updateFixedExpense';
 export type { UpdateFixedExpenseParams } from './updateFixedExpense';
 export { deleteFixedExpense } from './deleteFixedExpense';
 export type { DeleteFixedExpenseParams } from './deleteFixedExpense';
+export { listExpenseEntriesByMonth } from './listExpenseEntriesByMonth';
+export type { ListExpenseEntriesByMonthParams } from './listExpenseEntriesByMonth';
+export { summarizeExpenseEntries } from './summarizeExpenseEntries';
+export type { SummarizeExpenseEntriesParams } from './summarizeExpenseEntries';
+export { getExpenseEntry } from './getExpenseEntry';
+export type { GetExpenseEntryParams } from './getExpenseEntry';
+export { updateExpenseEntry } from './updateExpenseEntry';
+export type { UpdateExpenseEntryParams } from './updateExpenseEntry';
+export { deleteExpenseEntry } from './deleteExpenseEntry';
+export type { DeleteExpenseEntryParams } from './deleteExpenseEntry';
 
 /**
  * Re-export histórico: o corpo mora em `@vetor-wallet/db` (`sqlErrors.ts`,

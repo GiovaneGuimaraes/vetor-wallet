@@ -35,6 +35,11 @@ src/
 ├── createFixedExpense.ts           # db injetado; normaliza a categoria
 ├── updateFixedExpense.ts           # db injetado; devolve null = 404 da rota
 ├── deleteFixedExpense.ts           # db injetado; devolve false = 404 da rota
+├── listExpenseEntriesByMonth.ts    # T-104: lançamentos variáveis de um mês
+├── summarizeExpenseEntries.ts      # T-104: total por mês numa janela fechada
+├── getExpenseEntry.ts              # T-104: um lançamento por id + user_id
+├── updateExpenseEntry.ts           # T-104: PATCH parcial; null = 404 da rota
+├── deleteExpenseEntry.ts           # T-104: false = 404 da rota
 └── index.ts                        # barrel; re-exporta isUniqueViolation
 
 tests/
@@ -56,6 +61,42 @@ viraram 118 sem nenhuma.
 repetida no POST e no PATCH. É regra de domínio: duas despesas com
 "Alimentação" e "alimentacao" têm que cair no mesmo teto de orçamento, venham de
 onde vierem — inclusive de uma importação, que não passa por aquela rota.
+
+## O CRUD de lançamento variável veio junto (T-104, fatia expense-entries)
+
+`routes/expenseEntries.ts` tinha ~420 linhas com SQL espalhado por cinco
+handlers. O SQL desceu para cá (cinco funções acima) e a rota ficou **sem
+nenhuma query**: valida o corpo/os parâmetros, materializa recorrência quando o
+mês pedido cabe no horizonte, chama o core e traduz `null`/`false` em 404.
+
+**Por que aqui e não num `expense-entries-core`**: este package já é dono de
+`expense_entries` — uma ocorrência de recorrência é uma linha dela, gravada por
+`createRecurringExpenseEntry`. Um package separado colocaria duas funções
+escrevendo na mesma tabela em packages diferentes, e o `operations-core`
+(T-104) só pôde ser um core irmão porque tinha prazo: o `portfolio-core` ainda
+não migrou de formato. Aqui não há esse prazo. Precedente direto: `income-core`
+guarda `income_sources` e `income_entries` juntos (T-110d).
+
+### O que NÃO veio para cá
+
+- **O POST de lançamento.** Ele passa por `insertEntryWithExternalId`
+  (`@vetor-wallet/bank-import-core`), porque a dedupe por `external_id` (T-084)
+  é política do módulo BankImport — o mesmo caminho serve OFX, Pluggy e
+  digitação manual. É a única escrita da rota que não passa por este package, e
+  é a rota que cruza os dois módulos (regra 4 de `docs/PACKAGES.md`). Mesmo
+  arranjo de `incomeEntries.ts` (T-110d).
+- **`currentMonth`, `shiftMonthKey` e `MATERIALIZATION_HORIZON_MONTHS`**, que
+  continuam exportados de `packages/rest-api/src/api/routes/expenseEntries.ts`.
+  As três servem para **interpretar o parâmetro da request** (qual mês foi
+  pedido, qual janela ele define, até onde um GET pode materializar) — mesma
+  fronteira "validação/normalização de entrada fica na rota" fixada em
+  `alerts.ts`/`operations.ts` na T-104. `incomeEntries.ts` importa
+  `currentMonth` daí, e mover arrastaria aquela rota e três arquivos de teste
+  numa PR que promete não mudar comportamento.
+- **A decisão de materializar.** `listExpenseEntriesByMonth` e
+  `summarizeExpenseEntries` são leitura pura; quem roda
+  `materializeRecurringExpenses` antes é a rota. Embutir a escrita dentro de um
+  `list*` esconderia o único ponto do app onde um GET grava.
 
 ### A exceção do `TransactionalDb`
 
@@ -94,6 +135,12 @@ Lógica pura do cliente: `packages/web/src/routes/{expenseMonth,recurrence,expen
   dias do mês)`), senão a ocorrência não pertenceria ao mês consultado.
 - **`isUniqueViolation` distingue a corrida de qualquer outro erro de banco** —
   os demais continuam subindo como 500, nunca viram "outro já gerou" silencioso.
+- **Toda consulta filtra por `user_id`** — inclusive o re-SELECT depois do
+  INSERT/UPDATE (T-051/T-059), não só a checagem de existência.
+- **Ausência é `null`/`false`, não exceção.** `update*` devolve `null` e
+  `delete*` devolve `false`; a rota traduz os dois no 404. "Não existe" e "não
+  é seu" colapsam de propósito — distinguir transformaria a rota em sonda de
+  existência.
 - **Não importa `express`** nem nada de `server`/`web` (regra 1 de
   `docs/PACKAGES.md`).
 
@@ -178,9 +225,12 @@ mecanismos de idempotência (o desta recorrência e o do dedupe) não se mistura
 
 ## Convenções
 
-- Teste ao lado do código (`src/**/*.test.ts`), Vitest. Teste que toca banco
-  define `DATABASE_URL` **antes** do `await import('@vetor-wallet/db')` — o
-  client lê o env no top-level do módulo.
+Formato-alvo desde a T-110c (molde do `savings-core`): **uma função por
+arquivo**, **`db` injetado** (nunca importado), testes em `tests/unit/tests/`
+importando por `src/...`, **Jest**, cobertura **100% travada por
+`coverageThreshold`**. A única exceção é `createRecurringExpenseEntry`, cujo
+teste usa um client real contra arquivo temporário para provar **rollback** —
+ver acima.
 
 Ver também `CLAUDE.md` da raiz, `docs/PACKAGES.md` (regras de dependência),
 `docs/MODULES.md` (módulo Expenses) e `packages/validation-core/CLAUDE.md`

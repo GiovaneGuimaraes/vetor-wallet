@@ -80,6 +80,20 @@ ticker é `operations-core`, decidir se a venda cabe é `portfolio-core` (funç�
 puras), e cruzar os dois é papel da rota. `POST /api/import` (CSV) **não** foi
 migrado: o INSERT em lote dele continua na rota.
 
+Ainda na T-104, o SQL de `routes/expenseEntries.ts` desceu para o
+`@vetor-wallet/expenses-core` (que já era dono de `expense_entries`): a rota
+ficou **sem nenhuma query**. O que fica aqui de propósito:
+
+- **`currentMonth`, `shiftMonthKey` e `MATERIALIZATION_HORIZON_MONTHS`** —
+  interpretam o parâmetro da request (qual mês, qual janela, até onde um GET
+  pode materializar). `routes/incomeEntries.ts` importa `currentMonth` daqui.
+- **A decisão de materializar antes de ler** — `materializeRecurringExpenses`
+  é chamada pela rota; as funções de leitura do core não escrevem.
+- **O POST**, que passa por `insertEntryWithExternalId`
+  (`@vetor-wallet/bank-import-core`): a dedupe por `external_id` é política do
+  módulo BankImport, e é a rota que cruza os dois módulos. Mesmo arranjo de
+  `routes/incomeEntries.ts`.
+
 Na mesma T-104 entrou `@vetor-wallet/alerts-core`, com o SQL que ainda estava
 em `routes/alerts.ts`. A rota ficou **sem nenhum SQL**: valida tipo/threshold
 do corpo (inclusive `isValidMoneyAmount`), normaliza o `ticker` e chama o
