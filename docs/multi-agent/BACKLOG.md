@@ -18,9 +18,13 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
-> **Retomar aqui.** A fase 1 da migração está em curso; T-091c/d e T-089e seguem atrás dela.
-> T-113 concluída (PR #195): achado reusável para a T-104 é o adaptador `createSqliteQuery`
-> (`packages/rest-api/src/api/sqliteQuery.ts`) — só usar se o core for direto para `query`.
+> **Retomar aqui.** **T-104 CONCLUÍDA em 2026-10-16** — passo 3 da migração fechado: todos os
+> cores vivos no formato-alvo (PRs #196/#201/#205/#207/#209). Só falta `budgets`, que não migra
+> — é candidata à remoção, não ao formato (ver Candidatas). Achado final (portfolio-core,
+> PR #209): o scheduler `setInterval` não existe mais (saiu na T-109b); o único gatilho de
+> coleta é `catchUpIfNeeded()` no boot, verificado 2x com o server compilado de verdade.
+> T-113 concluída (PR #195): achado reusável foi o adaptador `createSqliteQuery`
+> (`packages/rest-api/src/api/sqliteQuery.ts`) — só usar se um core for direto para `query`.
 > Passo 4 provado em 2026-09-22 contra Postgres real; passos 6–8 parados por decisão do humano.
 > Decisão 3 (sessão) fechada: store vai para Postgres na fase 2, não JWT no gateway.
 
@@ -30,16 +34,6 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Risco de dupla contagem com a T-089e**: o dinheiro da caixinha **saiu** da conta, então saldo + caixinha não se sobrepõem — mas se a Pluggy devolver a caixinha *também* como conta, soma duas vezes. Conferir no payload real antes de somar.
 - **Herdado da (a)**: o hub usa o total da carteira B3 como valor de qualquer nó não-"em breve" — mapear valor por `node.key`.
 - **Aceite**: carteira B3 com os mesmos números; suítes verdes.
-
-### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva)
-- **Status**: EM_ANDAMENTO · portfolio-core fatia 2/2 (snapshots/portfolioHistory) · **Complexidade**: alta
-- **Objetivo**: **1 função por arquivo**, **`db` injetado**, **Jest**, cobertura **100% por threshold** — e, na MESMA PR, tirar o CRUD da rota. É o passo 3 de `plano-migracao-aws.md`; não depende de AWS.
-- **Molde**: `packages/alerts-core` (PR #201) e `packages/operations-core` (PR #196).
-- **portfolio-core, fatia 1/2 CONCLUÍDA (PR #207)**: `portfolio.ts`+`wallets.ts` → 11 arquivos, `db` injetado nas 3 que tocam banco. Achado: o scheduler (`setInterval`) **saiu na T-109b** — hoje o único gatilho de coleta é `catchUpIfNeeded()` no boot, verificado subindo o server compilado (boot real, não só suíte). Detalhe da divisão em `packages/portfolio-core/CLAUDE.md`.
-- **Fatia 2/2, o que falta** (listado no `CLAUDE.md` do package): migrar `snapshots.ts` e `portfolioHistory.ts` para 1 função/arquivo em Jest; tirar o SQL restante de `routes/portfolio.ts`/`routes/snapshots.ts`; passar `db` para `catchUpIfNeeded` a partir de `api/index.ts` (repetir a verificação de boot); limpar o estado provisório (Vitest ainda rodando em paralelo ao Jest no package).
-- **Faltam depois desta**: budgets (pulada por ora, ver nota).
-- **Nota sobre budgets**: backend sem UI, "nada consome" (ver Candidatas) — avaliar remoção em vez de migração quando chegar a vez.
-- **Aceite (por package)**: cobertura 100%; `build`, `lint`, `format:check` e `pnpm test` verdes; **contagem de testes do `rest-api` preservada** — é ela que prova que o comportamento não mudou.
 
 ### T-089e — Patrimônio total com saldo das contas da Pluggy
 - **Status**: PENDENTE · **Complexidade**: média · **Depende de**: T-089 (#163)
@@ -51,6 +45,7 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 
 - **Acoplamentos core→core** (regra 6 do `PACKAGES.md`; pré-existentes): `auth-core → portfolio-core` e `insights-core → portfolio-core` — a saída é a **rota** orquestrar. E `portfolio-core/snapshots.ts` tem um **segundo client da brapi** (`fetchQuotesStrict`, que lança) paralelo ao `brapi-core.fetchQuotes` (que degrada em silêncio) — unificar.
+- **Fundir `operations-core` de volta no `portfolio-core`** (sugerido pelo executor da T-104/PR #209): o motivo de terem ficado separados (barrel do `portfolio-core` abria o banco no import) não existe mais desde que o formato-alvo chegou lá. Mudança de fronteira, não de formato — mexe em 7 funções + testes + imports de 3 rotas.
 - **Limpar backend de budgets** (rotas + `category_budgets` + tipo no shared): sem UI, nada consome.
 - **`buildIbovespaSeries` em UTC** enquanto a rota ancora em BRT — candle após 21h BRT pode ser datado como "amanhã" e recortado (T-095).
 - **Glob do Prettier não alcança a raiz dos packages** — `rest-api/vitest.config.ts` fora do padrão, CI não detecta (T-105).
