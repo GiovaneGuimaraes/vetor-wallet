@@ -18,8 +18,6 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
-> **RETOMADO em 2026-10-16** — pausa de 2026-10-15 encerrada a pedido do humano.
->
 > **Retomar aqui.** A fase 1 da migração está em curso; T-091c/d e T-089e seguem atrás dela.
 > T-113 concluída (PR #195): achado reusável para a T-104 é o adaptador `createSqliteQuery`
 > (`packages/rest-api/src/api/sqliteQuery.ts`) — só usar se o core for direto para `query`.
@@ -34,11 +32,11 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Aceite**: carteira B3 com os mesmos números; suítes verdes.
 
 ### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva)
-- **Status**: EM_ANDAMENTO · fatia expense-entries (retomada 2026-10-16) · **Complexidade**: alta
+- **Status**: EM_ANDAMENTO (6 de ~8; fatia da vez: portfolio/snapshots) · **Complexidade**: alta
 - **Objetivo**: **1 função por arquivo**, **`db` injetado**, **Jest**, cobertura **100% por threshold** — e, na MESMA PR, tirar o CRUD da rota. É o passo 3 de `plano-migracao-aws.md`; não depende de AWS.
-- **Molde**: `packages/alerts-core` (PR #201) e `packages/operations-core` (PR #196). Validação/normalização de entrada fica na ROTA, não no core.
-- **Expense-entries**: retomado a partir do WIP da pausa de 2026-10-15 (branch `worktree-agent-ae5d581209816c6cd`, commit `5e6c5f3`). Já tinha, sem suíte completa confirmada: `listExpenseEntriesByMonth`, `getExpenseEntry`, `updateExpenseEntry`, `deleteExpenseEntry`, `summarizeExpenseEntries` em `expenses-core`. Faltava `createExpenseEntry` (recorrência + dedupe por `externalId`). Executor novo (Opus) herdou o WIP via merge e está terminando.
-- **Faltam depois desta**: budgets (pulada por ora, ver nota) · portfolio/snapshots.
+- **Molde**: `packages/alerts-core` (PR #201) e `packages/operations-core` (PR #196). Validação/normalização de entrada fica na ROTA, não no core. expense-entries concluído na PR #205 (estendeu `expenses-core`; POST não-recorrente reusa `insertEntryWithExternalId` do `bank-import-core`, não criou `createExpenseEntry`).
+- **portfolio/snapshots**: o maior restante — `portfolio-core` já existe mas está no formato antigo (arquivo-balaio, `db` singleton, Vitest). Decidir no início da tarefa: migrar o package inteiro de formato, ou só extrair o que ainda vive na rota (se houver) como núcleo irmão (precedente: `operations-core` ficou separado do `portfolio-core`, PR #196).
+- **Faltam depois desta**: budgets (pulada por ora, ver nota).
 - **Nota sobre budgets**: backend sem UI, "nada consome" (ver Candidatas) — avaliar remoção em vez de migração quando chegar a vez.
 - **Aceite (por package)**: cobertura 100%; `build`, `lint`, `format:check` e `pnpm test` verdes; **contagem de testes do `rest-api` preservada** — é ela que prova que o comportamento não mudou.
 
