@@ -18,6 +18,22 @@
 
 ## Abertos
 
+### [2026-10-16] Renda Fixa (T-091c/d): como exibir o valor e o vocabulário de `kind` — BLOQUEIA a fatia 1
+- **Origem**: spike de design (Plan/Opus) da T-091c/d, pedido do orquestrador após o humano redefinir o escopo (dashboard real, manual + Pluggy)
+- **Bloqueia**: a fatia c1 (schema + `fixed-income-core` + CRUD manual) — as duas decisões moldam o schema, e mudar depois é migração.
+- **Pergunta 1 — valor exibido da posição manual**: (1️⃣, recomendado) só "valor aplicado" ou "saldo informado pelo usuário numa data", **sem estimar rendimento** automaticamente; (2️⃣) estimar rendimento por CDI/IPCA/taxa contratada. A recomendação é a 1️⃣ porque estimar é cálculo financeiro real (dias úteis, IR, IOF, marcação a mercado do Tesouro) que cruza com o `insights-core` (dono da série de CDI) — mostrar um número estimado errado é pior que mostrar "valor aplicado" com o rótulo certo. Vira candidata própria se você quiser a 2️⃣ depois.
+- **Pergunta 2 — vocabulário de `kind`** (enum de banco + texto de UI): `CAIXINHA, CDB, LCI, LCA, TESOURO, DEBENTURE, CRI_CRA, OUTRO`. Aprova essa lista ou quer ajustar antes da fatia 1 rodar?
+- **Resposta do humano**: _(preencher)_
+
+### [2026-10-16] Renda Fixa (T-091c/d): 4 decisões que NÃO bloqueiam a fatia 1, mas vão travar fatias futuras
+- **Origem**: mesmo spike acima
+- **Bloqueia**: nada agora — a c1/c2/c3 (parte manual) rodam sem elas. Mas **d2 não roda sem a P1**, e **d4 não roda sem a P3**.
+- **P1 — gravar ou não a posição que vem da Pluggy**: recomendação do spike é **não gravar** — ler `/investments` ao vivo a cada acesso à página (mesma doutrina da T-089e: "saldo é posição, não lançamento"). A alternativa (gravar com `source`/`external_id` e sincronizar) resolve funcionar offline e ter histórico, mas custa uma fatia a mais e decisões sobre o que `replace`/`DELETE /items` fazem com o dado sincronizado.
+- **P3 — a Renda Fixa entra no patrimônio total da Home?** E se o detector achar uma possível sobreposição com a T-089e (ex.: caixinha que aparece como conta `BANK` E como investimento `CDB`), exclui automático ou só avisa? Depende de rodar o diagnóstico (fatia d1, dry-run) contra o payload real primeiro.
+- **P4 — ações de OUTRAS corretoras que a Pluggy também devolve em `/investments`** (tipo `EQUITY`): recomendação é **deixar de fora por enquanto**, só contar e avisar ("sua conexão tem N investimentos de outros tipos que ainda não aparecem aqui") — misturar com as operações manuais da B3 duplicaria quem já lança na mão a mesma corretora conectada. Reconciliar isso é candidata própria, mais para frente.
+- **P6 — quem já lançou a caixinha do banco na Poupança** (antes de a Renda Fixa existir) vai contá-la duas vezes ao cadastrar em RF ou conectar a Pluggy. Não dá para migrar automaticamente sem adivinhar qual lançamento de poupança é "na verdade" uma caixinha — a saída sugerida é um texto de orientação na página de RF, não código. Confirma ou quer outra abordagem?
+- **Resposta do humano**: _(preencher — pode esperar até a fatia d1 estar perto)_
+
 ### [2026-10-15] Agente de insights de ações/cripto: informativo, nunca consultivo
 - **Origem**: orquestrador (conversa com o humano sobre os próximos passos da AWS)
 - **Bloqueia**: nada hoje — candidata no `BACKLOG.md`, depende da fase 3 de `plano-migracao-aws.md` (onde o cron Lambda vai rodar).
