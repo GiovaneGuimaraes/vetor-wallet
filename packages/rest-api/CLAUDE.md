@@ -7,7 +7,7 @@ API REST em Node + Express + TypeScript (CJS). Leia junto com o `CLAUDE.md` da r
 ```
 src/
 └── api/
-    ├── index.ts      # entry: sessão, CORS, 23 routers, initDb(), catch-up de
+    ├── index.ts      # entry: sessão, CORS, 24 routers, initDb(), catch-up de
     │                 # snapshots no boot (não-fatal). O scheduler de 30min da
     │                 # T-061 saiu na T-109b; o router admin, na T-109a
     ├── auth/         # middleware (requireAuth → res.locals.userId) e
@@ -148,6 +148,12 @@ moram só ali e não devem migrar para os cores:
   em `VITE_*`, a duplicação que a decisão do humano proíbe.
 - **`PluggyApiError` vira 502**, não 500: a falha é de terceiro e a mensagem do
   package já é acionável e livre de credencial.
+
+Na T-091c/d (fatia c1) entrou `@vetor-wallet/fixed-income-core` e
+`routes/fixedIncome.ts` (`/api/fixed-income`). A rota **não tem SQL**: valida o
+corpo (inclusive as regras que cruzam campos — `maturityDate >= investedAt`
+contra o estado final no PATCH, e o par `currentValue`/`currentValueDate`) e
+injeta `createSqliteQuery(db)` no core, igual a `routes/savings.ts`.
 
 Entry compilado: `dist/api/index.js` (`pnpm --filter vetor-wallet-rest-api start`). Rodar `node dist/api/index.js` de fora de `packages/rest-api/` sem `DATABASE_URL` cria um banco novo no cwd errado.
 

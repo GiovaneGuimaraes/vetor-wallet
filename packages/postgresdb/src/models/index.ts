@@ -10,6 +10,7 @@ export { ExpenseEntry } from './ExpenseEntry';
 export { RecurringExpense } from './RecurringExpense';
 export { RecurringExpenseMonth } from './RecurringExpenseMonth';
 export { SavingsEntry } from './SavingsEntry';
+export { FixedIncomePosition } from './FixedIncomePosition';
 export { CategoryBudget } from './CategoryBudget';
 export { Plan } from './Plan';
 export { Subscription } from './Subscription';

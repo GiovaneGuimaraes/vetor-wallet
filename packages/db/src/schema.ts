@@ -222,6 +222,45 @@ export async function initDb() {
      ON category_budgets(user_id, category)`
   );
 
+  // ── Renda Fixa manual (T-091c/d, fatia c1) ────────────────────────────────
+  //
+  // Uma linha por POSIÇÃO (CDB, caixinha, Tesouro…), não por lançamento — é
+  // isso que a separa de `savings_entries`, que é livro-razão. Dona:
+  // `@vetor-wallet/fixed-income-core`.
+  //
+  // O valor exibido é `current_value ?? invested_amount`: saldo informado pelo
+  // usuário numa data, ou o valor aplicado. `rate_type`/`rate` são só
+  // informativos — o app NÃO estima rendimento (decisão do humano).
+  //
+  // `kind` e `rate_type` mudam junto com `FIXED_INCOME_KINDS`/
+  // `FIXED_INCOME_RATE_TYPES` do core e com o ENUM do `postgresdb`. O par
+  // `current_value`/`current_value_date` (os dois ou nenhum) e
+  // `maturity_date >= invested_at` são validados na rota, não por CHECK: um
+  // CHECK novo numa tabela existente exigiria rebuild no SQLite.
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS fixed_income_positions (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id            INTEGER NOT NULL REFERENCES users(id),
+      name               TEXT    NOT NULL,
+      kind               TEXT    NOT NULL CHECK(kind IN
+                           ('CAIXINHA','CDB','LCI','LCA','TESOURO','DEBENTURE','CRI_CRA','OUTRO')),
+      institution        TEXT    NOT NULL DEFAULT '',
+      invested_amount    REAL    NOT NULL,
+      invested_at        TEXT    NOT NULL,
+      maturity_date      TEXT,
+      rate_type          TEXT    NOT NULL CHECK(rate_type IN ('PRE','CDI','IPCA','SELIC')),
+      rate               REAL    NOT NULL,
+      current_value      REAL,
+      current_value_date TEXT,
+      created_at         TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  await db.execute(
+    `CREATE INDEX IF NOT EXISTS idx_fixed_income_positions_user
+     ON fixed_income_positions(user_id, invested_at)`
+  );
+
   // A tabela `goals` era criada aqui. Metas saiu do app na T-091b1 e o dado foi
   // apagado na T-091b2 (`dropGoalsSchema`, chamada no fim deste arquivo). O
   // CREATE precisava sair junto do DROP: `IF NOT EXISTS` + `initDb()` a cada boot

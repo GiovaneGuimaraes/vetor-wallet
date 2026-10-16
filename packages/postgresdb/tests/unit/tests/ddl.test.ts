@@ -78,6 +78,44 @@ describe('DDL gerado', () => {
     expect(ddl(models.Operation)).toContain('enum_operations_type');
   });
 
+  it('fixed_income_positions: ENUMs, dinheiro exato, datas DATE e opcionais nulos (T-091c/d)', () => {
+    const sql = ddl(models.FixedIncomePosition);
+    expect(sql).toContain('enum_fixed_income_positions_kind');
+    expect(sql).toContain('enum_fixed_income_positions_rate_type');
+    expect(sql).toContain('"invested_amount" DECIMAL(14,2) NOT NULL');
+    expect(sql).toMatch(/"current_value" DECIMAL\(14,2\)(,| )/);
+    expect(sql).not.toContain('"current_value" DECIMAL(14,2) NOT NULL');
+    expect(sql).toContain('"invested_at" DATE NOT NULL');
+    expect(sql).toMatch(/"maturity_date" DATE(,| )/);
+    expect(sql).not.toContain('"maturity_date" DATE NOT NULL');
+    expect(sql).toMatch(/"current_value_date" DATE(,| )/);
+    expect(sql).toContain('"institution" TEXT NOT NULL DEFAULT \'\'');
+    // Taxa é percentual, não dinheiro: DOUBLE espelha o REAL do SQLite sem
+    // arredondar na carga.
+    expect(sql).toContain('"rate" DOUBLE PRECISION NOT NULL');
+    expect(sql).toContain('"user_id" INTEGER NOT NULL');
+  });
+
+  it('o índice composto de fixed_income_positions usa as colunas em snake_case', () => {
+    // `@Index` na propriedade geraria `"userId"` e o Postgres recusaria (bug de
+    // 2026-09-22). Aqui o índice vem de `@Table({ indexes })`.
+    const qi = sequelize.getQueryInterface() as unknown as {
+      queryGenerator: {
+        addIndexQuery(table: string, options: unknown, raw?: string): string;
+      };
+    };
+    const [index] = models.FixedIncomePosition.options.indexes ?? [];
+    expect(index).toEqual(
+      expect.objectContaining({
+        name: 'idx_fixed_income_positions_user',
+        fields: ['user_id', 'invested_at'],
+      })
+    );
+    const sql = qi.queryGenerator.addIndexQuery('fixed_income_positions', index);
+    expect(sql).toContain('("user_id", "invested_at")');
+    expect(sql).not.toContain('userId');
+  });
+
   afterAll(async () => {
     await sequelize.close().catch(() => undefined);
   });
