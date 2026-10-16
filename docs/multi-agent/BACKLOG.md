@@ -32,10 +32,11 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Aceite**: carteira B3 com os mesmos números; suítes verdes.
 
 ### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva)
-- **Status**: EM_ANDAMENTO (6 de ~8; fatia da vez: portfolio/snapshots) · **Complexidade**: alta
+- **Status**: EM_ANDAMENTO · portfolio-core fatia 2/2 (snapshots/portfolioHistory) · **Complexidade**: alta
 - **Objetivo**: **1 função por arquivo**, **`db` injetado**, **Jest**, cobertura **100% por threshold** — e, na MESMA PR, tirar o CRUD da rota. É o passo 3 de `plano-migracao-aws.md`; não depende de AWS.
-- **Molde**: `packages/alerts-core` (PR #201) e `packages/operations-core` (PR #196). Validação/normalização de entrada fica na ROTA, não no core. expense-entries concluído na PR #205 (estendeu `expenses-core`; POST não-recorrente reusa `insertEntryWithExternalId` do `bank-import-core`, não criou `createExpenseEntry`).
-- **portfolio/snapshots**: o maior restante — `portfolio-core` já existe mas está no formato antigo (arquivo-balaio, `db` singleton, Vitest). Decidir no início da tarefa: migrar o package inteiro de formato, ou só extrair o que ainda vive na rota (se houver) como núcleo irmão (precedente: `operations-core` ficou separado do `portfolio-core`, PR #196).
+- **Molde**: `packages/alerts-core` (PR #201) e `packages/operations-core` (PR #196).
+- **portfolio-core, fatia 1/2 CONCLUÍDA (PR #207)**: `portfolio.ts`+`wallets.ts` → 11 arquivos, `db` injetado nas 3 que tocam banco. Achado: o scheduler (`setInterval`) **saiu na T-109b** — hoje o único gatilho de coleta é `catchUpIfNeeded()` no boot, verificado subindo o server compilado (boot real, não só suíte). Detalhe da divisão em `packages/portfolio-core/CLAUDE.md`.
+- **Fatia 2/2, o que falta** (listado no `CLAUDE.md` do package): migrar `snapshots.ts` e `portfolioHistory.ts` para 1 função/arquivo em Jest; tirar o SQL restante de `routes/portfolio.ts`/`routes/snapshots.ts`; passar `db` para `catchUpIfNeeded` a partir de `api/index.ts` (repetir a verificação de boot); limpar o estado provisório (Vitest ainda rodando em paralelo ao Jest no package).
 - **Faltam depois desta**: budgets (pulada por ora, ver nota).
 - **Nota sobre budgets**: backend sem UI, "nada consome" (ver Candidatas) — avaliar remoção em vez de migração quando chegar a vez.
 - **Aceite (por package)**: cobertura 100%; `build`, `lint`, `format:check` e `pnpm test` verdes; **contagem de testes do `rest-api` preservada** — é ela que prova que o comportamento não mudou.
