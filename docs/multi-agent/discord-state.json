@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-10-16T15:01:58-03:00"
+    "atualizadoEm": "2026-10-16T15:43:26-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-10-16T15:02:03-03:00"
+    "atualizadoEm": "2026-10-16T15:43:15-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -147,8 +147,8 @@
     "T-091cd": {
       "canal": "todo-ai",
       "messageId": "1560712000353468489",
-      "status": "BLOQUEADA",
-      "nota": "Spike concluido (7 fatias). Bloqueada em 2 decisoes do humano no #todo-human antes da fatia 1."
+      "status": "EM_ANDAMENTO",
+      "nota": "Fatia c1 (schema + fixed-income-core + CRUD manual). Decisoes do humano recebidas via AskUserQuestion em 2026-10-16."
     }
   },
   "humanTodos": {
@@ -160,7 +160,7 @@
         "1️⃣": "valor aplicado, sem estimar rendimento (recomendado)",
         "2️⃣": "estimar rendimento por CDI/IPCA/taxa"
       },
-      "status": "ABERTO 2026-10-16: bloqueia a fatia 1 (schema) da T-091c/d. Precisa tambem da aprovacao do vocabulario de kind (CAIXINHA/CDB/LCI/LCA/TESOURO/DEBENTURE/CRI_CRA/OUTRO)."
+      "status": "RESPONDIDO 2026-10-16 (via AskUserQuestion): opcao 1 (valor aplicado, sem estimar rendimento) e vocabulario de kind aprovado sem ajuste. Fatia 1 liberada."
     },
     "T-091cd-nao-bloqueantes": {
       "canal": "todo-human",
