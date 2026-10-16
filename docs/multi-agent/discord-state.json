@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-10-16T13:37:52-03:00"
+    "atualizadoEm": "2026-10-16T14:02:14-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -133,6 +133,13 @@
     "T-104-portfolio": {
       "canal": "todo-ai",
       "messageId": "1560693246408269938",
+      "status": "CONCLUIDA",
+      "pr": 207,
+      "nota": "Fatia 1/2 (portfolio.ts+wallets.ts). Fatia 2/2 (snapshots/portfolioHistory) tem mensagem propria."
+    },
+    "T-104-portfolio-2": {
+      "canal": "todo-ai",
+      "messageId": "1560699376181973074",
       "status": "EM_ANDAMENTO"
     }
   },
