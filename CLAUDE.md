@@ -87,8 +87,12 @@ packages/
 │                     # opcional, fail closed, NÃO toca o banco (T-106).
 │                     # Formato-alvo, runner Vitest, cobertura 100%
 ├── portfolio-core/   # @vetor-wallet/portfolio-core — preço médio ponderado,
-│                     # validação de SELL, série valor × custo, carteiras,
-│                     # snapshots + agendador (T-099c, Ciclo 19)
+│                     # validação de SELL, série valor × custo, carteira única,
+│                     # snapshots + gatilho no boot (T-099c, Ciclo 19).
+│                     # Formato-alvo PELA METADE (T-104, fatia 1/2): posição e
+│                     # carteira já são 1 função/arquivo, `db` injetado, Jest
+│                     # 100%; snapshots.ts/portfolioHistory.ts seguem balaio
+│                     # + Vitest até a fatia 2 — o `test` roda os dois runners
 ├── operations-core/  # @vetor-wallet/operations-core — o CRUD de operations e
 │                     # a leitura de wallets que vivia nas rotas; nasceu no
 │                     # formato-alvo (T-104). A REGRA (preço médio, SELL) fica
@@ -147,7 +151,7 @@ pnpm --filter @vetor-wallet/postgresdb db:sync     # aplica o schema no Postgres
 pnpm --filter @vetor-wallet/query test             # Jest (query)
 pnpm --filter @vetor-wallet/bank-import-core test  # Vitest (bank-import-core)
 pnpm --filter @vetor-wallet/pluggy-core test       # Vitest (pluggy-core)
-pnpm --filter @vetor-wallet/portfolio-core test    # Vitest (portfolio-core)
+pnpm --filter @vetor-wallet/portfolio-core test    # Jest (migrados, 100%) + Vitest (snapshots/histórico)
 pnpm --filter @vetor-wallet/insights-core test     # Vitest (insights-core)
 pnpm --filter @vetor-wallet/auth-core test         # Vitest (auth-core)
 pnpm --filter @vetor-wallet/cognito-core test      # Vitest (cognito-core)

@@ -70,8 +70,9 @@ cruza dois cores é a rota, não um core.
 
 Houve a alternativa de uma função `exceedsCurrentPosition` aqui, importando o
 `portfolio-core`. Foi recusada por um motivo concreto além da regra: o barrel do
-`portfolio-core` carrega `wallets.ts`/`snapshots.ts`, que importam o **singleton**
-`@vetor-wallet/db` no topo do módulo — e esse singleton cria um `data/wallet.db`
+`portfolio-core` carrega `snapshots.ts`, que importa o **singleton**
+`@vetor-wallet/db` no topo do módulo (até a fatia 2/2 da migração de formato do
+`portfolio-core`; `wallets.ts` já saiu na fatia 1) — e esse singleton cria um `data/wallet.db`
 no `cwd` quando não há `DATABASE_URL`. A suíte unitária deste package, que existe
 justamente para não precisar de banco, passaria a criar um.
 
@@ -88,9 +89,10 @@ regra (`portfolio-core`), não este package.
 ## O que NÃO veio para cá
 
 - **`getOrCreateDefaultWallet`, `findDefaultWallet`, `countWallets` e
-  `withUserLock`** continuam em `packages/portfolio-core/src/wallets.ts`. São
-  regra (carteira única, adoção de operações órfãs, lock por usuário), não CRUD,
-  e migram quando aquele package migrar.
+  `withUserLock`** continuam no `portfolio-core` (um arquivo cada desde a fatia
+  1/2 da migração de formato dele, já com `db` injetado). São regra (carteira
+  única, adoção de operações órfãs, lock por usuário), não CRUD. Fundir os dois
+  packages ficou para depois da fatia 2/2 — ver `packages/portfolio-core/CLAUDE.md`.
 - **O INSERT em lote de `POST /api/import`** (CSV) continua na rota: ele usa
   `db.batch` e uma query com `IN (...)` próprios, e pertence ao fluxo de
   importação. Candidato natural à próxima fatia, não a esta.

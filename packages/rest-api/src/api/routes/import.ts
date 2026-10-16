@@ -132,7 +132,7 @@ router.post(
     errors.sort((a, b) => a.line - b.line);
 
     if (valid.length > 0) {
-      const walletId = await getOrCreateDefaultWallet(userId);
+      const walletId = await getOrCreateDefaultWallet({ db, userId });
       await db.batch(
         valid.map((op) => ({
           sql: 'INSERT INTO operations (ticker, type, quantity, price, date, user_id, wallet_id) VALUES (?, ?, ?, ?, ?, ?, ?)',

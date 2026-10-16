@@ -59,7 +59,7 @@ export async function createUser(email: string, password: string): Promise<User>
   // esperar o lazy-create do primeiro GET /api/wallets. Falhar aqui NÃO derruba
   // o registro — o lazy-create das rotas continua sendo a rede de segurança.
   try {
-    await getOrCreateDefaultWallet(id);
+    await getOrCreateDefaultWallet({ db, userId: id });
   } catch (err) {
     console.error('Falha ao criar a carteira padrao do usuario', id, err);
   }

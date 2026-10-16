@@ -137,6 +137,11 @@ movimentação mecânica e **não** o desfez. A saída natural seria a rota de
 registro orquestrar os dois (é o único lugar onde dois módulos podem se cruzar),
 mas isso muda quem é responsável por criar a carteira e fica para tarefa futura.
 
+Desde a fatia 1/2 da migração de formato do `portfolio-core` (T-104) a função
+recebe o `db` injetado: `createUser` e `cognitoMirror` chamam
+`getOrCreateDefaultWallet({ db, userId: id })` passando o mesmo singleton que já
+usam. O acoplamento não piorou nem melhorou — só a forma da chamada mudou.
+
 ## Testes: o que veio e o que ficou no `server`
 
 Veio para cá:

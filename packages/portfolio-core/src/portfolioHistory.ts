@@ -1,5 +1,6 @@
 import type { Operation, PortfolioHistoryPoint } from '@vetor-wallet/shared';
-import { applyOperation, type PositionEntry } from './portfolio';
+import { applyOperation } from './applyOperation';
+import type { PositionEntry } from './types';
 
 /**
  * Um preço de fechamento conhecido de um ticker num dia (uma linha de
