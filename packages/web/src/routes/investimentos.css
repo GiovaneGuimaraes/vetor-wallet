@@ -1,0 +1,122 @@
+/*
+ * Estilos do dashboard consolidado em `/investimentos` (T-091c/d, fatia c3).
+ * Reusa `.vw-savings-summary-*` (layers-savings.css) para o card de total —
+ * mesmo visual dos resumos de Poupança/Renda Fixa, sem duplicar CSS. Classes
+ * próprias prefixadas `.vw-invest-*`. Cores só via CSS custom properties
+ * (CLAUDE.md › Convenções) — sem lib de gráfico, SVG à mão para a barra.
+ */
+
+.vw-invest-overview {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 720px) {
+  .vw-invest-overview {
+    grid-template-columns: 1fr;
+  }
+}
+
+.vw-invest-overview-total {
+  border-radius: var(--radius-card, 16px);
+  padding: 18px 20px;
+  background: linear-gradient(180deg, var(--card-1), var(--card-2));
+  border: 1px solid var(--color-edge);
+}
+
+.vw-invest-allocation {
+  border-radius: var(--radius-card, 16px);
+  padding: 18px 20px;
+  background: linear-gradient(180deg, var(--card-1), var(--card-2));
+  border: 1px solid var(--color-edge);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+
+.vw-invest-allocation-bar {
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-raised);
+}
+
+.vw-invest-allocation-slice {
+  transition: width 0.2s ease;
+}
+
+.vw-invest-allocation-acoes {
+  fill: var(--color-up);
+}
+
+.vw-invest-allocation-renda-fixa {
+  fill: var(--color-bench-cdi);
+}
+
+.vw-invest-allocation-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--color-dim);
+}
+
+.vw-invest-allocation-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vw-invest-allocation-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.vw-invest-upcoming {
+  margin-top: 8px;
+}
+
+.vw-invest-upcoming-title {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--color-ink);
+  margin: 0 0 10px;
+}
+
+.vw-invest-upcoming-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vw-invest-upcoming-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-card, 16px);
+  border: 1px solid var(--color-edge);
+  background: var(--color-card);
+}
+
+.vw-invest-upcoming-name {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.vw-invest-upcoming-meta {
+  font-size: 12px;
+  color: var(--color-dim);
+  white-space: nowrap;
+}
