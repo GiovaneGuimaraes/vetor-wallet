@@ -18,12 +18,10 @@
 
 ## Abertos
 
-### [2026-10-16] Renda Fixa (T-091c/d): como exibir o valor e o vocabulário de `kind` — BLOQUEIA a fatia 1
+### [2026-10-16] ~~Renda Fixa (T-091c/d): como exibir o valor e o vocabulário de `kind`~~ — RESPONDIDO em 2026-10-16
 - **Origem**: spike de design (Plan/Opus) da T-091c/d, pedido do orquestrador após o humano redefinir o escopo (dashboard real, manual + Pluggy)
-- **Bloqueia**: a fatia c1 (schema + `fixed-income-core` + CRUD manual) — as duas decisões moldam o schema, e mudar depois é migração.
-- **Pergunta 1 — valor exibido da posição manual**: (1️⃣, recomendado) só "valor aplicado" ou "saldo informado pelo usuário numa data", **sem estimar rendimento** automaticamente; (2️⃣) estimar rendimento por CDI/IPCA/taxa contratada. A recomendação é a 1️⃣ porque estimar é cálculo financeiro real (dias úteis, IR, IOF, marcação a mercado do Tesouro) que cruza com o `insights-core` (dono da série de CDI) — mostrar um número estimado errado é pior que mostrar "valor aplicado" com o rótulo certo. Vira candidata própria se você quiser a 2️⃣ depois.
-- **Pergunta 2 — vocabulário de `kind`** (enum de banco + texto de UI): `CAIXINHA, CDB, LCI, LCA, TESOURO, DEBENTURE, CRI_CRA, OUTRO`. Aprova essa lista ou quer ajustar antes da fatia 1 rodar?
-- **Resposta do humano**: _(preencher)_
+- **Bloqueava**: a fatia c1 (schema + `fixed-income-core` + CRUD manual) — **desbloqueada**.
+- **Resposta do humano**: as duas recomendações do spike, confirmadas via `AskUserQuestion` — **1️⃣ só "valor aplicado"/"saldo informado numa data", sem estimar rendimento automaticamente**, e **aprovado o vocabulário `CAIXINHA, CDB, LCI, LCA, TESOURO, DEBENTURE, CRI_CRA, OUTRO`** sem ajuste.
 
 ### [2026-10-16] Renda Fixa (T-091c/d): 4 decisões que NÃO bloqueiam a fatia 1, mas vão travar fatias futuras
 - **Origem**: mesmo spike acima
