@@ -18,25 +18,14 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
-> **Retomar aqui (atualizado em 2026-10-15).** A fase 1 da migração está em curso e é a
-> prioridade; T-091c/d e T-089e seguem parados atrás dela.
+> **PAUSADO A PEDIDO DO HUMANO em 2026-10-15.** Nenhum executor/revisor deve ser disparado até
+> o humano pedir para retomar. Ponto exato de retomada: T-104, fatia expense-entries, abaixo.
 >
-> 1. **T-113 CONCLUÍDA (PR #195)**: `savings-core` fala só com `query`. Custo medido: tradução
->    de cada função é barata (mecânica), mas **cada core migrado antes do Postgres estar no ar
->    exige um adaptador próprio** (`createSqliteQuery` em `packages/rest-api/src/api/sqliteQuery.ts`,
->    traduz `$N` → `?` para o rest-api continuar rodando em SQLite). Decisão para os próximos
->    cores da T-104: **reusar esse mesmo adaptador genérico** por ponto de injeção, em vez de
->    criar um por domínio — ele não depende do core, só da convenção de placeholder.
-> 2. **Passo 3, o que falta**: budgets, expense-entries, portfolio/snapshots — no molde
->    da T-110a/c/d. operations/wallets (PR #196) e alerts (PR #201) **saíram da lista**.
-> 3. **Passo 4 PROVADO em 2026-09-22**: `db:up` + `db:sync` rodaram contra Postgres 16 real
->    (o humano instalou o Docker). Achou e corrigiu um bug real no caminho — `@Index` de
->    propriedade ignorando `underscored: true` em 7 modelos; detalhe em
->    `packages/postgresdb/CLAUDE.md`. Schema aplicado limpo, suíte/lint/build verdes.
-> 4. **Passos 6–8 (VPC, Aurora, Lambdas, carga) seguem parados** por decisão do humano.
->
-> **Decisão 3 (sessão) fechada em 2026-10-15**: store da sessão vai para Postgres na fase 2
-> (não JWT no gateway) — vira tarefa própria quando a fase 2 começar.
+> **Retomar aqui.** A fase 1 da migração está em curso; T-091c/d e T-089e seguem atrás dela.
+> T-113 concluída (PR #195): achado reusável para a T-104 é o adaptador `createSqliteQuery`
+> (`packages/rest-api/src/api/sqliteQuery.ts`) — só usar se o core for direto para `query`.
+> Passo 4 provado em 2026-09-22 contra Postgres real; passos 6–8 parados por decisão do humano.
+> Decisão 3 (sessão) fechada: store vai para Postgres na fase 2, não JWT no gateway.
 
 ### T-091c/d — Renda Fixa com dado real
 - **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-091a (#165) e b1 (#166)
@@ -46,11 +35,12 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Aceite**: carteira B3 com os mesmos números; suítes verdes.
 
 ### T-104 — Migrar os `*-core` restantes para o formato-alvo (guarda-chuva)
-- **Status**: EM_ANDAMENTO (5 de ~8; fatia da vez: expense-entries) · **Complexidade**: alta
+- **Status**: BLOQUEADA (pausa do humano) · fatia expense-entries · **Complexidade**: alta
 - **Objetivo**: **1 função por arquivo**, **`db` injetado**, **Jest**, cobertura **100% por threshold** — e, na MESMA PR, tirar o CRUD da rota. É o passo 3 de `plano-migracao-aws.md`; não depende de AWS.
-- **Molde**: `packages/alerts-core` (PR #201, mais recente) e `packages/operations-core` (PR #196). Validação/normalização de entrada fica na ROTA, não no core — convenção já estabelecida nas duas últimas fatias.
-- **Faltam**: budgets (pulada por ora, ver nota) · expense-entries (em andamento) · portfolio/snapshots.
-- **Nota sobre budgets**: backend sem UI, "nada consome" (ver Candidatas) — avaliar remoção em vez de migração quando chegar a vez, não gastar o formato-alvo em código morto. Pulada nesta rodada para não desperdiçar trabalho se a decisão for apagar.
+- **Molde**: `packages/alerts-core` (PR #201) e `packages/operations-core` (PR #196). Validação/normalização de entrada fica na ROTA, não no core.
+- **Retomada da fatia expense-entries**: executor (Opus) foi **interrompido a pedido do humano em 2026-10-15** antes de terminar. WIP preservado na branch `worktree-agent-ae5d581209816c6cd` (sem PR aberto), commit "wip(expenses-core): T-104 fatia expense-entries (interrompida a pedido)". Decisão já tomada pelo executor: **estender `packages/expenses-core`** em vez de criar package novo (despesa fixa/recorrência e lançamento variável convivem no mesmo core). Já criado e com teste: `listExpenseEntriesByMonth`, `getExpenseEntry`, `updateExpenseEntry`, `deleteExpenseEntry`, `summarizeExpenseEntries`. **Faltando/não verificado**: `createExpenseEntry` (recorrência + dedupe por `externalId`, a parte mais arriscada) não aparece entre os arquivos novos — checar se ficou pendente ou se passou despercebido; suíte completa do monorepo não chegou a rodar até o fim. Próximo passo ao retomar: abrir a branch como worktree de novo (ou um executor novo lendo o WIP), terminar `createExpenseEntry`, rodar tudo e só então abrir PR — não assumir que o que está lá passa.
+- **Faltam depois desta**: budgets (pulada por ora, ver nota) · portfolio/snapshots.
+- **Nota sobre budgets**: backend sem UI, "nada consome" (ver Candidatas) — avaliar remoção em vez de migração quando chegar a vez.
 - **Aceite (por package)**: cobertura 100%; `build`, `lint`, `format:check` e `pnpm test` verdes; **contagem de testes do `rest-api` preservada** — é ela que prova que o comportamento não mudou.
 
 ### T-089e — Patrimônio total com saldo das contas da Pluggy
