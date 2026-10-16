@@ -28,12 +28,15 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 > Passo 4 provado em 2026-09-22 contra Postgres real; passos 6–8 parados por decisão do humano.
 > Decisão 3 (sessão) fechada: store vai para Postgres na fase 2, não JWT no gateway.
 
-### T-091c/d — Renda Fixa com dado real
-- **Status**: PENDENTE · **Complexidade**: alta (executor Opus) · **Depende de**: T-091a (#165) e b1 (#166)
-- **Objetivo**: **(c)** posição sem ticker (valor aplicado, vencimento, taxa) — o layer hoje assume ticker da B3 + preço médio + cotação da brapi, e caixinha não tem nenhum dos três; **(d)** endpoint `/investments` da Pluggy para preencher. Em série. "Caixinha é Renda Fixa, irmã de Ações" está decidido — **não reabrir** (#165).
+### T-091c/d — Investimentos como dashboard real (Ações + Renda Fixa, manual + Pluggy)
+- **Status**: PENDENTE (spike de design antes da execução) · **Complexidade**: alta (executor Opus) · **Depende de**: T-091a (#165) e b1 (#166)
+- **Escopo redefinido pelo humano (2026-10-16)**: a página de Investimentos vira **dashboard** com dado real — serve TANTO quem integrou a Pluggy QUANTO quem lança na mão. Não é só Renda Fixa: é o hub (Ações + Renda Fixa) mostrando posição de verdade dos dois tipos de fonte. **Recomendações de agente de IA ficam para depois** (candidata própria já registrada abaixo, informativo/não-consultivo).
+- **(c)** posição sem ticker para Renda Fixa (valor aplicado, vencimento, taxa) — manual, entrada pelo usuário.
+- **(d)** endpoint `/investments` da Pluggy preenchendo a mesma posição automaticamente, sem duplicar o dado manual quando as duas fontes coexistirem.
+- "Caixinha é Renda Fixa, irmã de Ações" está decidido — **não reabrir** (#165).
 - **Risco de dupla contagem com a T-089e**: o dinheiro da caixinha **saiu** da conta, então saldo + caixinha não se sobrepõem — mas se a Pluggy devolver a caixinha *também* como conta, soma duas vezes. Conferir no payload real antes de somar.
 - **Herdado da (a)**: o hub usa o total da carteira B3 como valor de qualquer nó não-"em breve" — mapear valor por `node.key`.
-- **Aceite**: carteira B3 com os mesmos números; suítes verdes.
+- **Aceite**: carteira B3 com os mesmos números; Renda Fixa mostra posição real (manual e/ou Pluggy) sem duplicar; suítes verdes.
 
 ### T-089e — Patrimônio total com saldo das contas da Pluggy
 - **Status**: PENDENTE · **Complexidade**: média · **Depende de**: T-089 (#163)

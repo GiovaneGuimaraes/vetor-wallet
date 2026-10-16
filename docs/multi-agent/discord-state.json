@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-10-16T14:33:47-03:00"
+    "atualizadoEm": "2026-10-16T14:52:09-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -143,6 +143,12 @@
       "status": "CONCLUIDA",
       "pr": 209,
       "nota": "Ultima fatia da T-104. Guarda-chuva encerrado — so falta budgets, candidato a remocao."
+    },
+    "T-091cd": {
+      "canal": "todo-ai",
+      "messageId": "1560712000353468489",
+      "status": "PENDENTE",
+      "nota": "Escopo redefinido pelo humano em 2026-10-16: dashboard real de Investimentos (manual + Pluggy)."
     }
   },
   "humanTodos": {
