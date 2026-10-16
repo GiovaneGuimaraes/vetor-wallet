@@ -1,17 +1,30 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type { PortfolioSummary } from '@vetor-wallet/shared';
+import type {
+  FixedIncomePosition,
+  FixedIncomeSummary,
+  PortfolioSummary,
+} from '@vetor-wallet/shared';
 import type { ShellContext } from '../layout/ShellContext';
+import { vi } from 'vitest';
 
 /**
  * Achado do revisor da fatia c2 (T-091c/d): quando `renda-fixa` deixou de
- * ser `comingSoon`, o card do hub passou a cair no mesmo ramo que o de
- * Ações e exibir `stockTotals.current` (a carteira B3) sob o rótulo de
- * Renda Fixa — valor financeiro errado. Este teste trava que só o nó
- * `acoes` mostra esse número; qualquer outro nó "pronto" mostra o traço
- * até ter o próprio resumo buscado (fatia c3).
+ * ser `comingSoon`, o card do hub passou a cair no mesmo ramo que o de Ações
+ * e exibir `stockTotals.current` (a carteira B3) sob o rótulo de Renda Fixa
+ * — valor financeiro errado. A fatia c3 liga o resumo real de Renda Fixa
+ * (`GET /api/fixed-income`), buscado à parte do `ShellContext`: estes testes
+ * travam (1) que o card de Ações nunca muda de fonte, (2) que o card/total
+ * de Renda Fixa usa o dado real quando o fetch funciona, e (3) que uma falha
+ * nesse fetch fica isolada nele — nunca derruba a página inteira.
+ *
+ * O fetch de Renda Fixa é mockado via `getImpl`, uma função comum (não
+ * `vi.fn().mockRejectedValue`) — a mesma armadilha documentada em
+ * `PluggyImportModal.test.tsx`: uma promise rejeitada devolvida direto por um
+ * spy do Vitest vira erro não tratado do runner, mesmo quando o componente
+ * trata o erro corretamente.
  */
 
 const shellContext: Partial<ShellContext> = {
@@ -33,21 +46,123 @@ vi.mock('../layout/ShellContext', async () => {
   };
 });
 
+let getImpl: () => Promise<{
+  positions: FixedIncomePosition[];
+  summary: FixedIncomeSummary;
+}> = () => Promise.reject(new Error('getImpl não configurado neste teste'));
+
+vi.mock('../api', () => ({
+  getFixedIncome: () => getImpl(),
+}));
+
 const { InvestimentosPage } = await import('./InvestimentosPage');
 
-describe('InvestimentosPage', () => {
-  it('mostra o total da carteira B3 só no card de Ações', () => {
-    render(
-      <MemoryRouter>
-        <InvestimentosPage />
-      </MemoryRouter>
-    );
+function makePosition(overrides: Partial<FixedIncomePosition> = {}): FixedIncomePosition {
+  return {
+    id: 1,
+    user_id: 1,
+    name: 'CDB Banco X',
+    kind: 'CDB',
+    institution: '',
+    invested_amount: 100,
+    invested_at: '2026-01-01',
+    maturity_date: '2026-12-01',
+    rate_type: 'PRE',
+    rate: 10,
+    current_value: null,
+    current_value_date: null,
+    created_at: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
 
-    const acoesCard = screen.getByText('Ações').closest('button')!;
+afterEach(() => {
+  cleanup();
+});
+
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <InvestimentosPage />
+    </MemoryRouter>
+  );
+}
+
+describe('InvestimentosPage', () => {
+  it('card de Ações mostra o total do ShellContext mesmo antes do fetch de Renda Fixa resolver', () => {
+    getImpl = () =>
+      new Promise(() => {
+        /* nunca resolve neste teste — representa o estado "carregando" */
+      });
+
+    renderPage();
+
+    const acoesCard = screen
+      .getByText('Ações', { selector: '.vw-layer-card-name' })
+      .closest('button')!;
     expect(acoesCard.textContent).toMatch(/1\.234,00/);
 
-    const rendaFixaCard = screen.getByText('Renda Fixa').closest('button')!;
-    expect(rendaFixaCard.textContent).not.toMatch(/1\.234,00/);
+    const rendaFixaCard = screen
+      .getByText('Renda Fixa', { selector: '.vw-layer-card-name' })
+      .closest('button')!;
     expect(rendaFixaCard.textContent).toContain('—');
+  });
+
+  it('card e total de Renda Fixa usam o resumo real quando o fetch funciona, sem mudar o de Ações', async () => {
+    getImpl = () =>
+      Promise.resolve({
+        positions: [makePosition()],
+        summary: { totalInvested: 500, totalCurrent: 550 },
+      });
+
+    renderPage();
+
+    const rendaFixaCard = await waitFor(() => {
+      const card = screen
+        .getByText('Renda Fixa', { selector: '.vw-layer-card-name' })
+        .closest('button')!;
+      expect(card.textContent).toMatch(/550,00/);
+      return card;
+    });
+    expect(rendaFixaCard.textContent).not.toContain('—');
+
+    // Ações continua exatamente o mesmo número do ShellContext.
+    const acoesCard = screen
+      .getByText('Ações', { selector: '.vw-layer-card-name' })
+      .closest('button')!;
+    expect(acoesCard.textContent).toMatch(/1\.234,00/);
+
+    // Total consolidado: 1234 (Ações) + 550 (Renda Fixa) = 1784.
+    const totalCard = screen.getByText('Total consolidado').closest('div')!;
+    expect(totalCard.textContent).toMatch(/1\.784,00/);
+
+    // Próximos vencimentos lista a posição buscada.
+    expect(screen.getByText(/CDB Banco X/)).toBeTruthy();
+  });
+
+  it('isola a falha do fetch de Renda Fixa: card e total caem para traço/erro, Ações continua normal', async () => {
+    getImpl = () => Promise.reject(new Error('network down'));
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Não foi possível carregar a Renda Fixa/)).toBeTruthy();
+    });
+
+    const rendaFixaCard = screen
+      .getByText('Renda Fixa', { selector: '.vw-layer-card-name' })
+      .closest('button')!;
+    expect(rendaFixaCard.textContent).toContain('—');
+
+    const acoesCard = screen
+      .getByText('Ações', { selector: '.vw-layer-card-name' })
+      .closest('button')!;
+    expect(acoesCard.textContent).toMatch(/1\.234,00/);
+
+    // Total consolidado cai para só Ações — nunca derruba a página.
+    const totalCard = screen.getByText('Total consolidado').closest('div')!;
+    expect(totalCard.textContent).toMatch(/1\.234,00/);
+
+    expect(screen.getByText(/Não foi possível carregar os vencimentos de Renda Fixa/)).toBeTruthy();
   });
 });
