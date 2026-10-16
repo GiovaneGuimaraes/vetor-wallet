@@ -33,11 +33,11 @@ export interface InvestmentNode {
 /**
  * Filhos de Investimentos, na ordem em que aparecem no hub.
  *
- * `acoes` é o único com `comingSoon: false` — é a carteira B3 real, que já
- * existe desde a T-013 e cujos números não podem mudar nesta fase.
- * `renda-fixa` reusa `poupanca-t.png` **de propósito e temporariamente**: a
- * fase (a) não cria asset novo (mascote próprio fica para quando o layer
- * tiver conteúdo de verdade).
+ * `acoes` é a carteira B3 real, que já existe desde a T-013 e cujos números
+ * não podem mudar nesta fase. `renda-fixa` ganhou dado real na T-091c/d fatia
+ * c2 (`comingSoon: false`) e reusa `poupanca-t.png` **de propósito e
+ * temporariamente**: mascote próprio fica para uma decisão de asset separada.
+ * `cripto` segue `comingSoon: true` — fora do escopo desta leva de tarefas.
  */
 export const INVESTMENT_NODES: InvestmentNode[] = [
   {
@@ -61,9 +61,10 @@ export const INVESTMENT_NODES: InvestmentNode[] = [
     path: `${INVESTMENTS_ROOT}/renda-fixa`,
     name: 'Renda Fixa',
     desc: 'Caixinhas, CDB e Tesouro',
-    // Reuso intencional e temporário — ver JSDoc acima.
+    // Reuso intencional e temporário — ver JSDoc acima. O mascote próprio é
+    // decisão de asset separada; a T-091c/d fatia c2 só liga o dado real.
     mascot: 'poupanca-t.png',
-    comingSoon: true,
+    comingSoon: false,
   },
 ];
 
