@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-10-16T14:52:09-03:00"
+    "atualizadoEm": "2026-10-16T15:01:58-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-10-15T15:26:00-03:00"
+    "atualizadoEm": "2026-10-16T15:02:03-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -147,11 +147,27 @@
     "T-091cd": {
       "canal": "todo-ai",
       "messageId": "1560712000353468489",
-      "status": "PENDENTE",
-      "nota": "Escopo redefinido pelo humano em 2026-10-16: dashboard real de Investimentos (manual + Pluggy)."
+      "status": "BLOQUEADA",
+      "nota": "Spike concluido (7 fatias). Bloqueada em 2 decisoes do humano no #todo-human antes da fatia 1."
     }
   },
   "humanTodos": {
+    "T-091cd-valor-kind": {
+      "canal": "todo-human",
+      "messageId": "1560714490079875093",
+      "modo": "emoji + resposta",
+      "opcoes": {
+        "1️⃣": "valor aplicado, sem estimar rendimento (recomendado)",
+        "2️⃣": "estimar rendimento por CDI/IPCA/taxa"
+      },
+      "status": "ABERTO 2026-10-16: bloqueia a fatia 1 (schema) da T-091c/d. Precisa tambem da aprovacao do vocabulario de kind (CAIXINHA/CDB/LCI/LCA/TESOURO/DEBENTURE/CRI_CRA/OUTRO)."
+    },
+    "T-091cd-nao-bloqueantes": {
+      "canal": "todo-human",
+      "messageId": "1560714526217863260",
+      "modo": "so aviso",
+      "status": "ABERTO 2026-10-16: 4 decisoes (gravar posicao Pluggy, RF no patrimonio, acoes de outras corretoras, caixinha ja lancada em Poupanca) que travam fatias futuras (d2/d4), nao a fatia 1."
+    },
     "T-106-cognito-pool": {
       "canal": "todo-human",
       "messageId": "1539439876913635450",

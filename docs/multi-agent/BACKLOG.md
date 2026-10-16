@@ -28,15 +28,13 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 > Passo 4 provado em 2026-09-22 contra Postgres real; passos 6–8 parados por decisão do humano.
 > Decisão 3 (sessão) fechada: store vai para Postgres na fase 2, não JWT no gateway.
 
-### T-091c/d — Investimentos como dashboard real (Ações + Renda Fixa, manual + Pluggy)
-- **Status**: PENDENTE (spike de design antes da execução) · **Complexidade**: alta (executor Opus) · **Depende de**: T-091a (#165) e b1 (#166)
-- **Escopo redefinido pelo humano (2026-10-16)**: a página de Investimentos vira **dashboard** com dado real — serve TANTO quem integrou a Pluggy QUANTO quem lança na mão. Não é só Renda Fixa: é o hub (Ações + Renda Fixa) mostrando posição de verdade dos dois tipos de fonte. **Recomendações de agente de IA ficam para depois** (candidata própria já registrada abaixo, informativo/não-consultivo).
-- **(c)** posição sem ticker para Renda Fixa (valor aplicado, vencimento, taxa) — manual, entrada pelo usuário.
-- **(d)** endpoint `/investments` da Pluggy preenchendo a mesma posição automaticamente, sem duplicar o dado manual quando as duas fontes coexistirem.
-- "Caixinha é Renda Fixa, irmã de Ações" está decidido — **não reabrir** (#165).
-- **Risco de dupla contagem com a T-089e**: o dinheiro da caixinha **saiu** da conta, então saldo + caixinha não se sobrepõem — mas se a Pluggy devolver a caixinha *também* como conta, soma duas vezes. Conferir no payload real antes de somar.
-- **Herdado da (a)**: o hub usa o total da carteira B3 como valor de qualquer nó não-"em breve" — mapear valor por `node.key`.
-- **Aceite**: carteira B3 com os mesmos números; Renda Fixa mostra posição real (manual e/ou Pluggy) sem duplicar; suítes verdes.
+### T-091c/d — Investimentos como dashboard real (guarda-chuva, spike concluído 2026-10-16)
+- **Status**: BLOQUEADA (2 decisões do humano antes da fatia 1) · **Complexidade**: alta · **Depende de**: T-091a (#165) e b1 (#166)
+- **Escopo**: página de Investimentos vira dashboard com dado real, pra quem lança na mão E pra quem integrou a Pluggy — Ações (já existe, **não mexer nos números**) + Renda Fixa (hoje só placeholder). IA fica para depois.
+- **Decisão travada**: Renda Fixa manual é tabela nova, core novo `fixed-income-core` (não entra no `portfolio-core`/`savings-core`) — "não reabrir" (#165).
+- **Roadmap em 7 fatias** (spike completo nos comentários da sessão/PR de cada fatia): **c1** schema+core+CRUD manual · **c2** página RF no web · **c3** hub vira dashboard (resolve o "herdado da (a)": valor por `node.key`) · **d1** `pluggy-core` lê `/investments` + CLI de diagnóstico (dry-run, sem valor/nome) · **d2** RF lê Pluggy ao vivo, sem gravar (mesma doutrina da T-089e: "saldo é posição") · **d3** vínculo manual↔Pluggy pra não duplicar · **d4** RF entra no patrimônio da Home (depende da T-089e — **não rodar d1 e T-089e em paralelo**, as duas mexem em `pluggy-core/toPluggyAccount.ts`).
+- **Bloqueado por** (ver `TODO-HUMANO.md`): como exibir valor da RF (estimar rendimento ou só valor aplicado?) e a lista de `kind` (CAIXINHA/CDB/LCI/LCA/TESOURO/DEBENTURE/CRI_CRA/OUTRO) — ambos travam o schema da fatia c1, mudar depois é migração.
+- **Aceite (geral)**: carteira B3 com os mesmos números em todo lugar; cada fatia com suíte verde e PR própria, no espírito da T-104.
 
 ### T-089e — Patrimônio total com saldo das contas da Pluggy
 - **Status**: PENDENTE · **Complexidade**: média · **Depende de**: T-089 (#163)
