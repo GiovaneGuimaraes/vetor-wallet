@@ -382,9 +382,6 @@ importers:
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.43
-      '@vitest/coverage-v8':
-        specifier: ^2.1.9
-        version: 2.1.9(vitest@2.1.9(@types/node@20.19.43)(jsdom@30.0.1(@noble/hashes@1.8.0))(lightningcss@1.32.0))
       jest:
         specifier: ^29.7.0
         version: 29.7.0(@types/node@20.19.43)(ts-node@10.9.2(@types/node@20.19.43)(typescript@5.9.3))
@@ -400,9 +397,6 @@ importers:
       typescript:
         specifier: ^5.4.5
         version: 5.9.3
-      vitest:
-        specifier: ^2.1.9
-        version: 2.1.9(@types/node@20.19.43)(jsdom@30.0.1(@noble/hashes@1.8.0))(lightningcss@1.32.0)
 
   packages/postgresdb:
     dependencies:

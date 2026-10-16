@@ -106,7 +106,10 @@ initDb()
     // um erro logado, do mesmo espírito do `createUser` da T-050a. `runSnapshotJob`
     // já engole a falha de fetch; o `catch` aqui cobre o que sobra (erro de
     // banco na checagem, rejeição inesperada).
-    catchUpIfNeeded().catch((err) => {
+    //
+    // T-104 (fatia 2/2): o `db` é injetado aqui — o `portfolio-core` não abre
+    // mais conexão própria.
+    catchUpIfNeeded({ db }).catch((err) => {
       console.error('[snapshots] Catch-up on startup failed (server continues):', err);
     });
 

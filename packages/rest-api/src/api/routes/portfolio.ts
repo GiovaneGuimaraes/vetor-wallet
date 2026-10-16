@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '@vetor-wallet/db';
 import { fetchQuotes } from '@vetor-wallet/brapi-core';
+import { listOperationsChronological } from '@vetor-wallet/operations-core';
 import {
   buildDateWindow,
   buildPortfolioHistory,
@@ -8,11 +9,10 @@ import {
   buildPositionMap,
   getBRTDate,
   getPreviousCloseSnapshots,
-  type SnapshotPoint,
+  listSnapshotPointsForWindow,
 } from '@vetor-wallet/portfolio-core';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
-import type { Operation } from '@vetor-wallet/shared';
 import { parseDaysParam } from '@vetor-wallet/validation-core';
 
 const router = Router();
@@ -29,11 +29,7 @@ router.get(
 
     // Carteira única (T-050): `?walletId=` é ignorado — o P&L é sempre o
     // consolidado do usuário, inclusive sobre carteiras legadas.
-    const result = await db.execute({
-      sql: 'SELECT * FROM operations WHERE user_id = ? ORDER BY date ASC, created_at ASC',
-      args: [userId],
-    });
-    const ops = result.rows as unknown as Operation[];
+    const ops = await listOperationsChronological({ db, userId });
 
     const positionMap = buildPositionMap(ops);
 
@@ -45,7 +41,11 @@ router.get(
     const { quotes, failed } = await fetchQuotes(activeTickers);
 
     const todayISO = getBRTDate().toISOString().split('T')[0];
-    const previousCloses = await getPreviousCloseSnapshots(activeTickers, todayISO);
+    const previousCloses = await getPreviousCloseSnapshots({
+      db,
+      tickers: activeTickers,
+      beforeDateISO: todayISO,
+    });
 
     const summary = buildPortfolioSummary(positionMap, quotes, failed, previousCloses);
 
@@ -74,58 +74,19 @@ router.get(
     const endDate = getBRTDate().toISOString().split('T')[0];
     const dates = buildDateWindow(endDate, days);
 
-    const opsResult = await db.execute({
-      sql: `SELECT * FROM operations
-            WHERE user_id = ? AND date <= ?
-            ORDER BY date ASC, created_at ASC`,
-      args: [userId, endDate],
-    });
-    const ops = opsResult.rows as unknown as Operation[];
+    const ops = await listOperationsChronological({ db, userId, until: endDate });
 
     // O isolamento por usuário mora aqui, nas operações: `quote_snapshots` não
     // tem `user_id` (preço de fechamento é global) e só é consultada para os
-    // tickers que o próprio usuário já operou.
+    // tickers que o próprio usuário já operou. O piso de data da consulta
+    // (T-063) vive em `listSnapshotPointsForWindow`.
     const tickers = [...new Set(ops.map((op) => op.ticker))];
-
-    let snapshots: SnapshotPoint[] = [];
-    if (tickers.length > 0) {
-      // Piso de data (T-063): a query não trafega mais o histórico inteiro do
-      // ticker — só as linhas DENTRO da janela + uma linha de BASE por ticker
-      // (o último fechamento conhecido antes dela), que é o que o
-      // forward-fill do primeiro dia da janela precisa. Sem o piso, a coleta
-      // diária ligada na T-058a/T-061 faz `quote_snapshots` crescer sem
-      // limite e cada request de histórico voltaria a ler a tabela inteira.
-      const windowStart = dates[0];
-      const placeholders = tickers.map(() => '?').join(',');
-
-      const snapResult = await db.execute({
-        sql: `SELECT ticker, date(captured_at) AS date, price FROM quote_snapshots
-              WHERE ticker IN (${placeholders}) AND date(captured_at) >= ? AND date(captured_at) <= ?
-              ORDER BY captured_at ASC`,
-        args: [...tickers, windowStart, endDate],
-      });
-
-      // Base do forward-fill: por ticker, o fechamento mais recente ANTERIOR
-      // ao início da janela (estritamente `<`, para não duplicar uma linha já
-      // trazida pela query acima quando ela cai exatamente em `windowStart`).
-      const baseResult = await db.execute({
-        sql: `SELECT q.ticker AS ticker, date(q.captured_at) AS date, q.price AS price
-              FROM quote_snapshots q
-              INNER JOIN (
-                SELECT ticker, MAX(date(captured_at)) AS max_date
-                FROM quote_snapshots
-                WHERE ticker IN (${placeholders}) AND date(captured_at) < ?
-                GROUP BY ticker
-              ) latest ON latest.ticker = q.ticker AND latest.max_date = date(q.captured_at)`,
-        args: [...tickers, windowStart],
-      });
-
-      snapshots = [...baseResult.rows, ...snapResult.rows].map((row) => ({
-        ticker: String(row.ticker),
-        date: String(row.date),
-        price: Number(row.price),
-      }));
-    }
+    const snapshots = await listSnapshotPointsForWindow({
+      db,
+      tickers,
+      windowStart: dates[0],
+      endDate,
+    });
 
     res.json({ points: buildPortfolioHistory(ops, snapshots, dates) });
   })

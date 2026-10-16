@@ -1,43 +1,7 @@
 import type { Operation, PortfolioHistoryPoint } from '@vetor-wallet/shared';
 import { applyOperation } from './applyOperation';
-import type { PositionEntry } from './types';
-
-/**
- * Um preço de fechamento conhecido de um ticker num dia (uma linha de
- * `quote_snapshots` já reduzida ao par data/preço). `date` é `YYYY-MM-DD`.
- */
-export interface SnapshotPoint {
-  ticker: string;
-  date: string;
-  price: number;
-}
-
-/** Arredonda em centavos — a série é exibida em BRL, não faz sentido carregar ruído de float. */
-function roundCents(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-/**
- * Desloca uma data `YYYY-MM-DD` em `delta` dias (aritmética em UTC, sem
- * armadilha de fuso — mesma abordagem de `isValidIsoDate` em `@vetor-wallet/validation-core/src/isValidIsoDate.ts`).
- */
-export function shiftDate(isoDate: string, delta: number): string {
-  const [y, m, d] = isoDate.split('-').map(Number);
-  const ms = Date.UTC(y, m - 1, d) + delta * 24 * 60 * 60 * 1000;
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
-/**
- * Os `days` dias da janela que TERMINA em `endDateISO` (inclusive), em ordem
- * crescente. `days = 1` devolve só o próprio `endDateISO`.
- */
-export function buildDateWindow(endDateISO: string, days: number): string[] {
-  const dates: string[] = [];
-  for (let i = days - 1; i >= 0; i -= 1) {
-    dates.push(shiftDate(endDateISO, -i));
-  }
-  return dates;
-}
+import { roundCents } from './roundCents';
+import type { PositionEntry, SnapshotPoint } from './types';
 
 /**
  * Série histórica de valor de mercado × custo da carteira, um ponto por dia da
