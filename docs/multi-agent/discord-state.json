@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-10-21T13:39:20-03:00"
+    "atualizadoEm": "2026-10-21T14:26:54-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-10-21T13:18:11-03:00"
+    "atualizadoEm": "2026-10-21T14:26:54-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -148,7 +148,7 @@
       "canal": "todo-ai",
       "messageId": "1560712000353468489",
       "status": "EM_ANDAMENTO",
-      "nota": "Manual (c1-c3) + d1 + d2 concluidos (PRs #214/#216/#218/#221/#224). Proxima: d3 (vinculo manual-Pluggy)."
+      "nota": "Manual (c1-c3) + d1 + d2 concluidos. Spike da d3 concluido e decisoes confirmadas. Em andamento: d3a (schema+core+rota)."
     }
   },
   "humanTodos": {
@@ -373,6 +373,12 @@
       "messageId": "1560354716461043775",
       "modo": "so aviso",
       "status": "DECIDIDO 2026-10-15 via chat: agente de insights de acoes/cripto e informativo, nunca consultivo (CVM regula recomendacao personalizada). Funcao deterministica antes de LLM onde der; MCP fica para depois. Candidata no BACKLOG.md, depende da fase 3 da migracao AWS."
+    },
+    "T-091cd-d3-vinculo": {
+      "canal": "todo-human",
+      "messageId": "1562517461025427457",
+      "modo": "so aviso",
+      "status": "RESPONDIDO 2026-10-21 (via AskUserQuestion): vinculo explicito, grava so o id do investimento (ponteiro, nao fere a P1), vinculo orfao volta a contar com aviso. Desbloqueou d3a."
     }
   },
   "lastSeen": {

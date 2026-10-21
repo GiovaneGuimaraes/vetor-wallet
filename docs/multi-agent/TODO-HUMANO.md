@@ -18,6 +18,12 @@
 
 ## Abertos
 
+### [2026-10-21] ~~Renda Fixa (T-091c/d, d3): como evitar contar 2x o mesmo título lançado à mão E vindo da Pluggy~~ — RESPONDIDO em 2026-10-21
+- **Origem**: spike de design (Plan/Opus) da fatia d3
+- **Bloqueava**: d3a (schema). A d3b depende da d3a. **Desbloqueada.**
+- **Resposta do humano** (via `AskUserQuestion`, as 3 recomendações do spike): **1️⃣ vínculo explícito** — o usuário escolhe "esta posição minha = aquele investimento da conexão" numa lista ordenada por semelhança, nada pré-marcado nem aplicado sozinho; **1️⃣ aceitar gravar o ponteiro** — só o `id` do investimento na Pluggy numa coluna nova da posição manual (`superseded_by_pluggy_investment_id`), nunca valor/nome/taxa, não fere a P1 (é anotação do usuário sobre a própria linha, nunca usado pra buscar nada); **1️⃣ vínculo órfão volta a contar no total, com aviso** — risco de contar a mais por um tempo é preferível a esconder dinheiro sem prova.
+- **Risco registrado, não bloqueante**: a estabilidade do `id` do investimento na Pluggy entre leituras é assumida, não medida contra a API real — se a Pluggy regenerar ids, os vínculos ficam órfãos (cai no caso acima, que é seguro). Dá pra medir depois com um hash de ids no `pluggy:investments`.
+
 ### [2026-10-16] ~~Renda Fixa (T-091c/d): como exibir o valor e o vocabulário de `kind`~~ — RESPONDIDO em 2026-10-16
 - **Origem**: spike de design (Plan/Opus) da T-091c/d, pedido do orquestrador após o humano redefinir o escopo (dashboard real, manual + Pluggy)
 - **Bloqueava**: a fatia c1 (schema + `fixed-income-core` + CRUD manual) — **desbloqueada**.
