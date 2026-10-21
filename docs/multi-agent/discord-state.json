@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-10-21T12:48:56-03:00"
+    "atualizadoEm": "2026-10-21T13:16:19-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-10-16T15:43:15-03:00"
+    "atualizadoEm": "2026-10-21T13:18:11-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -148,7 +148,7 @@
       "canal": "todo-ai",
       "messageId": "1560712000353468489",
       "status": "EM_ANDAMENTO",
-      "nota": "Manual (c1-c3) + d1 concluidos (PRs #214/#216/#218/#221). Proxima: d2 (RF le Pluggy ao vivo)."
+      "nota": "Manual (c1-c3) + d1 concluidos. P1 respondida (nao gravar). Em andamento: d2 (RF le Pluggy ao vivo)."
     }
   },
   "humanTodos": {
@@ -166,7 +166,7 @@
       "canal": "todo-human",
       "messageId": "1560714526217863260",
       "modo": "so aviso",
-      "status": "ABERTO 2026-10-16: 4 decisoes (gravar posicao Pluggy, RF no patrimonio, acoes de outras corretoras, caixinha ja lancada em Poupanca) que travam fatias futuras (d2/d4), nao a fatia 1."
+      "status": "P1 RESPONDIDA 2026-10-21 (nao gravar, desbloqueou d2). P3/P4/P6 seguem ABERTAS, sem pressa."
     },
     "T-106-cognito-pool": {
       "canal": "todo-human",
