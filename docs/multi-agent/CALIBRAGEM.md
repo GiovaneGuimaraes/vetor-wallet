@@ -70,6 +70,7 @@ deveria estar sendo feita.
 |---|---|---|---|
 | 2026-08-15 | `revisor.md` | veredito exige a saída real do comando de teste, não "passou"; comandos de teste corrigidos para os do monorepo atual | T-095 (relatório errado com código certo) + os filtros citados eram os de antes do rename `server` → `rest-api` (T-100) |
 | 2026-08-15 | `executor.md` | saída real dos testes no relatório, não resumo; regra de escrita em `BACKLOG.md`/Discord reescrita com o motivo (conflito entre worktrees) | T-095 (relatório errado) e revisão da fronteira do executor |
+| 2026-10-21 | `executor.md`, `revisor.md`, `README.md` | aliases de modelo passam a apontar explicitamente para a geração 5.5 (Opus 5.5/Sonnet 5.5/Haiku 5.5), não 5.1 | pedido direto do humano: 5.5 é mais eficiente e mais barata que 5.1 |
 
 ## Dataset de regressão (as 9 reprovações como eval)
 
