@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-10-21T14:26:54-03:00"
+    "atualizadoEm": "2026-10-21T14:45:50-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -148,7 +148,7 @@
       "canal": "todo-ai",
       "messageId": "1560712000353468489",
       "status": "EM_ANDAMENTO",
-      "nota": "Manual (c1-c3) + d1 + d2 concluidos. Spike da d3 concluido e decisoes confirmadas. Em andamento: d3a (schema+core+rota)."
+      "nota": "Manual (c1-c3) + d1 + d2 + d3a concluidos (PRs #214/#216/#218/#221/#224/#227). Proxima: d3b (web)."
     }
   },
   "humanTodos": {
