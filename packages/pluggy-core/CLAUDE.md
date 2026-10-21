@@ -39,6 +39,7 @@ src/
 ├── fetchPluggyInvestments.ts  # GET /investments?itemId=, por PÁGINA até totalPages (T-091d)
 ├── toPluggyInvestment.ts      # payload de investimento → PluggyInvestment (type cru)
 ├── summarizePluggyInvestments.ts # só contagem total/por type, p/ diagnóstico (T-091d)
+├── toPluggyFixedIncomePosition.ts # FIXED_INCOME em BRL → posição de RF p/ exibir (T-091d, d2)
 └── index.ts                   # barrel
 ```
 
@@ -167,10 +168,21 @@ Assumido (não achamos na doc, e o código trata os dois lados):
   no meio não é fim, `totalPages` ausente/inválido é erro e acima de
   `MAX_INVESTMENT_PAGES` (50) falha antes de paginar. O 404/403 de lá **não**
   põe o `itemId` na mensagem (credencial portadora).
-- **`PluggyInvestment.type` sai cru.** Traduzir para o vocabulário do
-  `fixed-income-core` (`FIXED_INCOME_KINDS`) é decisão do consumidor (fatia d2).
-  O tipo mora neste package (como `PluggyAccount`/`PluggyTransaction`), não no
-  `shared`, enquanto nenhum consumidor fora do servidor precisar dele.
+- **`PluggyInvestment.type` sai cru.** O tipo mora neste package (como
+  `PluggyAccount`/`PluggyTransaction`), não no `shared`, enquanto nenhum
+  consumidor fora do servidor precisar dele.
+- **`toPluggyFixedIncomePosition` (fatia d2) é a tradução para a tela de Renda
+  Fixa, e mora aqui** porque é tradução de payload externo em tipo nosso, sem I/O
+  — e não no `fixed-income-core`, que é dono de `fixed_income_positions` e não
+  pode passar a impressão de que posição da Pluggy vira linha lá (decisão do
+  humano, P1 de 2026-10-21: **nunca grava**, é lida ao vivo). Só aceita
+  `type === 'FIXED_INCOME'` com moeda `BRL` ou ausente; o resto devolve `null`
+  (escopo, não bug). **Não mapeia** `subtype`/`rateType` para o vocabulário do
+  `fixed-income-core`: os enums da Pluggy não são documentados, e chute em taxa
+  é dado financeiro errado na tela. Saída **sem `id` nem `itemId`**. O web
+  enxerga a mesma forma por `PluggyFixedIncomePosition` em `shared` — as duas
+  mudam juntas (a rota anota o retorno com o tipo do `shared`, então divergir
+  quebra o build).
 - **Nada é inventado na tradução.** Campo ausente/estranho vira `null` —
   inclusive `id`. Rejeitar transação sem id é decisão do `bank-import-core`, e
   inventar um id aqui quebraria o dedupe da T-084.

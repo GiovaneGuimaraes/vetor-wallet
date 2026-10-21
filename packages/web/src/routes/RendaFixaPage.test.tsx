@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type { FixedIncomePosition } from '@vetor-wallet/shared';
+import type {
+  FixedIncomePosition,
+  PluggyFixedIncomePosition,
+  PluggyFixedIncomeResponse,
+} from '@vetor-wallet/shared';
 
 /**
  * Testes de COSTURA (T-092): o componente chamando a lógica pura já coberta
@@ -24,8 +28,23 @@ const deleteFixedIncomePosition = vi.fn();
 let createImpl: () => Promise<FixedIncomePosition> = () =>
   Promise.reject(new Error('não definido'));
 
+/** Sem conexão bancária: a resposta normal de quem nunca ligou a Pluggy. */
+const NO_PLUGGY: PluggyFixedIncomeResponse = {
+  enabled: true,
+  connections: 0,
+  failedConnections: 0,
+  positions: [],
+  otherInvestments: 0,
+};
+
+// Função comum, não `vi.fn().mockRejectedValue` — ver nota no topo.
+let pluggyImpl: () => Promise<PluggyFixedIncomeResponse> = () => Promise.resolve(NO_PLUGGY);
+/** A última promise devolvida, para o teste esperar a leitura da conexão terminar. */
+let lastPluggyCall: Promise<unknown> = Promise.resolve();
+
 vi.mock('../api', () => ({
   getFixedIncome: (...args: unknown[]) => getFixedIncome(...args),
+  getPluggyFixedIncome: () => (lastPluggyCall = pluggyImpl()),
   createFixedIncomePosition: (...args: unknown[]) => {
     createFixedIncomePosition(...args);
     return createImpl();
@@ -70,6 +89,7 @@ beforeEach(() => {
   updateFixedIncomePosition.mockReset();
   deleteFixedIncomePosition.mockReset();
   createImpl = () => Promise.reject(new Error('não definido'));
+  pluggyImpl = () => Promise.resolve(NO_PLUGGY);
   vi.spyOn(window, 'confirm').mockReturnValue(true);
 });
 
@@ -237,5 +257,128 @@ describe('RendaFixaPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remover posição' }));
 
     expect(deleteFixedIncomePosition).not.toHaveBeenCalled();
+  });
+});
+
+/** Valores inventados (T-091d, fatia d2). */
+function makePluggyPosition(
+  overrides: Partial<PluggyFixedIncomePosition> = {}
+): PluggyFixedIncomePosition {
+  return {
+    name: 'LCI Conectada',
+    subtype: 'LCI',
+    institution: 'Banco Y',
+    investedAmount: 400,
+    currentValue: 500,
+    currentValueDate: '2026-10-01',
+    maturityDate: '2099-06-01',
+    rateType: 'CDI',
+    rate: 95,
+    ...overrides,
+  };
+}
+
+describe('RendaFixaPage — RF da conexão bancária (T-091d, fatia d2)', () => {
+  beforeEach(() => {
+    getFixedIncome.mockResolvedValue({
+      positions: [makePosition()],
+      summary: { totalInvested: 1000, totalCurrent: 1000 },
+    });
+  });
+
+  it('sem conexão: a tela fica como antes — sem seção da conexão nem total consolidado', async () => {
+    renderPage();
+    await screen.findByText(/CDB Banco X/);
+    // Deixa o fetch da Pluggy resolver antes de olhar a ausência.
+    await act(async () => {
+      await lastPluggyCall.catch(() => {});
+    });
+
+    expect(screen.queryByText('Da sua conexão bancária')).toBeNull();
+    expect(screen.queryByText('Total consolidado')).toBeNull();
+    expect(screen.queryByText('Lançada por você')).toBeNull();
+    expect(screen.queryByText(/Não foi possível ler sua conexão/)).toBeNull();
+  });
+
+  it('integração desligada: idem, nada da conexão aparece', async () => {
+    pluggyImpl = () =>
+      Promise.resolve({ ...NO_PLUGGY, enabled: false, positions: [makePluggyPosition()] });
+
+    renderPage();
+    await screen.findByText(/CDB Banco X/);
+    await act(async () => {
+      await lastPluggyCall.catch(() => {});
+    });
+
+    expect(screen.queryByText('Da sua conexão bancária')).toBeNull();
+    expect(screen.queryByText(/LCI Conectada/)).toBeNull();
+  });
+
+  it('com conexão: mostra as duas fontes rotuladas e o total consolidado soma as duas', async () => {
+    pluggyImpl = () =>
+      Promise.resolve({ ...NO_PLUGGY, connections: 1, positions: [makePluggyPosition()] });
+
+    renderPage();
+
+    expect(await screen.findByText(/LCI Conectada · Banco Y/)).toBeTruthy();
+    const pluggySection = screen.getByRole('region', { name: 'Da sua conexão bancária' });
+    expect(pluggySection.textContent).toMatch(/Não fica gravado no app/);
+    expect(pluggySection.textContent).toMatch(/R\$\s500,00/);
+    expect(pluggySection.textContent).toMatch(/Taxa 95 \(CDI\)/);
+    // A posição manual NÃO está dentro da seção da conexão.
+    expect(pluggySection.textContent).not.toMatch(/CDB Banco X/);
+
+    expect(screen.getByRole('heading', { name: 'Lançada por você' })).toBeTruthy();
+    expect(screen.getByText(/CDB Banco X/)).toBeTruthy();
+
+    // 1000 (manual) + 500 (conexão) = 1500.
+    const consolidated = screen.getByTestId('fi-consolidated');
+    expect(consolidated.textContent).toMatch(/1\.500,00/);
+    expect(consolidated.textContent).toMatch(/Lançada por você: R\$\s1\.000,00/);
+    expect(consolidated.textContent).toMatch(/Da sua conexão bancária: R\$\s500,00/);
+  });
+
+  it('posição da conexão sem saldo não entra na soma e diz isso na linha', async () => {
+    pluggyImpl = () =>
+      Promise.resolve({
+        ...NO_PLUGGY,
+        connections: 1,
+        positions: [makePluggyPosition({ currentValue: null })],
+      });
+
+    renderPage();
+
+    expect(await screen.findByText('Sem saldo informado')).toBeTruthy();
+    expect(screen.getByTestId('fi-consolidated').textContent).toMatch(/R\$\s1\.000,00/);
+  });
+
+  it('isolamento: a leitura da conexão falha e a RF manual renderiza normalmente', async () => {
+    pluggyImpl = () => Promise.reject(new Error('Falha ao ler a renda fixa da conexão bancária'));
+
+    renderPage();
+
+    expect(await screen.findByText(/Não foi possível ler sua conexão bancária agora/)).toBeTruthy();
+    // Lista, resumo e formulário manuais intactos.
+    expect(screen.getByText(/CDB Banco X/)).toBeTruthy();
+    expect(screen.getAllByText('R$ 1.000,00').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole('button', { name: 'Editar posição' })).toBeTruthy();
+    expect(screen.queryByText('Total consolidado')).toBeNull();
+    // A mensagem de erro da conexão não substituiu a página pelo erro de carga.
+    expect(screen.queryByText('Falha ao ler a renda fixa da conexão bancária')).toBeNull();
+  });
+
+  it('conexão parcialmente fora do ar: avisa que o total pode estar incompleto', async () => {
+    pluggyImpl = () =>
+      Promise.resolve({
+        ...NO_PLUGGY,
+        connections: 2,
+        failedConnections: 1,
+        positions: [makePluggyPosition()],
+      });
+
+    renderPage();
+
+    expect(await screen.findByText(/1 conexão bancária não respondeu agora/)).toBeTruthy();
+    expect(screen.getByText(/LCI Conectada/)).toBeTruthy();
   });
 });

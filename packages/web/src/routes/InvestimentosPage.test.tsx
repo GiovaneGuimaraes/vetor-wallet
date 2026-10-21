@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import type {
   FixedIncomePosition,
   FixedIncomeSummary,
+  PluggyFixedIncomeResponse,
   PortfolioSummary,
 } from '@vetor-wallet/shared';
 import type { ShellContext } from '../layout/ShellContext';
@@ -51,8 +52,20 @@ let getImpl: () => Promise<{
   summary: FixedIncomeSummary;
 }> = () => Promise.reject(new Error('getImpl não configurado neste teste'));
 
+const NO_PLUGGY: PluggyFixedIncomeResponse = {
+  enabled: true,
+  connections: 0,
+  failedConnections: 0,
+  positions: [],
+  otherInvestments: 0,
+};
+
+/** RF da conexão bancária (T-091d, fatia d2) — mesma regra do `getImpl`. */
+let pluggyImpl: () => Promise<PluggyFixedIncomeResponse> = () => Promise.resolve(NO_PLUGGY);
+
 vi.mock('../api', () => ({
   getFixedIncome: () => getImpl(),
+  getPluggyFixedIncome: () => pluggyImpl(),
 }));
 
 const { InvestimentosPage } = await import('./InvestimentosPage');
@@ -78,6 +91,7 @@ function makePosition(overrides: Partial<FixedIncomePosition> = {}): FixedIncome
 
 afterEach(() => {
   cleanup();
+  pluggyImpl = () => Promise.resolve(NO_PLUGGY);
 });
 
 function renderPage() {
@@ -164,5 +178,72 @@ describe('InvestimentosPage', () => {
     expect(totalCard.textContent).toMatch(/1\.234,00/);
 
     expect(screen.getByText(/Não foi possível carregar os vencimentos de Renda Fixa/)).toBeTruthy();
+  });
+
+  describe('RF da conexão bancária (T-091d, fatia d2)', () => {
+    const manual = () =>
+      Promise.resolve({
+        positions: [makePosition()],
+        summary: { totalInvested: 500, totalCurrent: 550 },
+      });
+
+    it('card e total somam a RF manual com a da conexão, e o total diz quanto é da conexão', async () => {
+      getImpl = manual;
+      pluggyImpl = () =>
+        Promise.resolve({
+          ...NO_PLUGGY,
+          connections: 1,
+          positions: [
+            {
+              name: 'LCI Conectada',
+              subtype: 'LCI',
+              institution: null,
+              investedAmount: 100,
+              currentValue: 200,
+              currentValueDate: '2026-10-01',
+              maturityDate: null,
+              rateType: null,
+              rate: null,
+            },
+          ],
+        });
+
+      renderPage();
+
+      // 550 (manual) + 200 (conexão) = 750.
+      await waitFor(() => {
+        const card = screen
+          .getByText('Renda Fixa', { selector: '.vw-layer-card-name' })
+          .closest('button')!;
+        expect(card.textContent).toMatch(/750,00/);
+      });
+      // Total consolidado: 1234 (Ações) + 750 = 1984.
+      const totalCard = screen.getByText('Total consolidado').closest('div')!;
+      expect(totalCard.textContent).toMatch(/1\.984,00/);
+      expect(totalCard.textContent).toMatch(
+        /Inclui R\$\s200,00 de Renda Fixa da sua conexão bancária/
+      );
+    });
+
+    it('isolamento: a leitura da conexão falha e a RF manual segue no card e no total', async () => {
+      getImpl = manual;
+      pluggyImpl = () => Promise.reject(new Error('network down'));
+
+      renderPage();
+
+      expect(
+        await screen.findByText(/Não foi possível ler sua conexão bancária agora/)
+      ).toBeTruthy();
+      const rendaFixaCard = screen
+        .getByText('Renda Fixa', { selector: '.vw-layer-card-name' })
+        .closest('button')!;
+      expect(rendaFixaCard.textContent).toMatch(/550,00/);
+      const totalCard = screen.getByText('Total consolidado').closest('div')!;
+      expect(totalCard.textContent).toMatch(/1\.784,00/);
+      const acoesCard = screen
+        .getByText('Ações', { selector: '.vw-layer-card-name' })
+        .closest('button')!;
+      expect(acoesCard.textContent).toMatch(/1\.234,00/);
+    });
   });
 });

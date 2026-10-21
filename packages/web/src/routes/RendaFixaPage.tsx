@@ -4,8 +4,18 @@ import {
   createFixedIncomePosition,
   updateFixedIncomePosition,
   deleteFixedIncomePosition,
+  getPluggyFixedIncome,
 } from '../api';
-import type { FixedIncomePosition } from '@vetor-wallet/shared';
+import type { FixedIncomePosition, PluggyFixedIncomeResponse } from '@vetor-wallet/shared';
+import {
+  MANUAL_SOURCE_LABEL,
+  PLUGGY_SOURCE_LABEL,
+  pluggyCentsForTotal,
+  pluggyFailureNote,
+  pluggyFixedIncomeView,
+  pluggyPositionTitle,
+  pluggyRateText,
+} from './pluggyFixedIncome';
 import {
   EMPTY_FIXED_INCOME_FORM,
   FIXED_INCOME_KINDS,
@@ -86,6 +96,33 @@ export function RendaFixaPage() {
     setLoading(true);
     refresh();
   }, [refresh]);
+
+  // RF da conexão bancária (T-091d, fatia d2): fetch PRÓPRIO, fora do
+  // `refresh` da RF manual. Se falhar, só a seção da conexão vira aviso — a
+  // lista e o resumo manuais nunca dependem dele.
+  const [pluggyResponse, setPluggyResponse] = useState<PluggyFixedIncomeResponse | null>(null);
+  const [pluggyFailed, setPluggyFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPluggyFixedIncome()
+      .then((data) => {
+        if (cancelled) return;
+        setPluggyResponse(data);
+        setPluggyFailed(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPluggyResponse(null);
+        setPluggyFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const pluggyView = pluggyFixedIncomeView(pluggyResponse, pluggyFailed);
+  const showSources = pluggyView.kind === 'ready';
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -168,7 +205,10 @@ export function RendaFixaPage() {
 
   const sorted = sortByMaturity(positions);
   const totalInvested = totalInvestedCents(positions) / 100;
-  const totalCurrent = totalDisplayValueCents(positions) / 100;
+  const totalCurrentCents = totalDisplayValueCents(positions);
+  const totalCurrent = totalCurrentCents / 100;
+  const pluggyCents = pluggyCentsForTotal(pluggyView);
+  const manualSuffix = showSources ? ` · ${MANUAL_SOURCE_LABEL.toLowerCase()}` : '';
 
   return (
     <div>
@@ -196,18 +236,80 @@ export function RendaFixaPage() {
         <>
           <div className="vw-savings-summary">
             <div className="vw-savings-summary-card">
-              <p className="vw-savings-summary-label">Valor aplicado</p>
+              <p className="vw-savings-summary-label">Valor aplicado{manualSuffix}</p>
               <p className="vw-savings-summary-value">{fmtCur.format(totalInvested)}</p>
             </div>
             <div className="vw-savings-summary-card">
-              <p className="vw-savings-summary-label">Valor atual</p>
+              <p className="vw-savings-summary-label">Valor atual{manualSuffix}</p>
               <p className="vw-savings-summary-value">{fmtCur.format(totalCurrent)}</p>
               <p className="vw-savings-summary-sub">
                 Saldo informado quando houver; senão, o valor aplicado. Não é uma estimativa de
                 rendimento.
               </p>
             </div>
+            {showSources && (
+              <div className="vw-savings-summary-card" data-testid="fi-consolidated">
+                <p className="vw-savings-summary-label">Total consolidado</p>
+                <p className="vw-savings-summary-value">
+                  {fmtCur.format((totalCurrentCents + pluggyCents) / 100)}
+                </p>
+                <p className="vw-savings-summary-sub">
+                  {MANUAL_SOURCE_LABEL}: {fmtCur.format(totalCurrent)} · {PLUGGY_SOURCE_LABEL}:{' '}
+                  {fmtCur.format(pluggyCents / 100)}
+                </p>
+              </div>
+            )}
           </div>
+
+          {pluggyView.kind === 'error' && (
+            <div className="vw-state-box" role="status">
+              Não foi possível ler sua conexão bancária agora — mostrando só a Renda Fixa lançada
+              por você.
+            </div>
+          )}
+
+          {pluggyView.kind === 'ready' && (
+            <section aria-label={PLUGGY_SOURCE_LABEL}>
+              <h2 className="vw-form-title">{PLUGGY_SOURCE_LABEL}</h2>
+              <p className="vw-field-hint">
+                Lido agora da sua conexão bancária (Open Finance). Não fica gravado no app e não é
+                editável aqui — para mudar, mude no banco.
+              </p>
+              {pluggyFailureNote(pluggyView.failedConnections) && (
+                <p className="vw-form-error">{pluggyFailureNote(pluggyView.failedConnections)}</p>
+              )}
+              {pluggyView.positions.length === 0 ? (
+                <div className="vw-state-box">
+                  Nenhuma posição de renda fixa na sua conexão bancária.
+                </div>
+              ) : (
+                <div className="vw-savings-list">
+                  {pluggyView.positions.map((position, index) => (
+                    <div className="vw-savings-entry-row" key={index}>
+                      <span className="vw-savings-entry-badge vw-badge-yield">Conexão</span>
+                      <div className="vw-savings-entry-main">
+                        <p className="vw-savings-entry-note">{pluggyPositionTitle(position)}</p>
+                        <p className="vw-savings-entry-date">
+                          {maturityLabel(position.maturityDate, todayIso())}
+                          {pluggyRateText(position) ? ` · ${pluggyRateText(position)}` : ''}
+                          {position.currentValueDate
+                            ? ` · Saldo da conexão em ${formatDate(position.currentValueDate)}`
+                            : ''}
+                        </p>
+                      </div>
+                      <span className="vw-savings-entry-amount">
+                        {position.currentValue !== null
+                          ? fmtCur.format(position.currentValue)
+                          : 'Sem saldo informado'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {showSources && <h2 className="vw-form-title">{MANUAL_SOURCE_LABEL}</h2>}
 
           <CollapsibleSection label="Nova posição" openLabel="Nova posição">
             <form onSubmit={handleSubmit}>

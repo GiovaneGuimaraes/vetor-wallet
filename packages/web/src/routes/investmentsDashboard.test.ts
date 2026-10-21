@@ -81,6 +81,29 @@ describe('nodeValue', () => {
     expect(nodeValue('renda-fixa', { stockTotals, fixedIncomeSummary: null })).toBeNull();
   });
 
+  it('renda-fixa soma manual + conexão bancária em centavos (T-091d, fatia d2)', () => {
+    const stockTotals = computeStockTotals([]);
+    const summary = makeFixedIncomeSummary({ totalCurrent: 0.1 });
+    expect(
+      nodeValue('renda-fixa', {
+        stockTotals,
+        fixedIncomeSummary: summary,
+        pluggyFixedIncomeCents: 20,
+      })
+    ).toBe(0.3);
+  });
+
+  it('renda-fixa sem o resumo manual fica null mesmo com a conexão respondendo', () => {
+    const stockTotals = computeStockTotals([]);
+    expect(
+      nodeValue('renda-fixa', {
+        stockTotals,
+        fixedIncomeSummary: null,
+        pluggyFixedIncomeCents: 500,
+      })
+    ).toBeNull();
+  });
+
   it('cripto é sempre null (comingSoon, sem dado ligado)', () => {
     const stockTotals = computeStockTotals([makeSummary()]);
     const summary = makeFixedIncomeSummary();
@@ -119,6 +142,30 @@ describe('buildInvestmentsOverview', () => {
     expect(overview.fixedIncomeCurrentCents).toBe(0);
     expect(overview.stockCurrentCents).toBe(15000);
     expect(overview.totalCurrentCents).toBe(15000);
+  });
+
+  it('soma a RF da conexão bancária à manual e informa a parte de cada fonte (fatia d2)', () => {
+    const stockTotals = computeStockTotals([
+      makeSummary({ totalInvested: 100, totalCurrentValue: 100 }),
+    ]);
+
+    const overview = buildInvestmentsOverview(
+      stockTotals,
+      makeFixedIncomeSummary({ totalCurrent: 50 }),
+      2500
+    );
+
+    expect(overview.fixedIncomeCurrentCents).toBe(7500);
+    expect(overview.fixedIncomePluggyCents).toBe(2500);
+    expect(overview.totalCurrentCents).toBe(17500);
+  });
+
+  it('sem o resumo manual, a parte da conexão não entra (RF inteira indisponível)', () => {
+    const overview = buildInvestmentsOverview(computeStockTotals([]), null, 2500);
+
+    expect(overview.fixedIncomePluggyCents).toBe(0);
+    expect(overview.fixedIncomeCurrentCents).toBe(0);
+    expect(overview.totalCurrentCents).toBe(0);
   });
 });
 

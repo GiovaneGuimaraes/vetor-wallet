@@ -582,6 +582,41 @@ export interface FixedIncomeSummary {
 }
 
 /**
+ * Posição de Renda Fixa **lida ao vivo** da conexão bancária (Pluggy, T-091d
+ * fatia d2). Nunca é gravada no banco (decisão do humano, 2026-10-21) — por
+ * isso não tem `id`. Espelho de `PluggyFixedIncomePosition` do `pluggy-core`:
+ * os dois mudam juntos. Tudo anulável; `currentValue: null` = a conexão não
+ * informou saldo (não entra na soma). `subtype`/`rateType` vêm crus da Pluggy,
+ * sem mapear para `FixedIncomeKind`/`FixedIncomeRateType`.
+ */
+export interface PluggyFixedIncomePosition {
+  name: string | null;
+  subtype: string | null;
+  institution: string | null;
+  investedAmount: number | null;
+  currentValue: number | null;
+  /** YYYY-MM-DD */
+  currentValueDate: string | null;
+  /** YYYY-MM-DD */
+  maturityDate: string | null;
+  rateType: string | null;
+  rate: number | null;
+}
+
+/** Resposta de `GET /api/fixed-income/pluggy` (T-091d, fatia d2). Sempre 200. */
+export interface PluggyFixedIncomeResponse {
+  /** `false` = integração desligada neste ambiente (gate `ENVIRONMENT`); nada foi consultado. */
+  enabled: boolean;
+  /** Quantas conexões bancárias o usuário tem. 0 = a tela fica como sem Pluggy. */
+  connections: number;
+  /** Conexões cuja leitura falhou AGORA; as posições delas não estão em `positions`. */
+  failedConnections: number;
+  positions: PluggyFixedIncomePosition[];
+  /** Investimentos de outros tipos (ações, fundos...) que ainda não são exibidos. */
+  otherInvestments: number;
+}
+
+/**
  * Orçamento mensal por categoria (T-023). Único por `user_id` + `category`
  * (upsert em `POST /api/budgets`) — não tem vínculo com mês: o teto vale para
  * qualquer mês exibido em Despesas, só o gasto comparado é que varia.

@@ -35,6 +35,7 @@ import type {
   NewFixedIncomePosition,
   FixedIncomePositionUpdate,
   FixedIncomeSummary,
+  PluggyFixedIncomeResponse,
   Plan,
   MySubscriptionResponse,
   CreateSubscriptionResponse,
@@ -733,6 +734,17 @@ export async function updateFixedIncomePosition(
 export async function deleteFixedIncomePosition(id: number): Promise<void> {
   const res = await apiFetch(`/api/fixed-income/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Falha ao remover posição de renda fixa');
+}
+
+/**
+ * Renda Fixa da conexão bancária, lida AO VIVO (T-091d, fatia d2) — nunca
+ * gravada. Chamada separada de `getFixedIncome` de propósito: falhar aqui não
+ * pode derrubar a RF manual.
+ */
+export async function getPluggyFixedIncome(): Promise<PluggyFixedIncomeResponse> {
+  const res = await apiFetch('/api/fixed-income/pluggy');
+  if (!res.ok) throw new Error('Falha ao ler a renda fixa da conexão bancária');
+  return res.json();
 }
 
 // ── Billing / assinatura Pix (T-072) ─────────────────────────────────────────
