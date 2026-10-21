@@ -31,4 +31,10 @@ export {
 export { toPluggyInvestment } from './toPluggyInvestment';
 export type { PluggyInvestment } from './toPluggyInvestment';
 export { summarizePluggyInvestments, UNTYPED_INVESTMENT_LABEL } from './summarizePluggyInvestments';
+export {
+  toPluggyFixedIncomePosition,
+  PLUGGY_FIXED_INCOME_TYPE,
+  PLUGGY_FIXED_INCOME_CURRENCY,
+} from './toPluggyFixedIncomePosition';
+export type { PluggyFixedIncomePosition } from './toPluggyFixedIncomePosition';
 export type { PluggyInvestmentsSummary } from './summarizePluggyInvestments';

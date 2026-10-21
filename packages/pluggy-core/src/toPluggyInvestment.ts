@@ -4,9 +4,11 @@
  * Campos vistos no exemplo de resposta de `GET /investments` na doc da Pluggy:
  * `id`, `itemId`, `type`, `subtype`, `status`, `name`, `code`, `currencyCode`,
  * `balance`, `amount`, `amountOriginal`, `quantity`, `value`, `rateType`,
- * `rate`, `fixedAnnualRate`, `date`, `issueDate`. O resto (`owner`, `issuer`,
- * `issuerCNPJ`, `institution`, `transactions`, taxas e rentabilidades...) é
- * descartado de propósito: package de Integração traduz, não repassa.
+ * `rate`, `fixedAnnualRate`, `date`, `issueDate`, e — desde a fatia d2, para a
+ * Renda Fixa mostrar de onde é o título — `issuer` e `institution.name`. O
+ * resto (`owner`, `issuerCNPJ`, `institution.number`, `transactions`, taxas e
+ * rentabilidades...) é descartado de propósito: package de Integração traduz,
+ * não repassa.
  *
  * **`type` é preservado como veio** — `FIXED_INCOME`, `EQUITY`, `MUTUAL_FUND`,
  * `ETF`, `COE`, `SECURITY`, `OTHER` ou qualquer valor que a Pluggy invente
@@ -48,6 +50,10 @@ export interface PluggyInvestment {
    * lido se vier, `null` se não vier. Ver "Contrato da API" no `CLAUDE.md`.
    */
   dueDate: string | null;
+  /** Emissor do título (ex.: o banco do CDB), como veio (T-091d, fatia d2). */
+  issuer: string | null;
+  /** `institution.name` — a instituição onde a posição está (fatia d2). */
+  institutionName: string | null;
 }
 
 function str(value: unknown): string | null {
@@ -60,6 +66,9 @@ function num(value: unknown): number | null {
 
 export function toPluggyInvestment(raw: unknown): PluggyInvestment {
   const item = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const institution = (
+    typeof item.institution === 'object' && item.institution !== null ? item.institution : {}
+  ) as Record<string, unknown>;
   return {
     id: str(item.id),
     itemId: str(item.itemId),
@@ -80,5 +89,7 @@ export function toPluggyInvestment(raw: unknown): PluggyInvestment {
     date: str(item.date),
     issueDate: str(item.issueDate),
     dueDate: str(item.dueDate),
+    issuer: str(item.issuer),
+    institutionName: str(institution.name),
   };
 }

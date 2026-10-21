@@ -21,7 +21,19 @@ import {
   isValidMoneyAmount,
   moneyAmountError,
 } from '@vetor-wallet/validation-core';
-import type { FixedIncomePositionUpdate, NewFixedIncomePosition } from '@vetor-wallet/shared';
+import { listPluggyItems } from '@vetor-wallet/bank-import-core';
+import {
+  fetchPluggyInvestments,
+  isPluggyIntegrationEnabled,
+  PluggyApiError,
+  toPluggyFixedIncomePosition,
+} from '@vetor-wallet/pluggy-core';
+import type {
+  FixedIncomePositionUpdate,
+  NewFixedIncomePosition,
+  PluggyFixedIncomePosition,
+  PluggyFixedIncomeResponse,
+} from '@vetor-wallet/shared';
 
 /**
  * `/api/fixed-income` — Renda Fixa manual (T-091c/d, fatia c1).
@@ -133,6 +145,89 @@ router.get(
     const userId = res.locals.userId as number;
     const positions = await listFixedIncomePositions({ query, userId });
     res.json({ positions, summary: summariseFixedIncome(positions) });
+  })
+);
+
+/**
+ * `GET /api/fixed-income/pluggy` — Renda Fixa da conexão bancária, **lida ao
+ * vivo** (T-091d, fatia d2).
+ *
+ * ## Nunca grava
+ *
+ * Decisão do humano (P1, 2026-10-21), mesma doutrina da T-089e ("saldo é
+ * posição, não lançamento"): a posição da Pluggy é lida a cada acesso e
+ * devolvida, e nada dela toca `fixed_income_positions` nem tabela alguma. A
+ * única leitura de banco aqui é `listPluggyItems` (quais conexões o usuário tem).
+ *
+ * ## Rota irmã, não campo a mais no `GET /`
+ *
+ * O `GET /` (RF manual) segue sem saber que a Pluggy existe: nenhuma falha,
+ * lentidão (timeout de 15s por request) ou credencial ausente da Pluggy chega
+ * perto dele. É o isolamento de falha mais forte possível — no servidor, por
+ * construção, e no web, porque são duas chamadas independentes.
+ *
+ * ## Desfechos (sempre 200)
+ *
+ * - integração desligada (gate `ENVIRONMENT`) → `enabled: false`, sem consultar
+ *   banco nem Pluggy. Mesmo gate das `/api/pluggy/*`: o que ele protege é o
+ *   termo de uso do Meu Pluggy (gratuito só para uso pessoal), e **ler** dado de
+ *   um item já conectado é tão "usar a integração" quanto conectar um novo;
+ * - sem conexão → `connections: 0`, sem chamar a Pluggy;
+ * - item que falha (rede, 4xx/5xx, credencial ausente) → conta em
+ *   `failedConnections` e os outros items seguem. Falha da Pluggy NUNCA vira
+ *   500/502 aqui: é o web quem decide como avisar, e o resto da tela continua.
+ */
+router.get(
+  '/pluggy',
+  asyncHandler(async (_req: Request, res: Response) => {
+    const userId = res.locals.userId as number;
+
+    if (!isPluggyIntegrationEnabled()) {
+      const body: PluggyFixedIncomeResponse = {
+        enabled: false,
+        connections: 0,
+        failedConnections: 0,
+        positions: [],
+        otherInvestments: 0,
+      };
+      res.json(body);
+      return;
+    }
+
+    const items = await listPluggyItems({ db, userId });
+    const results = await Promise.allSettled(
+      items.map((item) => fetchPluggyInvestments(item.itemId))
+    );
+
+    const positions: PluggyFixedIncomePosition[] = [];
+    let failedConnections = 0;
+    let otherInvestments = 0;
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        failedConnections++;
+        // Só o tipo do erro: a mensagem é livre de credencial (pluggy-core),
+        // mas o itemId não entra em log de jeito nenhum.
+        console.warn(
+          '[fixed-income/pluggy] leitura de investimentos falhou:',
+          result.reason instanceof PluggyApiError ? result.reason.message : 'erro inesperado'
+        );
+        continue;
+      }
+      for (const investment of result.value) {
+        const position = toPluggyFixedIncomePosition(investment);
+        if (position === null) otherInvestments++;
+        else positions.push(position);
+      }
+    }
+
+    const body: PluggyFixedIncomeResponse = {
+      enabled: true,
+      connections: items.length,
+      failedConnections,
+      positions,
+      otherInvestments,
+    };
+    res.json(body);
   })
 );
 

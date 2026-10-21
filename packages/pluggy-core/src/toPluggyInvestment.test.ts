@@ -50,7 +50,15 @@ describe('toPluggyInvestment (T-091d, fatia d1)', () => {
       date: '2026-01-31T00:00:00.000Z',
       issueDate: '2025-01-31T00:00:00.000Z',
       dueDate: '2028-01-31T00:00:00.000Z',
+      issuer: 'Banco Exemplo',
+      institutionName: 'X',
     });
+  });
+
+  it('institution que não é objeto vira institutionName null (fatia d2)', () => {
+    expect(toPluggyInvestment({ institution: 'Banco' }).institutionName).toBeNull();
+    expect(toPluggyInvestment({ institution: null }).institutionName).toBeNull();
+    expect(toPluggyInvestment({ institution: { name: 7 } }).institutionName).toBeNull();
   });
 
   it('preserva type desconhecido como veio (sem mapear)', () => {
@@ -60,7 +68,7 @@ describe('toPluggyInvestment (T-091d, fatia d1)', () => {
   it('campo ausente vira null — nada é inventado', () => {
     const inv = toPluggyInvestment({});
     expect(Object.values(inv).every((v) => v === null)).toBe(true);
-    expect(Object.keys(inv)).toHaveLength(19);
+    expect(Object.keys(inv)).toHaveLength(21);
   });
 
   it('tipo errado, string vazia e número não-finito viram null', () => {
