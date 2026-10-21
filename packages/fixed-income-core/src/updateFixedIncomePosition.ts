@@ -21,6 +21,9 @@ const COLUMNS: Array<[keyof FixedIncomePositionUpdate, string]> = [
   ['rate', 'rate'],
   ['currentValue', 'current_value'],
   ['currentValueDate', 'current_value_date'],
+  // Fatia d3a: ponteiro para o investimento da Pluggy que substitui esta
+  // posição. `null` desfaz o vínculo; ausente não mexe (mesma regra dos outros).
+  ['supersededByPluggyInvestmentId', 'superseded_by_pluggy_investment_id'],
 ];
 
 /**

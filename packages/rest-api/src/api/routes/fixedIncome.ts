@@ -139,6 +139,18 @@ function maturityBeforeInvestment(investedAt: string, maturityDate: string | nul
 
 const MATURITY_ERROR = 'maturityDate não pode ser anterior a investedAt';
 
+/**
+ * Formato do `id` de investimento da Pluggy aceito no vínculo (fatia d3a):
+ * UUID/slug — letras, dígitos, `_` e `-`, de 1 a 128. Não é texto livre.
+ * **Só o formato é conferido**: a rota não pergunta à Pluggy se o id existe
+ * (isso acoplaria a RF manual a uma chamada de rede de 15s e desfaria o
+ * isolamento de falha da fatia d2), e vínculo órfão é aceito por design.
+ */
+const PLUGGY_INVESTMENT_ID = /^[A-Za-z0-9_-]{1,128}$/;
+
+const SUPERSEDED_ERROR =
+  'supersededByPluggyInvestmentId deve ser null ou um id de 1 a 128 caracteres [A-Za-z0-9_-]';
+
 router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
@@ -283,6 +295,12 @@ router.post(
  * `maturityDate >= investedAt` cruza dois campos, e o corpo pode trazer só um
  * deles — por isso a rota lê a posição atual antes e valida o estado FINAL.
  * Essa leitura é também a que decide o 404.
+ *
+ * `supersededByPluggyInvestmentId` (fatia d3a) é o vínculo manual↔Pluggy:
+ * ausente não mexe, `null` desfaz, string no formato de id seta. Só existe
+ * aqui (o POST ignora o campo), e de propósito **sem** o gate `ENVIRONMENT`:
+ * é uma anotação sobre a posição manual, não um request à Pluggy —
+ * desvincular tem de funcionar com a integração desligada.
  */
 router.patch(
   '/:id',
@@ -302,6 +320,8 @@ router.patch(
       rate: body.rate as number | undefined,
       currentValue: body.currentValue as number | null | undefined,
       currentValueDate: body.currentValueDate as string | null | undefined,
+      supersededByPluggyInvestmentId: body.supersededByPluggyInvestmentId as
+        string | null | undefined,
     };
     if (Object.values(changes).every((value) => value === undefined)) {
       res.status(400).json({ error: 'informe ao menos um campo para atualizar' });
@@ -325,6 +345,15 @@ router.patch(
     const error = validateFields(body);
     if (error) {
       res.status(400).json({ error });
+      return;
+    }
+    const superseded = changes.supersededByPluggyInvestmentId;
+    if (
+      superseded !== undefined &&
+      superseded !== null &&
+      (typeof superseded !== 'string' || !PLUGGY_INVESTMENT_ID.test(superseded))
+    ) {
+      res.status(400).json({ error: SUPERSEDED_ERROR });
       return;
     }
 

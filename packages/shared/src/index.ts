@@ -531,6 +531,13 @@ export interface FixedIncomePosition {
   current_value: number | null;
   /** YYYY-MM-DD; presente se e somente se `current_value` estiver presente. */
   current_value_date: string | null;
+  /**
+   * Vínculo manual↔Pluggy (T-091d, fatia d3): `id` do investimento na Pluggy
+   * que SUBSTITUI esta posição na exibição. `null` = sem vínculo. É só um
+   * ponteiro anotado pelo usuário — nenhum dado da Pluggy é gravado, nada é
+   * validado contra ela, e vínculo órfão não é limpo sozinho.
+   */
+  superseded_by_pluggy_investment_id: string | null;
   created_at: string;
 }
 
@@ -570,6 +577,11 @@ export interface FixedIncomePositionUpdate {
   rate?: number;
   currentValue?: number | null;
   currentValueDate?: string | null;
+  /**
+   * Fatia d3: id do investimento na Pluggy que substitui esta posição; `null`
+   * desfaz o vínculo. Só pelo PATCH — o POST não aceita (ignora o campo).
+   */
+  supersededByPluggyInvestmentId?: string | null;
 }
 
 /**
@@ -583,13 +595,17 @@ export interface FixedIncomeSummary {
 
 /**
  * Posição de Renda Fixa **lida ao vivo** da conexão bancária (Pluggy, T-091d
- * fatia d2). Nunca é gravada no banco (decisão do humano, 2026-10-21) — por
- * isso não tem `id`. Espelho de `PluggyFixedIncomePosition` do `pluggy-core`:
+ * fatia d2). Nunca é gravada no banco (decisão do humano, 2026-10-21). O `id`
+ * é o do investimento NA PLUGGY (fatia d3: alvo do vínculo
+ * `superseded_by_pluggy_investment_id`), não um id nosso; `itemId` nunca desce.
+ * Espelho de `PluggyFixedIncomePosition` do `pluggy-core`:
  * os dois mudam juntos. Tudo anulável; `currentValue: null` = a conexão não
  * informou saldo (não entra na soma). `subtype`/`rateType` vêm crus da Pluggy,
  * sem mapear para `FixedIncomeKind`/`FixedIncomeRateType`.
  */
 export interface PluggyFixedIncomePosition {
+  /** `id` do investimento na Pluggy; `null` se não veio. */
+  id: string | null;
   name: string | null;
   subtype: string | null;
   institution: string | null;

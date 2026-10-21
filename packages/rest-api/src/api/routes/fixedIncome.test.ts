@@ -289,6 +289,91 @@ describe('fixed-income routes (T-091c/d, fatia c1)', () => {
     });
   });
 
+  describe('vínculo com a Pluggy (T-091d, fatia d3a)', () => {
+    it('posição nova nasce sem vínculo, e o POST ignora o campo', async () => {
+      const created = await createA({ supersededByPluggyInvestmentId: 'abc-123' });
+      expect(created.superseded_by_pluggy_investment_id).toBeNull();
+
+      const list = await agentA.get('/api/fixed-income');
+      const row = list.body.positions.find((p: { id: number }) => p.id === created.id);
+      expect(row).toHaveProperty('superseded_by_pluggy_investment_id', null);
+    });
+
+    it('string seta, ausente preserva, null limpa — o campo sozinho é PATCH válido', async () => {
+      const created = await createA({ name: 'Para vincular' });
+      const url = `/api/fixed-income/${created.id}`;
+
+      const set = await agentA.patch(url).send({ supersededByPluggyInvestmentId: 'abc-123' });
+      expect(set.status).toBe(200);
+      expect(set.body.superseded_by_pluggy_investment_id).toBe('abc-123');
+
+      // PATCH de outro campo não mexe no vínculo.
+      const other = await agentA.patch(url).send({ rate: 99 });
+      expect(other.status).toBe(200);
+      expect(other.body).toMatchObject({ rate: 99, superseded_by_pluggy_investment_id: 'abc-123' });
+
+      const list = await agentA.get('/api/fixed-income');
+      const row = list.body.positions.find((p: { id: number }) => p.id === created.id);
+      expect(row.superseded_by_pluggy_investment_id).toBe('abc-123');
+
+      const cleared = await agentA.patch(url).send({ supersededByPluggyInvestmentId: null });
+      expect(cleared.status).toBe(200);
+      expect(cleared.body.superseded_by_pluggy_investment_id).toBeNull();
+    });
+
+    it('aceita o limite de 128 caracteres e o alfabeto [A-Za-z0-9_-]', async () => {
+      const created = await createA({ name: 'Id no limite' });
+      const id = `${'a'.repeat(60)}_${'Z9'.repeat(33)}-`;
+      expect(id).toHaveLength(128);
+      const res = await agentA
+        .patch(`/api/fixed-income/${created.id}`)
+        .send({ supersededByPluggyInvestmentId: id });
+      expect(res.status).toBe(200);
+      expect(res.body.superseded_by_pluggy_investment_id).toBe(id);
+    });
+
+    it.each([
+      ['string vazia', ''],
+      ['número', 123],
+      ['booleano', true],
+      ['objeto', { id: 'abc' }],
+      ['129 caracteres', 'a'.repeat(129)],
+      ['200 caracteres', 'a'.repeat(200)],
+      ['caractere especial', 'abc/123'],
+      ['espaço', 'abc 123'],
+      ['acento', 'investimentoé'],
+    ])('valor inválido (%s) → 400, e o vínculo existente fica intocado', async (_label, value) => {
+      const created = await createA({ name: 'Vínculo intocado' });
+      const url = `/api/fixed-income/${created.id}`;
+      await agentA.patch(url).send({ supersededByPluggyInvestmentId: 'abc-123' });
+
+      const res = await agentA.patch(url).send({ supersededByPluggyInvestmentId: value });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('supersededByPluggyInvestmentId');
+
+      const list = await agentA.get('/api/fixed-income');
+      const row = list.body.positions.find((p: { id: number }) => p.id === created.id);
+      expect(row.superseded_by_pluggy_investment_id).toBe('abc-123');
+    });
+
+    it('posição de outro usuário → 404, e o vínculo de A fica intocado', async () => {
+      const created = await createA({ name: 'Vínculo de A' });
+      const url = `/api/fixed-income/${created.id}`;
+      await agentA.patch(url).send({ supersededByPluggyInvestmentId: 'abc-123' });
+
+      expect((await agentB.patch(url).send({ supersededByPluggyInvestmentId: 'xyz' })).status).toBe(
+        404
+      );
+      expect((await agentB.patch(url).send({ supersededByPluggyInvestmentId: null })).status).toBe(
+        404
+      );
+
+      const list = await agentA.get('/api/fixed-income');
+      const row = list.body.positions.find((p: { id: number }) => p.id === created.id);
+      expect(row.superseded_by_pluggy_investment_id).toBe('abc-123');
+    });
+  });
+
   describe('DELETE', () => {
     it('apaga (204) e some da listagem', async () => {
       const created = await createA({ name: 'Para apagar' });

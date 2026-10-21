@@ -80,6 +80,15 @@ export class FixedIncomePosition extends Model {
   @Column({ type: DataType.DATEONLY })
   declare currentValueDate: string | null;
 
+  /**
+   * Vínculo manual↔Pluggy (T-091d, fatia d3a): `id` do investimento na Pluggy
+   * que substitui esta posição. Só um ponteiro (texto), anulável — sem FK, sem
+   * UNIQUE, sem índice. `field` explícito em snake_case para não depender do
+   * `underscored` (ver a armadilha do `@Index` no `CLAUDE.md` do package).
+   */
+  @Column({ type: DataType.TEXT, allowNull: true, field: 'superseded_by_pluggy_investment_id' })
+  declare supersededByPluggyInvestmentId: string | null;
+
   @CreatedAt
   declare createdAt: Date;
 }

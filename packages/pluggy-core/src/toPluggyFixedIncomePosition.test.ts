@@ -26,8 +26,9 @@ function map(raw: Record<string, unknown>) {
 }
 
 describe('toPluggyFixedIncomePosition (T-091d, fatia d2)', () => {
-  it('traduz uma posição FIXED_INCOME completa, sem id nem itemId', () => {
+  it('traduz uma posição FIXED_INCOME completa, com id e sem itemId', () => {
     expect(map(CDB)).toEqual({
+      id: 'inv-1',
       name: 'CDB Exemplo',
       subtype: 'CDB',
       institution: 'Banco Emissor',
@@ -40,10 +41,11 @@ describe('toPluggyFixedIncomePosition (T-091d, fatia d2)', () => {
     });
   });
 
-  it('não carrega id nem itemId (itemId é credencial portadora)', () => {
-    const json = JSON.stringify(map(CDB));
-    expect(json).not.toContain('inv-1');
-    expect(json).not.toContain('item-1');
+  it('carrega o id do investimento (vínculo da d3), nunca o itemId (credencial portadora)', () => {
+    const position = map(CDB);
+    expect(position?.id).toBe('inv-1');
+    expect(position).not.toHaveProperty('itemId');
+    expect(JSON.stringify(position)).not.toContain('item-1');
   });
 
   it.each(['EQUITY', 'MUTUAL_FUND', 'ETF', 'COE', 'SECURITY', 'OTHER', 'ALGO_NOVO'])(
@@ -89,6 +91,7 @@ describe('toPluggyFixedIncomePosition (T-091d, fatia d2)', () => {
 
   it('posição mínima: só o type — tudo o mais null, nada inventado', () => {
     expect(map({ type: 'FIXED_INCOME' })).toEqual({
+      id: null,
       name: null,
       subtype: null,
       institution: null,

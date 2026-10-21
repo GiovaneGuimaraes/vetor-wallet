@@ -211,8 +211,9 @@ CREATE TABLE IF NOT EXISTS savings_entries (
 -- informativos — o app NÃO estima rendimento por CDI/IPCA/taxa (decisão do humano).
 -- Validado na ROTA, não por CHECK: invested_amount > 0 com no máx. 2 casas;
 -- current_value >= 0; current_value e current_value_date juntos ou nenhum;
--- maturity_date >= invested_at. Sem source/external_id nesta fatia — entram com
--- a integração da Pluggy (fatias d2/d3).
+-- maturity_date >= invested_at. Sem source/external_id, e não vai ter: posição
+-- da Pluggy é LIDA AO VIVO e nunca gravada (decisão P1 do humano, 2026-10-21;
+-- GET /api/fixed-income/pluggy, fatia d2). Toda linha aqui é manual.
 CREATE TABLE IF NOT EXISTS fixed_income_positions (
   id                 INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id            INTEGER NOT NULL REFERENCES users(id),
@@ -231,6 +232,14 @@ CREATE TABLE IF NOT EXISTS fixed_income_positions (
 );
 CREATE INDEX IF NOT EXISTS idx_fixed_income_positions_user
   ON fixed_income_positions(user_id, invested_at);
+-- ALTER idempotente (T-091d, fatia d3a) — vínculo manual↔Pluggy ESCOLHIDO pelo
+-- usuário: id do investimento na Pluggy que substitui esta posição na exibição.
+-- Só um ponteiro (nenhum dado da Pluggy é gravado); só o PATCH escreve (string
+-- seta, null limpa); formato [A-Za-z0-9_-]{1,128} validado na rota, NUNCA contra
+-- a Pluggy. Sem FK (não há tabela a referenciar), sem UNIQUE, sem índice, sem
+-- DEFAULT: NULL = sem vínculo. Vínculo órfão não é limpo — fica inativo e a
+-- posição manual volta a contar (lógica do web, fatia d3b).
+ALTER TABLE fixed_income_positions ADD COLUMN superseded_by_pluggy_investment_id TEXT;
 
 -- A tabela `goals` foi REMOVIDA do banco na T-091b2 (2026-08-18) — ver a seção
 -- "Metas saiu do banco (T-091b2)" no fim deste arquivo.

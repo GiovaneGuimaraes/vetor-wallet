@@ -96,6 +96,20 @@ describe('DDL gerado', () => {
     expect(sql).toContain('"user_id" INTEGER NOT NULL');
   });
 
+  it('fixed_income_positions.superseded_by_pluggy_investment_id: TEXT anulável, sem FK nem UNIQUE (T-091d, d3a)', () => {
+    const sql = ddl(models.FixedIncomePosition);
+    expect(sql).toMatch(/"superseded_by_pluggy_investment_id" TEXT(,| |\))/);
+    expect(sql).not.toMatch(/"superseded_by_pluggy_investment_id" TEXT NOT NULL/);
+    expect(sql).not.toMatch(
+      /"superseded_by_pluggy_investment_id" TEXT[^,]*(UNIQUE|REFERENCES|DEFAULT)/
+    );
+    expect(sql).not.toContain('supersededByPluggyInvestmentId');
+    // Nenhum índice declarado no modelo cobre a coluna.
+    for (const index of models.FixedIncomePosition.options.indexes ?? []) {
+      expect(JSON.stringify(index.fields)).not.toContain('superseded');
+    }
+  });
+
   it('o índice composto de fixed_income_positions usa as colunas em snake_case', () => {
     // `@Index` na propriedade geraria `"userId"` e o Postgres recusaria (bug de
     // 2026-09-22). Aqui o índice vem de `@Table({ indexes })`.
