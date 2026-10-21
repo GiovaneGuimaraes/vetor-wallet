@@ -12,11 +12,13 @@ export const PLUGGY_FIXED_INCOME_CURRENCY = 'BRL';
  *
  * É irmã — não cópia — da linha de `fixed_income_positions` (RF manual):
  *
- * - **Não tem `id` nem `itemId`.** Nunca vira linha no banco (decisão do
- *   humano, P1 de 2026-10-21: posição da Pluggy é lida a cada acesso, como o
- *   saldo da T-089e), então não há id nosso para dar; e o `itemId` é
- *   credencial portadora, não desce para o cliente. Vincular a uma posição
- *   manual (que precisaria de um id estável) é a fatia d3.
+ * - **Tem o `id` da Pluggy, nunca o `itemId`.** Nunca vira linha no banco
+ *   (decisão do humano, P1 de 2026-10-21: posição da Pluggy é lida a cada
+ *   acesso, como o saldo da T-089e), então não há id NOSSO; o `id` é o do
+ *   investimento na Pluggy, e desce porque o vínculo manual↔Pluggy (fatia d3)
+ *   precisa dele: a posição manual guarda esse id em
+ *   `superseded_by_pluggy_investment_id` e o web casa com esta leitura ao
+ *   vivo. Já o `itemId` é credencial portadora e não desce para o cliente.
  * - **Tudo é anulável e nada é inventado**: `currentValue` `null` quer dizer
  *   "a Pluggy não mandou saldo", e quem soma tem de pular — nunca tratar como 0
  *   nem como valor aplicado.
@@ -27,6 +29,8 @@ export const PLUGGY_FIXED_INCOME_CURRENCY = 'BRL';
  *   financeiro errado na tela. Os dois saem crus e a UI os mostra como texto.
  */
 export interface PluggyFixedIncomePosition {
+  /** `id` do investimento na Pluggy (alvo do vínculo da fatia d3). `null` se não veio. */
+  id: string | null;
   /** `name` da Pluggy, como veio. */
   name: string | null;
   /** Ex.: `CDB`, `LCI`, `TREASURY` — cru, enum não documentado. */
@@ -78,6 +82,7 @@ export function toPluggyFixedIncomePosition(
   }
 
   return {
+    id: investment.id,
     name: investment.name,
     subtype: investment.subtype,
     institution: investment.issuer ?? investment.institutionName,

@@ -35,7 +35,7 @@ describe('updateFixedIncomePosition', () => {
     expect(position).toEqual({ id: 3, name: 'novo' });
   });
 
-  it('cobre os dez campos editáveis, na ordem das colunas', async () => {
+  it('cobre os onze campos editáveis, na ordem das colunas', async () => {
     const { query, calls } = makeTestQuery([
       { rows: [{ id: 3 }] },
       { rowCount: 1 },
@@ -46,6 +46,7 @@ describe('updateFixedIncomePosition', () => {
       userId: 7,
       id: 3,
       changes: {
+        supersededByPluggyInvestmentId: 'inv-abc',
         currentValueDate: '2026-10-01',
         currentValue: 10,
         rate: 12,
@@ -61,7 +62,8 @@ describe('updateFixedIncomePosition', () => {
     expect(calls[1].text).toBe(
       'UPDATE fixed_income_positions SET name = $1, kind = $2, institution = $3, ' +
         'invested_amount = $4, invested_at = $5, maturity_date = $6, rate_type = $7, ' +
-        'rate = $8, current_value = $9, current_value_date = $10 WHERE id = $11 AND user_id = $12'
+        'rate = $8, current_value = $9, current_value_date = $10, ' +
+        'superseded_by_pluggy_investment_id = $11 WHERE id = $12 AND user_id = $13'
     );
     expect(calls[1].values).toEqual([
       'n',
@@ -74,6 +76,7 @@ describe('updateFixedIncomePosition', () => {
       12,
       10,
       '2026-10-01',
+      'inv-abc',
       3,
       7,
     ]);
@@ -95,6 +98,25 @@ describe('updateFixedIncomePosition', () => {
       'SET maturity_date = $1, current_value = $2, current_value_date = $3'
     );
     expect(calls[1].values).toEqual([null, null, null, 3, 7]);
+  });
+
+  it('vínculo com a Pluggy: null limpa, e é aceito sozinho (fatia d3a)', async () => {
+    const { query, calls } = makeTestQuery([
+      { rows: [{ id: 3 }] },
+      { rowCount: 1 },
+      { rows: [{ id: 3, superseded_by_pluggy_investment_id: null }] },
+    ]);
+    await updateFixedIncomePosition({
+      query,
+      userId: 7,
+      id: 3,
+      changes: { supersededByPluggyInvestmentId: null },
+    });
+    expect(calls[1].text).toBe(
+      'UPDATE fixed_income_positions SET superseded_by_pluggy_investment_id = $1 ' +
+        'WHERE id = $2 AND user_id = $3'
+    );
+    expect(calls[1].values).toEqual([null, 3, 7]);
   });
 
   it('changes vazio não emite UPDATE e devolve a linha intocada', async () => {

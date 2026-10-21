@@ -74,6 +74,7 @@ function makePosition(overrides: Partial<FixedIncomePosition> = {}): FixedIncome
   return {
     id: 1,
     user_id: 1,
+    superseded_by_pluggy_investment_id: null,
     name: 'CDB Banco X',
     kind: 'CDB',
     institution: '',
@@ -195,6 +196,7 @@ describe('InvestimentosPage', () => {
           connections: 1,
           positions: [
             {
+              id: 'inv-lci',
               name: 'LCI Conectada',
               subtype: 'LCI',
               institution: null,

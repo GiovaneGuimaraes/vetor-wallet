@@ -359,6 +359,75 @@ describe('initDb — fixed_income_positions (T-091c/d)', () => {
     });
     expect(Number(res.rows[0].cnt)).toBe(2);
   });
+
+  describe('superseded_by_pluggy_investment_id (T-091d, fatia d3a)', () => {
+    async function columnInfo() {
+      const res = await db.execute('PRAGMA table_info(fixed_income_positions)');
+      return res.rows.find((row) => String(row.name) === 'superseded_by_pluggy_investment_id');
+    }
+
+    it('é TEXT anulável, sem DEFAULT e fora de qualquer PK', async () => {
+      const column = await columnInfo();
+      expect(column).toBeDefined();
+      expect(String(column?.type)).toBe('TEXT');
+      expect(Number(column?.notnull)).toBe(0);
+      expect(column?.dflt_value).toBeNull();
+      expect(Number(column?.pk)).toBe(0);
+    });
+
+    it('não tem FK, índice nem UNIQUE', async () => {
+      const fks = await db.execute('PRAGMA foreign_key_list(fixed_income_positions)');
+      expect(fks.rows.map((row) => String(row.from))).not.toContain(
+        'superseded_by_pluggy_investment_id'
+      );
+
+      const indexes = await db.execute('PRAGMA index_list(fixed_income_positions)');
+      for (const index of indexes.rows) {
+        const info = await db.execute(`PRAGMA index_info(${String(index.name)})`);
+        expect(info.rows.map((row) => String(row.name))).not.toContain(
+          'superseded_by_pluggy_investment_id'
+        );
+      }
+
+      // Sem UNIQUE: duas posições podem apontar para o mesmo investimento.
+      await insert({ superseded_by_pluggy_investment_id: 'inv-repetido' });
+      await expect(
+        insert({ superseded_by_pluggy_investment_id: 'inv-repetido' })
+      ).resolves.toBeDefined();
+    });
+
+    it('posição nova nasce com NULL (sem vínculo)', async () => {
+      const created = await insert();
+      const res = await db.execute({
+        sql: 'SELECT superseded_by_pluggy_investment_id AS v FROM fixed_income_positions WHERE id = ?',
+        args: [Number(created.lastInsertRowid ?? 0)],
+      });
+      expect(res.rows[0].v).toBeNull();
+    });
+
+    it('ALTER idempotente: banco antigo sem a coluna ganha ela no boot, e o 2º boot não quebra', async () => {
+      // Simula o banco anterior à fatia d3a. A coluna não tem índice nem FK,
+      // então o DROP COLUMN do SQLite a aceita sem rebuild.
+      const antiga = await insert({ name: 'Posição de antes da d3a' });
+      await db.execute(
+        'ALTER TABLE fixed_income_positions DROP COLUMN superseded_by_pluggy_investment_id'
+      );
+      expect(await columnInfo()).toBeUndefined();
+
+      const mod = await import('./index');
+      await mod.initDb();
+      expect(await columnInfo()).toBeDefined();
+      await mod.initDb();
+      expect(Number((await columnInfo())?.notnull)).toBe(0);
+
+      const res = await db.execute({
+        sql: 'SELECT name, superseded_by_pluggy_investment_id AS v FROM fixed_income_positions WHERE id = ?',
+        args: [Number(antiga.lastInsertRowid ?? 0)],
+      });
+      expect(res.rows[0].name).toBe('Posição de antes da d3a');
+      expect(res.rows[0].v).toBeNull();
+    });
+  });
 });
 
 /**

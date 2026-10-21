@@ -457,6 +457,15 @@ export async function initDb() {
     // `docs/multi-agent/README.md`). Espelho novo grava um sentinela que nenhum
     // bcrypt aceita (`COGNITO_MANAGED_PASSWORD_HASH`, em `auth-core`).
     'ALTER TABLE users ADD COLUMN cognito_sub TEXT',
+    // T-091d, fatia d3a: vínculo manual↔Pluggy, ESCOLHIDO pelo usuário. É o
+    // `id` do investimento na Pluggy que substitui esta posição manual na
+    // exibição — só um ponteiro anotado sobre a própria linha, nunca dado da
+    // Pluggy (decisão P1: posição da Pluggy é lida ao vivo, não gravada).
+    // Sem FK (não há tabela a referenciar), sem UNIQUE, sem índice, sem
+    // DEFAULT: NULL = sem vínculo. Nada a valida contra a Pluggy, e vínculo
+    // órfão (o investimento sumiu da leitura) NÃO é limpo — fica inativo e a
+    // posição manual volta a contar (lógica do web, fatia d3b).
+    'ALTER TABLE fixed_income_positions ADD COLUMN superseded_by_pluggy_investment_id TEXT',
   ]) {
     try {
       await db.execute(sql);

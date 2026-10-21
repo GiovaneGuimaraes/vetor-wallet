@@ -179,7 +179,12 @@ Assumido (não achamos na doc, e o código trata os dois lados):
   `type === 'FIXED_INCOME'` com moeda `BRL` ou ausente; o resto devolve `null`
   (escopo, não bug). **Não mapeia** `subtype`/`rateType` para o vocabulário do
   `fixed-income-core`: os enums da Pluggy não são documentados, e chute em taxa
-  é dado financeiro errado na tela. Saída **sem `id` nem `itemId`**. O web
+  é dado financeiro errado na tela. Saída **com o `id` do investimento na
+  Pluggy e sem `itemId`**: o `id` desce desde a fatia d3a porque é o alvo do
+  vínculo manual↔Pluggy (a posição manual guarda esse id em
+  `superseded_by_pluggy_investment_id` e o web casa com a leitura ao vivo — o
+  id nunca é usado para buscar nada na Pluggy); o `itemId` é credencial
+  portadora e continua de fora. O web
   enxerga a mesma forma por `PluggyFixedIncomePosition` em `shared` — as duas
   mudam juntas (a rota anota o retorno com o tipo do `shared`, então divergir
   quebra o build).

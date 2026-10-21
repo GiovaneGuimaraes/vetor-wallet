@@ -187,6 +187,8 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
     expect(body.otherInvestments).toBe(2);
     expect(body.positions).toEqual([
       {
+        // Fatia d3a: o id do investimento na Pluggy desce (alvo do vínculo).
+        id: 'inv-cdb',
         name: 'CDB Exemplo',
         subtype: 'CDB',
         institution: 'Banco Emissor',
@@ -199,7 +201,48 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
       },
     ]);
     // itemId é credencial portadora: nunca desce para o cliente.
+    expect(body.positions[0]).not.toHaveProperty('itemId');
     expect(JSON.stringify(body)).not.toContain(ITEM_OK);
+  });
+
+  it('vínculo (fatia d3a): PATCH e GET manuais não chamam a Pluggy, mesmo com a integração desligada', async () => {
+    await linkPluggyItem({ db, userId: userIdA, itemId: ITEM_OK });
+    const created = await agentA.post('/api/fixed-income').send({
+      name: 'CDB manual',
+      kind: 'CDB',
+      investedAmount: 500,
+      investedAt: '2026-01-10',
+      rateType: 'PRE',
+      rate: 10,
+    });
+    expect(created.status).toBe(201);
+    // Desligar o gate não pode impedir vincular/desvincular: é anotação da
+    // posição manual, não request à Pluggy.
+    process.env.ENVIRONMENT = 'Production';
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError('fetch failed');
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const linked = await agentA
+      .patch(`/api/fixed-income/${created.body.id}`)
+      .send({ supersededByPluggyInvestmentId: 'id-que-nem-existe-na-pluggy' });
+    expect(linked.status).toBe(200);
+    expect(linked.body.superseded_by_pluggy_investment_id).toBe('id-que-nem-existe-na-pluggy');
+
+    const manual = await agentA.get('/api/fixed-income');
+    expect(manual.status).toBe(200);
+    expect(manual.body.positions[0].superseded_by_pluggy_investment_id).toBe(
+      'id-que-nem-existe-na-pluggy'
+    );
+
+    const unlinked = await agentA
+      .patch(`/api/fixed-income/${created.body.id}`)
+      .send({ supersededByPluggyInvestmentId: null });
+    expect(unlinked.status).toBe(200);
+    expect(unlinked.body.superseded_by_pluggy_investment_id).toBeNull();
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('nunca grava: nenhuma linha nova em fixed_income_positions nem em lançamentos', async () => {
