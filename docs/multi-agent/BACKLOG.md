@@ -22,11 +22,11 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 > PRs, não repetir aqui. Foco atual: T-091c/d (dashboard de Investimentos).
 
 ### T-091c/d — Investimentos como dashboard real (guarda-chuva, spike concluído 2026-10-16)
-- **Status**: EM_ANDAMENTO · **parte manual (c1-c3) CONCLUÍDA** (PRs #214/#216/#218) · próxima: d1 · **Complexidade**: alta · **Depende de**: T-091a (#165) e b1 (#166)
+- **Status**: EM_ANDAMENTO · **manual (c1-c3) + d1 CONCLUÍDOS** (PRs #214/#216/#218/#221) · próxima: d2 · **Complexidade**: alta · **Depende de**: T-091a (#165) e b1 (#166)
 - **Escopo**: página de Investimentos vira dashboard com dado real, pra quem lança na mão E pra quem integrou a Pluggy. IA fica para depois.
-- **Entregue**: `fixed-income-core` + `/api/fixed-income` (c1); página real de Renda Fixa no web (c2, 1 reprovação corrigida: um achado de regra aparecendo em arquivo fora do diff); hub `/investimentos` virou dashboard — total consolidado, barra de alocação, próximos vencimentos, valor de Ações sempre vindo de `computeStockTotals`/`ShellContext` (c3, sem achados).
-- **Roadmap restante**: **d1** `pluggy-core` lê `/investments` + CLI de diagnóstico · **d2** RF lê Pluggy ao vivo, sem gravar · **d3** vínculo manual↔Pluggy · **d4** RF no patrimônio da Home (depende da T-089e — não rodar d1 e T-089e em paralelo).
-- **Pendências não-bloqueantes** (ver `TODO-HUMANO.md`, travam d2/d4, não d1): gravar ou não a posição da Pluggy, RF no patrimônio, ações de outras corretoras via Pluggy, caixinha já lançada em Poupança.
+- **Entregue**: `fixed-income-core` + `/api/fixed-income` (c1); página real de Renda Fixa no web (c2, 1 reprovação corrigida); hub `/investimentos` virou dashboard — total consolidado, alocação, vencimentos (c3); `pluggy-core.fetchPluggyInvestments` lê `/investments` (paginação por página, confirmada ≠ cursor de `/transactions`) + CLI `pluggy:investments` só com contagem por tipo, sem dado sensível (d1, sem achados).
+- **Roadmap restante**: **d2** RF lê Pluggy ao vivo, sem gravar · **d3** vínculo manual↔Pluggy · **d4** RF no patrimônio da Home (depende da T-089e — não rodar junto com T-089e, as duas tocam `pluggy-core/toPluggyAccount.ts`).
+- **Pendências não-bloqueantes** (ver `TODO-HUMANO.md`, travam d2/d4): gravar ou não a posição da Pluggy, RF no patrimônio, ações de outras corretoras via Pluggy, caixinha já lançada em Poupança.
 - **Aceite (geral)**: carteira B3 com os mesmos números em todo lugar; cada fatia com suíte verde e PR própria.
 
 ### T-089e — Patrimônio total com saldo das contas da Pluggy
