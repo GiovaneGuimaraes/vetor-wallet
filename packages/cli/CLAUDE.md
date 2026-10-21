@@ -15,13 +15,14 @@ CLIs de coleta e manutenção de dados, sem dependência do Express. Cada script
 ```
 cli/
 ├── src/
-│   ├── pluggyCli.ts       # plumbing dos dois jobs Pluggy (argv/env, máscara)
+│   ├── pluggyCli.ts       # plumbing dos jobs Pluggy (argv/env, máscara)
 │   ├── pluggyLink.ts      # registra/remove um item da Pluggy p/ um usuário (T-089a)
 │   ├── pluggySync.ts      # sincronização Open Finance via Pluggy (T-087/T-089a)
+│   ├── pluggyInvestments.ts # diagnóstico de /investments: só contagem por tipo (T-091d)
 │   └── grantAdmin.ts      # concede a role admin a um e-mail
 ├── .env.example           # DATABASE_URL, BRAPI_TOKEN, PLUGGY_*
-├── package.json           # vetor-wallet-cli; scripts: pluggy:link,
-│                          # pluggy:sync, roles:grant-admin
+├── package.json           # vetor-wallet-cli; scripts: pluggy:link, pluggy:sync,
+│                          # pluggy:investments, roles:grant-admin
 └── tsconfig.json          # path aliases para os packages consumidos
 ```
 
@@ -91,6 +92,27 @@ Este job sai por `process.exitCode`, **não** por `process.exit()`: ele mantém
 sockets HTTPS abertos e derrubar o processo com handles de rede vivos aborta o
 Node no Windows (`UV_HANDLE_CLOSING`, exit 127 — visto de verdade em smoke test).
 
+### Pluggy: diagnóstico de investimentos (T-091d, fatia d1)
+
+```bash
+pnpm --filter vetor-wallet-cli pluggy:investments
+pnpm --filter vetor-wallet-cli pluggy:investments --email=voce@exemplo.com
+```
+
+Para cada item do usuário, chama `GET /investments` da Pluggy e imprime **só
+estrutura**: quantos investimentos e a contagem por `type` (`FIXED_INCOME: 3,
+EQUITY: 2`…). Existe para o humano ver a forma real do dado antes de a fatia d2
+decidir o mapeamento para o `fixed-income-core`.
+
+- **Nunca imprime** nome de ativo, valor, instituição, código do papel nem id de
+  investimento — a contagem vem de `summarizePluggyInvestments` (pluggy-core),
+  com teste garantindo que nada disso sai. O `itemId` sai mascarado. Mesmo assim,
+  confira antes de colar a saída em `BACKLOG.md`, PR ou Discord: o repo é público.
+- **Nunca grava nada** (não existe escrita de investimento ainda). `--dry-run` é
+  aceito só por consistência com os outros comandos e é só informativo.
+- Falha em um item não aborta os outros; saída não-zero se algum falhou ou se o
+  usuário não tem item vinculado. Sai por `process.exitCode`, como o `pluggy:sync`.
+
 ---
 
 ## Variáveis de ambiente
@@ -99,10 +121,10 @@ Node no Windows (`UV_HANDLE_CLOSING`, exit 127 — visto de verdade em smoke tes
 |---|---|---|
 | `DATABASE_URL` | `file:../rest-api/data/wallet.db` | **Sim** |
 | `BRAPI_TOKEN` | — | Não (limite maior com token) |
-| `PLUGGY_CLIENT_ID` | — | Só para `pluggy:sync` |
-| `PLUGGY_CLIENT_SECRET` | — | Só para `pluggy:sync` |
+| `PLUGGY_CLIENT_ID` | — | Só para `pluggy:sync` / `pluggy:investments` |
+| `PLUGGY_CLIENT_SECRET` | — | Só para `pluggy:sync` / `pluggy:investments` |
 | `PLUGGY_ITEM_ID` | — | Não — só bootstrap do `pluggy:link` (T-089a) |
-| `PLUGGY_USER_EMAIL` | `voce@exemplo.com` | Default do `--email=` nos dois jobs Pluggy |
+| `PLUGGY_USER_EMAIL` | `voce@exemplo.com` | Default do `--email=` nos jobs Pluggy |
 | `PLUGGY_API_URL` | `https://api.pluggy.ai` | Não (default) |
 
 **Credenciais nunca entram no repositório**: no diff vai só o `.env.example` com
