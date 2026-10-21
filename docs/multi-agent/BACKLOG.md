@@ -22,11 +22,10 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 > PRs, não repetir aqui. Foco atual: T-091c/d (dashboard de Investimentos).
 
 ### T-091c/d — Investimentos como dashboard real (guarda-chuva, spike concluído 2026-10-16)
-- **Status**: EM_ANDAMENTO · **manual (c1-c3) + d1 + d2 CONCLUÍDOS** (PRs #214/#216/#218/#221/#224) · em andamento: d3a · **Complexidade**: alta · **Depende de**: T-091a (#165) e b1 (#166)
+- **Status**: EM_ANDAMENTO · **manual (c1-c3) + d1 + d2 + d3a CONCLUÍDOS** (PRs #214/#216/#218/#221/#224/#227) · próxima: d3b · **Complexidade**: alta · **Depende de**: T-091a (#165) e b1 (#166)
 - **Escopo**: página de Investimentos vira dashboard com dado real, pra quem lança na mão E pra quem integrou a Pluggy. IA fica para depois.
-- **Entregue**: `fixed-income-core` + `/api/fixed-income` (c1); página real de Renda Fixa no web (c2); hub `/investimentos` virou dashboard (c3); `pluggy-core` lê `/investments` + CLI de diagnóstico (d1); RF da Pluggy somada à manual, ao vivo, nunca gravada (d2).
-- **d3 (spike concluído 2026-10-21)**: vínculo é explícito (usuário escolhe, nada pré-marcado), gravando só `superseded_by_pluggy_investment_id` (ponteiro, não dado da Pluggy) na posição manual; vínculo órfão volta a contar com aviso. Fatiada em **d3a** (schema+core+rota, em andamento) e **d3b** (web: escolher/confirmar vínculo, excluir do consolidado).
-- **Roadmap restante**: d3b · **d4** RF no patrimônio da Home (depende da T-089e — não rodar junto, as duas tocam `pluggy-core/toPluggyAccount.ts`).
+- **Entregue**: `fixed-income-core` + `/api/fixed-income` (c1); página real de Renda Fixa no web (c2); hub `/investimentos` virou dashboard (c3); `pluggy-core` lê `/investments` + CLI de diagnóstico (d1); RF da Pluggy somada à manual, ao vivo, nunca gravada (d2); coluna `superseded_by_pluggy_investment_id` (ponteiro, não dado da Pluggy) + `PATCH` do vínculo, sem gate/sem validar contra a Pluggy (d3a, sem achados).
+- **Roadmap restante**: **d3b** (web: escolher/confirmar vínculo explícito, excluir posição coberta do consolidado, mostrar vínculo órfão) · **d4** RF no patrimônio da Home (depende da T-089e — não rodar junto, as duas tocam `pluggy-core/toPluggyAccount.ts`).
 - **Pendências não-bloqueantes** (ver `TODO-HUMANO.md`, travam só d4): RF no patrimônio, ações de outras corretoras via Pluggy, caixinha já lançada em Poupança.
 - **Aceite (geral)**: carteira B3 com os mesmos números em todo lugar; cada fatia com suíte verde e PR própria.
 
