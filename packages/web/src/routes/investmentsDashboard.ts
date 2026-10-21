@@ -22,6 +22,15 @@ export interface InvestmentsNodeData {
   /** RF lida ao vivo da conexão bancária, em centavos (T-091d, fatia d2).
    * 0 sem conexão, carregando ou em falha — ver `pluggyCentsForTotal`. */
   pluggyFixedIncomeCents?: number;
+  /** RF manual que CONTA no total, em centavos (T-091d, fatia d3b): o
+   * `manualCentsCounted` de `resolveManualLinks` — sem as posições cobertas
+   * pela conexão. Ausente = o `totalCurrent` bruto do resumo. */
+  manualFixedIncomeCents?: number;
+}
+
+/** Centavos da RF manual que entram no total: o valor já resolvido (d3b) ou o bruto. */
+function manualCents(summary: FixedIncomeSummary, manualFixedIncomeCents?: number): number {
+  return manualFixedIncomeCents ?? Math.round(summary.totalCurrent * 100);
 }
 
 /**
@@ -40,7 +49,7 @@ export function nodeValue(key: string, data: InvestmentsNodeData): number | null
       // card fica no traço mesmo com a Pluggy respondendo: um número só da
       // conexão sob o rótulo "Renda Fixa" pareceria o total e não é.
       return data.fixedIncomeSummary !== null
-        ? (Math.round(data.fixedIncomeSummary.totalCurrent * 100) +
+        ? (manualCents(data.fixedIncomeSummary, data.manualFixedIncomeCents) +
             (data.pluggyFixedIncomeCents ?? 0)) /
             100
         : null;
@@ -67,19 +76,22 @@ export interface InvestmentsOverview {
 
 /**
  * `pluggyFixedIncomeCents` (T-091d, fatia d2): RF lida ao vivo da conexão,
- * SOMADA à manual — as duas fontes não se casam ainda (d3). Só entra quando o
- * resumo manual está disponível, pela mesma razão do `nodeValue`.
+ * SOMADA à manual. Só entra quando o resumo manual está disponível, pela mesma
+ * razão do `nodeValue`. `manualFixedIncomeCents` (fatia d3b) é o
+ * `manualCentsCounted` de `resolveManualLinks`: a manual coberta por um
+ * vínculo ativo sai daqui para não contar duas vezes.
  */
 export function buildInvestmentsOverview(
   stockTotals: StockTotals,
   fixedIncomeSummary: FixedIncomeSummary | null,
-  pluggyFixedIncomeCents = 0
+  pluggyFixedIncomeCents = 0,
+  manualFixedIncomeCents?: number
 ): InvestmentsOverview {
   const stockCurrentCents = Math.round(stockTotals.current * 100);
   const fixedIncomeAvailable = fixedIncomeSummary !== null;
   const fixedIncomePluggyCents = fixedIncomeAvailable ? pluggyFixedIncomeCents : 0;
   const fixedIncomeCurrentCents = fixedIncomeAvailable
-    ? Math.round((fixedIncomeSummary as FixedIncomeSummary).totalCurrent * 100) +
+    ? manualCents(fixedIncomeSummary as FixedIncomeSummary, manualFixedIncomeCents) +
       fixedIncomePluggyCents
     : 0;
 

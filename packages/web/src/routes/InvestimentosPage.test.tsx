@@ -248,4 +248,73 @@ describe('InvestimentosPage', () => {
       expect(acoesCard.textContent).toMatch(/1\.234,00/);
     });
   });
+
+  describe('vínculo manual↔conexão (T-091d, fatia d3b)', () => {
+    // Manual de 550 vinculada a 'inv-lci'; outra manual solta de 100.
+    const linkedManual = () =>
+      Promise.resolve({
+        positions: [
+          makePosition({
+            id: 1,
+            invested_amount: 550,
+            superseded_by_pluggy_investment_id: 'inv-lci',
+          }),
+          makePosition({ id: 2, name: 'LCA Solta' }),
+        ],
+        summary: { totalInvested: 650, totalCurrent: 650 },
+      });
+    const lci = {
+      id: 'inv-lci',
+      name: 'LCI Conectada',
+      subtype: 'LCI',
+      institution: null,
+      investedAmount: 100,
+      currentValue: 600,
+      currentValueDate: '2026-10-01',
+      maturityDate: null,
+      rateType: null,
+      rate: null,
+    };
+
+    it('vínculo ativo: a manual coberta sai do card e do total; Ações não muda', async () => {
+      getImpl = linkedManual;
+      pluggyImpl = () => Promise.resolve({ ...NO_PLUGGY, connections: 1, positions: [lci] });
+
+      renderPage();
+
+      // 100 (manual solta) + 600 (conexão) = 700 — os 550 cobertos ficam fora.
+      await waitFor(() => {
+        const card = screen
+          .getByText('Renda Fixa', { selector: '.vw-layer-card-name' })
+          .closest('button')!;
+        expect(card.textContent).toMatch(/700,00/);
+      });
+      const totalCard = screen.getByText('Total consolidado').closest('div')!;
+      // 1234 + 700 = 1934.
+      expect(totalCard.textContent).toMatch(/1\.934,00/);
+      expect(totalCard.textContent).toMatch(/R\$\s550,00 da Renda Fixa lançada por você está/);
+      const acoesCard = screen
+        .getByText('Ações', { selector: '.vw-layer-card-name' })
+        .closest('button')!;
+      expect(acoesCard.textContent).toMatch(/1\.234,00/);
+    });
+
+    it('conexão em erro: a manual vinculada volta a contar e o total diz isso', async () => {
+      getImpl = linkedManual;
+      pluggyImpl = () => Promise.reject(new Error('network down'));
+
+      renderPage();
+
+      expect(
+        await screen.findByText(/1 posição vinculada à conexão voltou a contar no total/)
+      ).toBeTruthy();
+      const rendaFixaCard = screen
+        .getByText('Renda Fixa', { selector: '.vw-layer-card-name' })
+        .closest('button')!;
+      expect(rendaFixaCard.textContent).toMatch(/650,00/);
+      const totalCard = screen.getByText('Total consolidado').closest('div')!;
+      // 1234 + 650 = 1884.
+      expect(totalCard.textContent).toMatch(/1\.884,00/);
+    });
+  });
 });

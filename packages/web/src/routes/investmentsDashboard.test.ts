@@ -93,6 +93,18 @@ describe('nodeValue', () => {
     ).toBe(0.3);
   });
 
+  it('renda-fixa usa manualFixedIncomeCents (vínculos resolvidos, d3b) no lugar do bruto', () => {
+    const stockTotals = computeStockTotals([]);
+    expect(
+      nodeValue('renda-fixa', {
+        stockTotals,
+        fixedIncomeSummary: makeFixedIncomeSummary({ totalCurrent: 550 }),
+        pluggyFixedIncomeCents: 20000,
+        manualFixedIncomeCents: 15000,
+      })
+    ).toBe(350);
+  });
+
   it('renda-fixa sem o resumo manual fica null mesmo com a conexão respondendo', () => {
     const stockTotals = computeStockTotals([]);
     expect(
@@ -166,6 +178,29 @@ describe('buildInvestmentsOverview', () => {
     expect(overview.fixedIncomePluggyCents).toBe(0);
     expect(overview.fixedIncomeCurrentCents).toBe(0);
     expect(overview.totalCurrentCents).toBe(0);
+  });
+
+  it('com o manual já resolvido (d3b), usa manualCentsCounted no lugar do bruto; Ações intactas', () => {
+    const stockTotals = computeStockTotals([
+      makeSummary({ totalInvested: 100, totalCurrentValue: 100 }),
+    ]);
+
+    // Bruto 50, mas 30 estão cobertos pela conexão: só 20 contam.
+    const overview = buildInvestmentsOverview(
+      stockTotals,
+      makeFixedIncomeSummary({ totalCurrent: 50 }),
+      2500,
+      2000
+    );
+
+    expect(overview.fixedIncomeCurrentCents).toBe(4500);
+    expect(overview.stockCurrentCents).toBe(10000);
+    expect(overview.totalCurrentCents).toBe(14500);
+  });
+
+  it('manual resolvido sem o resumo disponível continua fora (RF indisponível)', () => {
+    const overview = buildInvestmentsOverview(computeStockTotals([]), null, 0, 2000);
+    expect(overview.fixedIncomeCurrentCents).toBe(0);
   });
 });
 

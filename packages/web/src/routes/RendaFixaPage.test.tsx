@@ -384,3 +384,197 @@ describe('RendaFixaPage — RF da conexão bancária (T-091d, fatia d2)', () => 
     expect(screen.getByText(/LCI Conectada/)).toBeTruthy();
   });
 });
+
+describe('RendaFixaPage — vínculo manual↔conexão (T-091d, fatia d3b)', () => {
+  const linkedManual = (overrides: Partial<FixedIncomePosition> = {}) =>
+    makePosition({ superseded_by_pluggy_investment_id: 'inv-lci', ...overrides });
+
+  function withManual(positions: FixedIncomePosition[]) {
+    getFixedIncome.mockResolvedValue({
+      positions,
+      summary: { totalInvested: 1000, totalCurrent: 1000 },
+    });
+  }
+
+  async function settlePluggy() {
+    await act(async () => {
+      await lastPluggyCall.catch(() => {});
+    });
+  }
+
+  it('vínculo ativo: a manual fica esmaecida com o selo e sai do total consolidado', async () => {
+    withManual([linkedManual()]);
+    pluggyImpl = () =>
+      Promise.resolve({ ...NO_PLUGGY, connections: 1, positions: [makePluggyPosition()] });
+
+    renderPage();
+
+    expect(await screen.findByText('Coberta pela conexão · fora do total')).toBeTruthy();
+    expect(screen.getByTestId('fi-manual-1').className).toMatch(/vw-fi-covered/);
+    // Só os 500 da conexão: os 1000 da manual coberta não contam duas vezes.
+    const consolidated = screen.getByTestId('fi-consolidated');
+    expect(consolidated.textContent).toMatch(/^Total consolidadoR\$\s500,00/);
+    expect(consolidated.textContent).toMatch(/Lançada por você: R\$\s0,00/);
+    expect(screen.getByText(/disso está coberto pela conexão/)).toBeTruthy();
+    // Lado da conexão ganha o selo com o nome da manual.
+    const pluggySection = screen.getByRole('region', { name: 'Da sua conexão bancária' });
+    expect(pluggySection.textContent).toMatch(/Vinculada a "CDB Banco X"/);
+    expect(screen.getByRole('button', { name: 'Desvincular' })).toBeTruthy();
+  });
+
+  it('vínculo N→1: o lado da conexão conta as posições', async () => {
+    withManual([linkedManual(), linkedManual({ id: 2, name: 'CDB Banco Z' })]);
+    pluggyImpl = () =>
+      Promise.resolve({ ...NO_PLUGGY, connections: 1, positions: [makePluggyPosition()] });
+
+    renderPage();
+
+    expect(await screen.findByText('Vinculada a 2 posições suas')).toBeTruthy();
+    expect(screen.getAllByText('Coberta pela conexão · fora do total')).toHaveLength(2);
+  });
+
+  it('conexão em erro: a vinculada volta a contar e a linha diz por quê', async () => {
+    withManual([linkedManual()]);
+    pluggyImpl = () => Promise.reject(new Error('falhou'));
+
+    renderPage();
+
+    expect(await screen.findByText(/não foi possível lê-la agora/)).toBeTruthy();
+    expect(screen.getByTestId('fi-manual-1').className).not.toMatch(/vw-fi-covered/);
+    expect(screen.queryByText(/disso está coberto/)).toBeNull();
+  });
+
+  it('integração desligada: volta a contar, diz por quê, e Desvincular segue funcionando', async () => {
+    withManual([linkedManual()]);
+    pluggyImpl = () =>
+      Promise.resolve({ ...NO_PLUGGY, enabled: false, positions: [makePluggyPosition()] });
+    updateFixedIncomePosition.mockResolvedValue(
+      linkedManual({ superseded_by_pluggy_investment_id: null })
+    );
+
+    renderPage();
+    await screen.findByText(/CDB Banco X/);
+    await settlePluggy();
+
+    expect(screen.getByText(/conexão bancária não está disponível agora/)).toBeTruthy();
+    const unlink = screen.getByRole('button', { name: 'Desvincular' }) as HTMLButtonElement;
+    expect(unlink.disabled).toBe(false);
+    fireEvent.click(unlink);
+
+    await waitFor(() =>
+      expect(updateFixedIncomePosition).toHaveBeenCalledWith(1, {
+        supersededByPluggyInvestmentId: null,
+      })
+    );
+  });
+
+  it('sem conexão: volta a contar e diz por quê', async () => {
+    withManual([linkedManual()]);
+
+    renderPage();
+    await screen.findByText(/CDB Banco X/);
+    await settlePluggy();
+
+    expect(screen.getByText(/conexão bancária não está disponível agora/)).toBeTruthy();
+  });
+
+  it('investimento ausente da conexão: volta a contar no consolidado e diz por quê', async () => {
+    withManual([linkedManual()]);
+    pluggyImpl = () =>
+      Promise.resolve({
+        ...NO_PLUGGY,
+        connections: 1,
+        positions: [makePluggyPosition({ id: 'outro' })],
+      });
+
+    renderPage();
+
+    expect(await screen.findByText(/não aparece mais na sua conexão/)).toBeTruthy();
+    // 1000 (manual de volta) + 500 (conexão).
+    expect(screen.getByTestId('fi-consolidated').textContent).toMatch(/1\.500,00/);
+  });
+
+  it('investimento sem saldo na conexão: volta a contar e diz por quê', async () => {
+    withManual([linkedManual()]);
+    pluggyImpl = () =>
+      Promise.resolve({
+        ...NO_PLUGGY,
+        connections: 1,
+        positions: [makePluggyPosition({ currentValue: null })],
+      });
+
+    renderPage();
+
+    expect(await screen.findByText(/sem saldo informado pela conexão/)).toBeTruthy();
+    expect(screen.getByTestId('fi-consolidated').textContent).toMatch(
+      /Lançada por você: R\$\s1\.000,00/
+    );
+  });
+
+  it('vincular: lista sem nada marcado, confirmar travado até escolher, e só grava no clique', async () => {
+    withManual([makePosition()]);
+    pluggyImpl = () =>
+      Promise.resolve({
+        ...NO_PLUGGY,
+        connections: 1,
+        positions: [
+          makePluggyPosition({ id: 'inv-longe', name: 'Longe', maturityDate: null }),
+          makePluggyPosition({ id: 'inv-perto', name: 'Perto', maturityDate: '2099-01-10' }),
+          makePluggyPosition({ id: null, name: 'Sem Id' }),
+        ],
+      });
+    updateFixedIncomePosition.mockResolvedValue(
+      makePosition({ superseded_by_pluggy_investment_id: 'inv-longe' })
+    );
+
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Vincular à conexão' }));
+
+    const picker = screen.getByTestId('fi-link-picker-1');
+    const radios = Array.from(picker.querySelectorAll('input[type="radio"]')) as HTMLInputElement[];
+    // Sem id não é alvo possível; o mesmo vencimento vem primeiro.
+    expect(radios.map((r) => r.value)).toEqual(['inv-perto', 'inv-longe']);
+    expect(radios.every((r) => !r.checked)).toBe(true);
+
+    const confirm = screen.getByRole('button', { name: 'Confirmar vínculo' }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(confirm);
+    expect(updateFixedIncomePosition).not.toHaveBeenCalled();
+
+    // Escolher sozinho não grava nada.
+    fireEvent.click(radios[1]);
+    expect(updateFixedIncomePosition).not.toHaveBeenCalled();
+    expect(confirm.disabled).toBe(false);
+
+    fireEvent.click(confirm);
+    await waitFor(() =>
+      expect(updateFixedIncomePosition).toHaveBeenCalledWith(1, {
+        supersededByPluggyInvestmentId: 'inv-longe',
+      })
+    );
+  });
+
+  it('vincular e cancelar não grava nada', async () => {
+    withManual([makePosition()]);
+    pluggyImpl = () =>
+      Promise.resolve({ ...NO_PLUGGY, connections: 1, positions: [makePluggyPosition()] });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: 'Vincular à conexão' }));
+    fireEvent.click(screen.getByRole('radio'));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.queryByTestId('fi-link-picker-1')).toBeNull();
+    expect(updateFixedIncomePosition).not.toHaveBeenCalled();
+  });
+
+  it('sem conexão trazendo RF, não oferece vincular', async () => {
+    withManual([makePosition()]);
+
+    renderPage();
+    await screen.findByText(/CDB Banco X/);
+    await settlePluggy();
+
+    expect(screen.queryByRole('button', { name: 'Vincular à conexão' })).toBeNull();
+  });
+});

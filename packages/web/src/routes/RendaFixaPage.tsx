@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Fragment, useCallback, useEffect, useState, type FormEvent } from 'react';
 import {
   getFixedIncome,
   createFixedIncomePosition,
@@ -16,6 +16,13 @@ import {
   pluggyPositionTitle,
   pluggyRateText,
 } from './pluggyFixedIncome';
+import {
+  LINK_ACTIVE_BADGE,
+  LINK_INACTIVE_REASON_TEXT,
+  pluggyLinkedBadge,
+  rankLinkCandidates,
+  resolveManualLinks,
+} from './fixedIncomeLinks';
 import {
   EMPTY_FIXED_INCOME_FORM,
   FIXED_INCOME_KINDS,
@@ -65,6 +72,14 @@ function todayIso(): string {
  * Mesmo molde de `PoupancaPage`: resumo → form atrás de `CollapsibleSection`
  * → lista com edição inline (lápis → campos → salvar/cancelar) e exclusão com
  * confirmação (`window.confirm`, mesmo padrão de `OperationsList`).
+ *
+ * Vínculo manual↔conexão (T-091d, fatia d3b; regra em `fixedIncomeLinks.ts`):
+ * "Vincular à conexão" abre a lista de investimentos da conexão ordenada por
+ * semelhança, sem nada marcado, e só grava no "Confirmar vínculo". A posição
+ * coberta fica esmaecida com o selo e sai do total consolidado; vínculo que não
+ * se sustenta agora (conexão em erro/desligada, investimento ausente/sem saldo)
+ * volta a contar e a linha diz por quê. "Desvincular" funciona sempre, mesmo
+ * com a integração desligada.
  */
 export function RendaFixaPage() {
   const [positions, setPositions] = useState<FixedIncomePosition[]>([]);
@@ -123,6 +138,42 @@ export function RendaFixaPage() {
 
   const pluggyView = pluggyFixedIncomeView(pluggyResponse, pluggyFailed);
   const showSources = pluggyView.kind === 'ready';
+
+  // Vínculo manual↔conexão (T-091d, fatia d3b). Vincular exige escolher um
+  // candidato E confirmar — nada vem marcado. Desvincular NÃO depende da
+  // conexão estar de pé (a rota aceita com a integração desligada).
+  const [linkingId, setLinkingId] = useState<number | null>(null);
+  const [linkChoice, setLinkChoice] = useState<string | null>(null);
+  const [linkSaving, setLinkSaving] = useState(false);
+  const [linkError, setLinkError] = useState<{ id: number; text: string } | null>(null);
+
+  function startLink(id: number) {
+    setLinkingId(id);
+    setLinkChoice(null);
+    setLinkError(null);
+  }
+
+  function cancelLink() {
+    setLinkingId(null);
+    setLinkChoice(null);
+  }
+
+  async function saveLink(id: number, pluggyId: string | null) {
+    setLinkSaving(true);
+    setLinkError(null);
+    try {
+      await updateFixedIncomePosition(id, { supersededByPluggyInvestmentId: pluggyId });
+      await refresh();
+      cancelLink();
+    } catch (err) {
+      setLinkError({
+        id,
+        text: err instanceof Error ? err.message : 'Falha ao atualizar o vínculo',
+      });
+    } finally {
+      setLinkSaving(false);
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -208,7 +259,115 @@ export function RendaFixaPage() {
   const totalCurrentCents = totalDisplayValueCents(positions);
   const totalCurrent = totalCurrentCents / 100;
   const pluggyCents = pluggyCentsForTotal(pluggyView);
+  const links = resolveManualLinks(positions, pluggyResponse, pluggyFailed);
+  const manualCountedCents = links.manualCentsCounted;
   const manualSuffix = showSources ? ` · ${MANUAL_SOURCE_LABEL.toLowerCase()}` : '';
+  const pluggyCandidates = pluggyView.kind === 'ready' ? pluggyView.positions : [];
+
+  /** Selo/motivo do vínculo + as ações (Vincular / Desvincular) de uma linha manual. */
+  function renderLinkStatus(position: FixedIncomePosition) {
+    const state = links.states.get(position.id) ?? { kind: 'unlinked' as const };
+    const busy = linkSaving || editingId !== null;
+    const error =
+      linkError?.id === position.id ? <p className="vw-form-error">{linkError.text}</p> : null;
+
+    if (state.kind === 'unlinked') {
+      // Só oferece vincular quando há candidato possível (conexão lida, com id).
+      if (rankLinkCandidates(position, pluggyCandidates).length === 0) return error;
+      // Com a lista aberta, o erro aparece dentro dela (não duas vezes).
+      if (linkingId === position.id) return null;
+      return (
+        <>
+          <div className="vw-fi-link-actions">
+            <button
+              type="button"
+              className="vw-btn-ghost"
+              onClick={() => startLink(position.id)}
+              disabled={busy || linkingId !== null}
+            >
+              Vincular à conexão
+            </button>
+          </div>
+          {error}
+        </>
+      );
+    }
+
+    return (
+      <>
+        <span
+          className={`vw-fi-link-note${state.kind === 'active' ? ' vw-fi-link-note--active' : ''}`}
+        >
+          {state.kind === 'active' ? LINK_ACTIVE_BADGE : LINK_INACTIVE_REASON_TEXT[state.reason]}
+        </span>
+        <div className="vw-fi-link-actions">
+          <button
+            type="button"
+            className="vw-btn-ghost"
+            onClick={() => saveLink(position.id, null)}
+            disabled={busy}
+          >
+            Desvincular
+          </button>
+        </div>
+        {error}
+      </>
+    );
+  }
+
+  /** Lista de candidatos, ordenada por semelhança e SEM nada marcado. */
+  function renderLinkPicker(position: FixedIncomePosition) {
+    const candidates = rankLinkCandidates(position, pluggyCandidates);
+    return (
+      <div className="vw-fi-link-picker" data-testid={`fi-link-picker-${position.id}`}>
+        <fieldset>
+          <legend>Qual investimento da sua conexão é “{position.name}”?</legend>
+          <p className="vw-field-hint">
+            Os mais parecidos (mesmo vencimento, valor próximo) vêm primeiro. Ao vincular, esta
+            posição sai do total enquanto a conexão mostrar o investimento com saldo.
+          </p>
+          {candidates.map((candidate) => (
+            <label className="vw-fi-link-option" key={candidate.id as string}>
+              <input
+                type="radio"
+                name={`fi-link-${position.id}`}
+                value={candidate.id as string}
+                checked={linkChoice === candidate.id}
+                onChange={() => setLinkChoice(candidate.id)}
+                disabled={linkSaving}
+              />
+              <span>
+                {pluggyPositionTitle(candidate)} ·{' '}
+                {maturityLabel(candidate.maturityDate, todayIso())} ·{' '}
+                {candidate.currentValue !== null
+                  ? fmtCur.format(candidate.currentValue)
+                  : 'Sem saldo informado'}
+              </span>
+            </label>
+          ))}
+        </fieldset>
+        <div className="vw-layerpage-edit-actions">
+          <button
+            type="button"
+            className="vw-layerpage-edit-cancel"
+            onClick={cancelLink}
+            disabled={linkSaving}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="vw-btn-primary"
+            onClick={() => linkChoice !== null && saveLink(position.id, linkChoice)}
+            disabled={linkChoice === null || linkSaving}
+          >
+            {linkSaving ? 'Salvando…' : 'Confirmar vínculo'}
+          </button>
+        </div>
+        {linkError?.id === position.id && <p className="vw-form-error">{linkError.text}</p>}
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -246,16 +405,22 @@ export function RendaFixaPage() {
                 Saldo informado quando houver; senão, o valor aplicado. Não é uma estimativa de
                 rendimento.
               </p>
+              {links.coveredManualCents > 0 && (
+                <p className="vw-savings-summary-sub">
+                  {fmtCur.format(links.coveredManualCents / 100)} disso está coberto pela conexão e
+                  fica fora do total consolidado.
+                </p>
+              )}
             </div>
             {showSources && (
               <div className="vw-savings-summary-card" data-testid="fi-consolidated">
                 <p className="vw-savings-summary-label">Total consolidado</p>
                 <p className="vw-savings-summary-value">
-                  {fmtCur.format((totalCurrentCents + pluggyCents) / 100)}
+                  {fmtCur.format((manualCountedCents + pluggyCents) / 100)}
                 </p>
                 <p className="vw-savings-summary-sub">
-                  {MANUAL_SOURCE_LABEL}: {fmtCur.format(totalCurrent)} · {PLUGGY_SOURCE_LABEL}:{' '}
-                  {fmtCur.format(pluggyCents / 100)}
+                  {MANUAL_SOURCE_LABEL}: {fmtCur.format(manualCountedCents / 100)} ·{' '}
+                  {PLUGGY_SOURCE_LABEL}: {fmtCur.format(pluggyCents / 100)}
                 </p>
               </div>
             )}
@@ -289,6 +454,12 @@ export function RendaFixaPage() {
                       <span className="vw-savings-entry-badge vw-badge-yield">Conexão</span>
                       <div className="vw-savings-entry-main">
                         <p className="vw-savings-entry-note">{pluggyPositionTitle(position)}</p>
+                        {position.id !== null &&
+                          pluggyLinkedBadge(links.linkedByPluggyId.get(position.id)) && (
+                            <span className="vw-fi-link-note vw-fi-link-note--active">
+                              {pluggyLinkedBadge(links.linkedByPluggyId.get(position.id))}
+                            </span>
+                          )}
                         <p className="vw-savings-entry-date">
                           {maturityLabel(position.maturityDate, todayIso())}
                           {pluggyRateText(position) ? ` · ${pluggyRateText(position)}` : ''}
@@ -607,47 +778,56 @@ export function RendaFixaPage() {
                     </div>
                   </form>
                 ) : (
-                  <div className="vw-savings-entry-row" key={position.id}>
-                    <span className="vw-savings-entry-badge vw-badge-deposit">
-                      {FIXED_INCOME_KIND_LABEL[position.kind]}
-                    </span>
-                    <div className="vw-savings-entry-main">
-                      <p className="vw-savings-entry-note">
-                        {position.name}
-                        {position.institution ? ` · ${position.institution}` : ''}
-                      </p>
-                      <p className="vw-savings-entry-date">
-                        {maturityLabel(position.maturity_date, todayIso())} ·{' '}
-                        {rateLabel(position.rate_type, position.rate)} ·{' '}
-                        {position.current_value !== null
-                          ? `Saldo informado em ${formatDate(position.current_value_date as string)}`
-                          : `Valor aplicado em ${formatDate(position.invested_at)}`}
-                      </p>
+                  <Fragment key={position.id}>
+                    <div
+                      className={`vw-savings-entry-row${
+                        links.states.get(position.id)?.kind === 'active' ? ' vw-fi-covered' : ''
+                      }`}
+                      data-testid={`fi-manual-${position.id}`}
+                    >
+                      <span className="vw-savings-entry-badge vw-badge-deposit">
+                        {FIXED_INCOME_KIND_LABEL[position.kind]}
+                      </span>
+                      <div className="vw-savings-entry-main">
+                        <p className="vw-savings-entry-note">
+                          {position.name}
+                          {position.institution ? ` · ${position.institution}` : ''}
+                        </p>
+                        <p className="vw-savings-entry-date">
+                          {maturityLabel(position.maturity_date, todayIso())} ·{' '}
+                          {rateLabel(position.rate_type, position.rate)} ·{' '}
+                          {position.current_value !== null
+                            ? `Saldo informado em ${formatDate(position.current_value_date as string)}`
+                            : `Valor aplicado em ${formatDate(position.invested_at)}`}
+                        </p>
+                        {renderLinkStatus(position)}
+                      </div>
+                      <span className="vw-savings-entry-amount">
+                        {fmtCur.format(displayValue(position))}
+                      </span>
+                      <button
+                        type="button"
+                        className="vw-layerpage-edit-btn"
+                        onClick={() => startEdit(position)}
+                        disabled={editingId !== null}
+                        aria-label="Editar posição"
+                        title="Editar posição"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        type="button"
+                        className="vw-delete-btn"
+                        onClick={() => handleDelete(position)}
+                        disabled={editingId !== null}
+                        aria-label="Remover posição"
+                        title="Remover posição"
+                      >
+                        ×
+                      </button>
                     </div>
-                    <span className="vw-savings-entry-amount">
-                      {fmtCur.format(displayValue(position))}
-                    </span>
-                    <button
-                      type="button"
-                      className="vw-layerpage-edit-btn"
-                      onClick={() => startEdit(position)}
-                      disabled={editingId !== null}
-                      aria-label="Editar posição"
-                      title="Editar posição"
-                    >
-                      ✎
-                    </button>
-                    <button
-                      type="button"
-                      className="vw-delete-btn"
-                      onClick={() => handleDelete(position)}
-                      disabled={editingId !== null}
-                      aria-label="Remover posição"
-                      title="Remover posição"
-                    >
-                      ×
-                    </button>
-                  </div>
+                    {linkingId === position.id && renderLinkPicker(position)}
+                  </Fragment>
                 )
               )}
             </div>

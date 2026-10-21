@@ -337,6 +337,58 @@
   color: var(--color-warn);
 }
 
+/* T-091d (d3b): vínculo manual↔conexão em Renda Fixa. A posição manual coberta
+   pela conexão fica esmaecida — está fora do total, mas segue visível. */
+.vw-fi-covered .vw-savings-entry-main,
+.vw-fi-covered .vw-savings-entry-amount,
+.vw-fi-covered > .vw-savings-entry-badge {
+  opacity: 0.55;
+}
+
+.vw-fi-link-note {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--color-dim);
+}
+
+.vw-fi-link-note--active {
+  color: var(--color-accent);
+}
+
+.vw-fi-link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.vw-fi-link-picker {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--color-edge);
+}
+
+.vw-fi-link-picker fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.vw-fi-link-picker legend {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.vw-fi-link-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 /* T-041: selo nas duas pernas de uma transferência legada da poupança
    (T-091b1: Metas saiu; nada novo nasce com `transfer_group`). */
 .vw-savings-entry-transfer {
