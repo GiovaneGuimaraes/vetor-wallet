@@ -6,6 +6,7 @@
   "scripts": {
     "pluggy:link": "tsx src/pluggyLink.ts",
     "pluggy:sync": "tsx src/pluggySync.ts",
+    "pluggy:investments": "tsx src/pluggyInvestments.ts",
     "roles:grant-admin": "tsx src/grantAdmin.ts",
     "build": "tsc --build tsconfig.json"
   },

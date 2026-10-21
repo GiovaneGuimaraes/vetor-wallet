@@ -22,3 +22,13 @@ export {
 export type { FetchPluggyTransactionsParams } from './fetchPluggyTransactions';
 export { toPluggyTransaction } from './toPluggyTransaction';
 export type { PluggyTransaction } from './toPluggyTransaction';
+export {
+  fetchPluggyInvestments,
+  MAX_INVESTMENT_PAGES,
+  PLUGGY_INVESTMENTS_PAGE_SIZE,
+  PLUGGY_INVESTMENTS_PATH,
+} from './fetchPluggyInvestments';
+export { toPluggyInvestment } from './toPluggyInvestment';
+export type { PluggyInvestment } from './toPluggyInvestment';
+export { summarizePluggyInvestments, UNTYPED_INVESTMENT_LABEL } from './summarizePluggyInvestments';
+export type { PluggyInvestmentsSummary } from './summarizePluggyInvestments';
