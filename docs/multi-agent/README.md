@@ -212,6 +212,8 @@ O orquestrador classifica cada tarefa do `BACKLOG.md` com um campo **Complexidad
 | **média** | feature padrão sobre padrões existentes (nova rota espelhando outra, tela nova sobre API pronta, teste novo) | `sonnet` (default) | `sonnet` |
 | **alta** | cálculo financeiro (preço médio, P&L, saldo), mudança de schema/migração, auth/isolamento por `user_id`, refactor multi-pacote (`shared`+`server`+`web`), lógica com muitos casos de borda, débito que já causou reprovação antes | `opus` | `sonnet` |
 
+**Versão dos modelos (decisão do humano, 2026-10-21)**: os aliases `opus`/`sonnet`/`haiku` da ferramenta Agent devem resolver para a geração **5.5** (Opus 5.5 / Sonnet 5.5), não 5.1 — mais eficiente e mais barata na avaliação do humano. Onde este documento e os prompts dos agentes dizem "Opus"/"Sonnet" sem versão, leia-se "Opus 5.5"/"Sonnet 5.5". Se o ambiente de execução não resolver o alias para 5.5 automaticamente, o orquestrador fixa a versão explicitamente no parâmetro `model`.
+
 Regras complementares:
 
 - **Baixa roda em Haiku por decisão de custo (2026-08-01)** — "haiku ou sonnet" na prática virava sempre Sonnet; agora Haiku é o default para complexidade baixa. Critério de segurança: a tarefa baixa só pode ir para Haiku se **não** tocar lógica de negócio nem SQL (docs, CSS/estilo, rename, texto de UI, asset, config trivial). Tocou qualquer código com comportamento testável → classifique como média (Sonnet). O revisor continua Sonnet, exceto diffs 100% de docs/markdown, que podem ser revisados em Haiku.
