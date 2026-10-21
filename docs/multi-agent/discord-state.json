@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-10-21T13:16:19-03:00"
+    "atualizadoEm": "2026-10-21T13:39:20-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -148,7 +148,7 @@
       "canal": "todo-ai",
       "messageId": "1560712000353468489",
       "status": "EM_ANDAMENTO",
-      "nota": "Manual (c1-c3) + d1 concluidos. P1 respondida (nao gravar). Em andamento: d2 (RF le Pluggy ao vivo)."
+      "nota": "Manual (c1-c3) + d1 + d2 concluidos (PRs #214/#216/#218/#221/#224). Proxima: d3 (vinculo manual-Pluggy)."
     }
   },
   "humanTodos": {
