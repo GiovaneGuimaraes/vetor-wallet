@@ -36,6 +36,9 @@ src/
 ├── toPluggyAccount.ts         # payload de conta → PluggyAccount
 ├── fetchPluggyTransactions.ts # GET /v2/transactions, seguindo o cursor `next`
 ├── toPluggyTransaction.ts     # payload de transação → PluggyTransaction
+├── fetchPluggyInvestments.ts  # GET /investments?itemId=, por PÁGINA até totalPages (T-091d)
+├── toPluggyInvestment.ts      # payload de investimento → PluggyInvestment (type cru)
+├── summarizePluggyInvestments.ts # só contagem total/por type, p/ diagnóstico (T-091d)
 └── index.ts                   # barrel
 ```
 
@@ -89,6 +92,22 @@ Confirmado em https://docs.pluggy.ai (agosto/2026):
   oauthRedirectUri?, avoidDuplicates? } }` e responde `{ accessToken }` (JWT de
   ~30 min). É o token que inicializa o widget — ver "Como obter um `itemId` novo".
 
+- **`GET /investments`** (conferido em
+  https://docs.pluggy.ai/en/reference/investment/investments-list, out/2026 —
+  T-091d, fatia d1): `itemId` (uuid) obrigatório; `type` (filtro), `page`
+  (default 1) e `pageSize` (default 500) opcionais. **Paginação por PÁGINA**,
+  não por cursor: envelope `{ page, total, totalPages, results }`, igual ao do
+  `/accounts`. Valores de `type` listados no filtro: `COE`, `EQUITY`, `ETF`,
+  `FIXED_INCOME`, `MUTUAL_FUND`, `SECURITY`, `OTHER`. Campos vistos no exemplo
+  de resposta: `id`, `itemId`, `type`, `subtype`, `status`, `name`, `code`,
+  `number`, `currencyCode`, `balance`, `amount`, `amountOriginal`,
+  `amountProfit`, `amountWithdrawal`, `quantity`, `value`, `taxes`, `taxes2`,
+  `rateType`, `rate`, `fixedAnnualRate`, `annualRate`, `lastMonthRate`,
+  `lastTwelveMonthsRate`, `date`, `issueDate`, `purchaseDate`, `owner`,
+  `issuer`, `issuerCNPJ`, `institution { name, number }`, `transactions[]`.
+  Também existem `GET /investments/{id}` e `GET /investments/{id}/transactions`
+  (não usados).
+
 Assumido (não achamos na doc, e o código trata os dois lados):
 
 - Que em conta (`BANK`) o sinal é o **natural** — entrada positiva, saída
@@ -104,11 +123,25 @@ Assumido (não achamos na doc, e o código trata os dois lados):
   (os dois recebem a mesma mensagem acionável).
 - O `expiresIn` da apiKey não é devolvido no corpo: as 2h vêm da documentação,
   não da resposta. Daí a margem de segurança.
+- **`/investments` (T-091d, fatia d1)** — a doc mostra o schema só por
+  exemplo, então: (a) os enums completos de `subtype` e `status` **não estão
+  documentados** (exemplos: `CDB`, `MULTIMARKET_FUND`, `RETIREMENT`; `ACTIVE`);
+  (b) a lista de `type` vem do filtro da query, não do schema da resposta — por
+  isso tipo desconhecido é preservado como veio, nunca descartado;
+  (c) **`dueDate` (vencimento) é assumido**: não aparece no exemplo, é lido se
+  vier e fica `null` se não vier; (d) a nulabilidade de cada campo é inferida
+  (o exemplo traz `code`/`number`/`taxes` nulos em alguns itens) — todo campo
+  do `PluggyInvestment` é anulável; (e) que `totalPages` sempre vem — o código
+  **falha alto** sem ele em vez de assumir página única; (f) 404/403 para item
+  inexistente/de outra aplicação, como no `/accounts`. **Nada disso foi medido
+  contra a API real ainda** — é para isso que existe o `pluggy:investments` do
+  cli (contagem por tipo, sem dado do usuário).
 
 > **Deprecação relevante**: o endpoint **por página** (`GET /transactions`, com
 > `page`/`pageSize`/`totalPages` e `from`/`to`) está deprecado e sai em
 > **2026-12-31**. Este package usa a v2 por cursor desde o início — se você achar
-> `page`/`totalPages`/`from`/`to` em algum lugar novo, é o endpoint velho.
+> `page`/`totalPages`/`from`/`to` em algum lugar novo **de transações**, é o
+> endpoint velho. (`/accounts` e `/investments` paginam por página de verdade.)
 
 ## Invariantes (não quebrar)
 
@@ -129,6 +162,15 @@ Assumido (não achamos na doc, e o código trata os dois lados):
   é fim (tem teste); `totalPages` não existe na v2. `MAX_PAGES` (200) é teto
   defensivo: um `next` que nunca zera falha com mensagem em vez de rodar para
   sempre.
+- **`/investments` pagina por `page`/`totalPages`** (é outro endpoint, não o
+  `GET /transactions` deprecado): termina em `page >= totalPages`, página vazia
+  no meio não é fim, `totalPages` ausente/inválido é erro e acima de
+  `MAX_INVESTMENT_PAGES` (50) falha antes de paginar. O 404/403 de lá **não**
+  põe o `itemId` na mensagem (credencial portadora).
+- **`PluggyInvestment.type` sai cru.** Traduzir para o vocabulário do
+  `fixed-income-core` (`FIXED_INCOME_KINDS`) é decisão do consumidor (fatia d2).
+  O tipo mora neste package (como `PluggyAccount`/`PluggyTransaction`), não no
+  `shared`, enquanto nenhum consumidor fora do servidor precisar dele.
 - **Nada é inventado na tradução.** Campo ausente/estranho vira `null` —
   inclusive `id`. Rejeitar transação sem id é decisão do `bank-import-core`, e
   inventar um id aqui quebraria o dedupe da T-084.
