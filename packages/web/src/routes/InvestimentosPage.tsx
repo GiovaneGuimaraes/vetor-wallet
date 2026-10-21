@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { FixedIncomePosition, FixedIncomeSummary } from '@vetor-wallet/shared';
-import { getFixedIncome } from '../api';
+import type {
+  FixedIncomePosition,
+  FixedIncomeSummary,
+  PluggyFixedIncomeResponse,
+} from '@vetor-wallet/shared';
+import { getFixedIncome, getPluggyFixedIncome } from '../api';
+import {
+  PLUGGY_SOURCE_LABEL,
+  pluggyCentsForTotal,
+  pluggyFailureNote,
+  pluggyFixedIncomeView,
+} from './pluggyFixedIncome';
 import { BackToHomeLink } from '../components/BackToHomeLink';
 import { useShellContext } from '../layout/ShellContext';
 import { mascotSrcForLayer } from '../layout/mascots';
@@ -44,6 +54,12 @@ function todayIso(): string {
  * `key`, qual card usa qual fonte — fechando a dívida herdada da fase (a) em
  * que qualquer nó não-"em breve" mostrava o total da B3 (achado do revisor da
  * fatia c2).
+ *
+ * Desde a fatia d2 (T-091d) o card e o total de Renda Fixa somam também a RF
+ * lida ao vivo da conexão bancária (`GET /api/fixed-income/pluggy`), num
+ * terceiro fetch isolado: se ele falhar, a RF manual e Ações seguem e o total
+ * diz que a parte da conexão ficou de fora. "Próximos vencimentos" segue só
+ * com a RF manual.
  */
 export function InvestimentosPage() {
   const navigate = useNavigate();
@@ -75,10 +91,37 @@ export function InvestimentosPage() {
     };
   }, []);
 
+  // RF da conexão bancária (T-091d, fatia d2): terceiro fetch, isolado dos
+  // outros dois. Falhar aqui só tira a parte da conexão do total e mostra um
+  // aviso — a RF manual e Ações seguem.
+  const [pluggyResponse, setPluggyResponse] = useState<PluggyFixedIncomeResponse | null>(null);
+  const [pluggyFailed, setPluggyFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPluggyFixedIncome()
+      .then((data) => {
+        if (cancelled) return;
+        setPluggyResponse(data);
+        setPluggyFailed(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPluggyResponse(null);
+        setPluggyFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const pluggyView = pluggyFixedIncomeView(pluggyResponse, pluggyFailed);
+  const pluggyCents = pluggyCentsForTotal(pluggyView);
+
   const stockTotals = computeStockTotals(walletSummary ? [walletSummary] : []);
   const dash = '—';
 
-  const overview = buildInvestmentsOverview(stockTotals, fixedIncomeSummary);
+  const overview = buildInvestmentsOverview(stockTotals, fixedIncomeSummary, pluggyCents);
   const allocation = buildAllocation(overview);
   const upcoming = upcomingMaturities(fixedIncomePositions);
 
@@ -111,6 +154,23 @@ export function InvestimentosPage() {
               {fixedIncomeError
                 ? 'Não foi possível carregar a Renda Fixa agora — este total mostra só Ações.'
                 : 'Carregando Renda Fixa…'}
+            </p>
+          )}
+          {overview.fixedIncomeAvailable && overview.fixedIncomePluggyCents > 0 && (
+            <p className="vw-savings-summary-sub">
+              Inclui {fmtCur.format(overview.fixedIncomePluggyCents / 100)} de Renda Fixa{' '}
+              {PLUGGY_SOURCE_LABEL.toLowerCase()}, lido agora.
+            </p>
+          )}
+          {overview.fixedIncomeAvailable && pluggyView.kind === 'error' && (
+            <p className="vw-savings-summary-sub">
+              Não foi possível ler sua conexão bancária agora — a Renda Fixa mostra só o que você
+              lançou.
+            </p>
+          )}
+          {pluggyView.kind === 'ready' && pluggyFailureNote(pluggyView.failedConnections) && (
+            <p className="vw-savings-summary-sub">
+              {pluggyFailureNote(pluggyView.failedConnections)}
             </p>
           )}
         </div>
@@ -151,7 +211,11 @@ export function InvestimentosPage() {
 
       <div className="vw-layer-grid">
         {INVESTMENT_NODES.map((node, i) => {
-          const value = nodeValue(node.key, { stockTotals, fixedIncomeSummary });
+          const value = nodeValue(node.key, {
+            stockTotals,
+            fixedIncomeSummary,
+            pluggyFixedIncomeCents: pluggyCents,
+          });
           return (
             <button
               key={node.key}

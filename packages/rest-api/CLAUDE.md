@@ -155,6 +155,16 @@ corpo (inclusive as regras que cruzam campos — `maturityDate >= investedAt`
 contra o estado final no PATCH, e o par `currentValue`/`currentValueDate`) e
 injeta `createSqliteQuery(db)` no core, igual a `routes/savings.ts`.
 
+Na T-091d (fatia d2) entrou `GET /api/fixed-income/pluggy`, no mesmo router: a
+RF da conexão bancária **lida ao vivo** (`listPluggyItems` → `fetchPluggyInvestments`
+por item → `toPluggyFixedIncomePosition`) e **nunca gravada** (decisão do humano,
+2026-10-21). Rota irmã de propósito — o `GET /` da RF manual não sabe que a
+Pluggy existe, então nenhuma falha dela chega perto. Sempre 200: gate
+`ENVIRONMENT` desligado → `enabled: false` sem consultar nada; item que falha
+→ conta em `failedConnections` (nunca 500/502), os outros seguem. Sujeita ao
+gate `ENVIRONMENT` porque ler um item já conectado também é usar a integração
+(o termo do Meu Pluggy é o que o gate protege).
+
 Entry compilado: `dist/api/index.js` (`pnpm --filter vetor-wallet-rest-api start`). Rodar `node dist/api/index.js` de fora de `packages/rest-api/` sem `DATABASE_URL` cria um banco novo no cwd errado.
 
 ## Regras do pacote

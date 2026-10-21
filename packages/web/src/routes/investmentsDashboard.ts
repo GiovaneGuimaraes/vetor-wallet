@@ -19,6 +19,9 @@ export interface InvestmentsNodeData {
   /** `null` enquanto o resumo de Renda Fixa não carregou ou a busca falhou —
    * isolado do resto da página (ver `InvestimentosPage.tsx`). */
   fixedIncomeSummary: FixedIncomeSummary | null;
+  /** RF lida ao vivo da conexão bancária, em centavos (T-091d, fatia d2).
+   * 0 sem conexão, carregando ou em falha — ver `pluggyCentsForTotal`. */
+  pluggyFixedIncomeCents?: number;
 }
 
 /**
@@ -33,7 +36,14 @@ export function nodeValue(key: string, data: InvestmentsNodeData): number | null
     case 'acoes':
       return data.stockTotals.current;
     case 'renda-fixa':
-      return data.fixedIncomeSummary !== null ? data.fixedIncomeSummary.totalCurrent : null;
+      // Manual + conexão bancária, somados em centavos. Sem o resumo manual o
+      // card fica no traço mesmo com a Pluggy respondendo: um número só da
+      // conexão sob o rótulo "Renda Fixa" pareceria o total e não é.
+      return data.fixedIncomeSummary !== null
+        ? (Math.round(data.fixedIncomeSummary.totalCurrent * 100) +
+            (data.pluggyFixedIncomeCents ?? 0)) /
+            100
+        : null;
     default:
       // 'cripto' e qualquer nó futuro sem cálculo ligado: sem dado, não um
       // total emprestado de outro nó.
@@ -50,16 +60,27 @@ export interface InvestmentsOverview {
    * `fixedIncomeCurrentCents` entra como 0 na soma (nunca o total da B3
    * sozinho disfarçado de "consolidado"). */
   fixedIncomeAvailable: boolean;
+  /** Parte de `fixedIncomeCurrentCents` que veio da conexão bancária (fatia
+   * d2) — para a tela dizer quanto do total é de cada fonte. */
+  fixedIncomePluggyCents: number;
 }
 
+/**
+ * `pluggyFixedIncomeCents` (T-091d, fatia d2): RF lida ao vivo da conexão,
+ * SOMADA à manual — as duas fontes não se casam ainda (d3). Só entra quando o
+ * resumo manual está disponível, pela mesma razão do `nodeValue`.
+ */
 export function buildInvestmentsOverview(
   stockTotals: StockTotals,
-  fixedIncomeSummary: FixedIncomeSummary | null
+  fixedIncomeSummary: FixedIncomeSummary | null,
+  pluggyFixedIncomeCents = 0
 ): InvestmentsOverview {
   const stockCurrentCents = Math.round(stockTotals.current * 100);
   const fixedIncomeAvailable = fixedIncomeSummary !== null;
+  const fixedIncomePluggyCents = fixedIncomeAvailable ? pluggyFixedIncomeCents : 0;
   const fixedIncomeCurrentCents = fixedIncomeAvailable
-    ? Math.round((fixedIncomeSummary as FixedIncomeSummary).totalCurrent * 100)
+    ? Math.round((fixedIncomeSummary as FixedIncomeSummary).totalCurrent * 100) +
+      fixedIncomePluggyCents
     : 0;
 
   return {
@@ -67,6 +88,7 @@ export function buildInvestmentsOverview(
     stockCurrentCents,
     fixedIncomeCurrentCents,
     fixedIncomeAvailable,
+    fixedIncomePluggyCents,
   };
 }
 
