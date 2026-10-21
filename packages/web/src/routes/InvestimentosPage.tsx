@@ -17,6 +17,7 @@ import { useShellContext } from '../layout/ShellContext';
 import { mascotSrcForLayer } from '../layout/mascots';
 import { computeStockTotals } from './homeMetrics';
 import { maturityLabel, rateLabel } from './fixedIncome';
+import { resolveManualLinks } from './fixedIncomeLinks';
 import { INVESTMENT_NODES } from './investmentsTree';
 import {
   buildAllocation,
@@ -60,6 +61,12 @@ function todayIso(): string {
  * terceiro fetch isolado: se ele falhar, a RF manual e Ações seguem e o total
  * diz que a parte da conexão ficou de fora. "Próximos vencimentos" segue só
  * com a RF manual.
+ *
+ * Desde a fatia d3b, a RF manual entra no total pelo `manualCentsCounted` de
+ * `resolveManualLinks` (`fixedIncomeLinks.ts`): posição vinculada a um
+ * investimento presente e com saldo na conexão fica de fora (não conta duas
+ * vezes); com a conexão em erro/desligada ou o investimento ausente/sem saldo,
+ * ela volta a contar.
  */
 export function InvestimentosPage() {
   const navigate = useNavigate();
@@ -117,11 +124,29 @@ export function InvestimentosPage() {
 
   const pluggyView = pluggyFixedIncomeView(pluggyResponse, pluggyFailed);
   const pluggyCents = pluggyCentsForTotal(pluggyView);
+  // Vínculo manual↔conexão (fatia d3b): a manual coberta por um investimento
+  // presente e com saldo sai do total; qualquer outro caso volta a contar.
+  const links = resolveManualLinks(fixedIncomePositions, pluggyResponse, pluggyFailed);
+  // O resumo do servidor segue sendo a fonte do total manual (mesma fórmula
+  // `current_value ?? invested_amount`); só se desconta dele o que está
+  // coberto — em dado consistente é exatamente o `manualCentsCounted`.
+  const manualCents =
+    fixedIncomeSummary !== null
+      ? Math.round(fixedIncomeSummary.totalCurrent * 100) - links.coveredManualCents
+      : undefined;
+  const linksBackInTotal = [...links.states.values()].filter(
+    (s) => s.kind === 'inactive' && s.reason !== 'pending'
+  ).length;
 
   const stockTotals = computeStockTotals(walletSummary ? [walletSummary] : []);
   const dash = '—';
 
-  const overview = buildInvestmentsOverview(stockTotals, fixedIncomeSummary, pluggyCents);
+  const overview = buildInvestmentsOverview(
+    stockTotals,
+    fixedIncomeSummary,
+    pluggyCents,
+    manualCents
+  );
   const allocation = buildAllocation(overview);
   const upcoming = upcomingMaturities(fixedIncomePositions);
 
@@ -166,6 +191,20 @@ export function InvestimentosPage() {
             <p className="vw-savings-summary-sub">
               Não foi possível ler sua conexão bancária agora — a Renda Fixa mostra só o que você
               lançou.
+            </p>
+          )}
+          {overview.fixedIncomeAvailable && links.coveredManualCents > 0 && (
+            <p className="vw-savings-summary-sub">
+              {fmtCur.format(links.coveredManualCents / 100)} da Renda Fixa lançada por você está
+              coberto pela conexão e fica fora do total, para não contar duas vezes.
+            </p>
+          )}
+          {overview.fixedIncomeAvailable && linksBackInTotal > 0 && (
+            <p className="vw-savings-summary-sub">
+              {linksBackInTotal === 1
+                ? '1 posição vinculada à conexão voltou a contar no total'
+                : `${linksBackInTotal} posições vinculadas à conexão voltaram a contar no total`}{' '}
+              — veja o motivo em Renda Fixa.
             </p>
           )}
           {pluggyView.kind === 'ready' && pluggyFailureNote(pluggyView.failedConnections) && (
@@ -215,6 +254,7 @@ export function InvestimentosPage() {
             stockTotals,
             fixedIncomeSummary,
             pluggyFixedIncomeCents: pluggyCents,
+            manualFixedIncomeCents: manualCents,
           });
           return (
             <button

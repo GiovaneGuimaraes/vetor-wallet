@@ -6,8 +6,10 @@ import type { PluggyFixedIncomePosition, PluggyFixedIncomeResponse } from '@veto
  *
  * A posição da Pluggy é **lida ao vivo** a cada acesso e nunca é gravada
  * (decisão do humano, 2026-10-21). Ela convive com a RF lançada à mão: as duas
- * fontes **somam**, sem tentar casar itens (vínculo/dedupe é a fatia d3), e a
- * tela tem de deixar claro qual é qual — por isso o vocabulário fixo abaixo.
+ * fontes **somam**, e a tela tem de deixar claro qual é qual — por isso o
+ * vocabulário fixo abaixo. Nada aqui casa itens automaticamente: o vínculo
+ * explícito manual↔conexão (e quem sai do total por causa dele) está em
+ * `fixedIncomeLinks.ts` (fatia d3b).
  */
 
 /** Rótulo da fonte Pluggy na tela. Mudar aqui muda nas duas páginas. */
