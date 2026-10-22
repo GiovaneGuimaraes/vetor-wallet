@@ -189,13 +189,13 @@ fase 2, não o último.
 ### 4.1 O que o `rest-api` da OCA (`oneclickads/monorepo`) ensina, e o que NÃO copiamos
 
 Lido em 2026-10-15 (`packages/rest-api` de lá) a pedido do humano, como referência para esta
-fase. Duas escolhas de lá **contrariam** decisões já travadas aqui e **não entram**: (1) IaC via
-`carlin`/SAM — a decisão 2 (§8) já escolheu SDK puro, de propósito ("quer ver como o deploy
-funciona por baixo"); (2) **um Lambda por rota+método**, registrado num array explícito
+fase. Uma escolha de lá segue fora por motivo próprio, independente da decisão 2 sobre `carlin`
+(revisada em 2026-10-22, §8.1): **um Lambda por rota+método**, registrado num array explícito
 (`apiHandlers` em `cloudformation.ts`) que o `carlin` expande em `AWS::Serverless::Function` —
 faz sentido lá (~30 integrações desacopladas, isolar blast radius de cada webhook de terceiro),
 mas aqui reimplementaria o roteador do Express em infra sem necessidade, contrariando a escolha
-de **um Lambda só** desta §4.
+de **um Lambda só** desta §4. Usar `carlin` para provisionar esse Lambda único (em vez de N) deixou
+de estar descartado — ver §8.1.
 
 O que **é** portável e vale aplicar quando a fase 3 chegar:
 
@@ -363,12 +363,13 @@ migração de banco. A 1 é melhor no fim, quando houver menos coisa se mexendo 
   decidiu com os dois custos na mesa, e com duas razões a favor que a recomendação anterior
   subestimava: **é a pilha que ele já opera** (§3) e **devolve o desenvolvimento local offline**
   via Postgres em Docker (§2).
-- **2 — infra as code: RESPONDIDA em 2026-09-20 — scripts em SDK puro da AWS, com o `carlin`
-  registrado como migração futura (§8.1).** Eu recomendava `carlin`, por ser a pilha que o humano
-  já opera; ele escolheu o SDK **sabendo que é o caminho mais caro**, por um motivo que a
-  recomendação não pesava: **quer ver como o deploy funciona por baixo**. Provisionar a AppSync na
-  mão é objetivo declarado, não efeito colateral. O desenho da §8.1 existe para que a escolha
-  custe aprendizado sem custar um caminho sem volta.
+- **2 — infra as code: REVISADA em 2026-10-22 (§8.1) — `carlin` liberado por recurso, quando
+  acelerar a entrega.** Em 2026-09-20 a escolha tinha sido SDK puro de propósito ("quer ver como
+  o deploy funciona por baixo"). Em 2026-10-22 o humano voltou atrás: o `carlin` pode ser usado já
+  na fase 2/3 se isso aumentar a velocidade, não só como "migração futura" depois do aprendizado
+  colhido. `packages/infra` (SDK puro) continua existindo para o que já está escrito; recurso novo
+  escolhe a ferramenta pelo que entrega mais rápido com segurança equivalente. A invariante que não
+  muda: nenhum código do app importa infra de deploy, venha de `packages/infra` ou do `carlin`.
 - **3 — o que substitui o `sessionStore` em SQLite: ABERTA, e mudou de forma com o AppSync
   fora.** Não é mais "token em memória × BFF": o BFF deixou de ser uma peça extra, porque o
   Express **continua existindo** (§4). Virou "trocar o store da sessão" × "trocar por JWT no
@@ -382,11 +383,19 @@ migração de banco. A 1 é melhor no fim, quando houver menos coisa se mexendo 
 - **6 — transporte da API: RESPONDIDA em 2026-09-20 — API Gateway + Lambda, REST preservado.**
   Substitui o AppSync + Relay das versões anteriores; o raciocínio está na §1.1.
 
-### 8.1 Deploy em SDK puro — o desenho, e a porta aberta para o `carlin`
+### 8.1 Deploy: SDK puro para o que já existe, `carlin` liberado por recurso novo
 
-A escolha da decisão 2 é **imperativa**: `packages/infra`, um script por recurso, chamando o
-`@aws-sdk/client-*`. Registro aqui o que isso custa, para nenhum custo aparecer como surpresa no
-meio da fase 1, e as três regras que mantêm a conta pagável.
+**Revisado em 2026-10-22.** Até aqui a decisão 2 era imperativa: todo recurso novo nascia em
+`packages/infra`, SDK puro. O humano voltou atrás — quer poder usar o `carlin` já nesta fase se
+isso acelerar a entrega, não só quando a manutenção do SDK puro começar a doer. **O que muda**:
+recurso novo (ex. mais um Lambda, outro bucket, outra fila) escolhe a ferramenta pelo critério de
+engenharia — `carlin`/SAM quando o recurso for padrão e repetitivo (o `carlin` resolve rollback,
+drift detection e outputs de graça, como o texto abaixo registra que o SDK puro não tem); SDK puro
+só onde o controle fino importar ou onde já há um `ensureX` equivalente escrito. **O que não
+muda**: nenhum código do app (cores, `graph-api`, `rest-api`) importa `packages/infra` nem nada
+que o `carlin` gerar — infra continua sendo script de operação, nunca dependência de runtime. O
+texto original abaixo (o que o SDK puro custa) continua valendo para o que já está em
+`packages/infra`; não há obrigação de reescrever o que já funciona só para trocar de ferramenta.
 
 **O que o SDK entrega fácil** — e é, não por acaso, a parte que ensina: AppSync
 (`CreateGraphqlApi`, `StartSchemaCreation`, `CreateDataSource`, `CreateResolver`), Lambda
