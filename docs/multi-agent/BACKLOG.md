@@ -25,16 +25,9 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Status**: EM_ANDAMENTO · **manual (c1-c3) + d1 + d2 + d3 CONCLUÍDOS** (PRs #214/#216/#218/#221/#224/#227/#229) · próxima: d4 · **Complexidade**: alta · **Depende de**: T-091a (#165) e b1 (#166)
 - **Escopo**: página de Investimentos vira dashboard com dado real, pra quem lança na mão E pra quem integrou a Pluggy. IA fica para depois.
 - **Entregue**: `fixed-income-core` + `/api/fixed-income` (c1); página real de Renda Fixa no web (c2); hub `/investimentos` virou dashboard (c3); `pluggy-core` lê `/investments` + CLI de diagnóstico (d1); RF da Pluggy somada à manual, ao vivo, nunca gravada (d2); vínculo explícito manual↔Pluggy (ponteiro `superseded_by_pluggy_investment_id`, sem pré-seleção, posição coberta sai do total só com investimento presente e com saldo, órfão volta a contar com aviso) — d3a+d3b, sem achados bloqueantes.
-- **Roadmap restante**: **d4** RF no patrimônio da Home (depende da T-089e — não rodar junto, as duas tocam `pluggy-core/toPluggyAccount.ts`).
+- **Roadmap restante**: **d4** (última fatia) RF no patrimônio da Home. T-089e (PR #232) concluída: patrimônio já soma conta/poupança `BANK` da Pluggy, ao vivo, nunca gravado — d4 pode rodar agora.
 - **Pendências não-bloqueantes** (ver `TODO-HUMANO.md`, travam só d4): RF no patrimônio, ações de outras corretoras via Pluggy, caixinha já lançada em Poupança.
 - **Aceite (geral)**: carteira B3 com os mesmos números em todo lugar; cada fatia com suíte verde e PR própria.
-
-### T-089e — Patrimônio total com saldo das contas da Pluggy
-- **Status**: PENDENTE · **Complexidade**: média · **Depende de**: T-089 (#163)
-- **Objetivo**: pedido do humano (2026-08-12) — o card de patrimônio da Home deve somar o dinheiro que está **na conta e na poupança do banco**. Hoje é `ações + poupança do app`.
-- **Decisão travada**: saldo é **posição**, não lançamento — gravá-lo faria a poupança **contar duas vezes**. Ler e exibir, **nunca gravar** em `savings_entries`. `toPluggyAccount` descarta `balance` hoje (deliberado na T-087) e precisa voltar a trazê-lo.
-- **Cuidado**: saldo de cartão (`CREDIT`) é **dívida** — só `BANK` entra. Ver a dupla contagem com caixinhas na T-091.
-- **Aceite**: patrimônio soma as contas `BANK` conectadas; sem conexão nada muda; nada novo é gravado; suítes verdes.
 
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 

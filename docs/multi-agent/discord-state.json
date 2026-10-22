@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-10-21T15:04:50-03:00"
+    "atualizadoEm": "2026-10-22T14:46:02-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -148,7 +148,7 @@
       "canal": "todo-ai",
       "messageId": "1560712000353468489",
       "status": "EM_ANDAMENTO",
-      "nota": "Manual (c1-c3) + d1 + d2 + d3 concluidos (PRs #214/#216/#218/#221/#224/#227/#229). Proxima e ultima: d4 (RF no patrimonio da Home)."
+      "nota": "Manual (c1-c3) + d1+d2+d3 concluidos. T-089e concluida (PR #232, pre-requisito). Em andamento: d4 (ultima fatia)."
     }
   },
   "humanTodos": {
