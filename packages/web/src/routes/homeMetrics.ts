@@ -4,6 +4,7 @@ import type {
   IncomeEntry,
   IncomeSource,
   FixedExpense,
+  PluggyNetWorthResponse,
   SavingsSummary,
 } from '@vetor-wallet/shared';
 
@@ -45,6 +46,42 @@ export function computeStockTotals(summaries: PortfolioSummary[]): StockTotals {
 
 export function sumAmounts(items: Array<{ amount: number }>): number {
   return items.reduce((acc, item) => acc + item.amount, 0);
+}
+
+export interface PatrimonioTotal {
+  /** Ações (B3) + poupança do app + saldo bancário, quando incluído. */
+  total: number;
+  /** true quando `total` soma o saldo de uma conexão bancária ativa — a Home
+   * usa isto para avisar na UI de onde vem o número (T-089e). */
+  includesBankBalance: boolean;
+}
+
+/**
+ * Patrimônio total do hero da Home (T-089e): ações + poupança do app + o
+ * saldo das contas `BANK` da conexão bancária via Pluggy, lido AO VIVO.
+ *
+ * `pluggyNetWorth` é `null` quando a leitura ainda não resolveu, falhou, ou
+ * nunca foi tentada — nesses casos o total cai para ações + poupança, sem
+ * aviso (mesmo isolamento de falha de `getPluggyFixedIncome` no hub de
+ * Investimentos: a Home nunca quebra por causa do banco conectado).
+ *
+ * `enabled: false` (gate `ENVIRONMENT` desligado) ou `connections === 0`
+ * (usuário nunca conectou um banco) também não somam nada — não há saldo
+ * bancário para incluir. Um item que falhou AGORA (`failedConnections`) já
+ * está fora de `totalBankBalance` (o servidor isola por conexão); aqui ele só
+ * marca o aviso como parcial, não zera a soma.
+ */
+export function computePatrimonioTotal(
+  stockCurrent: number,
+  savingsBalance: number,
+  pluggyNetWorth: PluggyNetWorthResponse | null
+): PatrimonioTotal {
+  const includesBankBalance = Boolean(pluggyNetWorth?.enabled && pluggyNetWorth.connections > 0);
+  const bankBalance = includesBankBalance ? (pluggyNetWorth?.totalBankBalance ?? 0) : 0;
+  return {
+    total: stockCurrent + savingsBalance + bankBalance,
+    includesBankBalance,
+  };
 }
 
 export interface MonthCashFlow {

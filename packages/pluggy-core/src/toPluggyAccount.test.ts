@@ -19,6 +19,7 @@ describe('toPluggyAccount (T-087)', () => {
       subtype: 'CHECKING_ACCOUNT',
       name: 'Conta Corrente',
       currencyCode: 'BRL',
+      balance: 1234.56,
     });
   });
 
@@ -35,6 +36,17 @@ describe('toPluggyAccount (T-087)', () => {
       subtype: null,
       name: null,
       currencyCode: null,
+      balance: null,
     });
+  });
+
+  // T-089e: balance volta a ser trazido para o patrimônio total da Home.
+  it('balance não-numérico vira null, nunca inventado', () => {
+    expect(toPluggyAccount({ id: 'acc-3', balance: 'R$ 100' }).balance).toBeNull();
+    expect(toPluggyAccount({ id: 'acc-4', balance: NaN }).balance).toBeNull();
+  });
+
+  it('balance negativo (fatura em aberto, conta CREDIT) é preservado como veio', () => {
+    expect(toPluggyAccount({ id: 'acc-5', type: 'CREDIT', balance: -850.5 }).balance).toBe(-850.5);
   });
 });

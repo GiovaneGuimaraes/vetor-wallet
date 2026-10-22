@@ -4,11 +4,13 @@ import type {
   FixedExpense,
   IncomeEntry,
   IncomeSource,
+  PluggyNetWorthResponse,
   PortfolioSummary,
   SavingsSummary,
 } from '@vetor-wallet/shared';
 import {
   computeMonthCashFlow,
+  computePatrimonioTotal,
   computeStockTotals,
   sumAmounts,
   isIncomeLayerEmpty,
@@ -338,5 +340,55 @@ describe('isStocksLayerEmpty', () => {
   it('NÃO mostra CTA quando a busca da carteira falhou (walletLoadError=true), mesmo com summary null — evita esconder posições reais atrás de uma falha de rede/brapi', () => {
     expect(isStocksLayerEmpty(null, true, true)).toBe(false);
     expect(isStocksLayerEmpty(makeSummary({ positions: [] }), true, true)).toBe(false);
+  });
+});
+
+// T-089e: patrimônio total somando o saldo bancário (Pluggy) lido ao vivo.
+describe('computePatrimonioTotal', () => {
+  function makeNetWorth(overrides: Partial<PluggyNetWorthResponse> = {}): PluggyNetWorthResponse {
+    return {
+      enabled: true,
+      connections: 1,
+      failedConnections: 0,
+      totalBankBalance: 1500,
+      ...overrides,
+    };
+  }
+
+  it('sem leitura da Pluggy (null): total é só ações + poupança, sem aviso', () => {
+    expect(computePatrimonioTotal(1000, 200, null)).toEqual({
+      total: 1200,
+      includesBankBalance: false,
+    });
+  });
+
+  it('integração desligada (enabled: false): não soma nem avisa', () => {
+    expect(computePatrimonioTotal(1000, 200, makeNetWorth({ enabled: false }))).toEqual({
+      total: 1200,
+      includesBankBalance: false,
+    });
+  });
+
+  it('sem nenhuma conexão (connections: 0): não soma nem avisa, mesmo com enabled true', () => {
+    expect(
+      computePatrimonioTotal(1000, 200, makeNetWorth({ connections: 0, totalBankBalance: 0 }))
+    ).toEqual({ total: 1200, includesBankBalance: false });
+  });
+
+  it('com conexão ativa: soma o saldo bancário e avisa', () => {
+    expect(computePatrimonioTotal(1000, 200, makeNetWorth())).toEqual({
+      total: 2700,
+      includesBankBalance: true,
+    });
+  });
+
+  it('conexão com falha parcial: o saldo já veio sem o item quebrado, mas o aviso continua (parcialidade é responsabilidade da UI)', () => {
+    expect(
+      computePatrimonioTotal(
+        1000,
+        200,
+        makeNetWorth({ connections: 2, failedConnections: 1, totalBankBalance: 500 })
+      )
+    ).toEqual({ total: 1700, includesBankBalance: true });
   });
 });

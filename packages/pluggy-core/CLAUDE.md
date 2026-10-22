@@ -33,7 +33,8 @@ src/
 ├── deletePluggyItem.ts        # DELETE /items/{id}; 404 = sucesso (T-089b)
 ├── isPluggyIntegrationEnabled.ts # gate ENVIRONMENT, fail closed (T-089b)
 ├── fetchPluggyAccounts.ts     # GET /accounts?itemId=
-├── toPluggyAccount.ts         # payload de conta → PluggyAccount
+├── toPluggyAccount.ts         # payload de conta → PluggyAccount (`balance`
+                               # trazido desde a T-089e, p/ patrimônio da Home)
 ├── fetchPluggyTransactions.ts # GET /v2/transactions, seguindo o cursor `next`
 ├── toPluggyTransaction.ts     # payload de transação → PluggyTransaction
 ├── fetchPluggyInvestments.ts  # GET /investments?itemId=, por PÁGINA até totalPages (T-091d)
@@ -191,6 +192,12 @@ Assumido (não achamos na doc, e o código trata os dois lados):
 - **Nada é inventado na tradução.** Campo ausente/estranho vira `null` —
   inclusive `id`. Rejeitar transação sem id é decisão do `bank-import-core`, e
   inventar um id aqui quebraria o dedupe da T-084.
+- **`PluggyAccount.balance` voltou na T-089e** (antes era descartado de
+  propósito, "campo que o app não usa") para `GET /api/pluggy/net-worth`
+  somar o saldo das contas `BANK` no patrimônio total da Home. Ausente/não
+  numérico vira `null`, nunca `0` — `0` seria um saldo real inventado. Decidir
+  que `CREDIT` nunca entra na soma é do consumidor (a rota), não deste parser:
+  o parser traduz os dois tipos de conta igual.
 - **Env lido dentro das funções**, nunca no top-level do módulo (mesmo motivo do
   `BRAPI_TOKEN` no `brapi-core`): permite trocar o env entre casos de teste.
 

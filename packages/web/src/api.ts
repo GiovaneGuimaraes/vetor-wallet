@@ -36,6 +36,7 @@ import type {
   FixedIncomePositionUpdate,
   FixedIncomeSummary,
   PluggyFixedIncomeResponse,
+  PluggyNetWorthResponse,
   Plan,
   MySubscriptionResponse,
   CreateSubscriptionResponse,
@@ -811,6 +812,18 @@ export async function simulatePixPayment(chargeId: number): Promise<PixCharge> {
 export async function getPluggyStatus(): Promise<PluggyStatusResponse> {
   const res = await apiFetch('/api/pluggy/status');
   if (!res.ok) throw new Error('Falha ao consultar a integração bancária');
+  return res.json();
+}
+
+/**
+ * Saldo das contas BANK da conexão bancária, lido AO VIVO (T-089e) — nunca
+ * gravado. Chamada separada de `getPluggyStatus`/`getSavings` de propósito:
+ * falhar aqui não pode derrubar o patrimônio total da Home, que cai para
+ * ações + poupança do app (mesmo isolamento de `getPluggyFixedIncome`).
+ */
+export async function getPluggyNetWorth(): Promise<PluggyNetWorthResponse> {
+  const res = await apiFetch('/api/pluggy/net-worth');
+  if (!res.ok) throw new Error('Falha ao ler o saldo da conexão bancária');
   return res.json();
 }
 
