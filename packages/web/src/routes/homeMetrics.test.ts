@@ -11,6 +11,7 @@ import type {
 import {
   computeMonthCashFlow,
   computePatrimonioTotal,
+  patrimonioSourceNote,
   computeStockTotals,
   sumAmounts,
   isIncomeLayerEmpty,
@@ -359,11 +360,13 @@ describe('computePatrimonioTotal', () => {
     expect(computePatrimonioTotal(1000, 200, null)).toEqual({
       total: 1200,
       includesBankBalance: false,
+      includesFixedIncome: false,
+      possibleOverlap: false,
     });
   });
 
   it('integração desligada (enabled: false): não soma nem avisa', () => {
-    expect(computePatrimonioTotal(1000, 200, makeNetWorth({ enabled: false }))).toEqual({
+    expect(computePatrimonioTotal(1000, 200, makeNetWorth({ enabled: false }))).toMatchObject({
       total: 1200,
       includesBankBalance: false,
     });
@@ -372,11 +375,11 @@ describe('computePatrimonioTotal', () => {
   it('sem nenhuma conexão (connections: 0): não soma nem avisa, mesmo com enabled true', () => {
     expect(
       computePatrimonioTotal(1000, 200, makeNetWorth({ connections: 0, totalBankBalance: 0 }))
-    ).toEqual({ total: 1200, includesBankBalance: false });
+    ).toMatchObject({ total: 1200, includesBankBalance: false });
   });
 
   it('com conexão ativa: soma o saldo bancário e avisa', () => {
-    expect(computePatrimonioTotal(1000, 200, makeNetWorth())).toEqual({
+    expect(computePatrimonioTotal(1000, 200, makeNetWorth())).toMatchObject({
       total: 2700,
       includesBankBalance: true,
     });
@@ -389,6 +392,101 @@ describe('computePatrimonioTotal', () => {
         200,
         makeNetWorth({ connections: 2, failedConnections: 1, totalBankBalance: 500 })
       )
-    ).toEqual({ total: 1700, includesBankBalance: true });
+    ).toMatchObject({ total: 1700, includesBankBalance: true });
+  });
+
+  // T-091d, fatia d4: Renda Fixa consolidada como mais uma parcela.
+  it('sem RF (null, leitura manual falhou ou não terminou): total de antes da fatia, sem quebrar o banco', () => {
+    expect(computePatrimonioTotal(1000, 200, makeNetWorth(), null)).toEqual({
+      total: 2700,
+      includesBankBalance: true,
+      includesFixedIncome: false,
+      possibleOverlap: false,
+    });
+  });
+
+  it('soma ações + poupança + banco + RF consolidada', () => {
+    // 1000 + 200 + 1500 + 350,25 = 3050,25
+    expect(
+      computePatrimonioTotal(1000, 200, makeNetWorth(), { totalCents: 35025, pluggyCents: 0 })
+    ).toEqual({
+      total: 3050.25,
+      includesBankBalance: true,
+      includesFixedIncome: true,
+      possibleOverlap: false,
+    });
+  });
+
+  it('só RF (sem conexão bancária): soma a RF e não sinaliza sobreposição', () => {
+    expect(
+      computePatrimonioTotal(1000, 200, null, { totalCents: 40000, pluggyCents: 40000 })
+    ).toMatchObject({ total: 1600, includesFixedIncome: true, possibleOverlap: false });
+  });
+
+  it('RF zerada (sem posição nenhuma): não conta como incluída', () => {
+    expect(
+      computePatrimonioTotal(1000, 200, null, { totalCents: 0, pluggyCents: 0 })
+    ).toMatchObject({ total: 1200, includesFixedIncome: false });
+  });
+
+  it('sobreposição possível: saldo bancário > 0 E RF da conexão > 0 — sinaliza, não desconta', () => {
+    expect(
+      computePatrimonioTotal(1000, 200, makeNetWorth({ totalBankBalance: 500 }), {
+        totalCents: 30000,
+        pluggyCents: 10000,
+      })
+    ).toEqual({
+      total: 2000,
+      includesBankBalance: true,
+      includesFixedIncome: true,
+      possibleOverlap: true,
+    });
+  });
+
+  it('sem sobreposição: RF só manual, saldo bancário zerado, ou integração desligada', () => {
+    expect(
+      computePatrimonioTotal(1000, 200, makeNetWorth(), { totalCents: 30000, pluggyCents: 0 })
+        .possibleOverlap
+    ).toBe(false);
+    expect(
+      computePatrimonioTotal(1000, 200, makeNetWorth({ totalBankBalance: 0 }), {
+        totalCents: 30000,
+        pluggyCents: 30000,
+      }).possibleOverlap
+    ).toBe(false);
+    expect(
+      computePatrimonioTotal(1000, 200, makeNetWorth({ enabled: false }), {
+        totalCents: 30000,
+        pluggyCents: 30000,
+      }).possibleOverlap
+    ).toBe(false);
+  });
+});
+
+describe('patrimonioSourceNote (T-091d, d4)', () => {
+  it('nenhuma fonte extra: null', () => {
+    expect(
+      patrimonioSourceNote({ includesBankBalance: false, includesFixedIncome: false }, false)
+    ).toBeNull();
+  });
+
+  it('só banco', () => {
+    expect(
+      patrimonioSourceNote({ includesBankBalance: true, includesFixedIncome: false }, false)
+    ).toBe('Inclui saldo da sua conexão bancária');
+  });
+
+  it('só RF (parcialidade do banco não se aplica)', () => {
+    expect(
+      patrimonioSourceNote({ includesBankBalance: false, includesFixedIncome: true }, true)
+    ).toBe('Inclui Renda Fixa');
+  });
+
+  it('os dois, com banco parcial', () => {
+    expect(
+      patrimonioSourceNote({ includesBankBalance: true, includesFixedIncome: true }, true)
+    ).toBe(
+      'Inclui Renda Fixa e saldo da sua conexão bancária (parcial — uma ou mais conexões falharam ao ler o saldo agora)'
+    );
   });
 });

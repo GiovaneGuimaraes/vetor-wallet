@@ -5,6 +5,7 @@ import type {
   PluggyFixedIncomeResponse,
 } from '@vetor-wallet/shared';
 import {
+  consolidateFixedIncome,
   LINK_INACTIVE_REASON_TEXT,
   pluggyLinkedBadge,
   rankLinkCandidates,
@@ -201,5 +202,45 @@ describe('rankLinkCandidates', () => {
       pluggy({ id: 'b', currentValue: 0 }),
     ]);
     expect(r.map((c) => c.id)).toEqual(['b', 'a']);
+  });
+});
+
+// T-091d, fatia d4: a conta que o hub de Investimentos fazia inline, extraída
+// para a Home somar a mesma RF no patrimônio total.
+describe('consolidateFixedIncome', () => {
+  // Duas manuais: uma solta (100) e uma vinculada (250) ao investimento da conexão (110).
+  const solta = manual({ id: 1, invested_amount: 100 });
+  const vinculada = manual({
+    id: 2,
+    invested_amount: 250,
+    superseded_by_pluggy_investment_id: 'inv-1',
+  });
+  const summary = { totalInvested: 350, totalCurrent: 350 };
+
+  it('vínculo ativo: a manual coberta NÃO conta duas vezes (manual líquida + conexão)', () => {
+    const r = consolidateFixedIncome(summary, [solta, vinculada], ready([pluggy()]), false);
+    expect(r.manualCents).toBe(10000);
+    expect(r.manualCents).toBe(r.links.manualCentsCounted);
+    expect(r.pluggyCents).toBe(11000);
+    // 100 (solta) + 110 (conexão) — os 250 da vinculada ficam de fora.
+    expect(r.totalCents).toBe(21000);
+  });
+
+  it('conexão falhou: a vinculada volta a contar e a conexão sai do total', () => {
+    const r = consolidateFixedIncome(summary, [solta, vinculada], null, true);
+    expect(r.pluggyCents).toBe(0);
+    expect(r.totalCents).toBe(35000);
+  });
+
+  it('conexão carregando: só a manual inteira, sem somar nada da conexão', () => {
+    const r = consolidateFixedIncome(summary, [solta, vinculada], null, false);
+    expect(r.totalCents).toBe(35000);
+  });
+
+  it('leitura manual indisponível: RF inteira fora (null), mesmo com a conexão pronta', () => {
+    const r = consolidateFixedIncome(null, [], ready([pluggy()]), false);
+    expect(r.manualCents).toBeUndefined();
+    expect(r.pluggyCents).toBe(11000);
+    expect(r.totalCents).toBeNull();
   });
 });
