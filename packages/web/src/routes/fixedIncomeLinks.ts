@@ -1,9 +1,11 @@
 import type {
   FixedIncomePosition,
+  FixedIncomeSummary,
   PluggyFixedIncomePosition,
   PluggyFixedIncomeResponse,
 } from '@vetor-wallet/shared';
 import { displayValue } from './fixedIncome';
+import { pluggyCentsForTotal, pluggyFixedIncomeView } from './pluggyFixedIncome';
 
 /**
  * Vínculo manual↔Pluggy na tela (T-091d, fatia d3b). Sem React, sem I/O —
@@ -179,4 +181,52 @@ export function rankLinkCandidates(
         a.index - b.index
     )
     .map(({ candidate }) => candidate);
+}
+
+export interface ConsolidatedFixedIncome {
+  /** Vínculos resolvidos — a página de Investimentos usa para os avisos. */
+  links: ManualLinksResolution;
+  /** Centavos da conexão que entram no total (0 carregando/desligada/em erro). */
+  pluggyCents: number;
+  /**
+   * Centavos da RF manual que entram no total, já sem as posições cobertas por
+   * vínculo ativo. `undefined` quando a leitura manual falhou ou não terminou.
+   */
+  manualCents: number | undefined;
+  /**
+   * RF consolidada (manual líquida + conexão), em centavos. `null` quando a
+   * leitura MANUAL não está disponível — mesma regra de `buildInvestmentsOverview`
+   * (`fixedIncomeAvailable`): sem a manual não há como saber o que está
+   * coberto, então a RF inteira fica de fora em vez de virar meio número.
+   */
+  totalCents: number | null;
+}
+
+/**
+ * RF consolidada sem dupla contagem manual↔conexão (T-091d, fatia d4). É a
+ * mesma conta que o hub de Investimentos já fazia inline desde a d3b — extraída
+ * para a Home somar exatamente o mesmo número no patrimônio total.
+ *
+ * O total manual vem do resumo do servidor (`current_value ?? invested_amount`)
+ * menos o que está coberto por vínculo ativo — em dado consistente é
+ * exatamente o `manualCentsCounted`.
+ */
+export function consolidateFixedIncome(
+  summary: FixedIncomeSummary | null,
+  positions: readonly FixedIncomePosition[],
+  pluggyResponse: PluggyFixedIncomeResponse | null,
+  pluggyFailed: boolean
+): ConsolidatedFixedIncome {
+  const links = resolveManualLinks(positions, pluggyResponse, pluggyFailed);
+  const pluggyCents = pluggyCentsForTotal(pluggyFixedIncomeView(pluggyResponse, pluggyFailed));
+  const manualCents =
+    summary !== null
+      ? Math.round(summary.totalCurrent * 100) - links.coveredManualCents
+      : undefined;
+  return {
+    links,
+    pluggyCents,
+    manualCents,
+    totalCents: manualCents === undefined ? null : manualCents + pluggyCents,
+  };
 }

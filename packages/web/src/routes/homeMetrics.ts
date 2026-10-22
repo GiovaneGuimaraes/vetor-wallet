@@ -49,11 +49,29 @@ export function sumAmounts(items: Array<{ amount: number }>): number {
 }
 
 export interface PatrimonioTotal {
-  /** Ações (B3) + poupança do app + saldo bancário, quando incluído. */
+  /** Ações (B3) + poupança do app + saldo bancário + Renda Fixa, quando incluídos. */
   total: number;
   /** true quando `total` soma o saldo de uma conexão bancária ativa — a Home
    * usa isto para avisar na UI de onde vem o número (T-089e). */
   includesBankBalance: boolean;
+  /** true quando `total` soma uma Renda Fixa consolidada maior que zero (T-091d, d4). */
+  includesFixedIncome: boolean;
+  /**
+   * true quando o saldo bancário E a RF da conexão estão os dois no total e
+   * não-zero (T-091d, d4). Uma "caixinha" pode vir tanto como conta `BANK`
+   * quanto como investimento `FIXED_INCOME` da Pluggy — possivelmente o mesmo
+   * dinheiro. Resolver isso é decisão do humano (pendência P3 do
+   * TODO-HUMANO); aqui só se sinaliza, nada é descontado.
+   */
+  possibleOverlap: boolean;
+}
+
+/** RF consolidada para o patrimônio — ver `consolidateFixedIncome` (fixedIncomeLinks.ts). */
+export interface PatrimonioFixedIncome {
+  /** Manual líquida (sem posições cobertas por vínculo ativo) + conexão, em centavos. */
+  totalCents: number;
+  /** Parte de `totalCents` que veio da conexão bancária (Pluggy), em centavos. */
+  pluggyCents: number;
 }
 
 /**
@@ -70,18 +88,54 @@ export interface PatrimonioTotal {
  * bancário para incluir. Um item que falhou AGORA (`failedConnections`) já
  * está fora de `totalBankBalance` (o servidor isola por conexão); aqui ele só
  * marca o aviso como parcial, não zera a soma.
+ *
+ * `fixedIncome` (T-091d, fatia d4) é a Renda Fixa consolidada — manual já
+ * líquida dos vínculos ativos + a lida ao vivo da conexão. `null` (leitura
+ * manual falhou ou ainda não terminou) não soma nada: o total volta a ser o de
+ * antes da fatia, sem quebrar as outras parcelas. A soma é feita em centavos
+ * para não acumular erro de ponto flutuante na parcela nova.
  */
 export function computePatrimonioTotal(
   stockCurrent: number,
   savingsBalance: number,
-  pluggyNetWorth: PluggyNetWorthResponse | null
+  pluggyNetWorth: PluggyNetWorthResponse | null,
+  fixedIncome: PatrimonioFixedIncome | null = null
 ): PatrimonioTotal {
   const includesBankBalance = Boolean(pluggyNetWorth?.enabled && pluggyNetWorth.connections > 0);
   const bankBalance = includesBankBalance ? (pluggyNetWorth?.totalBankBalance ?? 0) : 0;
+  const fixedIncomeCents = fixedIncome?.totalCents ?? 0;
+  const includesFixedIncome = fixedIncomeCents > 0;
   return {
-    total: stockCurrent + savingsBalance + bankBalance,
+    total: stockCurrent + savingsBalance + bankBalance + fixedIncomeCents / 100,
     includesBankBalance,
+    includesFixedIncome,
+    possibleOverlap: bankBalance > 0 && (fixedIncome?.pluggyCents ?? 0) > 0,
   };
+}
+
+/** Aviso de possível sobreposição banco × RF da conexão (T-091d, d4 — pendência P3). */
+export const PATRIMONIO_OVERLAP_NOTE =
+  'Pode haver sobreposição entre a conexão bancária e investimentos de baixo risco; detalhe em Investimentos.';
+
+/**
+ * Frase que diz de onde vem o patrimônio total, nos quatro casos (T-091d, d4).
+ * `null` quando ele é só ações + poupança do app. `bankPartial` marca a
+ * leitura do saldo bancário como parcial (alguma conexão falhou agora).
+ */
+export function patrimonioSourceNote(
+  patrimonio: Pick<PatrimonioTotal, 'includesBankBalance' | 'includesFixedIncome'>,
+  bankPartial: boolean
+): string | null {
+  const { includesBankBalance, includesFixedIncome } = patrimonio;
+  if (!includesBankBalance && !includesFixedIncome) return null;
+  if (!includesBankBalance) return 'Inclui Renda Fixa';
+  const partial = bankPartial
+    ? ' (parcial — uma ou mais conexões falharam ao ler o saldo agora)'
+    : '';
+  const base = includesFixedIncome
+    ? 'Inclui Renda Fixa e saldo da sua conexão bancária'
+    : 'Inclui saldo da sua conexão bancária';
+  return base + partial;
 }
 
 export interface MonthCashFlow {

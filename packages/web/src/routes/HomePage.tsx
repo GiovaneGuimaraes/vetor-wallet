@@ -3,8 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import type {
   ExpenseEntry,
   FixedExpense,
+  FixedIncomePosition,
+  FixedIncomeSummary,
   IncomeEntry,
   IncomeSource,
+  PluggyFixedIncomeResponse,
   PluggyItemView,
   PluggyNetWorthResponse,
   SavingsSummary,
@@ -13,12 +16,15 @@ import { useShellContext } from '../layout/ShellContext';
 import {
   getExpenseEntries,
   getFixedExpenses,
+  getFixedIncome,
   getIncomeEntries,
   getIncomeSources,
+  getPluggyFixedIncome,
   getPluggyNetWorth,
   getPluggyStatus,
   getSavings,
 } from '../api';
+import { consolidateFixedIncome } from './fixedIncomeLinks';
 import { PluggyImportModal } from '../components/PluggyImportModal';
 import { PLUGGY_BRAND, connectionSummary } from './pluggyImport';
 import '../components/pluggyImport.css';
@@ -26,6 +32,8 @@ import {
   computeMonthCashFlow,
   computePatrimonioTotal,
   computeStockTotals,
+  PATRIMONIO_OVERLAP_NOTE,
+  patrimonioSourceNote,
   sumAmounts,
   isIncomeLayerEmpty,
   isExpensesLayerEmpty,
@@ -132,8 +140,42 @@ export function HomePage() {
   // app, sem erro visível (mesmo isolamento de `getPluggyFixedIncome` no hub
   // de Investimentos).
   const [pluggyNetWorth, setPluggyNetWorth] = useState<PluggyNetWorthResponse | null>(null);
+  // T-091d (fatia d4): Renda Fixa no patrimônio. Fetch próprio da Home, não
+  // ShellContext — o ShellContext carrega só o que o shell inteiro usa (a
+  // carteira B3); colocar RF lá faria TODA rota protegida pagar duas leituras
+  // (uma delas ao vivo na Pluggy) que só a Home, Investimentos e Renda Fixa
+  // consomem, e as duas últimas já buscam as suas. Os dois fetches são
+  // isolados: `fixedIncomeSummary` null (falhou/carregando) tira a RF inteira
+  // do total; a leitura da conexão falhar só faz as posições vinculadas
+  // voltarem a contar (ver `consolidateFixedIncome`).
+  const [fixedIncomeSummary, setFixedIncomeSummary] = useState<FixedIncomeSummary | null>(null);
+  const [fixedIncomePositions, setFixedIncomePositions] = useState<FixedIncomePosition[]>([]);
+  const [pluggyFixedIncome, setPluggyFixedIncome] = useState<PluggyFixedIncomeResponse | null>(
+    null
+  );
+  const [pluggyFixedIncomeFailed, setPluggyFixedIncomeFailed] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    getFixedIncome()
+      .then((data) => {
+        if (cancelled) return;
+        setFixedIncomeSummary(data.summary);
+        setFixedIncomePositions(data.positions);
+      })
+      .catch(() => {
+        // Sem RF manual não há como saber o que a conexão cobre: a RF sai do
+        // patrimônio, que volta a ser ações + poupança + banco, sem erro visível.
+        if (cancelled) return;
+        setFixedIncomeSummary(null);
+        setFixedIncomePositions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const refreshPluggy = useCallback(async () => {
     try {
@@ -151,6 +193,16 @@ export function HomePage() {
       // Mesma doutrina: falha/lentidão na leitura do saldo bancário não pode
       // derrubar o patrimônio total — ele só deixa de incluir o banco.
       setPluggyNetWorth(null);
+    }
+    // T-091d (d4): RF da conexão, também ao vivo. Fica aqui (e não no efeito da
+    // RF manual) porque muda junto das conexões: conectar/remover um banco no
+    // modal chama `refreshPluggy` de novo.
+    try {
+      setPluggyFixedIncome(await getPluggyFixedIncome());
+      setPluggyFixedIncomeFailed(false);
+    } catch {
+      setPluggyFixedIncome(null);
+      setPluggyFixedIncomeFailed(true);
     }
   }, []);
 
@@ -219,10 +271,26 @@ export function HomePage() {
   // T-089e: soma ações + poupança do app + saldo bancário (Pluggy), quando há
   // conexão ativa. Lógica pura em homeMetrics.ts — ver `computePatrimonioTotal`
   // para o isolamento de falha (null/enabled:false/0 conexões não mexem no total).
-  const { total: patrimonioTotal, includesBankBalance } = computePatrimonioTotal(
+  // T-091d (d4): + Renda Fixa consolidada (manual líquida dos vínculos ativos
+  // + conexão), a MESMA conta do hub de Investimentos.
+  const fixedIncome = consolidateFixedIncome(
+    fixedIncomeSummary,
+    fixedIncomePositions,
+    pluggyFixedIncome,
+    pluggyFixedIncomeFailed
+  );
+  const patrimonio = computePatrimonioTotal(
     stockTotals.current,
     savingsBalance,
-    pluggyNetWorth
+    pluggyNetWorth,
+    fixedIncome.totalCents === null
+      ? null
+      : { totalCents: fixedIncome.totalCents, pluggyCents: fixedIncome.pluggyCents }
+  );
+  const patrimonioTotal = patrimonio.total;
+  const patrimonioNote = patrimonioSourceNote(
+    patrimonio,
+    Boolean(pluggyNetWorth && pluggyNetWorth.failedConnections > 0)
   );
 
   const dash = '—';
@@ -273,14 +341,13 @@ export function HomePage() {
           )}
         </p>
         {/* T-089e: sem isto o número some sem dizer de onde vem — ambíguo entre
-            "é só ações + poupança" e "também tem o banco conectado". */}
-        {includesBankBalance && (
-          <p className="vw-hero-total-note">
-            Inclui saldo da sua conexão bancária
-            {pluggyNetWorth && pluggyNetWorth.failedConnections > 0
-              ? ' (parcial — uma ou mais conexões falharam ao ler o saldo agora)'
-              : ''}
-          </p>
+            "é só ações + poupança" e "também tem o banco conectado".
+            T-091d (d4): a frase cobre também a Renda Fixa. */}
+        {patrimonioNote && <p className="vw-hero-total-note">{patrimonioNote}</p>}
+        {/* T-091d (d4): aviso, não trava — a dupla contagem caixinha-conta ×
+            caixinha-investimento é a pendência P3, decisão do humano. */}
+        {patrimonio.possibleOverlap && (
+          <p className="vw-hero-total-note">{PATRIMONIO_OVERLAP_NOTE}</p>
         )}
         <div className="vw-hero-metrics">
           <div>

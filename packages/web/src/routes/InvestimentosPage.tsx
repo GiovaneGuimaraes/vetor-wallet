@@ -6,18 +6,13 @@ import type {
   PluggyFixedIncomeResponse,
 } from '@vetor-wallet/shared';
 import { getFixedIncome, getPluggyFixedIncome } from '../api';
-import {
-  PLUGGY_SOURCE_LABEL,
-  pluggyCentsForTotal,
-  pluggyFailureNote,
-  pluggyFixedIncomeView,
-} from './pluggyFixedIncome';
+import { PLUGGY_SOURCE_LABEL, pluggyFailureNote, pluggyFixedIncomeView } from './pluggyFixedIncome';
 import { BackToHomeLink } from '../components/BackToHomeLink';
 import { useShellContext } from '../layout/ShellContext';
 import { mascotSrcForLayer } from '../layout/mascots';
 import { computeStockTotals } from './homeMetrics';
 import { maturityLabel, rateLabel } from './fixedIncome';
-import { resolveManualLinks } from './fixedIncomeLinks';
+import { consolidateFixedIncome } from './fixedIncomeLinks';
 import { INVESTMENT_NODES } from './investmentsTree';
 import {
   buildAllocation,
@@ -123,17 +118,16 @@ export function InvestimentosPage() {
   }, []);
 
   const pluggyView = pluggyFixedIncomeView(pluggyResponse, pluggyFailed);
-  const pluggyCents = pluggyCentsForTotal(pluggyView);
   // Vínculo manual↔conexão (fatia d3b): a manual coberta por um investimento
-  // presente e com saldo sai do total; qualquer outro caso volta a contar.
-  const links = resolveManualLinks(fixedIncomePositions, pluggyResponse, pluggyFailed);
-  // O resumo do servidor segue sendo a fonte do total manual (mesma fórmula
-  // `current_value ?? invested_amount`); só se desconta dele o que está
-  // coberto — em dado consistente é exatamente o `manualCentsCounted`.
-  const manualCents =
-    fixedIncomeSummary !== null
-      ? Math.round(fixedIncomeSummary.totalCurrent * 100) - links.coveredManualCents
-      : undefined;
+  // presente e com saldo sai do total; qualquer outro caso volta a contar. A
+  // conta vive em `consolidateFixedIncome` desde a fatia d4, para a Home somar
+  // o MESMO número no patrimônio total.
+  const { links, pluggyCents, manualCents } = consolidateFixedIncome(
+    fixedIncomeSummary,
+    fixedIncomePositions,
+    pluggyResponse,
+    pluggyFailed
+  );
   const linksBackInTotal = [...links.states.values()].filter(
     (s) => s.kind === 'inactive' && s.reason !== 'pending'
   ).length;
