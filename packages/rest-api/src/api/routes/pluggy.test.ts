@@ -389,4 +389,151 @@ describe('/api/pluggy (T-089b)', () => {
     expect(res.status).toBe(502);
     expect(res.body.code).toBe('PLUGGY_UNAVAILABLE');
   });
+
+  // ── net-worth (T-089e) ───────────────────────────────────────────────────────
+
+  describe('GET /api/pluggy/net-worth', () => {
+    const ITEM_BROKEN = 'cccccccc-1111-2222-3333-444444444444';
+
+    /** Uma conta BANK, uma CREDIT e um saldo inválido, para o item OK. */
+    function stubAccountsForNetWorth(): ReturnType<typeof vi.fn> {
+      const fetchMock = vi.fn(async (url: string) => {
+        const u = String(url);
+        if (u.endsWith('/auth')) return jsonResponse({ apiKey: 'jwt-test' });
+        if (u.includes('/accounts') && u.includes(ITEM_BROKEN)) return jsonResponse({}, 500);
+        if (u.includes('/accounts')) {
+          return jsonResponse({
+            results: [
+              { id: 'acc-bank', type: 'BANK', subtype: 'CHECKING_ACCOUNT', balance: 1500.3 },
+              // CREDIT nunca entra na soma, mesmo com saldo positivo.
+              { id: 'acc-credit', type: 'CREDIT', subtype: 'CREDIT_CARD', balance: 999 },
+              // balance ausente não quebra a soma, nem vira 0 de propósito.
+              { id: 'acc-sem-saldo', type: 'BANK', subtype: 'SAVINGS_ACCOUNT' },
+            ],
+          });
+        }
+        return jsonResponse({}, 404);
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      return fetchMock;
+    }
+
+    it('integração desligada: enabled false, sem chamar a Pluggy', async () => {
+      await agentA.post('/api/pluggy/items').send({ itemId: ITEM_A });
+      process.env.ENVIRONMENT = 'Production';
+      const fetchMock = stubAccountsForNetWorth();
+
+      const res = await agentA.get('/api/pluggy/net-worth');
+
+      expect(res.status).toBe(200);
+      expect(res.body as PluggyNetWorthResponse).toEqual({
+        enabled: false,
+        connections: 0,
+        failedConnections: 0,
+        totalBankBalance: 0,
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('sem conexão: connections 0 e nenhuma chamada à Pluggy', async () => {
+      const fetchMock = stubAccountsForNetWorth();
+
+      const res = await agentB.get('/api/pluggy/net-worth');
+
+      expect(res.status).toBe(200);
+      expect(res.body as PluggyNetWorthResponse).toEqual({
+        enabled: true,
+        connections: 0,
+        failedConnections: 0,
+        totalBankBalance: 0,
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('soma só as contas BANK; CREDIT nunca entra', async () => {
+      await agentA.post('/api/pluggy/items').send({ itemId: ITEM_A });
+      stubAccountsForNetWorth();
+
+      const res = await agentA.get('/api/pluggy/net-worth');
+
+      expect(res.status).toBe(200);
+      const body = res.body as PluggyNetWorthResponse;
+      expect(body).toMatchObject({ enabled: true, connections: 1, failedConnections: 0 });
+      expect(body.totalBankBalance).toBe(1500.3);
+      // Nenhum dado por conta/instituição desce — só o total agregado.
+      expect(body).not.toHaveProperty('positions');
+      expect(body).not.toHaveProperty('accounts');
+    });
+
+    it('item que falha não derruba os outros: failedConnections soma, resto segue', async () => {
+      await agentA.post('/api/pluggy/items').send({ itemId: ITEM_A });
+      await agentA.post('/api/pluggy/items').send({ itemId: ITEM_BROKEN });
+      stubAccountsForNetWorth();
+
+      const res = await agentA.get('/api/pluggy/net-worth');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        enabled: true,
+        connections: 2,
+        failedConnections: 1,
+        totalBankBalance: 1500.3,
+      });
+      expect(JSON.stringify(res.body)).not.toContain(ITEM_BROKEN);
+    });
+
+    it('Pluggy fora do ar (rede): 200 com failedConnections, nunca 500/502', async () => {
+      await agentA.post('/api/pluggy/items').send({ itemId: ITEM_A });
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => {
+          throw new TypeError('fetch failed');
+        })
+      );
+
+      const res = await agentA.get('/api/pluggy/net-worth');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        enabled: true,
+        connections: 1,
+        failedConnections: 1,
+        totalBankBalance: 0,
+      });
+    });
+
+    it('nunca grava: nenhuma linha nova em savings_entries, income_entries ou expense_entries', async () => {
+      await agentA.post('/api/pluggy/items').send({ itemId: ITEM_A });
+      stubAccountsForNetWorth();
+
+      async function countRows(table: string): Promise<number> {
+        const result = await db.execute(`SELECT COUNT(*) AS n FROM ${table}`);
+        return Number(result.rows[0].n);
+      }
+
+      const before = {
+        income: await countRows('income_entries'),
+        expense: await countRows('expense_entries'),
+        savings: await countRows('savings_entries'),
+      };
+
+      const res = await agentA.get('/api/pluggy/net-worth');
+      expect((res.body as PluggyNetWorthResponse).totalBankBalance).toBe(1500.3);
+
+      expect({
+        income: await countRows('income_entries'),
+        expense: await countRows('expense_entries'),
+        savings: await countRows('savings_entries'),
+      }).toEqual(before);
+    });
+
+    it('conexão de outro usuário não aparece', async () => {
+      await agentA.post('/api/pluggy/items').send({ itemId: ITEM_A });
+      stubAccountsForNetWorth();
+
+      const res = await agentB.get('/api/pluggy/net-worth');
+
+      expect(res.body).toMatchObject({ connections: 0, totalBankBalance: 0 });
+    });
+  });
 });

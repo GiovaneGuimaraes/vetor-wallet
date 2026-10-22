@@ -25,6 +25,7 @@ import {
 import type {
   PluggyConnectTokenResponse,
   PluggyItemView,
+  PluggyNetWorthResponse,
   PluggyStatusResponse,
   PluggySyncResponse,
 } from '@vetor-wallet/shared';
@@ -317,6 +318,76 @@ router.post(
     };
     // 200 mesmo com falhas parciais: a sincronização importou o que deu, e o
     // relatório diz o que não deu — mesma convenção do relatório do OFX (T-085).
+    res.json(body);
+  })
+);
+
+/**
+ * `GET /api/pluggy/net-worth` — saldo das contas `BANK` da conexão bancária,
+ * lido AO VIVO, para a Home somar ao patrimônio total (T-089e).
+ *
+ * Mesma doutrina de `GET /api/fixed-income/pluggy` (T-091d, fatia d2):
+ * "saldo é posição, não lançamento" — NUNCA grava em `savings_entries` nem em
+ * tabela alguma, sempre 200, isolamento de falha por item (um item quebrado não
+ * derruba os outros nem a Home). Mesmo padrão de implementação: `listPluggyItems`
+ * para achar os items do usuário, `Promise.allSettled` para ler cada um em
+ * paralelo, gate `isPluggyIntegrationEnabled()` devolvendo `enabled: false`
+ * (sem consultar banco nem Pluggy) em vez de erro quando desligado.
+ *
+ * **Só `type === 'BANK'` entra na soma.** `CREDIT` (cartão) é dívida, não
+ * patrimônio — jamais somado aqui, mesmo que a Pluggy devolva um saldo.
+ *
+ * **Não desce saldo por conta nem nome de instituição** — só o total agregado:
+ * é tudo que a Home precisa, e cada campo a mais é mais superfície de dado
+ * sensível trafegando (mesma razão de `toView` esconder `id`/`userId`).
+ */
+router.get(
+  '/net-worth',
+  requireAuth,
+  requireActiveSubscription,
+  asyncHandler(async (_req: Request, res: Response) => {
+    const userId = res.locals.userId as number;
+
+    if (!isPluggyIntegrationEnabled()) {
+      const body: PluggyNetWorthResponse = {
+        enabled: false,
+        connections: 0,
+        failedConnections: 0,
+        totalBankBalance: 0,
+      };
+      res.json(body);
+      return;
+    }
+
+    const items = await listPluggyItems({ db, userId });
+    const results = await Promise.allSettled(items.map((item) => fetchPluggyAccounts(item.itemId)));
+
+    let totalBankBalance = 0;
+    let failedConnections = 0;
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        failedConnections++;
+        // Só o tipo do erro: a mensagem é livre de credencial (pluggy-core),
+        // mas o itemId não entra em log de jeito nenhum.
+        console.warn(
+          '[pluggy/net-worth] leitura de contas falhou:',
+          result.reason instanceof PluggyApiError ? result.reason.message : 'erro inesperado'
+        );
+        continue;
+      }
+      for (const account of result.value) {
+        if (account.type === 'BANK' && account.balance !== null) {
+          totalBankBalance += account.balance;
+        }
+      }
+    }
+
+    const body: PluggyNetWorthResponse = {
+      enabled: true,
+      connections: items.length,
+      failedConnections,
+      totalBankBalance,
+    };
     res.json(body);
   })
 );

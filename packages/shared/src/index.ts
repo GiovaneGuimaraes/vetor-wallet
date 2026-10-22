@@ -633,6 +633,29 @@ export interface PluggyFixedIncomeResponse {
 }
 
 /**
+ * Resposta de `GET /api/pluggy/net-worth` (T-089e): saldo das contas `BANK`
+ * da conexão bancária, lido AO VIVO — nunca gravado. Mesma doutrina de
+ * `PluggyFixedIncomeResponse`: "saldo é posição, não lançamento", sempre 200,
+ * isolamento de falha por item. Alimenta o "Patrimônio total" da Home
+ * (`stockTotals.current + savingsBalance + totalBankBalance`).
+ *
+ * Só agrega o total: **não** desce saldo por conta nem nome de instituição —
+ * é tudo que a Home precisa, e cada campo a mais é mais superfície de dado
+ * sensível trafegando. `CREDIT` (cartão) nunca entra em `totalBankBalance`:
+ * é dívida, não patrimônio.
+ */
+export interface PluggyNetWorthResponse {
+  /** `false` = integração desligada neste ambiente (gate `ENVIRONMENT`); nada foi consultado. */
+  enabled: boolean;
+  /** Quantas conexões bancárias o usuário tem. 0 = a tela fica como sem Pluggy. */
+  connections: number;
+  /** Conexões cuja leitura falhou AGORA; o saldo delas não entra em `totalBankBalance`. */
+  failedConnections: number;
+  /** Soma dos saldos (em reais) das contas `BANK` lidas com sucesso. */
+  totalBankBalance: number;
+}
+
+/**
  * Orçamento mensal por categoria (T-023). Único por `user_id` + `category`
  * (upsert em `POST /api/budgets`) — não tem vínculo com mês: o teto vale para
  * qualquer mês exibido em Despesas, só o gasto comparado é que varia.

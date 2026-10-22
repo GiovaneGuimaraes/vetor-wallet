@@ -6,6 +6,7 @@ import type {
   IncomeEntry,
   IncomeSource,
   PluggyItemView,
+  PluggyNetWorthResponse,
   SavingsSummary,
 } from '@vetor-wallet/shared';
 import { useShellContext } from '../layout/ShellContext';
@@ -14,6 +15,7 @@ import {
   getFixedExpenses,
   getIncomeEntries,
   getIncomeSources,
+  getPluggyNetWorth,
   getPluggyStatus,
   getSavings,
 } from '../api';
@@ -22,6 +24,7 @@ import { PLUGGY_BRAND, connectionSummary } from './pluggyImport';
 import '../components/pluggyImport.css';
 import {
   computeMonthCashFlow,
+  computePatrimonioTotal,
   computeStockTotals,
   sumAmounts,
   isIncomeLayerEmpty,
@@ -123,6 +126,12 @@ export function HomePage() {
   // `VITE_*`: duas cópias divergem e a do cliente é burlável.
   const [pluggyEnabled, setPluggyEnabled] = useState(false);
   const [pluggyItems, setPluggyItems] = useState<PluggyItemView[]>([]);
+  // T-089e: saldo das contas BANK da conexão bancária, lido AO VIVO — nunca
+  // gravado. `null` = ainda não carregou, falhou, ou a integração está
+  // desligada: nesses casos o patrimônio total cai para ações + poupança do
+  // app, sem erro visível (mesmo isolamento de `getPluggyFixedIncome` no hub
+  // de Investimentos).
+  const [pluggyNetWorth, setPluggyNetWorth] = useState<PluggyNetWorthResponse | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -135,6 +144,13 @@ export function HomePage() {
       // Integração indisponível não é erro da Home: o botão simplesmente não
       // aparece, e os cards seguem funcionando.
       setPluggyEnabled(false);
+    }
+    try {
+      setPluggyNetWorth(await getPluggyNetWorth());
+    } catch {
+      // Mesma doutrina: falha/lentidão na leitura do saldo bancário não pode
+      // derrubar o patrimônio total — ele só deixa de incluir o banco.
+      setPluggyNetWorth(null);
     }
   }, []);
 
@@ -200,7 +216,14 @@ export function HomePage() {
   // Renda do mês exibida nos cards = fixas + variáveis do mês (T-036).
   const incomeTotal = cashFlow.incomeTotal;
   const savingsBalance = savingsSummary?.balance ?? 0;
-  const patrimonioTotal = stockTotals.current + savingsBalance;
+  // T-089e: soma ações + poupança do app + saldo bancário (Pluggy), quando há
+  // conexão ativa. Lógica pura em homeMetrics.ts — ver `computePatrimonioTotal`
+  // para o isolamento de falha (null/enabled:false/0 conexões não mexem no total).
+  const { total: patrimonioTotal, includesBankBalance } = computePatrimonioTotal(
+    stockTotals.current,
+    savingsBalance,
+    pluggyNetWorth
+  );
 
   const dash = '—';
 
@@ -249,6 +272,16 @@ export function HomePage() {
             </span>
           )}
         </p>
+        {/* T-089e: sem isto o número some sem dizer de onde vem — ambíguo entre
+            "é só ações + poupança" e "também tem o banco conectado". */}
+        {includesBankBalance && (
+          <p className="vw-hero-total-note">
+            Inclui saldo da sua conexão bancária
+            {pluggyNetWorth && pluggyNetWorth.failedConnections > 0
+              ? ' (parcial — uma ou mais conexões falharam ao ler o saldo agora)'
+              : ''}
+          </p>
+        )}
         <div className="vw-hero-metrics">
           <div>
             <p className="vw-hero-metric-label">Renda</p>

@@ -27,6 +27,14 @@
   color: #d17a6f;
 }
 
+/* T-089e: indica que o patrimônio total inclui o saldo das contas BANK
+   conectadas via Pluggy, para não ficar ambíguo de onde vem o número. */
+.vw-hero-total-note {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--color-dim);
+}
+
 .vw-hero-metric-sublabel {
   margin: 2px 0 0;
   font-size: 11px;
