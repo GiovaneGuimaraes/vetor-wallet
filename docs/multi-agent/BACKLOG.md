@@ -18,16 +18,9 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
-> **Retomar aqui.** Fase 1 da migração AWS (T-104/T-113) **concluída** — detalhe no histórico de
-> PRs, não repetir aqui. Foco atual: T-091c/d (dashboard de Investimentos).
-
-### T-091c/d — Investimentos como dashboard real (guarda-chuva, spike concluído 2026-10-16)
-- **Status**: EM_ANDAMENTO · **manual (c1-c3) + d1 + d2 + d3 CONCLUÍDOS** (PRs #214/#216/#218/#221/#224/#227/#229) · próxima: d4 · **Complexidade**: alta · **Depende de**: T-091a (#165) e b1 (#166)
-- **Escopo**: página de Investimentos vira dashboard com dado real, pra quem lança na mão E pra quem integrou a Pluggy. IA fica para depois.
-- **Entregue**: `fixed-income-core` + `/api/fixed-income` (c1); página real de Renda Fixa no web (c2); hub `/investimentos` virou dashboard (c3); `pluggy-core` lê `/investments` + CLI de diagnóstico (d1); RF da Pluggy somada à manual, ao vivo, nunca gravada (d2); vínculo explícito manual↔Pluggy (ponteiro `superseded_by_pluggy_investment_id`, sem pré-seleção, posição coberta sai do total só com investimento presente e com saldo, órfão volta a contar com aviso) — d3a+d3b, sem achados bloqueantes.
-- **Roadmap restante**: **d4** (última fatia) RF no patrimônio da Home. T-089e (PR #232) concluída: patrimônio já soma conta/poupança `BANK` da Pluggy, ao vivo, nunca gravado — d4 pode rodar agora.
-- **Pendências não-bloqueantes** (ver `TODO-HUMANO.md`, travam só d4): RF no patrimônio, ações de outras corretoras via Pluggy, caixinha já lançada em Poupança.
-- **Aceite (geral)**: carteira B3 com os mesmos números em todo lugar; cada fatia com suíte verde e PR própria.
+> **Retomar aqui.** Fase 1 da migração AWS (T-104/T-113) **concluída** e T-091c/d (dashboard de
+> Investimentos, c1-c3+d1-d4) **concluída** (PR #234) — detalhe no histórico de PRs, não repetir
+> aqui. Fila vazia; próxima tarefa a definir com o humano ou puxar das Candidatas abaixo.
 
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 
@@ -43,7 +36,7 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Dado morto no schema, à espera de um `DROP`** (migração destrutiva: tarefa própria, com dump para fora do repo antes): `users.password_hash` desde a T-106 (guarda hash de senha antiga sem serventia) e a tabela `hourly_quote_insights` desde a T-109a (ninguém escreve; ninguém nunca leu). Juntar as duas numa migração só.
 - **Webhook da Pluggy** (`item/*`) daria o `itemId` e o gatilho de sync, mas exige HTTPS público — depende de deploy (spec em `pluggy-core/CLAUDE.md`).
 - **Agente de insights ações/cripto** (decisão em `TODO-HUMANO.md`, 2026-10-15): informativo, não consultivo (CVM); função > LLM onde der; MCP depois. Depende da fase 3 AWS.
-- **`InvestimentosPage` deriva o total manual de RF por `summary.totalCurrent - coveredManualCents`** em vez de usar `manualCentsCounted` direto (achado do revisor da d3b, não-bloqueante): hoje é matematicamente idêntico porque a rota calcula os dois do mesmo array, mas é um invariante implícito entre dois arquivos — quebra em silêncio se um dia `summary`/`positions` pararem de vir da mesma fonte (paginação, cache).
+- **3 débitos da T-091d4** (achados do revisor, não-bloqueantes): `RendaFixaPage` ainda calcula o total de RF por conta própria em vez de reaproveitar `consolidateFixedIncome` (3ª implementação do mesmo conceito, mas essa página não combina manual+Pluggy então o risco de divergência é menor); o card "Investimentos" da Home mostra só Ações enquanto o hero já inclui RF (escopo de exibição, decisão de produto se quiser igualar); RF manual falhando tira a RF inteira do patrimônio, inclusive a parte da Pluggy que pode estar OK (design conservador documentado e testado, não bug).
 - Casing da API inconsistente; default silencioso `type: 'OUTRO'` no POST /api/income; ampliar `/admin`; backend de cripto; redesign de Alertas/Import (sem UI desde a T-026).
 
 ## Histórico
