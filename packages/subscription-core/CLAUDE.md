@@ -35,6 +35,12 @@ duplica linha). O que a transação garantia e as duas chamadas sequenciais não
 garantem mais: se o processo morrer EXATAMENTE entre as duas, a cobrança fica
 PAID sem a assinatura ter sido ativada ainda — janela estreita, e a reconciliação
 seria manual (mesmo espírito do risco aceito da cobrança órfã, mais abaixo).
+**Essa janela não se autocorrige**: o early-return `if (charge.status === 'PAID')
+return { activated: false, userId }` faz um novo webhook ou polling nessa mesma
+cobrança devolver `activated: false` sem tentar ativar de novo — uma vez
+materializada, a inconsistência fica presa até reconciliação manual, não só até
+o próximo retry. Decisão de engenharia registrada em `docs/multi-agent/
+TODO-HUMANO.md` (achado do revisor da T-114, fatia subscription-core).
 
 ## Origem: fusão de `billing-core` + `abacatepay-core` (T-103, Ciclo 20)
 

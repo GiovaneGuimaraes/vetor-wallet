@@ -68,10 +68,15 @@ o core, que soma em centavos inteiros.
 | `SQLITE_CONSTRAINT_UNIQUE` | `23505` |
 | `db.transaction()` interativa | **não existe** por proxy — ver `expenses-core` |
 
-A última linha é dívida conhecida: `createRecurringExpenseEntry` encadeia três
-escritas pelo `lastInsertRowid` da primeira. Em Postgres vira **uma instrução
-só, com CTE** (`WITH ins AS (INSERT ... RETURNING id) INSERT ...`), o que aliás
-dispensa a transação. É a única função do repo com esse problema.
+A última linha é dívida conhecida: `createRecurringExpenseEntry` (ainda não
+migrado) encadeia três escritas pelo `lastInsertRowid` da primeira. Em Postgres
+vira **uma instrução só, com CTE** (`WITH ins AS (INSERT ... RETURNING id)
+INSERT ...`), o que aliás dispensa a transação. **Não é mais a única função com
+esse problema**: `subscription-core.markChargePaidAndActivate` (T-114) perdeu a
+mesma garantia ao migrar, virando duas chamadas sequenciais — a idempotência de
+cada passo individual (`status <> 'PAID'`, `ON CONFLICT`) cobre o caso comum,
+mas a janela de "processo morreu entre as duas" ficou sem rede; decisão
+registrada em `subscription-core/CLAUDE.md` e `docs/multi-agent/TODO-HUMANO.md`.
 
 ## Convenções
 
