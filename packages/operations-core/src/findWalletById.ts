@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { Wallet } from '@vetor-wallet/shared';
 
 export interface FindWalletByIdParams {
-  db: Db;
+  query: Query;
   userId: number;
   id: string | number;
 }
@@ -18,10 +18,10 @@ export interface FindWalletByIdParams {
  * fecha (T-059).
  */
 export async function findWalletById(params: FindWalletByIdParams): Promise<Wallet | null> {
-  const { db, userId, id } = params;
-  const result = await db.execute({
-    sql: 'SELECT * FROM wallets WHERE id = ? AND user_id = ?',
-    args: [id, userId],
+  const { query, userId, id } = params;
+  const result = await query<Wallet>({
+    text: 'SELECT * FROM wallets WHERE id = $1 AND user_id = $2',
+    values: [id, userId],
   });
-  return (result.rows[0] as unknown as Wallet) ?? null;
+  return result.rows[0] ?? null;
 }

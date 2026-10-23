@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { Operation, OperationType } from '@vetor-wallet/shared';
 
 export interface CreateOperationParams {
-  db: Db;
+  query: Query;
   userId: number;
   /** Carteira padrão do usuário, resolvida pelo chamador (T-050). */
   walletId: number;
@@ -27,19 +27,23 @@ export interface CreateOperationParams {
  * ler de volta só pelo `id` recém-criado funcionaria, mas abriria um caminho de
  * leitura sem dono, e a regra do app é que **toda** consulta carregue o usuário
  * na cláusula.
+ *
+ * `RETURNING id` no lugar do `lastInsertRowid` do SQLite (T-114, passo 5 de
+ * `docs/multi-agent/plano-migracao-aws.md`) — o mesmo formato nos dois
+ * backends do `@vetor-wallet/query`.
  */
 export async function createOperation(params: CreateOperationParams): Promise<Operation> {
-  const { db, userId, walletId, ticker, type, quantity, price, date } = params;
+  const { query, userId, walletId, ticker, type, quantity, price, date } = params;
 
-  const insert = await db.execute({
-    sql: 'INSERT INTO operations (ticker, type, quantity, price, date, user_id, wallet_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    args: [ticker, type, quantity, price, date, userId, walletId],
+  const insert = await query<{ id: number }>({
+    text: 'INSERT INTO operations (ticker, type, quantity, price, date, user_id, wallet_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+    values: [ticker, type, quantity, price, date, userId, walletId],
   });
 
-  const newId = insert.lastInsertRowid ?? 0;
-  const row = await db.execute({
-    sql: 'SELECT * FROM operations WHERE id = ? AND user_id = ?',
-    args: [Number(newId), userId],
+  const newId = insert.rows[0]?.id ?? 0;
+  const row = await query<Operation>({
+    text: 'SELECT * FROM operations WHERE id = $1 AND user_id = $2',
+    values: [newId, userId],
   });
-  return row.rows[0] as unknown as Operation;
+  return row.rows[0];
 }

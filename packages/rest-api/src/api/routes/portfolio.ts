@@ -13,9 +13,15 @@ import {
 } from '@vetor-wallet/portfolio-core';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { createSqliteQuery } from '../sqliteQuery';
 import { parseDaysParam } from '@vetor-wallet/validation-core';
 
 const router = Router();
+
+// `operations-core` fala `Query` (T-114); `portfolio-core` ainda fala `Db`
+// direto (fatia futura da migração) — as duas convivem aqui porque esta rota
+// cruza os dois cores.
+const query = createSqliteQuery(db);
 
 const DEFAULT_HISTORY_DAYS = 90;
 const MAX_HISTORY_DAYS = 365;
@@ -29,7 +35,7 @@ router.get(
 
     // Carteira única (T-050): `?walletId=` é ignorado — o P&L é sempre o
     // consolidado do usuário, inclusive sobre carteiras legadas.
-    const ops = await listOperationsChronological({ db, userId });
+    const ops = await listOperationsChronological({ query, userId });
 
     const positionMap = buildPositionMap(ops);
 
@@ -74,7 +80,7 @@ router.get(
     const endDate = getBRTDate().toISOString().split('T')[0];
     const dates = buildDateWindow(endDate, days);
 
-    const ops = await listOperationsChronological({ db, userId, until: endDate });
+    const ops = await listOperationsChronological({ query, userId, until: endDate });
 
     // O isolamento por usuário mora aqui, nas operações: `quote_snapshots` não
     // tem `user_id` (preço de fechamento é global) e só é consultada para os

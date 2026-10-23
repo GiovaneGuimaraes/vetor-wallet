@@ -1,7 +1,7 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 
 export interface DeleteOperationParams {
-  db: Db;
+  query: Query;
   userId: number;
   id: string | number;
 }
@@ -12,10 +12,10 @@ export interface DeleteOperationParams {
  * que é o que evita a exclusão virar sonda de existência.
  */
 export async function deleteOperation(params: DeleteOperationParams): Promise<boolean> {
-  const { db, userId, id } = params;
-  const result = await db.execute({
-    sql: 'DELETE FROM operations WHERE id = ? AND user_id = ?',
-    args: [id, userId],
+  const { query, userId, id } = params;
+  const result = await query({
+    text: 'DELETE FROM operations WHERE id = $1 AND user_id = $2',
+    values: [id, userId],
   });
-  return result.rowsAffected > 0;
+  return result.rowCount > 0;
 }

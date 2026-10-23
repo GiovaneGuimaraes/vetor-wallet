@@ -1,5 +1,5 @@
 import { createOperation } from 'src/createOperation';
-import { makeTestDb } from 'tests/unit/testDb';
+import { makeTestQuery } from 'tests/unit/testQuery';
 
 const base = {
   userId: 7,
@@ -14,29 +14,30 @@ const base = {
 describe('createOperation', () => {
   it('insere e devolve a linha lida de volta', async () => {
     const criada = { id: 4, ticker: 'PETR4', type: 'BUY', quantity: 100, price: 30 };
-    const { db, calls } = makeTestDb([{ lastInsertRowid: 4n }, { rows: [criada] }]);
+    const { query, calls } = makeTestQuery([{ rows: [{ id: 4 }] }, { rows: [criada] }]);
 
-    expect(await createOperation({ db, ...base })).toEqual(criada);
-    expect(calls[0].sql).toContain('INSERT INTO operations');
-    expect(calls[0].args).toEqual(['PETR4', 'BUY', 100, 30, '2024-01-01', 7, 3]);
+    expect(await createOperation({ query, ...base })).toEqual(criada);
+    expect(calls[0].text).toContain('INSERT INTO operations');
+    expect(calls[0].text).toContain('RETURNING id');
+    expect(calls[0].values).toEqual(['PETR4', 'BUY', 100, 30, '2024-01-01', 7, 3]);
   });
 
   it('grava o walletId recebido, não um do corpo da request (T-050)', async () => {
-    const { db, calls } = makeTestDb([{ lastInsertRowid: 1n }, { rows: [{ id: 1 }] }]);
-    await createOperation({ db, ...base, walletId: 99 });
-    expect((calls[0].args as unknown[])[6]).toBe(99);
+    const { query, calls } = makeTestQuery([{ rows: [{ id: 1 }] }, { rows: [{ id: 1 }] }]);
+    await createOperation({ query, ...base, walletId: 99 });
+    expect((calls[0].values as unknown[])[6]).toBe(99);
   });
 
   it('o re-SELECT filtra por user_id (T-059)', async () => {
-    const { db, calls } = makeTestDb([{ lastInsertRowid: 9n }, { rows: [{ id: 9 }] }]);
-    await createOperation({ db, ...base });
-    expect(calls[1].sql).toContain('WHERE id = ? AND user_id = ?');
-    expect(calls[1].args).toEqual([9, 7]);
+    const { query, calls } = makeTestQuery([{ rows: [{ id: 9 }] }, { rows: [{ id: 9 }] }]);
+    await createOperation({ query, ...base });
+    expect(calls[1].text).toContain('WHERE id = $1 AND user_id = $2');
+    expect(calls[1].values).toEqual([9, 7]);
   });
 
-  it('sem lastInsertRowid cai em 0 em vez de quebrar', async () => {
-    const { db, calls } = makeTestDb([{}, { rows: [] }]);
-    await createOperation({ db, ...base });
-    expect(calls[1].args).toEqual([0, 7]);
+  it('sem id de volta do INSERT cai em 0 em vez de quebrar', async () => {
+    const { query, calls } = makeTestQuery([{ rows: [] }, { rows: [] }]);
+    await createOperation({ query, ...base });
+    expect(calls[1].values).toEqual([0, 7]);
   });
 });

@@ -93,6 +93,19 @@ Na fatia 2/2 da migração do `portfolio-core` (T-104), `routes/portfolio.ts` e
 `listSnapshotPointsForWindow` (`portfolio-core`), e montam a resposta com as
 funções puras daquele package — de novo, a rota é quem cruza os dois cores.
 
+Na T-114 (passo 5 da migração) o `operations-core` trocou `db: Db` por
+`query: Query`. **As três rotas que o consomem ficam com as DUAS variáveis
+lado a lado**, não só `portfolio.ts`: `routes/operations.ts` e
+`routes/wallets.ts` também chamam `getOrCreateDefaultWallet`/`countWallets`
+(`portfolio-core`, que ainda não migrou) além de `operations-core` — então
+`query = createSqliteQuery(db)` cobre as chamadas de `operations-core`, e
+`db` cru continua servindo as de `portfolio-core` nas três rotas.
+`routes/portfolio.ts` segue o mesmo padrão: `query` para
+`listOperationsChronological` (`operations-core`) e `db` cru para
+`getPreviousCloseSnapshots`/`listSnapshotPointsForWindow` (`portfolio-core`).
+A mistura é esperada em todas: as rotas já cruzavam os dois cores antes da
+troca de facade, e vão continuar até o `portfolio-core` migrar também.
+
 Ainda na T-104, o SQL de `routes/expenseEntries.ts` desceu para o
 `@vetor-wallet/expenses-core` (que já era dono de `expense_entries`): a rota
 ficou **sem nenhuma query**. O que fica aqui de propósito:
@@ -197,8 +210,8 @@ crie configuração de deploy sem pedido explícito.
 por recurso quando acelerar, revisto em 2026-10-22) e sessão (Postgres na fase 2) já respondidas —
 ver `docs/multi-agent/TODO-HUMANO.md`, item "Migração para a AWS". O que falta, nessa ordem: trocar
 a facade `db` por `query` nos `*-core` restantes (~176 pontos de SQL, package por PR — só
-`savings-core`, `fixed-income-core`, `alerts-core`, `subscription-core` e `income-core` já usam
-`query`), depois
+`savings-core`, `fixed-income-core`, `alerts-core`, `subscription-core`, `income-core` e
+`operations-core` já usam `query`), depois
 provisionar a infra de verdade
 (passos 6-8 do plano, **parados por decisão do humano** até a troca de facade terminar).
 

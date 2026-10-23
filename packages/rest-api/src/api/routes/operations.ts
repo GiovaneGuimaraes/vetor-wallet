@@ -3,6 +3,7 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
+import { createSqliteQuery } from '../sqliteQuery';
 import {
   buildPositionMap,
   getOrCreateDefaultWallet,
@@ -23,6 +24,12 @@ import type { NewOperation } from '@vetor-wallet/shared';
 
 const router = Router();
 
+// Mesma ponte das demais rotas migradas (T-114): o `operations-core` fala
+// `Query` com `$1, $2…` e este adaptador os traduz para o libSQL de hoje. O
+// `portfolio-core` ainda fala `Db` direto (fatia futura da migração) — por
+// isso as duas variáveis convivem aqui.
+const query = createSqliteQuery(db);
+
 router.use(requireAuth);
 router.use(requireActiveSubscription);
 
@@ -32,7 +39,7 @@ router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    res.json(await listOperations({ db, userId }));
+    res.json(await listOperations({ query, userId }));
   })
 );
 
@@ -77,7 +84,7 @@ router.post(
       // validado contra o consolidado atual. É um bug conhecido (T-021 do
       // `TODO-HUMANO.md`), preservado de propósito nesta extração: corrigi-lo
       // aqui esconderia uma mudança de comportamento dentro de um refactor.
-      const existing = await listOperationsByTicker({ db, userId, ticker: tickerUp });
+      const existing = await listOperationsByTicker({ query, userId, ticker: tickerUp });
       const positionMap = buildPositionMap(existing);
       if (wouldExceedPosition(positionMap, tickerUp, quantity)) {
         res.status(400).json({ error: 'venda maior que a posicao atual' });
@@ -88,7 +95,7 @@ router.post(
     const walletId = await getOrCreateDefaultWallet({ db, userId });
 
     const operation = await createOperation({
-      db,
+      query,
       userId,
       walletId,
       ticker: tickerUp,
@@ -106,7 +113,7 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const { id } = req.params;
-    if (!(await deleteOperation({ db, userId, id }))) {
+    if (!(await deleteOperation({ query, userId, id }))) {
       res.status(404).json({ error: 'Operacao nao encontrada' });
       return;
     }
