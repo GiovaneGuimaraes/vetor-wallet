@@ -110,7 +110,9 @@ Na mesma T-104 entrou `@vetor-wallet/alerts-core`, com o SQL que ainda estava
 em `routes/alerts.ts`. A rota ficou **sem nenhum SQL**: valida tipo/threshold
 do corpo (inclusive `isValidMoneyAmount`), normaliza o `ticker` e chama o
 core; a validação ficou aqui de propósito — é entrada de usuário, não acesso
-a dado, e já existia na rota antes da extração.
+a dado, e já existia na rota antes da extração. Na T-114 a rota passou a
+injetar `createSqliteQuery(db)` (mesmo padrão de `routes/savings.ts` e
+`routes/fixedIncome.ts`) em vez de passar `db` direto para o core.
 
 Na T-106 entrou `@vetor-wallet/cognito-core` (Integração), e `auth/router.ts`
 virou o lugar onde **`auth-core` e `cognito-core` se cruzam** — mesmo arranjo de
@@ -194,7 +196,7 @@ crie configuração de deploy sem pedido explícito.
 por recurso quando acelerar, revisto em 2026-10-22) e sessão (Postgres na fase 2) já respondidas —
 ver `docs/multi-agent/TODO-HUMANO.md`, item "Migração para a AWS". O que falta, nessa ordem: trocar
 a facade `db` por `query` nos `*-core` restantes (~176 pontos de SQL, package por PR — só
-`savings-core` e `fixed-income-core` já usam `query`), depois provisionar a infra de verdade
+`savings-core`, `fixed-income-core` e `alerts-core` já usam `query`), depois provisionar a infra de verdade
 (passos 6-8 do plano, **parados por decisão do humano** até a troca de facade terminar).
 
 Consequência prática que continua valendo: o rename `server` → `rest-api` (T-100, 2026-08-09) pôde

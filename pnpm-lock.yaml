@@ -29,9 +29,9 @@ importers:
 
   packages/alerts-core:
     dependencies:
-      '@vetor-wallet/db':
+      '@vetor-wallet/query':
         specifier: workspace:*
-        version: link:../db
+        version: link:../query
       '@vetor-wallet/shared':
         specifier: workspace:*
         version: link:../shared
