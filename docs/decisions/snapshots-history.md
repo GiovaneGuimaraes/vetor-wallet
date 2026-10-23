@@ -9,5 +9,6 @@
 >   [`packages/portfolio-core/CLAUDE.md`](../../packages/portfolio-core/CLAUDE.md).
 > - Comparação com CDI/Ibovespa (T-068) vive em
 >   [`packages/insights-core/CLAUDE.md`](../../packages/insights-core/CLAUDE.md).
-> - `DATABASE_URL` (default local, CLI, futuro Turso) vive em
+> - `DATABASE_URL` (default local; destino da migração é Aurora/Postgres, não Turso — ver
+>   `docs/multi-agent/plano-migracao-aws.md`) vive em
 >   [`packages/db/CLAUDE.md`](../../packages/db/CLAUDE.md).
