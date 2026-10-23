@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { IncomeEntry } from '@vetor-wallet/shared';
 
 export interface ListIncomeEntriesByMonthParams {
-  db: Db;
+  query: Query;
   userId: number;
   /** `YYYY-MM` — a rota valida o formato antes de chegar aqui. */
   month: string;
@@ -23,12 +23,12 @@ export interface ListIncomeEntriesByMonthParams {
 export async function listIncomeEntriesByMonth(
   params: ListIncomeEntriesByMonthParams
 ): Promise<IncomeEntry[]> {
-  const { db, userId, month } = params;
-  const result = await db.execute({
-    sql: `SELECT * FROM income_entries
-          WHERE user_id = ? AND substr(date, 1, 7) = ?
+  const { query, userId, month } = params;
+  const result = await query<IncomeEntry>({
+    text: `SELECT * FROM income_entries
+          WHERE user_id = $1 AND substr(date, 1, 7) = $2
           ORDER BY date DESC, created_at DESC`,
-    args: [userId, month],
+    values: [userId, month],
   });
-  return result.rows as unknown as IncomeEntry[];
+  return result.rows;
 }

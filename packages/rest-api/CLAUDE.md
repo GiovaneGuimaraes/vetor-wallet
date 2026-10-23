@@ -197,7 +197,8 @@ crie configuração de deploy sem pedido explícito.
 por recurso quando acelerar, revisto em 2026-10-22) e sessão (Postgres na fase 2) já respondidas —
 ver `docs/multi-agent/TODO-HUMANO.md`, item "Migração para a AWS". O que falta, nessa ordem: trocar
 a facade `db` por `query` nos `*-core` restantes (~176 pontos de SQL, package por PR — só
-`savings-core`, `fixed-income-core`, `alerts-core` e `subscription-core` já usam `query`), depois
+`savings-core`, `fixed-income-core`, `alerts-core`, `subscription-core` e `income-core` já usam
+`query`), depois
 provisionar a infra de verdade
 (passos 6-8 do plano, **parados por decisão do humano** até a troca de facade terminar).
 

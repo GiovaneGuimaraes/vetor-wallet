@@ -10,7 +10,7 @@
     "test": "jest --projects tests/unit"
   },
   "dependencies": {
-    "@vetor-wallet/db": "workspace:*",
+    "@vetor-wallet/query": "workspace:*",
     "@vetor-wallet/shared": "workspace:*"
   },
   "devDependencies": {
