@@ -18,9 +18,16 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
-> **Retomar aqui.** Fase 1 da migração AWS (T-104/T-113) **concluída** e T-091c/d (dashboard de
-> Investimentos, c1-c3+d1-d4) **concluída** (PR #234) — detalhe no histórico de PRs, não repetir
-> aqui. Fila vazia; próxima tarefa a definir com o humano ou puxar das Candidatas abaixo.
+> **Retomar aqui.** T-091c/d (dashboard de Investimentos, c1-c3+d1-d4) **concluída** (PR #234) —
+> detalhe no histórico de PRs, não repetir aqui. Foco atual: T-114 (migração AWS, passo 5).
+
+### T-114 — Trocar a facade `db` por `query` nos `*-core` (migração AWS, passo 5 do plano)
+- **Status**: EM_ANDAMENTO · em andamento: fatia `alerts-core` · **Complexidade**: alta (risco silencioso documentado) · **Depende de**: T-112 (`query` existe) e T-104/T-113 (formato-alvo)
+- **Escopo**: `docs/multi-agent/plano-migracao-aws.md` §5.4 passo 5 — cada `*-core` ainda em `db` (176 pontos de SQL no total, ~59 fora de `rest-api`/`db`) troca `{ sql, args }`/`?`/`lastInsertRowid` por `{ text, values }`/`$N`/`RETURNING id`, recebendo `query: Query` em vez de `db`. **Molde já provado**: `savings-core` (T-113) e `fixed-income-core` (nasceu assim). Em SQLite ainda (via `createSqliteQuery`, `rest-api/src/api/sqliteQuery.ts`) — não é troca de banco, é troca de facade. Um package por PR.
+- **Ordem planejada** (menor → maior risco/tamanho): `alerts-core` (3 arquivos) → `insights-core` (1) → `subscription-core` (4) → `income-core` (7) → `operations-core` (7) → `bank-import-core` (10) → `expenses-core` (10) → `portfolio-core` (10). `auth-core` fica de fora por ora: `service.ts` ainda não está no formato-alvo (1 função/arquivo) — precisa de fatia própria combinando formato + query.
+- **Armadilha documentada (não pular)**: `isUniqueViolation` por `SQLITE_CONSTRAINT_UNIQUE` vira SQLSTATE `23505` — se passar despercebido, dedupe de importação e corrida de recorrência **param de funcionar em silêncio** e viram 500. Teste isso primeiro em cada fatia que tocar dedupe/unique.
+- **Fora de escopo**: rotas com SQL ainda não extraído pra core (`budgets`, `plans`, `import`, `recurringExpenses`, `billingSimulate`, `webhooks`) — ficam pendentes de uma extração própria antes de poderem trocar de facade; não é esta tarefa.
+- **Aceite (por fatia)**: package usa `query: Query` injetado, SQL em `$N`/`RETURNING id`, suíte do package + `rest-api` (rota que o consome, adaptada pra passar `createSqliteQuery(db)`) verdes, cobertura 100% onde já era exigida.
 
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 
