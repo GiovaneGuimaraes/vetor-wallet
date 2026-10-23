@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { createSqliteQuery } from '../sqliteQuery';
 import {
   AbacatePayError,
   markChargePaidAndActivate,
@@ -11,6 +12,10 @@ import {
 } from '@vetor-wallet/subscription-core';
 
 const router = Router();
+
+// Mesma ponte das demais rotas migradas (T-114): o core fala `Query` com
+// `$1, $2…` e este adaptador os traduz para o libSQL de hoje.
+const query = createSqliteQuery(db);
 
 router.use(requireAuth);
 
@@ -60,7 +65,7 @@ router.post(
     }
 
     if (remote.status === 'PAID') {
-      await markChargePaidAndActivate({ db, abacateChargeId: String(row.abacate_charge_id) });
+      await markChargePaidAndActivate({ query, abacateChargeId: String(row.abacate_charge_id) });
     }
 
     const fresh = await db.execute({

@@ -7,6 +7,41 @@ quando, e como o pagamento vira acesso. Categoria **Core**, módulo
 
 Substitui `docs/decisions/billing.md` (hoje um stub apontando para cá).
 
+**T-114 (2026-10-23, passo 5 de `docs/multi-agent/plano-migracao-aws.md`): o
+`db` do libSQL saiu das quatro funções com I/O.** `getActivePlan`,
+`getPendingCharge`, `getSubscriptionRow` e `markChargePaidAndActivate` recebem
+`query: Query` (`@vetor-wallet/query`) em vez de `db: Db`, com `{ text,
+values }` e placeholders `$1, $2, ...` (convenção Postgres) em vez de `?`.
+Nenhuma das quatro fazia `INSERT` com `lastInsertRowid` só para ler de volta
+(o padrão de `createAlertRule`), então não há `RETURNING id` aqui. Molde
+seguido à risca de `savings-core` (T-113, a migração real mais recente de um
+package existente) e `alerts-core` (T-114, fatia 1). O `rest-api` **continua
+em SQLite** — a rota/middleware injeta `createSqliteQuery(db)`
+(`packages/rest-api/src/api/sqliteQuery.ts`), um adaptador que traduz `$N`
+para `?` e devolve o `Db` de sempre por baixo. Nenhuma linha deste package
+sabe disso; quando o Postgres entrar de verdade, a rota troca para
+`createPgQuery(...)` sem tocar este core.
+
+**O `db.batch([...], 'write')` de `markChargePaidAndActivate` saiu junto.**
+`@vetor-wallet/query` não tem transação interativa por proxy — é dívida
+conhecida, documentada no `CLAUDE.md` daquele package (mesmo buraco do
+`createRecurringExpenseEntry` do `expenses-core`, ainda não migrado). O UPDATE
+de `pix_charges` e o UPSERT de `subscriptions` viraram duas chamadas
+sequenciais de `query`, NA MESMA ORDEM de antes. Isso não abriu brecha nova: a
+idempotência contra uma segunda chamada concorrente (webhook + polling) já não
+dependia da transação — ela vem de `status <> 'PAID'` no UPDATE (a segunda
+chamada vira um no-op) e de `ON CONFLICT(user_id) DO UPDATE` no INSERT (nunca
+duplica linha). O que a transação garantia e as duas chamadas sequenciais não
+garantem mais: se o processo morrer EXATAMENTE entre as duas, a cobrança fica
+PAID sem a assinatura ter sido ativada ainda — janela estreita, e a reconciliação
+seria manual (mesmo espírito do risco aceito da cobrança órfã, mais abaixo).
+**Essa janela não se autocorrige**: o early-return `if (charge.status === 'PAID')
+return { activated: false, userId }` faz um novo webhook ou polling nessa mesma
+cobrança devolver `activated: false` sem tentar ativar de novo — uma vez
+materializada, a inconsistência fica presa até reconciliação manual, não só até
+o próximo retry. Decisão de engenharia registrada em `docs/multi-agent/
+TODO-HUMANO.md` (achado do revisor da T-114, fatia subscription-core).
+
 ## Origem: fusão de `billing-core` + `abacatepay-core` (T-103, Ciclo 20)
 
 Os dois packages viraram um só. O motivo é conceitual, não de tamanho: **Pix é
@@ -41,10 +76,10 @@ src/
 ├── Plan.ts                      # PlanRow + toPlan
 ├── Subscription.ts              # SubscriptionRow + toSubscription
 ├── PixCharge.ts                 # PixChargeRow + toPixCharge
-├── getActivePlan.ts             # leitura (db injetado)
+├── getActivePlan.ts             # leitura (query injetado, T-114)
 ├── getSubscriptionRow.ts
 ├── getPendingCharge.ts
-├── markChargePaidAndActivate.ts # ativação (db injetado)
+├── markChargePaidAndActivate.ts # ativação (query injetado, T-114)
 └── providers/abacatepay/
     ├── AbacatePayError.ts
     ├── AbacatePixCharge.ts      # tipos + toAbacatePixCharge
@@ -62,26 +97,29 @@ era impossível abrir o teste de uma delas sem carregar as outras catorze.
 
 ## Banco chega INJETADO
 
-Toda função com I/O recebe `db: Db` (o tipo vem de `@vetor-wallet/db`, o
-**singleton `db` não é importado aqui**):
+Toda função com I/O recebe `query: Query` (o tipo vem de `@vetor-wallet/query`,
+desde a T-114; o **singleton não é importado aqui** — nem o `db` do libSQL nem
+um client de Postgres):
 
 ```ts
-const plan = await getActivePlan({ db, planId: 1 });
-const { activated, userId } = await markChargePaidAndActivate({ db, abacateChargeId });
+const plan = await getActivePlan({ query, planId: 1 });
+const { activated, userId } = await markChargePaidAndActivate({ query, abacateChargeId });
 ```
 
 Quem passa o client é a rota (ou o job, ou o teste). Dois ganhos, nessa ordem:
 
-1. **Teste vira mock puro.** `createMockDb()` devolve
-   `{ execute: jest.fn(), batch: jest.fn() }` e pronto. Não existe mais banco
-   temporário, `initDb`, nem `DATABASE_URL` setada antes de um
-   `await import()` dinâmico — o dança que o `client.ts` do `db` obrigava por
-   ler o env no top-level do módulo. Testes de função pura, então, não tocam
-   banco *de jeito nenhum*, nem por importar o vizinho.
-2. **A conexão é decisão de quem orquestra.** Réplica de leitura, transação já
-   aberta ou outro client não são assunto de regra de negócio.
+1. **Teste vira mock puro.** `createTestQuery()` (`tests/unit/testQuery.ts`)
+   devolve um `jest.fn()` e pronto. Não existe banco temporário, `initDb`, nem
+   `DATABASE_URL` setada antes de um `await import()` dinâmico. Testes de
+   função pura, então, não tocam banco *de jeito nenhum*, nem por importar o
+   vizinho.
+2. **A conexão é decisão de quem orquestra.** Réplica de leitura, pool,
+   SQLite hoje ou Postgres amanhã não são assunto de regra de negócio —
+   `@vetor-wallet/query` é quem decide isso, não este package.
 
-Este é o padrão-alvo para todos os `*-core`; o `subscription-core` é o piloto.
+Este foi o padrão-alvo piloto (`db` injetado) para todos os `*-core`; a T-114
+trocou esse piloto de `db` para `query`, mesmo molde de `savings-core` e
+`alerts-core`.
 
 ## Invariantes (não quebrar)
 
@@ -107,13 +145,18 @@ Este é o padrão-alvo para todos os `*-core`; o `subscription-core` é o piloto
 
 ### Ativação: uma porta só
 
-`markChargePaidAndActivate({ db, abacateChargeId })` é a **única** função que
-ativa assinatura. Webhook, polling (`GET /api/pix-charges/:id`) e a rota de
+`markChargePaidAndActivate({ query, abacateChargeId })` é a **única** função
+que ativa assinatura. Webhook, polling (`GET /api/pix-charges/:id`) e a rota de
 simulação chamam ela. É idempotente por dois mecanismos combinados:
 
-1. `UPDATE pix_charges ... WHERE abacate_charge_id = ? AND status <> 'PAID'`;
-2. `INSERT ... ON CONFLICT(user_id) DO UPDATE` da assinatura, num único
-   `db.batch([...], 'write')` (transação) com a cobrança.
+1. `UPDATE pix_charges ... WHERE abacate_charge_id = $1 AND status <> 'PAID'`;
+2. `INSERT ... ON CONFLICT(user_id) DO UPDATE` da assinatura.
+
+Antes da T-114 as duas rodavam num único `db.batch([...], 'write')`
+(transação); hoje são duas chamadas sequenciais de `query`, na mesma ordem —
+`@vetor-wallet/query` não tem transação interativa por proxy (ver nota no topo
+deste arquivo). Nenhum dos dois mecanismos de idempotência dependia da
+transação para ser seguro contra uma segunda chamada concorrente.
 
 Webhook e polling concorrentes não somam período duas vezes — a segunda chamada
 responde `activated: false`. O dono da assinatura é **sempre
@@ -171,7 +214,7 @@ tests/
     ├── jest.config.ts      # rootDir = raiz do package, thresholds 100%
     ├── jest.stryker.config.ts
     ├── setupTests.ts       # limpa env de billing entre casos
-    ├── createMockDb.ts     # Db de mentira
+    ├── testQuery.ts        # Query de mentira (T-114; substituiu createMockDb.ts)
     ├── mockFetch.ts        # fetch global de mentira
     └── tests/*.test.ts     # UM por arquivo de src/
 ```
@@ -185,17 +228,17 @@ Regras:
 - **Teste fica FORA do `src/`** e importa por `src/...` (path alias). É o que
   torna explícito que o teste olha de fora para dentro, e o que mantém o
   `tsconfig` de produção sem `exclude` de teste.
-- **Não mocke funções deste package.** Mocke as bordas: `db` (injetado) e
+- **Não mocke funções deste package.** Mocke as bordas: `query` (injetado) e
   `fetch` (global). `markChargePaidAndActivate` é testada de ponta a ponta
-  contra um `db` de mentira, não com `getActivePlan` mockado — senão o teste
-  para de provar a regra e passa a provar a chamada.
+  contra uma `query` de mentira, não com `getActivePlan` mockado — senão o
+  teste para de provar a regra e passa a provar a chamada.
 - **Cobertura 100%** (statements/branches/functions/lines), com `src/index.ts`
   fora da conta por ser só re-export. Threshold que não é 100 vira 99, depois
   95: o piso só significa alguma coisa enquanto for o teto.
 - **Snapshot no SQL**, não no resultado inteiro: as queries são o contrato com
   o banco, e uma mudança silenciosa de `WHERE` é exatamente o que passa
   despercebido numa review.
-- Roteie leituras por trecho de SQL (`sql.includes('FROM plans')`) em vez de
+- Roteie leituras por trecho de SQL (`text.includes('FROM plans')`) em vez de
   `mockResolvedValueOnce` em sequência — a ordem das queries é detalhe de
   implementação e travá-la faz reordenação inofensiva quebrar o teste.
 

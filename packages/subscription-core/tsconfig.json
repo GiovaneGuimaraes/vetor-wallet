@@ -12,10 +12,10 @@
     "esModuleInterop": true,
     "baseUrl": ".",
     "paths": {
-      "@vetor-wallet/db": ["../db/src/index.ts"],
+      "@vetor-wallet/query": ["../query/src/index.ts"],
       "@vetor-wallet/shared": ["../shared/src/index.ts"]
     }
   },
   "include": ["src"],
-  "references": [{ "path": "../db" }, { "path": "../shared" }]
+  "references": [{ "path": "../query" }, { "path": "../shared" }]
 }

@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 
 import type { PlanRow } from './Plan';
 
-export const getActivePlanText = 'SELECT * FROM plans WHERE id = ?';
+export const getActivePlanText = 'SELECT * FROM plans WHERE id = $1';
 
 /**
  * Plano por id **sem filtrar `active`**. Desativar um plano tira ele da vitrine
@@ -12,8 +12,15 @@ export const getActivePlanText = 'SELECT * FROM plans WHERE id = ?';
  * O nome mentiria se `active` fosse filtrado aqui; ele descreve o papel do
  * plano (o plano vigente da assinatura), não o valor da coluna. Quem precisa da
  * vitrine filtra na própria rota.
+ *
+ * `query` no lugar de `db` (T-114, passo 5 de
+ * `docs/multi-agent/plano-migracao-aws.md`) — mesmo contrato nos dois backends
+ * de `@vetor-wallet/query`.
  */
-export const getActivePlan = async (args: { db: Db; planId: number }): Promise<PlanRow | null> => {
-  const res = await args.db.execute({ sql: getActivePlanText, args: [args.planId] });
-  return (res.rows[0] as unknown as PlanRow) ?? null;
+export const getActivePlan = async (args: {
+  query: Query;
+  planId: number;
+}): Promise<PlanRow | null> => {
+  const res = await args.query<PlanRow>({ text: getActivePlanText, values: [args.planId] });
+  return res.rows[0] ?? null;
 };

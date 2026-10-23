@@ -8,7 +8,7 @@
     "types": ["node", "jest"],
     "baseUrl": "..",
     "paths": {
-      "@vetor-wallet/db": ["../db/src/index.ts"],
+      "@vetor-wallet/query": ["../query/src/index.ts"],
       "@vetor-wallet/shared": ["../shared/src/index.ts"],
       "src/*": ["src/*"],
       "tests/*": ["tests/*"]
