@@ -1,5 +1,5 @@
 import { getPendingCharge } from 'src/getPendingCharge';
-import { createMockDb, type MockDb } from 'tests/unit/createMockDb';
+import { createTestQuery } from 'tests/unit/testQuery';
 
 const NOW = '2026-08-01 12:00:00';
 
@@ -18,63 +18,63 @@ const chargeRow = {
 };
 
 describe('getPendingCharge', () => {
-  let db: MockDb;
+  let query: ReturnType<typeof createTestQuery>;
 
   beforeEach(() => {
-    db = createMockDb();
+    query = createTestQuery();
   });
 
   test('sem planId: filtra por usuário, PENDING e prazo, sem cláusula de plano', async () => {
-    db.execute.mockResolvedValue({ rows: [chargeRow] });
+    query.mockResolvedValue({ rows: [chargeRow], rowCount: 1 });
 
-    const result = await getPendingCharge({ db, userId: 42, nowIso: NOW });
+    const result = await getPendingCharge({ query, userId: 42, nowIso: NOW });
 
-    const { sql, args } = db.execute.mock.calls[0][0];
-    expect(sql).not.toContain('plan_id = ?');
-    expect(args).toEqual([42, NOW]);
-    expect(sql).toMatchSnapshot();
+    const { text, values } = query.mock.calls[0][0];
+    expect(text).not.toContain('plan_id = $3');
+    expect(values).toEqual([42, NOW]);
+    expect(text).toMatchSnapshot();
     expect(result).toEqual(chargeRow);
   });
 
   test('com planId: acrescenta a cláusula de plano e o arg na ordem certa', async () => {
     // A assinatura só reaproveita cobrança do MESMO plano — dois QR Codes
     // válidos ao mesmo tempo é convite a pagar duas vezes.
-    db.execute.mockResolvedValue({ rows: [chargeRow] });
+    query.mockResolvedValue({ rows: [chargeRow], rowCount: 1 });
 
-    await getPendingCharge({ db, userId: 42, nowIso: NOW, planId: 7 });
+    await getPendingCharge({ query, userId: 42, nowIso: NOW, planId: 7 });
 
-    const { sql, args } = db.execute.mock.calls[0][0];
-    expect(sql).toContain('plan_id = ?');
-    expect(args).toEqual([42, NOW, 7]);
-    expect(sql).toMatchSnapshot();
+    const { text, values } = query.mock.calls[0][0];
+    expect(text).toContain('plan_id = $3');
+    expect(values).toEqual([42, NOW, 7]);
+    expect(text).toMatchSnapshot();
   });
 
   test('planId 0 é tratado como filtro, não como ausência', async () => {
     // Guarda contra `if (planId)` no lugar de `planId !== undefined`.
-    await getPendingCharge({ db, userId: 42, nowIso: NOW, planId: 0 });
+    await getPendingCharge({ query, userId: 42, nowIso: NOW, planId: 0 });
 
-    expect(db.execute.mock.calls[0][0].args).toEqual([42, NOW, 0]);
+    expect(query.mock.calls[0][0].values).toEqual([42, NOW, 0]);
   });
 
   test('inclui cobrança sem expires_at conhecido', async () => {
     // O provedor é a fonte da verdade sobre o prazo; descartar uma cobrança que
     // talvez esteja válida faria o usuário pagar duas vezes.
-    await getPendingCharge({ db, userId: 42, nowIso: NOW });
+    await getPendingCharge({ query, userId: 42, nowIso: NOW });
 
-    expect(db.execute.mock.calls[0][0].sql).toContain('expires_at IS NULL');
+    expect(query.mock.calls[0][0].text).toContain('expires_at IS NULL');
   });
 
   test('pega a mais recente (ordem por created_at e id, LIMIT 1)', async () => {
-    await getPendingCharge({ db, userId: 42, nowIso: NOW });
+    await getPendingCharge({ query, userId: 42, nowIso: NOW });
 
-    const { sql } = db.execute.mock.calls[0][0];
-    expect(sql).toContain('ORDER BY created_at DESC, id DESC');
-    expect(sql).toContain('LIMIT 1');
+    const { text } = query.mock.calls[0][0];
+    expect(text).toContain('ORDER BY created_at DESC, id DESC');
+    expect(text).toContain('LIMIT 1');
   });
 
   test('nenhuma cobrança pendente vira null', async () => {
-    db.execute.mockResolvedValue({ rows: [] });
+    query.mockResolvedValue({ rows: [], rowCount: 0 });
 
-    await expect(getPendingCharge({ db, userId: 42, nowIso: NOW })).resolves.toBeNull();
+    await expect(getPendingCharge({ query, userId: 42, nowIso: NOW })).resolves.toBeNull();
   });
 });

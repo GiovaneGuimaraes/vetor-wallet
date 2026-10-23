@@ -1,5 +1,5 @@
 import { getSubscriptionRow } from 'src/getSubscriptionRow';
-import { createMockDb, type MockDb } from 'tests/unit/createMockDb';
+import { createTestQuery } from 'tests/unit/testQuery';
 
 const subRow = {
   id: 3,
@@ -10,25 +10,25 @@ const subRow = {
 };
 
 describe('getSubscriptionRow', () => {
-  let db: MockDb;
+  let query: ReturnType<typeof createTestQuery>;
 
   beforeEach(() => {
-    db = createMockDb();
+    query = createTestQuery();
   });
 
   test('filtra por user_id e devolve a linha crua', async () => {
-    db.execute.mockResolvedValue({ rows: [subRow] });
+    query.mockResolvedValue({ rows: [subRow], rowCount: 1 });
 
-    const result = await getSubscriptionRow({ db, userId: 42 });
+    const result = await getSubscriptionRow({ query, userId: 42 });
 
-    expect(db.execute).toHaveBeenCalledWith(expect.objectContaining({ args: [42] }));
-    expect(db.execute.mock.calls[0][0].sql).toMatchSnapshot();
+    expect(query).toHaveBeenCalledWith(expect.objectContaining({ values: [42] }));
+    expect(query.mock.calls[0][0].text).toMatchSnapshot();
     expect(result).toEqual(subRow);
   });
 
   test('usuário sem assinatura vira null', async () => {
-    db.execute.mockResolvedValue({ rows: [] });
+    query.mockResolvedValue({ rows: [], rowCount: 0 });
 
-    await expect(getSubscriptionRow({ db, userId: 42 })).resolves.toBeNull();
+    await expect(getSubscriptionRow({ query, userId: 42 })).resolves.toBeNull();
   });
 });

@@ -26,7 +26,7 @@ const config: Config = {
     ],
   },
   moduleNameMapper: {
-    '^@vetor-wallet/db$': '<rootDir>/../db/src/index.ts',
+    '^@vetor-wallet/query$': '<rootDir>/../query/src/index.ts',
     '^@vetor-wallet/shared$': '<rootDir>/../shared/src/index.ts',
     '^src/(.*)$': '<rootDir>/src/$1',
     '^tests/(.*)$': '<rootDir>/tests/$1',

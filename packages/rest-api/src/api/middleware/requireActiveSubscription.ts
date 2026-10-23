@@ -1,11 +1,16 @@
 import type { RequestHandler } from 'express';
 import { db } from '@vetor-wallet/db';
+import { createSqliteQuery } from '../sqliteQuery';
 import {
   getSubscriptionRow,
   isBillingEnabled,
   isSubscriptionActive,
   nowSqliteUtc,
 } from '@vetor-wallet/subscription-core';
+
+// Mesma ponte das demais rotas migradas (T-114): o core fala `Query` com
+// `$1, $2…` e este adaptador os traduz para o libSQL de hoje.
+const query = createSqliteQuery(db);
 
 /**
  * Gating de assinatura nas rotas de dados (T-071).
@@ -45,7 +50,7 @@ export const requireActiveSubscription: RequestHandler = (req, res, next) => {
 
   const userId = res.locals.userId as number;
 
-  getSubscriptionRow({ db, userId })
+  getSubscriptionRow({ query, userId })
     .then((sub) => {
       if (isSubscriptionActive(sub, nowSqliteUtc())) {
         next();

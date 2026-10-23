@@ -1,4 +1,4 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 
 import { addInterval } from './addInterval';
 import { getActivePlan } from './getActivePlan';
@@ -29,56 +29,60 @@ export interface ActivationResult {
  * provedor, que é dado de fora e daria a quem forjasse um webhook a chance de
  * ativar a assinatura de outra pessoa. Por isso a função recebe só o
  * `abacateChargeId` e vai buscar o dono no banco.
+ *
+ * `query` no lugar de `db` (T-114, passo 5 de
+ * `docs/multi-agent/plano-migracao-aws.md`). **O `db.batch([...], 'write')`
+ * saiu** — `@vetor-wallet/query` não tem transação interativa por proxy (é
+ * dívida conhecida, documentada no `CLAUDE.md` do package); o UPDATE e o
+ * INSERT/UPSERT viram duas chamadas sequenciais de `query`, na MESMA ordem de
+ * antes. A idempotência continua garantida pelos dois mecanismos que já
+ * existiam: `status <> 'PAID'` no UPDATE e `ON CONFLICT(user_id) DO UPDATE` no
+ * INSERT — nenhum dos dois dependia da transação para ser seguro contra uma
+ * segunda chamada (webhook + polling concorrentes).
  */
 export const markChargePaidAndActivate = async (args: {
-  db: Db;
+  query: Query;
   abacateChargeId: string;
 }): Promise<ActivationResult> => {
-  const chargeRes = await args.db.execute({
-    sql: 'SELECT user_id, plan_id, status FROM pix_charges WHERE abacate_charge_id = ?',
-    args: [args.abacateChargeId],
+  const chargeRes = await args.query<{ user_id: number; plan_id: number; status: string }>({
+    text: 'SELECT user_id, plan_id, status FROM pix_charges WHERE abacate_charge_id = $1',
+    values: [args.abacateChargeId],
   });
-  const charge = chargeRes.rows[0] as unknown as
-    { user_id: number; plan_id: number; status: string } | undefined;
+  const charge = chargeRes.rows[0];
 
   if (!charge) return { activated: false, userId: null };
 
   const userId = Number(charge.user_id);
   if (charge.status === 'PAID') return { activated: false, userId };
 
-  const plan = await getActivePlan({ db: args.db, planId: Number(charge.plan_id) });
+  const plan = await getActivePlan({ query: args.query, planId: Number(charge.plan_id) });
   if (!plan) return { activated: false, userId };
 
-  const sub = await getSubscriptionRow({ db: args.db, userId });
+  const sub = await getSubscriptionRow({ query: args.query, userId });
   const periodEnd = addInterval(
     renewalBase(nowSqliteUtc(), sub?.current_period_end ?? null),
     plan.interval
   );
 
-  // Batch 'write' = uma transação: ou a cobrança vira PAID e a assinatura fica
-  // ativa, ou nada acontece. O `status <> 'PAID'` no UPDATE é a rede de
-  // segurança contra duas chamadas concorrentes (webhook e polling ao mesmo
-  // tempo) — a segunda não reaplica nada porque a linha já mudou.
-  await args.db.batch(
-    [
-      {
-        sql: `UPDATE pix_charges SET status = 'PAID', paid_at = datetime('now')
-              WHERE abacate_charge_id = ? AND status <> 'PAID'`,
-        args: [args.abacateChargeId],
-      },
-      {
-        sql: `INSERT INTO subscriptions (user_id, plan_id, status, current_period_end)
-              VALUES (?, ?, 'active', ?)
-              ON CONFLICT(user_id) DO UPDATE SET
-                plan_id = excluded.plan_id,
-                status = 'active',
-                current_period_end = excluded.current_period_end,
-                updated_at = datetime('now')`,
-        args: [userId, plan.id, periodEnd],
-      },
-    ],
-    'write'
-  );
+  // Duas chamadas sequenciais na MESMA ordem do `db.batch` de antes: ou a
+  // cobrança vira PAID, ou nada muda (o UPDATE é um no-op por causa do
+  // `status <> 'PAID'`). O `ON CONFLICT` do INSERT é o que torna o segundo
+  // passo seguro mesmo sem transação.
+  await args.query({
+    text: `UPDATE pix_charges SET status = 'PAID', paid_at = datetime('now')
+          WHERE abacate_charge_id = $1 AND status <> 'PAID'`,
+    values: [args.abacateChargeId],
+  });
+  await args.query({
+    text: `INSERT INTO subscriptions (user_id, plan_id, status, current_period_end)
+          VALUES ($1, $2, 'active', $3)
+          ON CONFLICT(user_id) DO UPDATE SET
+            plan_id = excluded.plan_id,
+            status = 'active',
+            current_period_end = excluded.current_period_end,
+            updated_at = datetime('now')`,
+    values: [userId, plan.id, periodEnd],
+  });
 
   return { activated: true, userId };
 };

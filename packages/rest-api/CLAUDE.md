@@ -41,9 +41,10 @@ middleware daqui:
   `abacatepay-core` na T-103) — datas UTC no formato SQLite e
   `markChargePaidAndActivate` como única porta de ativação.
   `api/middleware/requireActiveSubscription.ts` **fica aqui** (é Express) e
-  importa do package. Atenção: as funções com banco deste package recebem `db`
-  **injetado** (`getSubscriptionRow({ db, userId })`) — quem passa o client é a
-  rota/middleware.
+  importa do package. Desde a T-114 as quatro funções com banco deste package
+  recebem `query: Query` **injetado** (`getSubscriptionRow({ query, userId })`)
+  em vez de `db: Db` — quem passa é a rota/middleware, que injeta
+  `createSqliteQuery(db)` (mesmo padrão de `routes/alerts.ts`).
 - `@vetor-wallet/savings-core` (de `services/savings.ts`) — saldo da poupança em
   centavos inteiros. O que era de metas (`goals.ts`, transferência, progresso)
   saiu na T-091b1, junto com `routes/goals.ts` e `POST /api/savings/transfer-to-goal`.
@@ -196,7 +197,8 @@ crie configuração de deploy sem pedido explícito.
 por recurso quando acelerar, revisto em 2026-10-22) e sessão (Postgres na fase 2) já respondidas —
 ver `docs/multi-agent/TODO-HUMANO.md`, item "Migração para a AWS". O que falta, nessa ordem: trocar
 a facade `db` por `query` nos `*-core` restantes (~176 pontos de SQL, package por PR — só
-`savings-core`, `fixed-income-core` e `alerts-core` já usam `query`), depois provisionar a infra de verdade
+`savings-core`, `fixed-income-core`, `alerts-core` e `subscription-core` já usam `query`), depois
+provisionar a infra de verdade
 (passos 6-8 do plano, **parados por decisão do humano** até a troca de facade terminar).
 
 Consequência prática que continua valendo: o rename `server` → `rest-api` (T-100, 2026-08-09) pôde

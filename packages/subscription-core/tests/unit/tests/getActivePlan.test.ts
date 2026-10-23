@@ -1,5 +1,5 @@
 import { getActivePlan } from 'src/getActivePlan';
-import { createMockDb, type MockDb } from 'tests/unit/createMockDb';
+import { createTestQuery } from 'tests/unit/testQuery';
 
 const planRow = {
   id: 1,
@@ -12,38 +12,38 @@ const planRow = {
 };
 
 describe('getActivePlan', () => {
-  let db: MockDb;
+  let query: ReturnType<typeof createTestQuery>;
 
   beforeEach(() => {
-    db = createMockDb();
+    query = createTestQuery();
   });
 
   test('busca o plano por id e devolve a linha crua', async () => {
-    db.execute.mockResolvedValue({ rows: [planRow] });
+    query.mockResolvedValue({ rows: [planRow], rowCount: 1 });
 
-    const result = await getActivePlan({ db, planId: 1 });
+    const result = await getActivePlan({ query, planId: 1 });
 
-    expect(db.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ sql: expect.any(String), args: [1] })
+    expect(query).toHaveBeenCalledWith(
+      expect.objectContaining({ text: expect.any(String), values: [1] })
     );
-    expect(db.execute.mock.calls[0][0].sql).toMatchSnapshot();
+    expect(query.mock.calls[0][0].text).toMatchSnapshot();
     expect(result).toEqual(planRow);
   });
 
   test('NÃO filtra por active — plano desativado segue resolvível', async () => {
     // Quem já assinou precisa do plano resolvido na leitura; filtrar aqui faria
     // a assinatura de um plano descontinuado aparecer sem nome.
-    db.execute.mockResolvedValue({ rows: [{ ...planRow, active: 0 }] });
+    query.mockResolvedValue({ rows: [{ ...planRow, active: 0 }], rowCount: 1 });
 
-    const result = await getActivePlan({ db, planId: 1 });
+    const result = await getActivePlan({ query, planId: 1 });
 
-    expect(db.execute.mock.calls[0][0].sql).not.toMatch(/active/i);
+    expect(query.mock.calls[0][0].text).not.toMatch(/active/i);
     expect(result).toMatchObject({ active: 0 });
   });
 
   test('plano inexistente vira null, não undefined', async () => {
-    db.execute.mockResolvedValue({ rows: [] });
+    query.mockResolvedValue({ rows: [], rowCount: 0 });
 
-    await expect(getActivePlan({ db, planId: 999 })).resolves.toBeNull();
+    await expect(getActivePlan({ query, planId: 999 })).resolves.toBeNull();
   });
 });

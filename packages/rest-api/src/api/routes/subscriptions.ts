@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { createSqliteQuery } from '../sqliteQuery';
 import type { MySubscriptionResponse } from '@vetor-wallet/shared';
 import {
   AbacatePayError,
@@ -22,6 +23,10 @@ import {
 
 const router = Router();
 
+// Mesma ponte das demais rotas migradas (T-114): o core fala `Query` com
+// `$1, $2…` e este adaptador os traduz para o libSQL de hoje.
+const query = createSqliteQuery(db);
+
 router.use(requireAuth);
 
 /**
@@ -40,7 +45,7 @@ router.post(
       return;
     }
 
-    const plan = await getActivePlan({ db, planId });
+    const plan = await getActivePlan({ query, planId });
     // Plano inexistente e plano desativado respondem o MESMO 404, de propósito:
     // para quem assina, os dois casos são "esse plano não está à venda", e
     // distinguir só entregaria a existência de planos fora da vitrine.
@@ -50,7 +55,7 @@ router.post(
     }
 
     const now = nowSqliteUtc();
-    const existingSub = await getSubscriptionRow({ db, userId });
+    const existingSub = await getSubscriptionRow({ query, userId });
     if (isSubscriptionActive(existingSub, now)) {
       res.status(409).json({ code: 'ALREADY_SUBSCRIBED', error: 'Já existe uma assinatura ativa' });
       return;
@@ -59,9 +64,9 @@ router.post(
     // Reaproveita a cobrança PENDING não expirada do MESMO plano em vez de
     // gerar outra: dois QR Codes válidos ao mesmo tempo é convite a pagar duas
     // vezes. Nenhum fetch é feito aqui.
-    const reusable = await getPendingCharge({ db, userId, nowIso: now, planId: plan.id });
+    const reusable = await getPendingCharge({ query, userId, nowIso: now, planId: plan.id });
     if (reusable) {
-      const sub = await getSubscriptionRow({ db, userId });
+      const sub = await getSubscriptionRow({ query, userId });
       res.status(201).json({
         subscription: sub ? toSubscription(sub) : null,
         charge: toPixCharge(reusable),
@@ -131,7 +136,7 @@ router.post(
     });
 
     const [subRow, chargeRow] = await Promise.all([
-      getSubscriptionRow({ db, userId }),
+      getSubscriptionRow({ query, userId }),
       db.execute({
         sql: 'SELECT * FROM pix_charges WHERE abacate_charge_id = ?',
         args: [charge.id],
@@ -155,7 +160,7 @@ router.get(
     const userId = res.locals.userId as number;
     const now = nowSqliteUtc();
 
-    const subRow = await getSubscriptionRow({ db, userId });
+    const subRow = await getSubscriptionRow({ query, userId });
     let subscription = subRow ? toSubscription(subRow) : null;
 
     // `active` com período vencido é reportado como `expired` — computado na
@@ -166,8 +171,10 @@ router.get(
       subscription = { ...subscription, status: 'expired' };
     }
 
-    const planRow = subscription ? await getActivePlan({ db, planId: subscription.plan_id }) : null;
-    const pending = await getPendingCharge({ db, userId, nowIso: now });
+    const planRow = subscription
+      ? await getActivePlan({ query, planId: subscription.plan_id })
+      : null;
+    const pending = await getPendingCharge({ query, userId, nowIso: now });
 
     const body: MySubscriptionResponse = {
       billingEnabled: isBillingEnabled(),

@@ -3,9 +3,14 @@ import express from 'express';
 import { createHmac } from 'crypto';
 import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { createSqliteQuery } from '../sqliteQuery';
 import { markChargePaidAndActivate, safeEqual } from '@vetor-wallet/subscription-core';
 
 const router = Router();
+
+// Mesma ponte das demais rotas migradas (T-114): o core fala `Query` com
+// `$1, $2…` e este adaptador os traduz para o libSQL de hoje.
+const query = createSqliteQuery(db);
 
 /** Eventos que confirmam pagamento; qualquer outro é ignorado com 2xx. */
 const PAID_EVENTS = new Set(['transparent.completed', 'checkout.completed']);
@@ -121,7 +126,7 @@ async function handler(req: Request, res: Response): Promise<void> {
   // errorHandler (500) e a reentrega do provedor é justamente o que queremos —
   // a linha de idempotência e a ativação estão em statements distintos, mas a
   // ativação é idempotente por si.
-  const { activated, userId } = await markChargePaidAndActivate({ db, abacateChargeId: chargeId });
+  const { activated, userId } = await markChargePaidAndActivate({ query, abacateChargeId: chargeId });
   if (userId == null) {
     res.json({ ok: true, unknownCharge: true });
     return;

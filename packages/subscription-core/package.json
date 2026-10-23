@@ -11,7 +11,7 @@
     "mutation": "stryker run"
   },
   "dependencies": {
-    "@vetor-wallet/db": "workspace:*",
+    "@vetor-wallet/query": "workspace:*",
     "@vetor-wallet/shared": "workspace:*"
   },
   "devDependencies": {
