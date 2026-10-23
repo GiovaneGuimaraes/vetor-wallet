@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-10-23T14:10:52-03:00"
+    "atualizadoEm": "2026-10-23T14:36:22-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-10-22T14:19:10-03:00"
+    "atualizadoEm": "2026-10-23T14:36:22-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -154,7 +154,7 @@
       "canal": "todo-ai",
       "messageId": "1563233494006767688",
       "status": "EM_ANDAMENTO",
-      "nota": "alerts-core concluida. Ordem corrigida: insights-core/auth-core/bank-import-core nao estao prontos. Em andamento: subscription-core."
+      "nota": "alerts-core + subscription-core concluidas. Achado de atomicidade registrado no todo-human. Proxima: income-core."
     }
   },
   "humanTodos": {
@@ -385,6 +385,12 @@
       "messageId": "1562517461025427457",
       "modo": "so aviso",
       "status": "RESPONDIDO 2026-10-21 (via AskUserQuestion): vinculo explicito, grava so o id do investimento (ponteiro, nao fere a P1), vinculo orfao volta a contar com aviso. Desbloqueou d3a."
+    },
+    "T-114-atomicidade-query": {
+      "canal": "todo-human",
+      "messageId": "1563244618668056687",
+      "modo": "so aviso",
+      "status": "ABERTO 2026-10-23: query nao tem transacao, markChargePaidAndActivate perdeu atomicidade (avaliado como seguro). Mesmo problema reaparece em expenses-core."
     }
   },
   "lastSeen": {
