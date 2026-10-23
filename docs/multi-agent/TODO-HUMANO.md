@@ -18,13 +18,13 @@
 
 ## Abertos
 
-### [2026-10-23] T-114 (migração AWS, fatia `subscription-core`): perdeu a transação atômica de `markChargePaidAndActivate` — ciente, não bloqueia
+### [2026-10-23] ~~T-114 (migração AWS, fatia `subscription-core`): perdeu a transação atômica de `markChargePaidAndActivate`~~ — RESPONDIDO em 2026-10-23
 - **Origem**: revisor da fatia `subscription-core`, T-114 (passo 5, troca `db`→`query`)
-- **Bloqueia**: nada — é aviso, decisão de engenharia já tomada e implementada (PR #241).
-- **O que mudou**: `markChargePaidAndActivate` gravava `UPDATE pix_charges` + `UPSERT subscriptions` num `db.batch` atômico. `@vetor-wallet/query` não tem transação interativa por proxy ainda — virou duas chamadas sequenciais, na mesma ordem. A pior falha (processo morrer exatamente entre as duas) deixa a cobrança `PAID` sem a assinatura ativada — nunca o inverso (nunca ativa sem cobrança paga, a ordem é fixa). Os dois mecanismos de idempotência que já existiam (`status <> 'PAID'`, `ON CONFLICT`) não dependiam da transação, então o caso comum (retry por webhook/polling) continua seguro.
-- **O que NÃO se autocorrige**: uma vez que a janela se materializa, o early-return por `status === 'PAID'` faz qualquer retry seguinte devolver `activated: false` sem tentar ativar de novo — fica preso até reconciliação manual, mesmo espírito do risco já aceito de "cobrança órfã" (documentado em `subscription-core/CLAUDE.md`).
-- **Por que registrar mesmo não bloqueando**: é uma mudança de garantia que você nunca aprovou explicitamente (a tarefa original era só "trocar sintaxe", não "perder atomicidade"). Mesmo problema vai se repetir em `expenses-core.createRecurringExpenseEntry` quando essa fatia rodar (já documentado como dívida conhecida em `query/CLAUDE.md`).
-- **Resposta do humano**: _(nenhuma ação necessária — registro de transparência; avise se quiser que o orquestrador priorize uma solução de transação real no `@vetor-wallet/query` antes de continuar as próximas fatias)_
+- **Bloqueava**: nada — era aviso, decisão de engenharia já implementada (PR #241).
+- **O que mudou**: `markChargePaidAndActivate` gravava `UPDATE pix_charges` + `UPSERT subscriptions` num `db.batch` atômico. `@vetor-wallet/query` não tem transação interativa por proxy — virou duas chamadas sequenciais, na mesma ordem. Pior falha (processo morrer exatamente entre as duas): cobrança `PAID` sem assinatura ativada — nunca o inverso. Não se autocorrige sozinho (early-return por `status === 'PAID'` trava qualquer retry seguinte) — fica preso até reconciliação manual, mesmo espírito do risco já aceito de "cobrança órfã".
+- **Causa raiz, pra quem reabrir isto**: no backend de Lambda da fase 3, cada chamada de `query()` é uma invocação independente sem conexão persistente — não dá pra "abrir transação numa chamada, continuar na próxima". Qualquer solução de transação real precisa ser desenhada pros dois backends (pool Postgres de hoje e Lambda de amanhã), não só pro Postgres local.
+- **Opções apresentadas**: 1️⃣ aceitar e seguir (risco raro, sempre do lado seguro, documentado); 2️⃣ reescrever só esta função como 1 statement atômico via CTE (`WITH ... UPDATE ... RETURNING` + INSERT condicional — não precisa de transação nenhuma, mas não confirmado se roda em SQLite hoje, só em Postgres); 3️⃣ construir transação de verdade no `@vetor-wallet/query` antes de continuar (resolve a causa raiz pra sempre, mas é infra nova, atrasa a T-114).
+- **Resposta do humano**: 1️⃣ aceitar e seguir em frente. Mesmo problema vai se repetir em `expenses-core.createRecurringExpenseEntry` quando essa fatia rodar — documentar do mesmo jeito, não re-perguntar a menos que apareça um caso real.
 
 ### [2026-10-21] ~~Renda Fixa (T-091c/d, d3): como evitar contar 2x o mesmo título lançado à mão E vindo da Pluggy~~ — RESPONDIDO em 2026-10-21
 - **Origem**: spike de design (Plan/Opus) da fatia d3
