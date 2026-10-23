@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { Operation } from '@vetor-wallet/shared';
 
 export interface ListOperationsByTickerParams {
-  db: Db;
+  query: Query;
   userId: number;
   /** Já normalizado em MAIÚSCULAS pelo chamador. */
   ticker: string;
@@ -22,10 +22,10 @@ export interface ListOperationsByTickerParams {
 export async function listOperationsByTicker(
   params: ListOperationsByTickerParams
 ): Promise<Operation[]> {
-  const { db, userId, ticker } = params;
-  const result = await db.execute({
-    sql: 'SELECT * FROM operations WHERE ticker = ? AND user_id = ? ORDER BY date ASC, created_at ASC',
-    args: [ticker, userId],
+  const { query, userId, ticker } = params;
+  const result = await query<Operation>({
+    text: 'SELECT * FROM operations WHERE ticker = $1 AND user_id = $2 ORDER BY date ASC, created_at ASC',
+    values: [ticker, userId],
   });
-  return result.rows as unknown as Operation[];
+  return result.rows;
 }

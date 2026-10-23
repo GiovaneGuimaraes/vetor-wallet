@@ -2,11 +2,18 @@ import { Router, Request, Response } from 'express';
 import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { createSqliteQuery } from '../sqliteQuery';
 import { countWallets, getOrCreateDefaultWallet, withUserLock } from '@vetor-wallet/portfolio-core';
 import { findWalletById, listWallets } from '@vetor-wallet/operations-core';
 import type { NewWallet } from '@vetor-wallet/shared';
 
 const router = Router();
+
+// Mesma ponte das demais rotas migradas (T-114): o `operations-core` fala
+// `Query` com `$1, $2…` e este adaptador os traduz para o libSQL de hoje. O
+// `portfolio-core` ainda fala `Db` direto (fatia futura da migração) — por
+// isso as duas variáveis convivem aqui.
+const query = createSqliteQuery(db);
 
 router.use(requireAuth);
 
@@ -19,7 +26,7 @@ router.get(
 
     await getOrCreateDefaultWallet({ db, userId });
 
-    res.json(await listWallets({ db, userId }));
+    res.json(await listWallets({ query, userId }));
   })
 );
 
@@ -58,7 +65,7 @@ router.post(
       // re-SELECT de operations/alerts) — walletId vem do próprio
       // getOrCreateDefaultWallet deste request, seguro na prática, mas o
       // filtro fecha o mesmo descuido.
-      const wallet = await findWalletById({ db, userId, id: walletId });
+      const wallet = await findWalletById({ query, userId, id: walletId });
       if (!wallet) {
         throw new Error(`wallet ${walletId} not found right after getOrCreateDefaultWallet`);
       }

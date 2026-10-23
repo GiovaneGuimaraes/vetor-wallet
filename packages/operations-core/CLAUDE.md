@@ -9,6 +9,19 @@ Nasceu na **T-104** (fatia operations/wallets), já no formato-alvo: uma funçã
 por arquivo, **`db` injetado**, Jest com testes em `tests/unit/tests/` e
 cobertura **100% travada por `coverageThreshold`**.
 
+**T-114 (2026-10-23, passo 5 de `docs/multi-agent/plano-migracao-aws.md`): o
+`db` do libSQL saiu.** Toda função aqui recebe `query: Query`
+(`@vetor-wallet/query`) em vez de `db: Db`, com `{ text, values }` e
+placeholders `$1, $2, ...` (convenção Postgres), `RETURNING id` no lugar de
+`lastInsertRowid`, `rowCount` no lugar de `rowsAffected`. Molde seguido à
+risca de `alerts-core`, `subscription-core` e `income-core` (as fatias
+anteriores desta mesma migração). O `rest-api` **continua em SQLite** — as
+rotas injetam `createSqliteQuery(db)` (`packages/rest-api/src/api/sqliteQuery.ts`).
+`routes/operations.ts` e `routes/wallets.ts` trocaram `db` por `query` por
+completo; `routes/portfolio.ts` tem as DUAS variáveis lado a lado, porque
+também chama `portfolio-core`, que ainda fala `Db` (fatia futura) — ver "Por
+que um segundo core no módulo Portfolio" abaixo.
+
 ## Por que `operations-core`, e não `wallets-core`
 
 O package cobre as duas tabelas, então o nome teve de escolher uma. Escolheu
@@ -109,9 +122,10 @@ regra (`portfolio-core`), não este package.
 
 ## Convenções
 
-Formato-alvo (molde do `savings-core`, T-110a/b): **uma função por arquivo**,
-**`db` injetado** (nunca importado), testes em `tests/unit/tests/` importando
-por `src/...`, **Jest**, cobertura **100%**.
+Formato-alvo (molde do `savings-core`, T-110a/b; `query` injetado desde a
+T-114): **uma função por arquivo**, **`query` injetado** (nunca importado),
+testes em `tests/unit/tests/` importando por `src/...`, **Jest**, cobertura
+**100%**.
 
 Ver também `CLAUDE.md` da raiz, `docs/PACKAGES.md` (regras de dependência),
 `docs/MODULES.md` (módulo Portfolio) e `packages/portfolio-core/CLAUDE.md` (as

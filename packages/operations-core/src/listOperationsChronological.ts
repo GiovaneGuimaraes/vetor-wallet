@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { Operation } from '@vetor-wallet/shared';
 
 export interface ListOperationsChronologicalParams {
-  db: Db;
+  query: Query;
   userId: number;
   /** `YYYY-MM-DD`, inclusive. Ausente = todas as operações do usuário. */
   until?: string;
@@ -23,18 +23,18 @@ export interface ListOperationsChronologicalParams {
 export async function listOperationsChronological(
   params: ListOperationsChronologicalParams
 ): Promise<Operation[]> {
-  const { db, userId, until } = params;
+  const { query, userId, until } = params;
   const result =
     until === undefined
-      ? await db.execute({
-          sql: 'SELECT * FROM operations WHERE user_id = ? ORDER BY date ASC, created_at ASC',
-          args: [userId],
+      ? await query<Operation>({
+          text: 'SELECT * FROM operations WHERE user_id = $1 ORDER BY date ASC, created_at ASC',
+          values: [userId],
         })
-      : await db.execute({
-          sql: `SELECT * FROM operations
-            WHERE user_id = ? AND date <= ?
+      : await query<Operation>({
+          text: `SELECT * FROM operations
+            WHERE user_id = $1 AND date <= $2
             ORDER BY date ASC, created_at ASC`,
-          args: [userId, until],
+          values: [userId, until],
         });
-  return result.rows as unknown as Operation[];
+  return result.rows;
 }

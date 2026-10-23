@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { Wallet } from '@vetor-wallet/shared';
 
 export interface ListWalletsParams {
-  db: Db;
+  query: Query;
   userId: number;
 }
 
@@ -20,10 +20,10 @@ export interface ListWalletsParams {
  * cria mais nenhuma.
  */
 export async function listWallets(params: ListWalletsParams): Promise<Wallet[]> {
-  const { db, userId } = params;
-  const result = await db.execute({
-    sql: 'SELECT * FROM wallets WHERE user_id = ? ORDER BY created_at ASC, id ASC',
-    args: [userId],
+  const { query, userId } = params;
+  const result = await query<Wallet>({
+    text: 'SELECT * FROM wallets WHERE user_id = $1 ORDER BY created_at ASC, id ASC',
+    values: [userId],
   });
-  return result.rows as unknown as Wallet[];
+  return result.rows;
 }
