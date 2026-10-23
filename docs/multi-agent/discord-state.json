@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-10-22T15:01:04-03:00"
+    "atualizadoEm": "2026-10-23T13:52:08-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -149,6 +149,12 @@
       "messageId": "1560712000353468489",
       "status": "CONCLUIDA",
       "nota": "Guarda-chuva inteira concluida (c1-c3, d1-d4). PRs #214/#216/#218/#221/#224/#227/#229/#232/#234."
+    },
+    "T-114": {
+      "canal": "todo-ai",
+      "messageId": "1563233494006767688",
+      "status": "EM_ANDAMENTO",
+      "nota": "Troca db->query nos *-core restantes, um package por PR. Em andamento: alerts-core."
     }
   },
   "humanTodos": {
