@@ -14,9 +14,9 @@ import type { Config } from 'jest';
  * existir ou estar desatualizado — a suíte passaria a validar um build antigo
  * (falso verde).
  *
- * `@vetor-wallet/db` aparece aqui só pelo TIPO `Db`: nenhuma função deste core
- * importa o singleton — o client é injetado, e o teste passa o mock de
- * `tests/unit/testDb.ts`.
+ * `@vetor-wallet/query` aparece aqui só pelo TIPO `Query` (T-114): nenhuma
+ * função deste core importa uma implementação concreta — o client é injetado,
+ * e o teste passa o mock de `tests/unit/testQuery.ts`.
  *
  * `isolatedModules` vive no `tests/tsconfig.json`, não aqui: como opção do
  * ts-jest ela está DEPRECADA e sai na v30.
@@ -30,7 +30,7 @@ const config: Config = {
     '^.+\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tests/tsconfig.json' }],
   },
   moduleNameMapper: {
-    '^@vetor-wallet/db$': '<rootDir>/../db/src/index.ts',
+    '^@vetor-wallet/query$': '<rootDir>/../query/src/index.ts',
     '^@vetor-wallet/shared$': '<rootDir>/../shared/src/index.ts',
     '^src/(.*)$': '<rootDir>/src/$1',
     '^tests/(.*)$': '<rootDir>/tests/$1',

@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { AlertRule } from '@vetor-wallet/shared';
 
 export interface ListAlertRulesParams {
-  db: Db;
+  query: Query;
   userId: number;
 }
 
@@ -10,10 +10,10 @@ export interface ListAlertRulesParams {
  * Todas as regras de alerta de UM usuário, da mais recente para a mais antiga.
  */
 export async function listAlertRules(params: ListAlertRulesParams): Promise<AlertRule[]> {
-  const { db, userId } = params;
-  const result = await db.execute({
-    sql: 'SELECT * FROM alert_rules WHERE user_id = ? ORDER BY created_at DESC',
-    args: [userId],
+  const { query, userId } = params;
+  const result = await query<AlertRule>({
+    text: 'SELECT * FROM alert_rules WHERE user_id = $1 ORDER BY created_at DESC',
+    values: [userId],
   });
-  return result.rows as unknown as AlertRule[];
+  return result.rows;
 }
