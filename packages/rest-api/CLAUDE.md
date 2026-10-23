@@ -177,26 +177,33 @@ Entry compilado: `dist/api/index.js` (`pnpm --filter vetor-wallet-rest-api start
 
 ## Variáveis de ambiente
 
-Ver tabela no `CLAUDE.md` da raiz. `DATABASE_URL` aceita `file:` local ou URL Turso (migração futura: só trocar a env).
+Ver tabela no `CLAUDE.md` da raiz. `DATABASE_URL` aceita `file:` local (SQLite, hoje) ou,
+depois da migração de banco, uma URL Postgres/Aurora — ver `docs/multi-agent/plano-migracao-aws.md`.
+**Turso foi descartado** como destino (decisão 1 da migração, 2026-09-14): o banco de produção
+vai ser Aurora Serverless v2 + Postgres, não Turso.
 
-## Deploy: não existe (decisão do humano, 2026-08-08)
+## Deploy: nenhum recurso existe ainda, mas as decisões já foram tomadas (atualizado 2026-10-22)
 
-A API roda **só localmente** por enquanto — não há host, painel, Dockerfile,
-`Procfile` nem pipeline de infra, e isso é **intencional**, não uma lacuna a
-preencher. Não crie configuração de deploy sem pedido explícito.
+A API roda **só localmente** hoje — não há host, painel, Dockerfile, `Procfile` nem recurso AWS
+provisionado (nenhuma VPC, Aurora, Lambda ou API Gateway existe), e enquanto isso for verdade não
+crie configuração de deploy sem pedido explícito.
 
-A migração para **AWS Cloud** está no horizonte, mas sem data e sem tarefa
-aberta. Quando entrar em pauta, os TODOs abaixo (Turso, Cognito,
-Lambda/EventBridge) deixam de ser hipotéticos e passam a ter um alvo concreto.
+**Isto não é mais "sem data e sem tarefa"**: desde 2026-09-13 há um plano de migração completo em
+`docs/multi-agent/plano-migracao-aws.md`, com as decisões de banco (Aurora/Postgres), transporte
+(API Gateway + Lambda, REST preservado, sem AppSync), infra as code (SDK puro + `carlin` liberado
+por recurso quando acelerar, revisto em 2026-10-22) e sessão (Postgres na fase 2) já respondidas —
+ver `docs/multi-agent/TODO-HUMANO.md`, item "Migração para a AWS". O que falta, nessa ordem: trocar
+a facade `db` por `query` nos `*-core` restantes (~176 pontos de SQL, package por PR — só
+`savings-core` e `fixed-income-core` já usam `query`), depois provisionar a infra de verdade
+(passos 6-8 do plano, **parados por decisão do humano** até a troca de facade terminar).
 
-Consequência prática: o rename `server` → `rest-api` (T-100, 2026-08-09) pôde ser
-feito sem risco, porque não há ambiente externo apontando para `dist/api/index.js`
-— só o `start` deste package. Se um dia houver deploy, o caminho do entry passa a
-ser um contrato externo e essa liberdade acaba.
+Consequência prática que continua valendo: o rename `server` → `rest-api` (T-100, 2026-08-09) pôde
+ser feito sem risco, porque não há ambiente externo apontando para `dist/api/index.js` — só o
+`start` deste package. Quando houver deploy de verdade, o caminho do entry vira contrato externo e
+essa liberdade acaba.
 
 ## TODOs futuros
 
-- **Turso** para deploy multi-usuário (zero reescrita de queries).
 - **AWS Cognito entrou na T-106** (identidade única; `auth/router.ts` orquestra
   `@vetor-wallet/cognito-core` + `@vetor-wallet/auth-core`). **Recuperação de
   senha entrou na T-108a**: `POST /api/auth/forgot-password` e
@@ -206,4 +213,5 @@ ser um contrato externo e essa liberdade acaba.
   `POST /api/auth/confirm`, `/resend-code`, `/forgot-password`,
   `/reset-password`) e o `DROP` de `users.password_hash`.
 - Coleta de cotações em background em Lambda + EventBridge (hoje: só o scheduler in-process de
-  snapshots). O job de insights horários foi removido na T-109a e renasce lá.
+  snapshots). O job de insights horários foi removido na T-109a e renasce lá — mesmo destino da
+  fase 3 do plano de migração (passos 6-8).

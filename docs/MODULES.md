@@ -99,14 +99,21 @@ Packages:
   CRUD de `fixed_income_positions` e o resumo (total aplicado × total atual, somado em
   centavos). Valor exibido = `current_value ?? invested_amount`; **não estima rendimento** por
   taxa (cálculo financeiro real, cruzaria com `insights-core` — fica para tarefa própria).
-- `packages/rest-api` — `/api/fixed-income` (GET/POST/PATCH/DELETE). A validação de entrada
-  mora na rota.
-- `packages/web` — ainda nada (fatias c2/c3 da T-091c/d).
+- `packages/rest-api` — `/api/fixed-income` (GET/POST/PATCH/DELETE, posição manual) e
+  `/api/fixed-income/pluggy` (GET, posição da Pluggy lida **ao vivo**, nunca gravada). Validação
+  de entrada mora na rota.
+- `packages/web` — `RendaFixaPage.tsx` (CRUD manual + vínculo com a conexão bancária) e o hub
+  `InvestimentosPage.tsx` (dashboard consolidado: Ações + Renda Fixa, alocação, vencimentos).
 
 Por que é core próprio: não pode ir para o `portfolio-core` (regra dura — os números da B3 não
 mudam por causa de Renda Fixa) nem para o `savings-core` (poupança é livro-razão de lançamentos;
-isto é **posição**). A integração com a Pluggy (fatias d1–d4) entra depois, com
-`source`/`external_id`; esta fatia é só a parte manual.
+isto é **posição**). A integração com a Pluggy (T-091d, fatias d1-d4, completa) **não grava nada**
+— decisão do humano (P1, 2026-10-21): a posição da Pluggy é lida ao vivo de `/investments` a cada
+acesso. O vínculo entre uma posição manual e um investimento da Pluggy (pra não contar a mesma
+coisa duas vezes) é um único ponteiro, `superseded_by_pluggy_investment_id`, na própria linha
+manual — não `source`/`external_id`. Detalhe em `packages/fixed-income-core/CLAUDE.md` e
+`packages/pluggy-core/CLAUDE.md`. A fatia d4 também soma essa posição no patrimônio total da Home
+(`packages/web/src/routes/homeMetrics.ts`), junto do saldo bancário da T-089e.
 
 ---
 
@@ -219,27 +226,42 @@ Packages:
 ## 8. Importação Bancária
 
 **id**: `BankImport`
-**Responsabilidade**: trazer lançamentos de fora para dentro do app sem duplicar — extrato OFX
-hoje, Open Finance via Pluggy depois.
+**Responsabilidade**: trazer dado de fora para dentro do app sem duplicar — extrato OFX,
+transações/investimentos/saldo via Open Finance (Pluggy), tudo com Open Finance plugado **no
+app**, não só por CLI.
 
 Packages:
 
 - `packages/bank-import-core` *(Core, T-099c)* — parser de OFX 1.x SGML / 2.x XML, o
-  mapeamento das transações da Pluggy (T-087) e a política de dedupe por `external_id`
-  (T-084/T-085).
-- `packages/pluggy-core` *(Integração, T-087)* — client HTTP da Pluggy: `POST /auth` (apiKey
-  de 2h em cache), `GET /accounts?itemId=`, `GET /v2/transactions` seguindo o cursor `next`.
-  Não toca o banco.
-- `packages/rest-api` — `POST /api/import/ofx` (`express.raw`, 1 MB).
-- `packages/cli` — `pluggy:sync [YYYY-MM-DD] [--dry-run]`: orquestra client + mapeamento e
-  imprime o relatório. Usuário-alvo via `PLUGGY_USER_EMAIL` (sem default silencioso).
+  mapeamento das transações da Pluggy (T-087) com filtro de movimentação interna (T-088), a
+  política de dedupe por `external_id` (T-084/T-085), e os `pluggy_items` por usuário + o job que
+  itera os N items de um usuário (T-089a).
+- `packages/pluggy-core` *(Integração, T-087 em diante)* — client HTTP da Pluggy: `POST /auth`
+  (apiKey de 2h em cache), `GET /accounts?itemId=` (T-089e: inclui `balance`, pro patrimônio),
+  `GET /v2/transactions` (cursor `next`), `GET /investments` (T-091d: paginação por página,
+  `fetchPluggyInvestments`/`toPluggyInvestment`/`toPluggyFixedIncomePosition`), `POST
+  /connect_token` + `DELETE /items/:id` (T-089b, pro widget de conexão no app). Nunca toca o
+  banco.
+- `packages/rest-api` — `POST /api/import/ofx` (`express.raw`, 1 MB); `/api/pluggy/*` (status,
+  connect-token, items, sync, net-worth — T-089b/T-089e), gate `ENVIRONMENT`/
+  `isPluggyIntegrationEnabled` (só `Staging` libera, fail closed) + `requireActiveSubscription`.
+- `packages/web` — modal de conexão/import da Pluggy na Home (T-089c/d), botão de conectar banco
+  liberado por `GET /api/pluggy/status`.
+- `packages/cli` — `pluggy:sync [YYYY-MM-DD] [--dry-run]`, `pluggy:link` (registra/remove um item
+  por usuário) e `pluggy:investments --dry-run` (diagnóstico de `/investments`, só contagem por
+  tipo, nunca dado sensível — T-091d, fatia d1). Usuário-alvo via `PLUGGY_USER_EMAIL` (sem
+  default silencioso).
 
 Invariantes: crédito vira `income_entries`, débito vira `expense_entries`; `external_id` é
 `ofx:<FITID>` ou `pluggy:<id>`; a rota responde **sempre 200** com relatório por transação
 (`imported`/`duplicated`/`rejected`) — 400 só quando o documento inteiro é inválido.
 Um `externalId` repetido no POST normal responde 409 `{ duplicate: true, entry }`.
 No caminho Pluggy o relatório tem dois desfechos extra: `skipped` (transação `PENDING`, que
-mudaria de valor ao efetivar) e `previewed` (só no `--dry-run`).
+mudaria de valor ao efetivar) e `previewed` (só no `--dry-run`); `internal` marca movimentação
+entre contas próprias/fatura/aplicação (T-088), que nunca vira lançamento.
+Saldo bancário (T-089e) e Renda Fixa da Pluggy (T-091d) seguem doutrina oposta a transações: são
+**posição**, lidas ao vivo a cada acesso, **nunca gravadas** — ver módulo `FixedIncome` (§2b) e
+`packages/pluggy-core/CLAUDE.md`.
 
 ---
 

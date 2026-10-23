@@ -26,7 +26,7 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 | **alerts-core** | Core | Portfolio | CRUD de `alert_rules` (o SQL que estava na rota `/api/alerts`) | ✅ existe (T-104) |
 | **brapi-core** | Integration | Portfolio | Client HTTP da brapi.dev (cotações, tickers) | ✅ existe (T-098) |
 | **postgresdb** | Infra | — | Schema do Postgres (modelos + `sync`); não atende request | ✅ existe (T-112) |
-| **query** | Infra | — | `query({text,values})` com backend pg (fase 1) e Lambda (fase 3) | ✅ existe (T-112) |
+| **query** | Infra | — | `query({text,values})` com backend pg (fase 1) e Lambda (fase 3) — roteiro de troca `db`→`query` por package em `docs/multi-agent/plano-migracao-aws.md` §5.4 passo 5 | ✅ existe (T-112) |
 | **income-core** | Core | Income | CRUD de fontes fixas e lançamentos avulsos (T-110d) | ✅ existe (T-110d) |
 | **expenses-core** | Core | Expenses | Recorrência lazy + CRUD de despesa fixa + CRUD de lançamento variável (`expense_entries`, T-104) (a normalização de categoria é chamada aqui, mas mora em `validation-core`, T-099a) | ✅ existe (T-099b), formato-alvo na T-110c |
 | **savings-core** | Core | Savings | Saldo da poupança em centavos + CRUD de `savings_entries` (metas saíram na T-091b1) | ✅ existe (T-099b), formato-alvo na T-110a |
