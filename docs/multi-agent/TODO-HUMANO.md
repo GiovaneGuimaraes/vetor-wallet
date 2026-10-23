@@ -18,7 +18,12 @@
 
 ## Abertos
 
-### [2026-10-23] ~~T-114 (migração AWS, fatia `subscription-core`): perdeu a transação atômica de `markChargePaidAndActivate`~~ — RESPONDIDO em 2026-10-23
+### [2026-10-23] ~~T-114 (migração AWS, fatia `expenses-core`): `createRecurringExpenseEntry` fica de fora, CTE com escrita não roda em SQLite~~ — RESPONDIDO em 2026-10-23
+- **Origem**: orquestrador, ao planejar a fatia `expenses-core` da T-114 (passo 5)
+- **Bloqueava**: nada — `createRecurringExpenseEntry` continua como está (migração adiada), as outras 9 funções do package migram normalmente.
+- **O problema, diferente do caso já aceito em `subscription-core`**: `createRecurringExpenseEntry` usa transação interativa (`TransactionalDb`) especificamente porque, sem ela, uma falha no meio das 3 escritas reabre o bug que a **T-045** corrigiu — template de recorrência órfão ou mês reservado sem lançamento, indistinguível de exclusão proposital. Virar chamadas sequenciais aqui (o padrão já aplicado em `subscription-core`) **reabriria esse bug**, não é só um atraso seguro.
+- **Solução natural (CTE com escrita, `WITH ins AS (INSERT ... RETURNING id) INSERT ...`) testada e NÃO roda em SQLite** — confirmado empiricamente (`SQLITE_ERROR: near "INSERT": syntax error`). É sintaxe só de Postgres. Como o app roda 100% em SQLite ainda, essa reescrita quebraria a função hoje.
+- **Resposta do humano**: deixar `createRecurringExpenseEntry`/`TransactionalDb.ts` de fora da fatia `expenses-core` — continuam em `db: Db` com transação interativa, exatamente como hoje. Vira pendência própria pra quando o Postgres estiver de fato no ar (decidir a forma certa por backend: CTE no Postgres, outra solução no Lambda de fase 3).
 - **Origem**: revisor da fatia `subscription-core`, T-114 (passo 5, troca `db`→`query`)
 - **Bloqueava**: nada — era aviso, decisão de engenharia já implementada (PR #241).
 - **O que mudou**: `markChargePaidAndActivate` gravava `UPDATE pix_charges` + `UPSERT subscriptions` num `db.batch` atômico. `@vetor-wallet/query` não tem transação interativa por proxy — virou duas chamadas sequenciais, na mesma ordem. Pior falha (processo morrer exatamente entre as duas): cobrança `PAID` sem assinatura ativada — nunca o inverso. Não se autocorrige sozinho (early-return por `status === 'PAID'` trava qualquer retry seguinte) — fica preso até reconciliação manual, mesmo espírito do risco já aceito de "cobrança órfã".
