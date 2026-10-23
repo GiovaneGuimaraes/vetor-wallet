@@ -290,14 +290,17 @@ Cada passo é uma coisa só e dá para parar entre eles. **(H)** = só o humano 
    por PR.
 6. **Rede e banco na AWS** — agora é código nosso, por causa da decisão 2 (§8.1): `packages/infra`
    com um `ensureX` por recurso (VPC, subnets, security groups, endpoint do Secrets Manager,
-   Aurora Serverless v2 com capacidade mínima no menor valor aceitável). Eu escrevo, **(H)** roda
+   Aurora Serverless v2 com capacidade mínima no menor valor aceitável) **+ um bastion EC2 mínimo
+   para acesso de operador** (decisão 7, 2026-10-23 — ver abaixo). Eu escrevo, **(H)** roda
    com as credenciais dele — credencial de deploy nunca passa por mim. Os segredos vão para o
    Secrets Manager e os ids dos recursos para o **SSM Parameter Store**, nunca para o repo.
 7. **Deploy do `lambda-postgres-query`** (eu escrevo, humano roda o deploy): os dois Lambdas na
    VPC, read e write, pelo mesmo `ensureX` do passo 6.
-8. **(H) Migrar os dados.** Dump do `wallet.db` → carga no Postgres → **conferência de contagem
-   por tabela e de soma por coluna de dinheiro**. Com backup fora do repo antes, **conferindo que
-   a pasta existe** — a de agosto sumiu (registro no `TODO-HUMANO.md`).
+8. ~~**(H) Migrar os dados.**~~ **REMOVIDO da fase 1 (decisão 8, 2026-10-23)**: a Aurora nasce
+   **vazia**, com só o schema aplicado (já provado via `db:sync`, T-112) — não há dump do
+   `wallet.db`, não há conversão de tipo, não há conferência de contagem/soma. O histórico do
+   SQLite atual não atravessa para o Postgres. Ver decisão 8 abaixo para o que isso implica e para
+   quem quiser um backup pessoal antes do corte.
 
 No fim da fase 1 **não existe GraphQL ainda**: existe o app de hoje, REST, rodando contra
 Postgres. Isso é de propósito — se algo quebrar, o suspeito é um só.
@@ -382,6 +385,23 @@ migração de banco. A 1 é melhor no fim, quando houver menos coisa se mexendo 
   (T-106). O passo 2 da §5.4 está feito.
 - **6 — transporte da API: RESPONDIDA em 2026-09-20 — API Gateway + Lambda, REST preservado.**
   Substitui o AppSync + Relay das versões anteriores; o raciocínio está na §1.1.
+- **7 — acesso de operador à Aurora (schema, backfill, psql na mão): RESPONDIDA em 2026-10-23 —
+  bastion EC2 mínimo + SSM Session Manager port forwarding, igual ao padrão do `oneclickads/
+  monorepo` (`packages/postgresdb/README.md` de lá: `aws ssm start-session --document-name
+  AWS-StartPortForwardingSessionToRemoteHost`, encaminhando a porta 5432 do Postgres/RDS Proxy
+  para a máquina do operador).** Sem IP público na Aurora, sem VPN, sem chave SSH pra gerenciar —
+  o bastion só aceita conexão via SSM (IAM), nunca porta 22 aberta. **Importante: isto é separado
+  do `lambda-postgres-query` (decisão 2/passo 7)** — o Lambda é o caminho de runtime do app (toda
+  query da aplicação passa por ele); o bastion+SSM é só para humano rodar `sync --alter`,
+  backfill ou abrir um client Postgres local, nunca para o app em produção.
+- **8 — dados do SQLite atual na migração: RESPONDIDA em 2026-10-23 — não migrar, a Aurora nasce
+  vazia.** O humano decidiu não herdar o histórico do `wallet.db` para o Postgres. **Isto remove o
+  passo 8 original da §5.4 inteiro** (dump, conversão de tipo, conferência de contagem/soma) — a
+  Aurora só recebe o schema (`db:sync`, já provado). Consequência que fica registrada para não
+  surpreender no dia do corte: todo o histórico de operações, lançamentos e assinatura que existe
+  hoje no SQLite **não atravessa** e fica inacessível pelo app depois que o SQLite for desligado.
+  Quem quiser um backup pessoal (fora do repo, sem recriar no Postgres) deve pedir antes do corte
+  acontecer — não é passo automático desta migração.
 
 ### 8.1 Deploy: SDK puro para o que já existe, `carlin` liberado por recurso novo
 
@@ -463,20 +483,28 @@ passos 3, 4 e 5 (extrair CRUD, `postgresdb`, `query`) continuam sem tocar em AWS
 - **`isBase64Encoded` do API Gateway** é a armadilha equivalente ao antigo `relay-compiler` no
   CI: o webhook da AbacatePay valida HMAC sobre bytes crus, e decodificar na ordem errada faz a
   assinatura falhar **só em produção**, com o teste verde. Provar cedo (§4).
-- **Migração de dados é destrutiva por natureza.** Dump fora do repo, conferido, antes da carga.
+- **Migração de dados não se aplica mais** (decisão 8, 2026-10-23: Aurora nasce vazia) — o risco
+  que sobra é operacional, não de dado: o bastion (decisão 7) é a única porta de acesso humano à
+  Aurora, e perder a credencial/sessão SSM de quem o provisionou é o modo de falha a vigiar, não
+  dump malfeito.
 
 ## 10. O que eu preciso para começar
 
-**Nada.** As decisões 1, 2, 4, 5 e 6 estão respondidas, e os passos 1 e 2 da §5.4 (Budget e
-região) foram feitos pelo humano em 2026-09-20. A **decisão 3** (sessão) só é necessária na fase
-2 — os passos 3, 4 e 5 da fase 1 não dependem dela.
+**Atualizado em 2026-10-23.** As decisões 1, 2, 4, 5, 6, 7 e 8 estão respondidas. Os passos 1
+(Budget) e 2 (região) da §5.4 foram feitos pelo humano em 2026-09-20. **Passo 3 (extrair CRUD pra
+`*-core`) e passo 4 (`packages/postgresdb` + schema provado contra Postgres real) estão
+CONCLUÍDOS** — isso é o que o `BACKLOG.md` chama de "fase 1 da migração AWS (T-104/T-113)
+concluída". A **decisão 3** (sessão) só é necessária na fase 2.
 
-Em curso agora, nesta ordem:
+Em curso agora:
 
-1. **Passo 3 — extrair o CRUD das rotas para os cores.** `savings-core` saiu na T-110a/b e virou
-   o molde (formato-alvo + CRUD na mesma PR, Jest). Faltam os outros domínios.
-2. **Passo 4 — `packages/postgresdb`**, com `sync` contra Postgres em container.
-3. **Passo 5 — trocar a facade `db` por `query`**, onde os 176 pontos de SQL são tocados.
+- **Passo 5 — trocar a facade `db` por `query`** (T-114, no `BACKLOG.md`): 5 de 9 `*-core`
+  migrados (`savings-core`, `fixed-income-core`, `alerts-core`, `subscription-core`,
+  `income-core`); restam `operations-core`, `expenses-core`, `portfolio-core` (prontos pra troca
+  direta) e `auth-core`/`insights-core`/`bank-import-core` (precisam de fatia própria, formato +
+  query — ver T-114 no `BACKLOG.md`).
 
-Os passos 6 a 8 (VPC, Aurora, Lambdas, migração dos dados) ficam **parados por decisão do
-humano** (2026-09-20) até os três acima terminarem.
+Os passos 6 e 7 (VPC+Aurora+bastion, deploy do `lambda-postgres-query`) ficam **parados por
+decisão do humano** (2026-09-20, reafirmada) até o passo 5 terminar. **O antigo passo 8 (migração
+de dados) foi removido** (decisão 8) — a fase 1 termina no passo 7, com a Aurora vazia e o schema
+aplicado, sem dado nenhum pra carregar ou conferir.
