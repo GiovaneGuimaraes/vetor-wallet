@@ -126,7 +126,10 @@ async function handler(req: Request, res: Response): Promise<void> {
   // errorHandler (500) e a reentrega do provedor é justamente o que queremos —
   // a linha de idempotência e a ativação estão em statements distintos, mas a
   // ativação é idempotente por si.
-  const { activated, userId } = await markChargePaidAndActivate({ query, abacateChargeId: chargeId });
+  const { activated, userId } = await markChargePaidAndActivate({
+    query,
+    abacateChargeId: chargeId,
+  });
   if (userId == null) {
     res.json({ ok: true, unknownCharge: true });
     return;
