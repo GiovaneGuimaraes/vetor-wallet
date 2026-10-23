@@ -1,15 +1,15 @@
 import { deleteIncomeEntry } from 'src/deleteIncomeEntry';
-import { makeTestDb } from 'tests/unit/testDb';
+import { makeTestQuery } from 'tests/unit/testQuery';
 
 describe('deleteIncomeEntry', () => {
   it('devolve true quando apagou', async () => {
-    const { db, calls } = makeTestDb([{ rowsAffected: 1 }]);
-    expect(await deleteIncomeEntry({ db, userId: 7, id: 3 })).toBe(true);
-    expect(calls[0].sql).toContain('DELETE FROM income_entries WHERE id = ? AND user_id = ?');
+    const { query, calls } = makeTestQuery([{ rowCount: 1 }]);
+    expect(await deleteIncomeEntry({ query, userId: 7, id: 3 })).toBe(true);
+    expect(calls[0].text).toContain('DELETE FROM income_entries WHERE id = $1 AND user_id = $2');
   });
 
   it('devolve false quando nada foi apagado', async () => {
-    const { db } = makeTestDb([{ rowsAffected: 0 }]);
-    expect(await deleteIncomeEntry({ db, userId: 7, id: 3 })).toBe(false);
+    const { query } = makeTestQuery([{ rowCount: 0 }]);
+    expect(await deleteIncomeEntry({ query, userId: 7, id: 3 })).toBe(false);
   });
 });

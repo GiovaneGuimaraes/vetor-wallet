@@ -1,7 +1,7 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 
 export interface DeleteIncomeEntryParams {
-  db: Db;
+  query: Query;
   userId: number;
   id: string | number;
 }
@@ -11,10 +11,10 @@ export interface DeleteIncomeEntryParams {
  * existe **ou** é de outro usuário, os dois traduzidos no mesmo 404 pela rota.
  */
 export async function deleteIncomeEntry(params: DeleteIncomeEntryParams): Promise<boolean> {
-  const { db, userId, id } = params;
-  const result = await db.execute({
-    sql: 'DELETE FROM income_entries WHERE id = ? AND user_id = ?',
-    args: [id, userId],
+  const { query, userId, id } = params;
+  const result = await query({
+    text: 'DELETE FROM income_entries WHERE id = $1 AND user_id = $2',
+    values: [id, userId],
   });
-  return result.rowsAffected > 0;
+  return result.rowCount > 0;
 }

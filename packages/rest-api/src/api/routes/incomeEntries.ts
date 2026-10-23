@@ -3,6 +3,7 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
+import { createSqliteQuery } from '../sqliteQuery';
 import type { NewIncomeEntry, IncomeEntryUpdate } from '@vetor-wallet/shared';
 // Mês corrente no fuso local do processo — a MESMA função usada pela visão
 // mensal de despesas (T-022). Importada de lá em vez de duplicada: mover o
@@ -26,6 +27,10 @@ import {
 } from '@vetor-wallet/income-core';
 
 const router = Router();
+
+// Mesma ponte das demais rotas migradas (T-114): o core fala `Query` com
+// `$1, $2…` e este adaptador os traduz para o libSQL de hoje.
+const query = createSqliteQuery(db);
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -54,7 +59,7 @@ router.get(
       return;
     }
 
-    const entries = await listIncomeEntriesByMonth({ db, userId, month });
+    const entries = await listIncomeEntriesByMonth({ query, userId, month });
     res.json({ month, entries });
   })
 );
@@ -144,7 +149,7 @@ router.patch(
     }
 
     const entry = await updateIncomeEntry({
-      db,
+      query,
       userId,
       id,
       changes: { description, amount, date },
@@ -162,7 +167,7 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const { id } = req.params;
-    if (!(await deleteIncomeEntry({ db, userId, id }))) {
+    if (!(await deleteIncomeEntry({ query, userId, id }))) {
       res.status(404).json({ error: 'Lançamento de renda não encontrado' });
       return;
     }

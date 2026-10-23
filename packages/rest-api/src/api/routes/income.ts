@@ -3,6 +3,7 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
+import { createSqliteQuery } from '../sqliteQuery';
 import type { NewIncomeSource, IncomeSourceUpdate } from '@vetor-wallet/shared';
 import {
   INCOME_SOURCE_TYPES,
@@ -16,6 +17,10 @@ import { isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-c
 
 const router = Router();
 
+// Mesma ponte das demais rotas migradas (T-114): o core fala `Query` com
+// `$1, $2…` e este adaptador os traduz para o libSQL de hoje.
+const query = createSqliteQuery(db);
+
 router.use(requireAuth);
 router.use(requireActiveSubscription);
 
@@ -23,7 +28,7 @@ router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    res.json(await listIncomeSources({ db, userId }));
+    res.json(await listIncomeSources({ query, userId }));
   })
 );
 
@@ -50,7 +55,7 @@ router.post(
       return;
     }
 
-    const source = await createIncomeSource({ db, userId, name, type, amount });
+    const source = await createIncomeSource({ query, userId, name, type, amount });
     res.status(201).json(source);
   })
 );
@@ -87,7 +92,7 @@ router.patch(
       return;
     }
 
-    const source = await updateIncomeSource({ db, userId, id, changes: { name, type, amount } });
+    const source = await updateIncomeSource({ query, userId, id, changes: { name, type, amount } });
     if (source === null) {
       res.status(404).json({ error: 'Fonte de renda não encontrada' });
       return;
@@ -101,7 +106,7 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const { id } = req.params;
-    if (!(await deleteIncomeSource({ db, userId, id }))) {
+    if (!(await deleteIncomeSource({ query, userId, id }))) {
       res.status(404).json({ error: 'Fonte de renda não encontrada' });
       return;
     }

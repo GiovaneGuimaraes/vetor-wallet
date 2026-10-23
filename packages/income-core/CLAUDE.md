@@ -7,6 +7,18 @@ módulo **Income** (ver `docs/MODULES.md`/`docs/PACKAGES.md`).
 Nasceu na **T-110d** (2026-09-20), extraído das rotas
 `packages/rest-api/src/api/routes/{income,incomeEntries}.ts`.
 
+**T-114 (2026-10-23, passo 5 de `docs/multi-agent/plano-migracao-aws.md`): o
+`db` do libSQL saiu.** Toda função aqui recebe `query: Query`
+(`@vetor-wallet/query`) em vez de `db: Db`, com `{ text, values }` e
+placeholders `$1, $2, ...` (convenção Postgres), `RETURNING id` no lugar de
+`lastInsertRowid`, `rowCount` no lugar de `rowsAffected`. Molde seguido à
+risca de `alerts-core` e `subscription-core` (as duas fatias mais recentes
+desta mesma migração). O `rest-api` **continua em SQLite** — as rotas injetam
+`createSqliteQuery(db)` (`packages/rest-api/src/api/sqliteQuery.ts`), um
+adaptador que traduz `$N` para `?` e devolve o `Db` de sempre por baixo.
+Nenhuma linha deste package sabe disso; quando o Postgres entrar de verdade,
+a rota troca para `createPgQuery(...)` sem tocar este core.
+
 ## Por que este package existe, se o `MODULES.md` dizia que não existiria
 
 O `MODULES.md` registrava: *"Este módulo não tem package core e provavelmente
@@ -54,6 +66,7 @@ real isso vira filtro de intervalo — mantido como está, o `substr` impediria 
 
 ## Convenções
 
-Formato-alvo (molde do `savings-core`, T-110a/b): **uma função por arquivo**,
-**`db` injetado** (nunca importado), testes em `tests/unit/tests/` importando
-por `src/...`, **Jest**, cobertura **100% travada por `coverageThreshold`**.
+Formato-alvo (molde do `savings-core`, T-110a/b; `query` injetado desde a
+T-114): **uma função por arquivo**, **`query` injetado** (nunca importado),
+testes em `tests/unit/tests/` importando por `src/...`, **Jest**, cobertura
+**100% travada por `coverageThreshold`**.
