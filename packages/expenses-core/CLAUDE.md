@@ -12,6 +12,45 @@ importa `@vetor-wallet/db` — "Core" é *dono das regras/dados do domínio*, n�
 `normalizeCategory` **não** está aqui: saiu para `@vetor-wallet/validation-core`
 na T-099a por ser transversal (o `db` também usa, em `migrations.ts`).
 
+**T-114 (2026-10-23, passo 5 de `docs/multi-agent/plano-migracao-aws.md`): 8
+das 10 funções que tocam banco trocaram `db: Db` por `query: Query`**
+(`@vetor-wallet/query`), com `{ text, values }`, placeholders `$1, $2, ...` e
+`RETURNING id` no lugar de `lastInsertRowid`/`rowsAffected`. São elas:
+`createFixedExpense`, `listFixedExpenses`, `updateFixedExpense`,
+`deleteFixedExpense`, `listExpenseEntriesByMonth`, `summarizeExpenseEntries`,
+`getExpenseEntry`, `updateExpenseEntry`, `deleteExpenseEntry` — nove funções,
+molde seguido à risca de `operations-core`/`income-core` (as fatias
+anteriores). **Duas funções ficaram de fora, por motivos diferentes**:
+
+- **`createRecurringExpenseEntry`** — decisão do humano já registrada antes
+  desta fatia (`docs/multi-agent/TODO-HUMANO.md`, "T-114 (migração AWS, fatia
+  `expenses-core`): `createRecurringExpenseEntry` fica de fora"): ela encadeia
+  3 escritas pelo `lastInsertRowid` da primeira, a solução de Postgres (CTE com
+  escrita) não roda em SQLite, e virar chamadas sequenciais reabriria o bug que
+  a T-045 corrigiu (template órfão / mês reservado sem lançamento). Continua
+  `db: Db` com `TransactionalDb`, exatamente como antes.
+- **`materializeRecurringExpenses`** — achado **desta** fatia, registrado como
+  pendência própria no `TODO-HUMANO.md`: o `db.batch` que reserva o mês
+  (`recurring_expense_months`) e insere a ocorrência (`expense_entries`) não
+  encadeia `lastInsertRowid` (os dois valores já são conhecidos antes do
+  batch), mas perde a mesma atomicidade que o `db.batch` existe para garantir
+  — e a falha no meio é **irrecuperável por desenho**: o mês fica marcado como
+  gerado para sempre (não há índice único sobre `expense_entries` para
+  "liberar" a reserva), sem ocorrência e sem sinal de erro para o usuário.
+  Continua `db: Db` até o humano decidir a forma certa (ver o item no
+  `TODO-HUMANO.md` para as opções levantadas).
+
+O `rest-api` **continua em SQLite** — as rotas injetam `createSqliteQuery(db)`
+(`packages/rest-api/src/api/sqliteQuery.ts`). `routes/expenses.ts` trocou `db`
+por `query` por completo (as 4 funções do CRUD de despesa fixa migraram);
+`routes/expenseEntries.ts` tem as DUAS variáveis lado a lado — `query` para as
+5 chamadas migradas (`summarizeExpenseEntries`, `listExpenseEntriesByMonth`,
+`getExpenseEntry`, `updateExpenseEntry`, `deleteExpenseEntry`) e `db` cru para
+as 2 que ficaram de fora (`materializeRecurringExpenses`,
+`createRecurringExpenseEntry`). **O package continua dependendo de
+`@vetor-wallet/db`** por causa dessas duas exceções — não é uma troca 1-por-1
+de dependência como em `operations-core`/`income-core`.
+
 Este arquivo substitui `docs/decisions/expenses-budgets.md` (hoje um stub
 apontando para cá) e cobre o módulo Expenses inteiro, incluindo o que vive nas
 rotas do `server` e nas telas do `web`.
@@ -29,24 +68,25 @@ src/
 ├── occurrenceDate.ts               # PURO: prende o dia ao mês
 ├── RecurringExpenseRow.ts          # tipo do template
 ├── TransactionalDb.ts              # Db + transação interativa (exceção, ver abaixo)
-├── createRecurringExpenseEntry.ts  # 3 escritas numa transação (T-045)
-├── materializeRecurringExpenses.ts # lazy + idempotente
-├── listFixedExpenses.ts            # db injetado
-├── createFixedExpense.ts           # db injetado; normaliza a categoria
-├── updateFixedExpense.ts           # db injetado; devolve null = 404 da rota
-├── deleteFixedExpense.ts           # db injetado; devolve false = 404 da rota
-├── listExpenseEntriesByMonth.ts    # T-104: lançamentos variáveis de um mês
-├── summarizeExpenseEntries.ts      # T-104: total por mês numa janela fechada
-├── getExpenseEntry.ts              # T-104: um lançamento por id + user_id
-├── updateExpenseEntry.ts           # T-104: PATCH parcial; null = 404 da rota
-├── deleteExpenseEntry.ts           # T-104: false = 404 da rota
+├── createRecurringExpenseEntry.ts  # 3 escritas numa transação (T-045); db injetado (exceção T-114)
+├── materializeRecurringExpenses.ts # lazy + idempotente; db injetado (exceção T-114, pendência no TODO-HUMANO.md)
+├── listFixedExpenses.ts            # query injetado (T-114)
+├── createFixedExpense.ts           # query injetado (T-114); normaliza a categoria
+├── updateFixedExpense.ts           # query injetado (T-114); devolve null = 404 da rota
+├── deleteFixedExpense.ts           # query injetado (T-114); devolve false = 404 da rota
+├── listExpenseEntriesByMonth.ts    # T-104; query injetado (T-114): lançamentos variáveis de um mês
+├── summarizeExpenseEntries.ts      # T-104; query injetado (T-114): total por mês numa janela fechada
+├── getExpenseEntry.ts              # T-104; query injetado (T-114): um lançamento por id + user_id
+├── updateExpenseEntry.ts           # T-104; query injetado (T-114): PATCH parcial; null = 404 da rota
+├── deleteExpenseEntry.ts           # T-104; query injetado (T-114): false = 404 da rota
 └── index.ts                        # barrel; re-exporta isUniqueViolation
 
 tests/
 ├── tsconfig.json
 └── unit/
     ├── jest.config.ts              # threshold 100%
-    ├── testDb.ts                   # Db mockado
+    ├── testDb.ts                   # Db mockado (as 2 funções que continuam em db)
+    ├── testQuery.ts                # Query mockada (T-114; as 9 funções migradas)
     └── tests/                      # 1 arquivo por função
 ```
 
@@ -227,11 +267,17 @@ mecanismos de idempotência (o desta recorrência e o do dedupe) não se mistura
 ## Convenções
 
 Formato-alvo desde a T-110c (molde do `savings-core`): **uma função por
-arquivo**, **`db` injetado** (nunca importado), testes em `tests/unit/tests/`
-importando por `src/...`, **Jest**, cobertura **100% travada por
-`coverageThreshold`**. A única exceção é `createRecurringExpenseEntry`, cujo
-teste usa um client real contra arquivo temporário para provar **rollback** —
-ver acima.
+arquivo**, testes em `tests/unit/tests/` importando por `src/...`, **Jest**,
+cobertura **100% travada por `coverageThreshold`**. Desde a T-114 (passo 5), a
+MAIORIA das funções recebe **`query: Query` injetado** (`@vetor-wallet/query`,
+nunca importado) — só `createRecurringExpenseEntry` e
+`materializeRecurringExpenses` continuam com **`db: Db` injetado**, pelos
+motivos registrados acima e no `TODO-HUMANO.md`. A exceção de teste também é a
+mesma dupla: `createRecurringExpenseEntry` usa um client real contra arquivo
+temporário para provar **rollback**; as demais (inclusive
+`materializeRecurringExpenses`) usam mock puro — `tests/unit/testQuery.ts`
+(`Query`) para as 9 migradas, `tests/unit/testDb.ts` (`Db`) para as 2 que
+ficaram em SQLite.
 
 Ver também `CLAUDE.md` da raiz, `docs/PACKAGES.md` (regras de dependência),
 `docs/MODULES.md` (módulo Expenses) e `packages/validation-core/CLAUDE.md`

@@ -1,9 +1,9 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { ExpenseEntry, ExpenseEntryUpdate } from '@vetor-wallet/shared';
 import { normalizeCategory } from '@vetor-wallet/validation-core';
 
 export interface UpdateExpenseEntryParams {
-  db: Db;
+  query: Query;
   userId: number;
   id: string | number;
   changes: ExpenseEntryUpdate;
@@ -27,45 +27,45 @@ export interface UpdateExpenseEntryParams {
 export async function updateExpenseEntry(
   params: UpdateExpenseEntryParams
 ): Promise<ExpenseEntry | null> {
-  const { db, userId, id, changes } = params;
+  const { query, userId, id, changes } = params;
 
-  const existing = await db.execute({
-    sql: 'SELECT id FROM expense_entries WHERE id = ? AND user_id = ?',
-    args: [id, userId],
+  const existing = await query({
+    text: 'SELECT id FROM expense_entries WHERE id = $1 AND user_id = $2',
+    values: [id, userId],
   });
   if (existing.rows.length === 0) return null;
 
   const fields: string[] = [];
-  const args: (string | number)[] = [];
+  const values: (string | number)[] = [];
   if (changes.description !== undefined) {
-    fields.push('description = ?');
-    args.push(changes.description.trim());
+    values.push(changes.description.trim());
+    fields.push(`description = $${values.length}`);
   }
   if (changes.category !== undefined) {
-    fields.push('category = ?');
-    args.push(normalizeCategory(changes.category));
+    values.push(normalizeCategory(changes.category));
+    fields.push(`category = $${values.length}`);
   }
   if (changes.amount !== undefined) {
-    fields.push('amount = ?');
-    args.push(changes.amount);
+    values.push(changes.amount);
+    fields.push(`amount = $${values.length}`);
   }
   if (changes.date !== undefined) {
-    fields.push('date = ?');
-    args.push(changes.date);
+    values.push(changes.date);
+    fields.push(`date = $${values.length}`);
   }
 
   if (fields.length > 0) {
-    args.push(id, userId);
-    await db.execute({
-      sql: `UPDATE expense_entries SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`,
-      args,
+    values.push(id, userId);
+    await query({
+      text: `UPDATE expense_entries SET ${fields.join(', ')} WHERE id = $${values.length - 1} AND user_id = $${values.length}`,
+      values,
     });
   }
 
   // Re-SELECT também filtrado por user_id (T-051).
-  const row = await db.execute({
-    sql: 'SELECT * FROM expense_entries WHERE id = ? AND user_id = ?',
-    args: [id, userId],
+  const row = await query<ExpenseEntry>({
+    text: 'SELECT * FROM expense_entries WHERE id = $1 AND user_id = $2',
+    values: [id, userId],
   });
-  return row.rows[0] as unknown as ExpenseEntry;
+  return row.rows[0];
 }

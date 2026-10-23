@@ -3,6 +3,7 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
+import { createSqliteQuery } from '../sqliteQuery';
 import type { NewFixedExpense, FixedExpenseUpdate } from '@vetor-wallet/shared';
 import {
   listFixedExpenses,
@@ -14,6 +15,9 @@ import { isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-c
 
 const router = Router();
 
+// T-114 (passo 5): as 4 funções deste router já migraram para `query: Query`.
+const query = createSqliteQuery(db);
+
 router.use(requireAuth);
 router.use(requireActiveSubscription);
 
@@ -21,7 +25,7 @@ router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
-    res.json(await listFixedExpenses({ db, userId }));
+    res.json(await listFixedExpenses({ query, userId }));
   })
 );
 
@@ -46,7 +50,7 @@ router.post(
 
     // A normalização da categoria (T-028) mora no core, junto da gravação.
     const expense = await createFixedExpense({
-      db,
+      query,
       userId,
       name,
       category: typeof category === 'string' ? category : '',
@@ -89,7 +93,7 @@ router.patch(
     }
 
     const expense = await updateFixedExpense({
-      db,
+      query,
       userId,
       id,
       changes: { name, category, amount },
@@ -107,7 +111,7 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const { id } = req.params;
-    if (!(await deleteFixedExpense({ db, userId, id }))) {
+    if (!(await deleteFixedExpense({ query, userId, id }))) {
       res.status(404).json({ error: 'Despesa fixa não encontrada' });
       return;
     }

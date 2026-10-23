@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { ExpenseEntry } from '@vetor-wallet/shared';
 
 export interface GetExpenseEntryParams {
-  db: Db;
+  query: Query;
   userId: number;
   id: string | number;
 }
@@ -19,10 +19,10 @@ export interface GetExpenseEntryParams {
  * Ausência é `null`, nunca exceção.
  */
 export async function getExpenseEntry(params: GetExpenseEntryParams): Promise<ExpenseEntry | null> {
-  const { db, userId, id } = params;
-  const result = await db.execute({
-    sql: 'SELECT * FROM expense_entries WHERE id = ? AND user_id = ?',
-    args: [id, userId],
+  const { query, userId, id } = params;
+  const result = await query<ExpenseEntry>({
+    text: 'SELECT * FROM expense_entries WHERE id = $1 AND user_id = $2',
+    values: [id, userId],
   });
-  return (result.rows[0] as unknown as ExpenseEntry) ?? null;
+  return result.rows[0] ?? null;
 }

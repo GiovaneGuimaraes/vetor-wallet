@@ -1,9 +1,9 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { FixedExpense, FixedExpenseUpdate } from '@vetor-wallet/shared';
 import { normalizeCategory } from '@vetor-wallet/validation-core';
 
 export interface UpdateFixedExpenseParams {
-  db: Db;
+  query: Query;
   userId: number;
   id: string | number;
   changes: FixedExpenseUpdate;
@@ -21,40 +21,40 @@ export interface UpdateFixedExpenseParams {
 export async function updateFixedExpense(
   params: UpdateFixedExpenseParams
 ): Promise<FixedExpense | null> {
-  const { db, userId, id, changes } = params;
+  const { query, userId, id, changes } = params;
 
-  const existing = await db.execute({
-    sql: 'SELECT id FROM fixed_expenses WHERE id = ? AND user_id = ?',
-    args: [id, userId],
+  const existing = await query({
+    text: 'SELECT id FROM fixed_expenses WHERE id = $1 AND user_id = $2',
+    values: [id, userId],
   });
   if (existing.rows.length === 0) return null;
 
   const fields: string[] = [];
-  const args: (string | number)[] = [];
+  const values: (string | number)[] = [];
   if (changes.name !== undefined) {
-    fields.push('name = ?');
-    args.push(changes.name.trim());
+    values.push(changes.name.trim());
+    fields.push(`name = $${values.length}`);
   }
   if (changes.category !== undefined) {
-    fields.push('category = ?');
-    args.push(normalizeCategory(changes.category));
+    values.push(normalizeCategory(changes.category));
+    fields.push(`category = $${values.length}`);
   }
   if (changes.amount !== undefined) {
-    fields.push('amount = ?');
-    args.push(changes.amount);
+    values.push(changes.amount);
+    fields.push(`amount = $${values.length}`);
   }
 
   if (fields.length > 0) {
-    args.push(id, userId);
-    await db.execute({
-      sql: `UPDATE fixed_expenses SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`,
-      args,
+    values.push(id, userId);
+    await query({
+      text: `UPDATE fixed_expenses SET ${fields.join(', ')} WHERE id = $${values.length - 1} AND user_id = $${values.length}`,
+      values,
     });
   }
 
-  const row = await db.execute({
-    sql: 'SELECT * FROM fixed_expenses WHERE id = ? AND user_id = ?',
-    args: [id, userId],
+  const row = await query<FixedExpense>({
+    text: 'SELECT * FROM fixed_expenses WHERE id = $1 AND user_id = $2',
+    values: [id, userId],
   });
-  return row.rows[0] as unknown as FixedExpense;
+  return row.rows[0];
 }

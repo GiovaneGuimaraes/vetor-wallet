@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { ExpenseMonthSummaryItem } from '@vetor-wallet/shared';
 
 export interface SummarizeExpenseEntriesParams {
-  db: Db;
+  query: Query;
   userId: number;
   /** `YYYY-MM` inclusivo — a rota deriva da janela pedida (`months`/`endMonth`). */
   startMonth: string;
@@ -25,13 +25,13 @@ export interface SummarizeExpenseEntriesParams {
 export async function summarizeExpenseEntries(
   params: SummarizeExpenseEntriesParams
 ): Promise<ExpenseMonthSummaryItem[]> {
-  const { db, userId, startMonth, endMonth } = params;
-  const result = await db.execute({
-    sql: `SELECT substr(date, 1, 7) as month, SUM(amount) as total FROM expense_entries
-            WHERE user_id = ? AND substr(date, 1, 7) BETWEEN ? AND ?
+  const { query, userId, startMonth, endMonth } = params;
+  const result = await query<{ month: unknown; total: unknown }>({
+    text: `SELECT substr(date, 1, 7) as month, SUM(amount) as total FROM expense_entries
+            WHERE user_id = $1 AND substr(date, 1, 7) BETWEEN $2 AND $3
             GROUP BY month
             ORDER BY month ASC`,
-    args: [userId, startMonth, endMonth],
+    values: [userId, startMonth, endMonth],
   });
   return result.rows.map((row) => ({
     month: String(row.month),

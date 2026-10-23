@@ -230,6 +230,9 @@ importers:
       '@vetor-wallet/db':
         specifier: workspace:*
         version: link:../db
+      '@vetor-wallet/query':
+        specifier: workspace:*
+        version: link:../query
       '@vetor-wallet/shared':
         specifier: workspace:*
         version: link:../shared

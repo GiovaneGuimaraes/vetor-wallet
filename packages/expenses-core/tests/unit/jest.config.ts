@@ -13,10 +13,12 @@ import type { Config } from 'jest';
  * existir ou estar desatualizado — a suíte passaria a validar um build antigo
  * (falso verde).
  *
- * `@vetor-wallet/db` entra por duas razões: o TIPO `Db` (o client é injetado, e
- * o teste passa o mock de `tests/unit/testDb.ts`) e a função
- * `isUniqueViolation`, que `materializeRecurringExpenses` usa para reconhecer o
- * perdedor de uma corrida.
+ * `@vetor-wallet/db` **continua aqui** mesmo depois da T-114 (passo 5 da
+ * migração AWS): `materializeRecurringExpenses` e `createRecurringExpenseEntry`
+ * ficaram de fora da troca de facade (ver `CLAUDE.md` do package) e seguem
+ * recebendo `db: Db` — a primeira usa também `isUniqueViolation` para
+ * reconhecer o perdedor de uma corrida. As outras 9 funções recebem
+ * `query: Query` (`@vetor-wallet/query`), daí o segundo mapeamento abaixo.
  *
  * Os testes de `createRecurringExpenseEntry` são os únicos que usam um client
  * REAL, contra um arquivo temporário: eles provam rollback de transação, e um
@@ -35,6 +37,7 @@ const config: Config = {
   },
   moduleNameMapper: {
     '^@vetor-wallet/db$': '<rootDir>/../db/src/index.ts',
+    '^@vetor-wallet/query$': '<rootDir>/../query/src/index.ts',
     '^@vetor-wallet/shared$': '<rootDir>/../shared/src/index.ts',
     '^@vetor-wallet/validation-core$': '<rootDir>/../validation-core/src/index.ts',
     '^src/(.*)$': '<rootDir>/src/$1',
