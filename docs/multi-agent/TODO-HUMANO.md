@@ -18,6 +18,14 @@
 
 ## Abertos
 
+### [2026-10-23] T-114 (migração AWS, fatia `subscription-core`): perdeu a transação atômica de `markChargePaidAndActivate` — ciente, não bloqueia
+- **Origem**: revisor da fatia `subscription-core`, T-114 (passo 5, troca `db`→`query`)
+- **Bloqueia**: nada — é aviso, decisão de engenharia já tomada e implementada (PR #241).
+- **O que mudou**: `markChargePaidAndActivate` gravava `UPDATE pix_charges` + `UPSERT subscriptions` num `db.batch` atômico. `@vetor-wallet/query` não tem transação interativa por proxy ainda — virou duas chamadas sequenciais, na mesma ordem. A pior falha (processo morrer exatamente entre as duas) deixa a cobrança `PAID` sem a assinatura ativada — nunca o inverso (nunca ativa sem cobrança paga, a ordem é fixa). Os dois mecanismos de idempotência que já existiam (`status <> 'PAID'`, `ON CONFLICT`) não dependiam da transação, então o caso comum (retry por webhook/polling) continua seguro.
+- **O que NÃO se autocorrige**: uma vez que a janela se materializa, o early-return por `status === 'PAID'` faz qualquer retry seguinte devolver `activated: false` sem tentar ativar de novo — fica preso até reconciliação manual, mesmo espírito do risco já aceito de "cobrança órfã" (documentado em `subscription-core/CLAUDE.md`).
+- **Por que registrar mesmo não bloqueando**: é uma mudança de garantia que você nunca aprovou explicitamente (a tarefa original era só "trocar sintaxe", não "perder atomicidade"). Mesmo problema vai se repetir em `expenses-core.createRecurringExpenseEntry` quando essa fatia rodar (já documentado como dívida conhecida em `query/CLAUDE.md`).
+- **Resposta do humano**: _(nenhuma ação necessária — registro de transparência; avise se quiser que o orquestrador priorize uma solução de transação real no `@vetor-wallet/query` antes de continuar as próximas fatias)_
+
 ### [2026-10-21] ~~Renda Fixa (T-091c/d, d3): como evitar contar 2x o mesmo título lançado à mão E vindo da Pluggy~~ — RESPONDIDO em 2026-10-21
 - **Origem**: spike de design (Plan/Opus) da fatia d3
 - **Bloqueava**: d3a (schema). A d3b depende da d3a. **Desbloqueada.**
