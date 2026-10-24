@@ -108,7 +108,20 @@ troca de facade, e vão continuar até o `portfolio-core` migrar também.
 
 Ainda na T-104, o SQL de `routes/expenseEntries.ts` desceu para o
 `@vetor-wallet/expenses-core` (que já era dono de `expense_entries`): a rota
-ficou **sem nenhuma query**. O que fica aqui de propósito:
+ficou sem nenhuma query própria. Na T-114, **9 das 10 funções do `expenses-core`**
+trocaram `db: Db` por `query: Query` — `createRecurringExpenseEntry` e
+`materializeRecurringExpenses` ficaram de fora, as duas por perda de
+atomicidade que `@vetor-wallet/query` não cobre ainda (ver `CLAUDE.md` do
+package e `docs/multi-agent/TODO-HUMANO.md`). Isso deixa `routes/expenseEntries.ts`
+com **as duas variáveis convivendo**: `query = createSqliteQuery(db)` para as
+5 chamadas migradas (`summarizeExpenseEntries`, `listExpenseEntriesByMonth`,
+`getExpenseEntry`, `updateExpenseEntry`, `deleteExpenseEntry`), e `db` cru
+continua indo para `materializeRecurringExpenses`/`createRecurringExpenseEntry`
+— mesmo padrão já usado em `routes/portfolio.ts`/`routes/operations.ts`.
+`routes/expenses.ts` (CRUD de despesa fixa) migrou **por completo** para
+`query`, porque as 4 funções que ela chama (`createFixedExpense`,
+`listFixedExpenses`, `updateFixedExpense`, `deleteFixedExpense`) estão todas
+na leva migrada. O que fica aqui de propósito, em `expenseEntries.ts`:
 
 - **`currentMonth`, `shiftMonthKey` e `MATERIALIZATION_HORIZON_MONTHS`** —
   interpretam o parâmetro da request (qual mês, qual janela, até onde um GET

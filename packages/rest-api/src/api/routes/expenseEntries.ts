@@ -3,6 +3,7 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
+import { createSqliteQuery } from '../sqliteQuery';
 import type { NewExpenseEntry, ExpenseEntryUpdate } from '@vetor-wallet/shared';
 import {
   normalizeCategory,
@@ -26,6 +27,16 @@ import {
 } from '@vetor-wallet/bank-import-core';
 
 const router = Router();
+
+/**
+ * T-114 (passo 5): `materializeRecurringExpenses` e `createRecurringExpenseEntry`
+ * ficaram de fora da troca de facade (decisão do humano, `TODO-HUMANO.md`) e
+ * continuam recebendo `db` cru — as outras 5 chamadas deste router
+ * (`summarizeExpenseEntries`, `listExpenseEntriesByMonth`, `getExpenseEntry`,
+ * `updateExpenseEntry`, `deleteExpenseEntry`) usam `query`. As duas variáveis
+ * convivem de propósito, mesmo padrão de `routes/portfolio.ts`.
+ */
+const query = createSqliteQuery(db);
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -138,7 +149,7 @@ router.get(
       await materializeRecurringExpenses({ db, userId, months: materializableMonths });
     }
 
-    res.json({ months: await summarizeExpenseEntries({ db, userId, startMonth, endMonth }) });
+    res.json({ months: await summarizeExpenseEntries({ query, userId, startMonth, endMonth }) });
   })
 );
 
@@ -170,7 +181,7 @@ router.get(
       await materializeRecurringExpenses({ db, userId, months: [month] });
     }
 
-    res.json({ month, entries: await listExpenseEntriesByMonth({ db, userId, month }) });
+    res.json({ month, entries: await listExpenseEntriesByMonth({ query, userId, month }) });
   })
 );
 
@@ -304,7 +315,7 @@ router.post(
       entryMonth,
     });
 
-    res.status(201).json(await getExpenseEntry({ db, userId, id: created.entryId }));
+    res.status(201).json(await getExpenseEntry({ query, userId, id: created.entryId }));
   })
 );
 
@@ -352,7 +363,7 @@ router.patch(
     }
 
     const entry = await updateExpenseEntry({
-      db,
+      query,
       userId,
       id,
       changes: { description, category, amount, date },
@@ -370,7 +381,7 @@ router.delete(
   asyncHandler(async (req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const { id } = req.params;
-    if (!(await deleteExpenseEntry({ db, userId, id }))) {
+    if (!(await deleteExpenseEntry({ query, userId, id }))) {
       res.status(404).json({ error: 'Lançamento de despesa não encontrado' });
       return;
     }

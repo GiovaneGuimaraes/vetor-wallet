@@ -1,7 +1,7 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 
 export interface DeleteExpenseEntryParams {
-  db: Db;
+  query: Query;
   userId: number;
   id: string | number;
 }
@@ -18,10 +18,10 @@ export interface DeleteExpenseEntryParams {
  * intencional).
  */
 export async function deleteExpenseEntry(params: DeleteExpenseEntryParams): Promise<boolean> {
-  const { db, userId, id } = params;
-  const result = await db.execute({
-    sql: 'DELETE FROM expense_entries WHERE id = ? AND user_id = ?',
-    args: [id, userId],
+  const { query, userId, id } = params;
+  const result = await query({
+    text: 'DELETE FROM expense_entries WHERE id = $1 AND user_id = $2',
+    values: [id, userId],
   });
-  return result.rowsAffected > 0;
+  return result.rowCount > 0;
 }

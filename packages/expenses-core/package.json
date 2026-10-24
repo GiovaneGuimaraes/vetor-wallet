@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@vetor-wallet/db": "workspace:*",
+    "@vetor-wallet/query": "workspace:*",
     "@vetor-wallet/validation-core": "workspace:*",
     "@vetor-wallet/shared": "workspace:*"
   },
