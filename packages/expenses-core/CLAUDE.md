@@ -12,7 +12,7 @@ importa `@vetor-wallet/db` — "Core" é *dono das regras/dados do domínio*, n�
 `normalizeCategory` **não** está aqui: saiu para `@vetor-wallet/validation-core`
 na T-099a por ser transversal (o `db` também usa, em `migrations.ts`).
 
-**T-114 (2026-10-23, passo 5 de `docs/multi-agent/plano-migracao-aws.md`): 8
+**T-114 (2026-10-23, passo 5 de `docs/multi-agent/plano-migracao-aws.md`): 9
 das 10 funções que tocam banco trocaram `db: Db` por `query: Query`**
 (`@vetor-wallet/query`), com `{ text, values }`, placeholders `$1, $2, ...` e
 `RETURNING id` no lugar de `lastInsertRowid`/`rowsAffected`. São elas:
