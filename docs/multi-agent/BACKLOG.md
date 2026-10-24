@@ -18,18 +18,10 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
-> **Retomar aqui.** T-091c/d (dashboard de Investimentos, c1-c3+d1-d4) **concluída** (PR #234) —
-> detalhe no histórico de PRs, não repetir aqui. Foco atual: T-114 (migração AWS, passo 5).
-
-### T-114 — Trocar a facade `db` por `query` nos `*-core` (migração AWS, passo 5 do plano)
-- **Status**: EM_ANDAMENTO · **`alerts-core` + `subscription-core` + `income-core` + `operations-core` + `expenses-core` (9/10) CONCLUÍDAS** (PRs #238/#241/#244/#246/#249) · próxima e última: `portfolio-core` · **Complexidade**: alta (risco silencioso documentado) · **Depende de**: T-112 (`query` existe) e T-104/T-113 (formato-alvo)
-- **Escopo**: `docs/multi-agent/plano-migracao-aws.md` §5.4 passo 5 — cada `*-core` **já no formato-alvo** troca `?`/`lastInsertRowid` por `$N`/`RETURNING id`, recebendo `query: Query` em vez de `db`. **Molde provado 6x** (inclui `tsconfig.json`/`jest.config.ts`). Rota cruzando core migrado + não migrado fica com os dois clients lado a lado (confirmado inofensivo). Em SQLite ainda (`createSqliteQuery`) — troca de facade, não de banco. Um package por PR.
-- **Dívidas de transação, ver `TODO-HUMANO.md`**: `query` não tem transação. `subscription-core.markChargePaidAndActivate` virou 2 chamadas sequenciais (aceito, risco do lado seguro). `expenses-core.createRecurringExpenseEntry` e `materializeRecurringExpenses` **ficam de fora** — as duas têm falha pior (reabrem bug já corrigido / silenciosa e permanente) e CTE não roda em SQLite (testado 2x). Migram quando o Postgres estiver no ar.
-- **Última fatia**: `portfolio-core` (10 funções).
-- **Ficam de fora por ora, precisam de fatia própria (formato + query, não só query)**: `auth-core` (`service.ts`/`cognitoMirror.ts` importam `db` singleton, nem 1-função-por-arquivo); `insights-core` (`benchmarks.ts`, 3 funções num arquivo só, `db` singleton); `bank-import-core` (misto — `linkPluggyItem`/`listPluggyItems`/`unlinkPluggyItem`/`syncPluggyItems` já injetam `db`, mas `externalId.ts`/`ofx.ts`/`pluggy.ts` usam o singleton de propósito, decisão registrada no `CLAUDE.md` do package como "divergência consciente... unificação é de tarefa própria").
-- **Armadilha documentada (não pular)**: `isUniqueViolation` por `SQLITE_CONSTRAINT_UNIQUE` vira SQLSTATE `23505` — se passar despercebido, dedupe de importação e corrida de recorrência **param de funcionar em silêncio** e viram 500. Teste isso primeiro em cada fatia que tocar dedupe/unique.
-- **Fora de escopo**: rotas com SQL ainda não extraído pra core (`budgets`, `plans`, `import`, `recurringExpenses`, `billingSimulate`, `webhooks`) — ficam pendentes de uma extração própria antes de poderem trocar de facade; não é esta tarefa.
-- **Aceite (por fatia)**: package usa `query: Query` injetado, SQL em `$N`/`RETURNING id`, suíte do package + `rest-api` (rota que o consome, adaptada pra passar `createSqliteQuery(db)`) verdes, cobertura 100% onde já era exigida.
+> **Retomar aqui.** T-091c/d (dashboard de Investimentos, c1-c3+d1-d4) **concluída** (PR #234) e
+> T-114 (migração AWS, passo 5 — troca `db`→`query`) **concluída** (PRs #238/#241/#244/#246/#249/#251)
+> — detalhe no histórico de PRs, não repetir aqui. Fila vazia; próxima tarefa a definir com o
+> humano ou puxar das Candidatas abaixo.
 
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 
@@ -45,6 +37,7 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Dado morto no schema, à espera de um `DROP`** (migração destrutiva: tarefa própria, com dump para fora do repo antes): `users.password_hash` desde a T-106 (guarda hash de senha antiga sem serventia) e a tabela `hourly_quote_insights` desde a T-109a (ninguém escreve; ninguém nunca leu). Juntar as duas numa migração só.
 - **Webhook da Pluggy** (`item/*`) daria o `itemId` e o gatilho de sync, mas exige HTTPS público — depende de deploy (spec em `pluggy-core/CLAUDE.md`).
 - **Agente de insights ações/cripto** (decisão em `TODO-HUMANO.md`, 2026-10-15): informativo, não consultivo (CVM); função > LLM onde der; MCP depois. Depende da fase 3 AWS.
+- **Resto do passo 5 da migração AWS (T-114 concluiu só os candidatos já no formato-alvo)**: `auth-core`/`insights-core`/`bank-import-core` ainda usam `db` singleton (precisam de formato + `query` juntos, não só facade) e `expenses-core.createRecurringExpenseEntry`/`materializeRecurringExpenses` ficam em `db`/transação até o Postgres estar no ar (CTE testado 2x, não roda em SQLite — ver `TODO-HUMANO.md`).
 - **3 débitos da T-091d4** (achados do revisor, não-bloqueantes): `RendaFixaPage` ainda calcula o total de RF por conta própria em vez de reaproveitar `consolidateFixedIncome` (3ª implementação do mesmo conceito, mas essa página não combina manual+Pluggy então o risco de divergência é menor); o card "Investimentos" da Home mostra só Ações enquanto o hero já inclui RF (escopo de exibição, decisão de produto se quiser igualar); RF manual falhando tira a RF inteira do patrimônio, inclusive a parte da Pluggy que pode estar OK (design conservador documentado e testado, não bug).
 - Casing da API inconsistente; default silencioso `type: 'OUTRO'` no POST /api/income; ampliar `/admin`; backend de cripto; redesign de Alertas/Import (sem UI desde a T-026).
 
