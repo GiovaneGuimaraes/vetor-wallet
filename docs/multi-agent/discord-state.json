@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-10-23T20:39:39-03:00"
+    "atualizadoEm": "2026-10-23T21:07:24-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -154,7 +154,7 @@
       "canal": "todo-ai",
       "messageId": "1563233494006767688",
       "status": "EM_ANDAMENTO",
-      "nota": "alerts-core + subscription-core + income-core + operations-core concluidas. createRecurringExpenseEntry fica de fora (CTE nao roda em SQLite). Em andamento: expenses-core (9 funcoes)."
+      "nota": "alerts-core + subscription-core + income-core + operations-core + expenses-core (9/10) concluidas. Proxima e ultima: portfolio-core."
     }
   },
   "humanTodos": {
