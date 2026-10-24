@@ -159,7 +159,8 @@ por argumento.
 O `tsconfig.json` do CLI aponta cada package consumido para o **código-fonte**, não
 para o `dist/`: `@vetor-wallet/{shared,db,validation-core,auth-core,insights-core,
 bank-import-core,pluggy-core}` e, como transitivos de `auth-core`/`insights-core`,
-`@vetor-wallet/{portfolio-core,brapi-core}`.
+`@vetor-wallet/{portfolio-core,brapi-core,query}` (`query` desde a T-114: o
+`auth-core` chama `createSqliteQuery`).
 Os transitivos existem de propósito — sem eles o `tsx` cairia na resolução do Node e
 exigiria o `dist` desses cores já construído, e um job de CLI não pode depender de
 `pnpm build` ter rodado antes.

@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { QuoteSnapshot } from '@vetor-wallet/shared';
 
 export interface GetSnapshotHistoryParams {
-  db: Db;
+  query: Query;
   /** Já normalizado em MAIÚSCULAS pelo chamador. */
   ticker: string;
   /** `YYYY-MM-DD`, inclusive. Ausente = sem piso. */
@@ -19,20 +19,20 @@ export interface GetSnapshotHistoryParams {
 export async function getSnapshotHistory(
   params: GetSnapshotHistoryParams
 ): Promise<QuoteSnapshot[]> {
-  const { db, ticker, from, to } = params;
-  let sql = 'SELECT id, ticker, price, captured_at FROM quote_snapshots WHERE ticker = ?';
-  const args: (string | number)[] = [ticker];
+  const { query, ticker, from, to } = params;
+  let text = 'SELECT id, ticker, price, captured_at FROM quote_snapshots WHERE ticker = $1';
+  const values: (string | number)[] = [ticker];
   if (from) {
-    sql += ' AND date(captured_at) >= ?';
-    args.push(from);
+    values.push(from);
+    text += ` AND date(captured_at) >= $${values.length}`;
   }
   if (to) {
-    sql += ' AND date(captured_at) <= ?';
-    args.push(to);
+    values.push(to);
+    text += ` AND date(captured_at) <= $${values.length}`;
   }
-  sql += ' ORDER BY captured_at ASC';
+  text += ' ORDER BY captured_at ASC';
 
-  const result = await db.execute({ sql, args });
+  const result = await query<Record<string, unknown>>({ text, values });
   return result.rows.map((r) => ({
     id: Number(r.id),
     ticker: r.ticker as string,

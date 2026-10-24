@@ -29,6 +29,7 @@ import webhooksRouter from './routes/webhooks';
 import pluggyRouter from './routes/pluggy';
 import { errorHandler } from './middleware/errorHandler';
 import { catchUpIfNeeded } from '@vetor-wallet/portfolio-core';
+import { createSqliteQuery } from '@vetor-wallet/query';
 
 const app = express();
 
@@ -109,9 +110,10 @@ initDb()
     // já engole a falha de fetch; o `catch` aqui cobre o que sobra (erro de
     // banco na checagem, rejeição inesperada).
     //
-    // T-104 (fatia 2/2): o `db` é injetado aqui — o `portfolio-core` não abre
-    // mais conexão própria.
-    catchUpIfNeeded({ db }).catch((err) => {
+    // T-104 (fatia 2/2): o client é injetado aqui — o `portfolio-core` não abre
+    // conexão própria. Desde a T-114 é `query` (o `db` atrás do adaptador
+    // `createSqliteQuery`), como nas rotas.
+    catchUpIfNeeded({ query: createSqliteQuery(db) }).catch((err) => {
       console.error('[snapshots] Catch-up on startup failed (server continues):', err);
     });
 

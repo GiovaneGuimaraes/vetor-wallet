@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express';
 import { db } from '@vetor-wallet/db';
-import { createSqliteQuery } from '../sqliteQuery';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import {
   getSubscriptionRow,
   isBillingEnabled,

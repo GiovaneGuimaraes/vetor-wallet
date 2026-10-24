@@ -63,6 +63,9 @@ importers:
       '@vetor-wallet/portfolio-core':
         specifier: workspace:*
         version: link:../portfolio-core
+      '@vetor-wallet/query':
+        specifier: workspace:*
+        version: link:../query
       '@vetor-wallet/shared':
         specifier: workspace:*
         version: link:../shared
@@ -397,12 +400,9 @@ importers:
 
   packages/portfolio-core:
     dependencies:
-      '@libsql/client':
-        specifier: ^0.14.0
-        version: 0.14.0
-      '@vetor-wallet/db':
+      '@vetor-wallet/query':
         specifier: workspace:*
-        version: link:../db
+        version: link:../query
       '@vetor-wallet/shared':
         specifier: workspace:*
         version: link:../shared
@@ -471,10 +471,16 @@ importers:
 
   packages/query:
     dependencies:
+      '@vetor-wallet/db':
+        specifier: workspace:*
+        version: link:../db
       pg:
         specifier: ^8.13.1
         version: 8.23.0
     devDependencies:
+      '@libsql/client':
+        specifier: ^0.14.0
+        version: 0.14.0
       '@types/jest':
         specifier: ^29.5.14
         version: 29.5.14

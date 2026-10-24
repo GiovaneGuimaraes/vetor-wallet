@@ -1,4 +1,4 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import { findDefaultWallet } from './findDefaultWallet';
 
 /** Carteira com que todo usuário nasce (T-050). */
@@ -9,7 +9,7 @@ export const DEFAULT_WALLET = {
 } as const;
 
 export interface GetOrCreateDefaultWalletParams {
-  db: Db;
+  query: Query;
   userId: number;
   /**
    * T-053: substitui `name`/`description`/`color` do `DEFAULT_WALLET` já no
@@ -42,26 +42,28 @@ export interface GetOrCreateDefaultWalletParams {
 export async function getOrCreateDefaultWallet(
   params: GetOrCreateDefaultWalletParams
 ): Promise<number> {
-  const { db, userId, overrides } = params;
+  const { query, userId, overrides } = params;
 
-  const existing = await findDefaultWallet({ db, userId });
+  const existing = await findDefaultWallet({ query, userId });
   if (existing) return Number(existing.id);
 
   const name = overrides?.name ?? DEFAULT_WALLET.name;
   const description = overrides?.description ?? DEFAULT_WALLET.description;
   const color = overrides?.color ?? DEFAULT_WALLET.color;
 
-  await db.execute({
-    sql: 'INSERT INTO wallets (user_id, name, description, color) VALUES (?, ?, ?, ?)',
-    args: [userId, name, description, color],
+  // Sem `RETURNING id` de propósito: o id que vale é o da RELEITURA abaixo
+  // (a mais antiga), não o deste INSERT — é o que faz a corrida convergir.
+  await query({
+    text: 'INSERT INTO wallets (user_id, name, description, color) VALUES ($1, $2, $3, $4)',
+    values: [userId, name, description, color],
   });
 
-  const winner = await findDefaultWallet({ db, userId });
+  const winner = await findDefaultWallet({ query, userId });
   const walletId = Number(winner?.id ?? 0);
 
-  await db.execute({
-    sql: 'UPDATE operations SET wallet_id = ? WHERE user_id = ? AND wallet_id IS NULL',
-    args: [walletId, userId],
+  await query({
+    text: 'UPDATE operations SET wallet_id = $1 WHERE user_id = $2 AND wallet_id IS NULL',
+    values: [walletId, userId],
   });
 
   return walletId;

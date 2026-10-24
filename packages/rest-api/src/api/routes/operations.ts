@@ -3,7 +3,7 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
-import { createSqliteQuery } from '../sqliteQuery';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import {
   buildPositionMap,
   getOrCreateDefaultWallet,
@@ -24,10 +24,9 @@ import type { NewOperation } from '@vetor-wallet/shared';
 
 const router = Router();
 
-// Mesma ponte das demais rotas migradas (T-114): o `operations-core` fala
-// `Query` com `$1, $2…` e este adaptador os traduz para o libSQL de hoje. O
-// `portfolio-core` ainda fala `Db` direto (fatia futura da migração) — por
-// isso as duas variáveis convivem aqui.
+// Mesma ponte das demais rotas migradas (T-114): `operations-core` e
+// `portfolio-core` falam `Query` com `$1, $2…` e este adaptador os traduz para
+// o libSQL de hoje — um `query` só para os dois.
 const query = createSqliteQuery(db);
 
 router.use(requireAuth);
@@ -92,7 +91,7 @@ router.post(
       }
     }
 
-    const walletId = await getOrCreateDefaultWallet({ db, userId });
+    const walletId = await getOrCreateDefaultWallet({ query, userId });
 
     const operation = await createOperation({
       query,

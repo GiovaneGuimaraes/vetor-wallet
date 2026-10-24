@@ -1,7 +1,7 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 
 export interface CountWalletsParams {
-  db: Db;
+  query: Query;
   userId: number;
 }
 
@@ -11,10 +11,10 @@ export interface CountWalletsParams {
  * POSTs simultâneos passam os dois pela contagem zero.
  */
 export async function countWallets(params: CountWalletsParams): Promise<number> {
-  const { db, userId } = params;
-  const result = await db.execute({
-    sql: 'SELECT COUNT(*) AS n FROM wallets WHERE user_id = ?',
-    args: [userId],
+  const { query, userId } = params;
+  const result = await query<{ n: number | string }>({
+    text: 'SELECT COUNT(*) AS n FROM wallets WHERE user_id = $1',
+    values: [userId],
   });
   return Number(result.rows[0]?.n ?? 0);
 }

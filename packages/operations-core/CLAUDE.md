@@ -16,7 +16,7 @@ placeholders `$1, $2, ...` (convenção Postgres), `RETURNING id` no lugar de
 `lastInsertRowid`, `rowCount` no lugar de `rowsAffected`. Molde seguido à
 risca de `alerts-core`, `subscription-core` e `income-core` (as fatias
 anteriores desta mesma migração). O `rest-api` **continua em SQLite** — as
-rotas injetam `createSqliteQuery(db)` (`packages/rest-api/src/api/sqliteQuery.ts`).
+rotas injetam `createSqliteQuery(db)` (`packages/query/src/createSqliteQuery.ts` — em `rest-api/src/api/sqliteQuery.ts` até a T-114).
 `routes/operations.ts` e `routes/wallets.ts` trocaram `db` por `query` por
 completo; `routes/portfolio.ts` tem as DUAS variáveis lado a lado, porque
 também chama `portfolio-core`, que ainda fala `Db` (fatia futura) — ver "Por

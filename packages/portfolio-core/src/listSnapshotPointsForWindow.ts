@@ -1,8 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import type { SnapshotPoint } from './types';
 
 export interface ListSnapshotPointsForWindowParams {
-  db: Db;
+  query: Query;
   /** Os tickers que o usuário já operou — é aqui que o isolamento acontece. */
   tickers: string[];
   /** `YYYY-MM-DD`: primeiro dia da janela (inclusive). */
@@ -33,28 +33,29 @@ export interface ListSnapshotPointsForWindowParams {
 export async function listSnapshotPointsForWindow(
   params: ListSnapshotPointsForWindowParams
 ): Promise<SnapshotPoint[]> {
-  const { db, tickers, windowStart, endDate } = params;
+  const { query, tickers, windowStart, endDate } = params;
   if (tickers.length === 0) return [];
 
-  const placeholders = tickers.map(() => '?').join(',');
+  const placeholders = tickers.map((_, i) => `$${i + 1}`).join(',');
+  const n = tickers.length;
 
-  const snapResult = await db.execute({
-    sql: `SELECT ticker, date(captured_at) AS date, price FROM quote_snapshots
-          WHERE ticker IN (${placeholders}) AND date(captured_at) >= ? AND date(captured_at) <= ?
+  const snapResult = await query<Record<string, unknown>>({
+    text: `SELECT ticker, date(captured_at) AS date, price FROM quote_snapshots
+          WHERE ticker IN (${placeholders}) AND date(captured_at) >= $${n + 1} AND date(captured_at) <= $${n + 2}
           ORDER BY captured_at ASC`,
-    args: [...tickers, windowStart, endDate],
+    values: [...tickers, windowStart, endDate],
   });
 
-  const baseResult = await db.execute({
-    sql: `SELECT q.ticker AS ticker, date(q.captured_at) AS date, q.price AS price
+  const baseResult = await query<Record<string, unknown>>({
+    text: `SELECT q.ticker AS ticker, date(q.captured_at) AS date, q.price AS price
           FROM quote_snapshots q
           INNER JOIN (
             SELECT ticker, MAX(date(captured_at)) AS max_date
             FROM quote_snapshots
-            WHERE ticker IN (${placeholders}) AND date(captured_at) < ?
+            WHERE ticker IN (${placeholders}) AND date(captured_at) < $${n + 1}
             GROUP BY ticker
           ) latest ON latest.ticker = q.ticker AND latest.max_date = date(q.captured_at)`,
-    args: [...tickers, windowStart],
+    values: [...tickers, windowStart],
   });
 
   return [...baseResult.rows, ...snapResult.rows].map((row) => ({

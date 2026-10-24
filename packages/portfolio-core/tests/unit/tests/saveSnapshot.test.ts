@@ -1,57 +1,56 @@
 import { saveSnapshot } from 'src/saveSnapshot';
-import { makeMockDb } from 'tests/unit/mockDb';
+import { makeMockQuery } from 'tests/unit/mockQuery';
 
 // Portado do Vitest (snapshots.test.ts) na T-104, fatia 2/2 — assertivas
-// intactas; o `vi.mock` do singleton virou o `db` injetado.
+// intactas; o `vi.mock` do singleton virou o client injetado (`query` desde a T-114).
 describe('saveSnapshot', () => {
-  let { db, mockExecute } = makeMockDb();
-  beforeEach(() => ({ db, mockExecute } = makeMockDb()));
+  let { query, mockQuery } = makeMockQuery();
+  beforeEach(() => ({ query, mockQuery } = makeMockQuery()));
 
-  it('uses INSERT OR IGNORE to prevent duplicate snapshots', async () => {
-    mockExecute.mockResolvedValue({
+  // Era `INSERT OR IGNORE` até a T-114: `ON CONFLICT DO NOTHING` roda igual no
+  // SQLite e no Postgres.
+  it('uses ON CONFLICT DO NOTHING to prevent duplicate snapshots', async () => {
+    mockQuery.mockResolvedValue({
       rows: [],
-      rowsAffected: 0,
-      lastInsertRowid: undefined,
+      rowCount: 0,
     } as never);
 
-    await saveSnapshot({ db, ticker: 'PETR4', price: 38.5 });
+    await saveSnapshot({ query, ticker: 'PETR4', price: 38.5 });
 
-    const call = mockExecute.mock.calls[0][0] as { sql: string };
-    expect(call.sql).toMatch(/INSERT OR IGNORE/i);
+    const call = mockQuery.mock.calls[0][0] as { text: string };
+    expect(call.text).toMatch(/ON CONFLICT DO NOTHING/i);
+    expect(call.text).not.toMatch(/OR IGNORE/i);
   });
 
-  it('returns false when the snapshot is a duplicate (rowsAffected === 0)', async () => {
-    mockExecute.mockResolvedValue({
+  it('returns false when the snapshot is a duplicate (rowCount === 0)', async () => {
+    mockQuery.mockResolvedValue({
       rows: [],
-      rowsAffected: 0,
-      lastInsertRowid: undefined,
+      rowCount: 0,
     } as never);
 
-    const inserted = await saveSnapshot({ db, ticker: 'PETR4', price: 38.5 });
+    const inserted = await saveSnapshot({ query, ticker: 'PETR4', price: 38.5 });
     expect(inserted).toBe(false);
   });
 
-  it('returns true when the snapshot is new (rowsAffected === 1)', async () => {
-    mockExecute.mockResolvedValue({
+  it('returns true when the snapshot is new (rowCount === 1)', async () => {
+    mockQuery.mockResolvedValue({
       rows: [],
-      rowsAffected: 1,
-      lastInsertRowid: BigInt(1),
+      rowCount: 1,
     } as never);
 
-    const inserted = await saveSnapshot({ db, ticker: 'VALE3', price: 90.2 });
+    const inserted = await saveSnapshot({ query, ticker: 'VALE3', price: 90.2 });
     expect(inserted).toBe(true);
   });
 
   it('passes the ticker and price as query args', async () => {
-    mockExecute.mockResolvedValue({
+    mockQuery.mockResolvedValue({
       rows: [],
-      rowsAffected: 1,
-      lastInsertRowid: BigInt(2),
+      rowCount: 1,
     } as never);
 
-    await saveSnapshot({ db, ticker: 'ITUB4', price: 25.0 });
+    await saveSnapshot({ query, ticker: 'ITUB4', price: 25.0 });
 
-    const call = mockExecute.mock.calls[0][0] as { sql: string; args: unknown[] };
-    expect(call.args).toEqual(['ITUB4', 25.0]);
+    const call = mockQuery.mock.calls[0][0] as { text: string; values: unknown[] };
+    expect(call.values).toEqual(['ITUB4', 25.0]);
   });
 });

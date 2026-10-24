@@ -1,7 +1,12 @@
 import { db } from '@vetor-wallet/db';
 import { getOrCreateDefaultWallet } from '@vetor-wallet/portfolio-core';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import type { User } from '@vetor-wallet/shared';
 import { parseRoles } from './service';
+
+// Só para `getOrCreateDefaultWallet`: o `portfolio-core` fala `Query` desde a
+// T-114. O resto deste arquivo continua no `db` cru — o `auth-core` não migrou.
+const query = createSqliteQuery(db);
 
 /**
  * Espelho local da identidade do AWS Cognito (T-106).
@@ -106,7 +111,7 @@ export async function createCognitoUser(email: string, cognitoSub: string): Prom
   const id = Number(insert.lastInsertRowid ?? 0);
 
   try {
-    await getOrCreateDefaultWallet({ db, userId: id });
+    await getOrCreateDefaultWallet({ query, userId: id });
   } catch (err) {
     console.error('Falha ao criar a carteira padrao do usuario', id, err);
   }

@@ -1,9 +1,14 @@
 import bcrypt from 'bcryptjs';
 import { db } from '@vetor-wallet/db';
 import { getOrCreateDefaultWallet } from '@vetor-wallet/portfolio-core';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import type { User } from '@vetor-wallet/shared';
 
 const SALT_ROUNDS = 12;
+
+// Só para `getOrCreateDefaultWallet`: o `portfolio-core` fala `Query` desde a
+// T-114. O resto deste arquivo continua no `db` cru — o `auth-core` não migrou.
+const query = createSqliteQuery(db);
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -59,7 +64,7 @@ export async function createUser(email: string, password: string): Promise<User>
   // esperar o lazy-create do primeiro GET /api/wallets. Falhar aqui NÃO derruba
   // o registro — o lazy-create das rotas continua sendo a rede de segurança.
   try {
-    await getOrCreateDefaultWallet({ db, userId: id });
+    await getOrCreateDefaultWallet({ query, userId: id });
   } catch (err) {
     console.error('Falha ao criar a carteira padrao do usuario', id, err);
   }

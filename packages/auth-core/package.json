@@ -12,6 +12,7 @@
   "dependencies": {
     "@vetor-wallet/db": "workspace:*",
     "@vetor-wallet/portfolio-core": "workspace:*",
+    "@vetor-wallet/query": "workspace:*",
     "@vetor-wallet/shared": "workspace:*",
     "bcryptjs": "^3.0.3"
   },

@@ -60,14 +60,16 @@ Na T-099c (Ciclo 19) saiu o resto, esvaziando `services/`:
   prefixo do Vite).
 - `@vetor-wallet/portfolio-core` (de `services/{portfolio,portfolioHistory,wallets,snapshots}.ts`)
   — preço médio ponderado, validação de SELL, série valor × custo, carteiras e a
-  coleta de snapshots. **`api/index.ts` continua ligando `catchUpIfNeeded({ db })`
+  coleta de snapshots. **`api/index.ts` continua ligando o `catchUpIfNeeded`
   no boot** — é o único gatilho da coleta; o `startSnapshotScheduler(30min, …)`
   que acompanhava essa chamada foi removido na T-109b. Desde a T-104 (fatias 1/2
   e 2/2 da migração de formato) **toda** função do package que toca banco recebe
-  `db` injetado — `getOrCreateDefaultWallet({ db, userId })`,
-  `getPreviousCloseSnapshots({ db, tickers, beforeDateISO })`,
-  `getSnapshotHistory({ db, ticker, from, to })`, `catchUpIfNeeded({ db })` — e
-  quem passa é a rota (ou o entry, no boot).
+  o client injetado, e desde a T-114 ele é `query: Query` —
+  `getOrCreateDefaultWallet({ query, userId })`,
+  `getPreviousCloseSnapshots({ query, tickers, beforeDateISO })`,
+  `getSnapshotHistory({ query, ticker, from, to })`,
+  `catchUpIfNeeded({ query: createSqliteQuery(db) })` — e quem passa é a rota
+  (ou o entry, no boot).
 - `@vetor-wallet/insights-core` (de `services/{benchmarks,benchmarkHistory}.ts`)
   — benchmarks CDI/Ibovespa. O job horário saiu na T-109a.
 - `@vetor-wallet/auth-core` (de `api/auth/service.ts`) — credenciais, perfil e
@@ -93,18 +95,19 @@ Na fatia 2/2 da migração do `portfolio-core` (T-104), `routes/portfolio.ts` e
 `listSnapshotPointsForWindow` (`portfolio-core`), e montam a resposta com as
 funções puras daquele package — de novo, a rota é quem cruza os dois cores.
 
-Na T-114 (passo 5 da migração) o `operations-core` trocou `db: Db` por
-`query: Query`. **As três rotas que o consomem ficam com as DUAS variáveis
-lado a lado**, não só `portfolio.ts`: `routes/operations.ts` e
-`routes/wallets.ts` também chamam `getOrCreateDefaultWallet`/`countWallets`
-(`portfolio-core`, que ainda não migrou) além de `operations-core` — então
-`query = createSqliteQuery(db)` cobre as chamadas de `operations-core`, e
-`db` cru continua servindo as de `portfolio-core` nas três rotas.
-`routes/portfolio.ts` segue o mesmo padrão: `query` para
-`listOperationsChronological` (`operations-core`) e `db` cru para
-`getPreviousCloseSnapshots`/`listSnapshotPointsForWindow` (`portfolio-core`).
-A mistura é esperada em todas: as rotas já cruzavam os dois cores antes da
-troca de facade, e vão continuar até o `portfolio-core` migrar também.
+Na T-114 (passo 5 da migração) o `operations-core` e, na última fatia, o
+`portfolio-core` trocaram `db: Db` por `query: Query`. `routes/operations.ts`,
+`routes/wallets.ts` e `routes/portfolio.ts` cruzam os dois cores e usam **um
+`query = createSqliteQuery(db)` só** para ambos (a convivência `db` +
+`query` dessas três rotas durou só entre as duas fatias). `routes/snapshots.ts`
+passou a injetar `query` também. `routes/import.ts` (CSV) é a exceção que
+segue misturando: `query` para `getOrCreateDefaultWallet`, e `db.batch` cru
+para o INSERT em lote, que não foi migrado para core nenhum.
+
+**`createSqliteQuery` não mora mais aqui**: veio de `src/api/sqliteQuery.ts`
+para `@vetor-wallet/query` na mesma fatia (o `auth-core` precisa dele e core
+não importa do `rest-api`). Rotas, middleware e `index.ts` importam de
+`@vetor-wallet/query` — ver `packages/query/CLAUDE.md`.
 
 Ainda na T-104, o SQL de `routes/expenseEntries.ts` desceu para o
 `@vetor-wallet/expenses-core` (que já era dono de `expense_entries`): a rota
@@ -222,9 +225,9 @@ crie configuração de deploy sem pedido explícito.
 (API Gateway + Lambda, REST preservado, sem AppSync), infra as code (SDK puro + `carlin` liberado
 por recurso quando acelerar, revisto em 2026-10-22) e sessão (Postgres na fase 2) já respondidas —
 ver `docs/multi-agent/TODO-HUMANO.md`, item "Migração para a AWS". O que falta, nessa ordem: trocar
-a facade `db` por `query` nos `*-core` restantes (~176 pontos de SQL, package por PR — só
-`savings-core`, `fixed-income-core`, `alerts-core`, `subscription-core`, `income-core` e
-`operations-core` já usam `query`), depois
+a facade `db` por `query` nos `*-core` restantes (~176 pontos de SQL, package por PR — já
+usam `query`: `savings-core`, `fixed-income-core`, `alerts-core`, `subscription-core`,
+`income-core`, `operations-core`, `portfolio-core` e 9 das 10 funções do `expenses-core`), depois
 provisionar a infra de verdade
 (passos 6-8 do plano, **parados por decisão do humano** até a troca de facade terminar).
 

@@ -146,7 +146,9 @@ describe('wallets routes — carteira única (T-050)', () => {
     });
 
     const { getOrCreateDefaultWallet } = await import('@vetor-wallet/portfolio-core');
-    const walletId = await getOrCreateDefaultWallet({ db, userId: legacyUserId });
+    const { createSqliteQuery } = await import('@vetor-wallet/query');
+    const query = createSqliteQuery(db);
+    const walletId = await getOrCreateDefaultWallet({ query, userId: legacyUserId });
 
     const ops = await db.execute({
       sql: 'SELECT wallet_id FROM operations WHERE user_id = ?',
@@ -156,7 +158,7 @@ describe('wallets routes — carteira única (T-050)', () => {
     expect(Number(ops.rows[0].wallet_id)).toBe(walletId);
 
     // and calling again does not create a second wallet
-    expect(await getOrCreateDefaultWallet({ db, userId: legacyUserId })).toBe(walletId);
+    expect(await getOrCreateDefaultWallet({ query, userId: legacyUserId })).toBe(walletId);
   });
 
   // T-065: dois POSTs simultâneos do mesmo usuário não podem criar 2 carteiras

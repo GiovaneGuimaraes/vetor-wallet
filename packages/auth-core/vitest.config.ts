@@ -15,6 +15,8 @@ export default defineConfig({
       '@vetor-wallet/validation-core': path.resolve(__dirname, '../validation-core/src/index.ts'),
       '@vetor-wallet/shared': path.resolve(__dirname, '../shared/src/index.ts'),
       '@vetor-wallet/portfolio-core': path.resolve(__dirname, '../portfolio-core/src/index.ts'),
+      // T-114: `createSqliteQuery` para chamar `getOrCreateDefaultWallet`.
+      '@vetor-wallet/query': path.resolve(__dirname, '../query/src/index.ts'),
     },
   },
   test: {
