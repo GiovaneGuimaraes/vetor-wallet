@@ -1,44 +1,41 @@
 import { resolveActiveTickers } from 'src/resolveActiveTickers';
-import { makeMockDb } from 'tests/unit/mockDb';
+import { makeMockQuery } from 'tests/unit/mockQuery';
 
 // Portado do Vitest (snapshots.test.ts) na T-104, fatia 2/2 — assertivas
-// intactas; o `vi.mock` do singleton virou o `db` injetado.
+// intactas; o `vi.mock` do singleton virou o client injetado (`query` desde a T-114).
 describe('resolveActiveTickers', () => {
-  let { db, mockExecute } = makeMockDb();
-  beforeEach(() => ({ db, mockExecute } = makeMockDb()));
+  let { query, mockQuery } = makeMockQuery();
+  beforeEach(() => ({ query, mockQuery } = makeMockQuery()));
 
   it('returns tickers with positive net position', async () => {
-    mockExecute.mockResolvedValue({
+    mockQuery.mockResolvedValue({
       rows: [{ ticker: 'PETR4' }, { ticker: 'VALE3' }],
-      rowsAffected: 0,
-      lastInsertRowid: undefined,
+      rowCount: 0,
     } as never);
 
-    const tickers = await resolveActiveTickers({ db });
+    const tickers = await resolveActiveTickers({ query });
     expect(tickers).toEqual(['PETR4', 'VALE3']);
   });
 
   it('returns an empty array when no active positions exist', async () => {
-    mockExecute.mockResolvedValue({
+    mockQuery.mockResolvedValue({
       rows: [],
-      rowsAffected: 0,
-      lastInsertRowid: undefined,
+      rowCount: 0,
     } as never);
 
-    const tickers = await resolveActiveTickers({ db });
+    const tickers = await resolveActiveTickers({ query });
     expect(tickers).toEqual([]);
   });
 
   it('queries with a HAVING clause to filter zero/negative positions', async () => {
-    mockExecute.mockResolvedValue({
+    mockQuery.mockResolvedValue({
       rows: [],
-      rowsAffected: 0,
-      lastInsertRowid: undefined,
+      rowCount: 0,
     } as never);
 
-    await resolveActiveTickers({ db });
+    await resolveActiveTickers({ query });
 
-    const call = mockExecute.mock.calls[0][0] as string;
+    const call = mockQuery.mock.calls[0][0] as string;
     expect(call).toMatch(/HAVING/i);
   });
 });

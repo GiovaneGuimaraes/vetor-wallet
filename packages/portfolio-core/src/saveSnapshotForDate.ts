@@ -1,7 +1,7 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 
 export interface SaveSnapshotForDateParams {
-  db: Db;
+  query: Query;
   ticker: string;
   price: number;
   /** `YYYY-MM-DD`; a linha é gravada às 18:00 desse dia. */
@@ -10,14 +10,15 @@ export interface SaveSnapshotForDateParams {
 
 /**
  * Saves a closing price for a specific past date (historical backfill). Mesmo
- * `INSERT OR IGNORE` de `saveSnapshot`: o UNIQUE(ticker, date) descarta o
- * duplicado. Nenhum chamador em produção hoje — é a porta do backfill.
+ * `ON CONFLICT DO NOTHING` de `saveSnapshot` (era `INSERT OR IGNORE` até a
+ * T-114): o UNIQUE(ticker, date) descarta o duplicado. Nenhum chamador em
+ * produção hoje — é a porta do backfill.
  */
 export async function saveSnapshotForDate(params: SaveSnapshotForDateParams): Promise<boolean> {
-  const { db, ticker, price, isoDate } = params;
-  const result = await db.execute({
-    sql: `INSERT OR IGNORE INTO quote_snapshots (ticker, price, captured_at) VALUES (?, ?, ?)`,
-    args: [ticker, price, `${isoDate}T18:00:00`],
+  const { query, ticker, price, isoDate } = params;
+  const result = await query({
+    text: `INSERT INTO quote_snapshots (ticker, price, captured_at) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+    values: [ticker, price, `${isoDate}T18:00:00`],
   });
-  return result.rowsAffected > 0;
+  return result.rowCount > 0;
 }

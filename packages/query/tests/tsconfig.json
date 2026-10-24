@@ -9,6 +9,7 @@
     "isolatedModules": true,
     "baseUrl": "..",
     "paths": {
+      "@vetor-wallet/db": ["../db/src/index.ts"],
       "src/*": ["src/*"],
       "tests/*": ["tests/*"]
     }

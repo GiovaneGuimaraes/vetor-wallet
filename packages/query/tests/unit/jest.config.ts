@@ -21,6 +21,9 @@ const config: Config = {
     '^.+\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tests/tsconfig.json' }],
   },
   moduleNameMapper: {
+    // Só o TIPO `Db` (createSqliteQuery): aponta para o código-fonte para o
+    // ts-jest nunca cair num `dist/` ausente ou velho.
+    '^@vetor-wallet/db$': '<rootDir>/../db/src/index.ts',
     '^src/(.*)$': '<rootDir>/src/$1',
     '^tests/(.*)$': '<rootDir>/tests/$1',
   },

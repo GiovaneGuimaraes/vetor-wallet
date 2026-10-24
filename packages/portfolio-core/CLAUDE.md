@@ -9,8 +9,10 @@ na T-099c (Ciclo 19 — arquitetura em módulos). Categoria **Core**, módulo
 
 É dono das tabelas `wallets`, `operations` e `quote_snapshots`, e por isso
 fala com o banco — "Core" é *dono das regras/dados do domínio*, não *nunca faz
-I/O*. Desde a T-104 o `db` chega **injetado**: de `@vetor-wallet/db` o package
-importa só o tipo `Db`, e importar o barrel não abre conexão.
+I/O*. Desde a T-104 o client chega **injetado**, e desde a T-114 ele é
+`query: Query` (`@vetor-wallet/query`, só o tipo): o package **não depende mais
+de `@vetor-wallet/db`** nem de `@libsql/client`, e importar o barrel não abre
+conexão. Ver "Troca de `db` por `query` (T-114)" abaixo.
 
 Este arquivo substitui `docs/decisions/wallets-portfolio.md` e a parte de
 Portfolio de `docs/decisions/snapshots-history.md` (ambos hoje stubs apontando
@@ -21,8 +23,9 @@ horários foram para `packages/insights-core/CLAUDE.md`.
 ## Estrutura
 
 **Formato-alvo completo desde a T-104** (duas fatias — ver "Migração de formato
-em duas fatias" abaixo): uma função por arquivo, `db` injetado nas que tocam
-banco, só Jest, cobertura 100% travada por `coverageThreshold`.
+em duas fatias" abaixo): uma função por arquivo, client injetado nas que tocam
+banco (`query` desde a T-114), só Jest, cobertura 100% travada por
+`coverageThreshold`.
 
 ```
 src/
@@ -35,10 +38,10 @@ src/
 ├── computeDayProfitLoss.ts     # P&L do dia (T-016)
 ├── buildPortfolioSummary.ts    # resumo do GET /api/portfolio — puro, sem I/O
 │   ── carteira única ──
-├── findDefaultWallet.ts        # `{ db, userId }` — carteira mais antiga
-├── countWallets.ts             # `{ db, userId }`
-├── withUserLock.ts             # lock em memória por usuário (T-065), sem db
-├── getOrCreateDefaultWallet.ts # `{ db, userId, overrides? }` + DEFAULT_WALLET
+├── findDefaultWallet.ts        # `{ query, userId }` — carteira mais antiga
+├── countWallets.ts             # `{ query, userId }`
+├── withUserLock.ts             # lock em memória por usuário (T-065), sem banco
+├── getOrCreateDefaultWallet.ts # `{ query, userId, overrides? }` + DEFAULT_WALLET
 │   ── série histórica (puros) ──
 ├── shiftDate.ts
 ├── buildDateWindow.ts
@@ -48,23 +51,23 @@ src/
 ├── getBRTDate.ts / isBusinessDay.ts   # puros
 ├── withRetry.ts                # backoff linear, relança o último erro
 ├── fetchQuotesStrict.ts        # brapi que LANÇA — fora do barrel
-├── resolveActiveTickers.ts     # `{ db }`
-├── saveSnapshot.ts             # `{ db, ticker, price }` — INSERT OR IGNORE
-├── saveSnapshotForDate.ts      # `{ db, ticker, price, isoDate }` — backfill
-├── getPreviousCloseSnapshots.ts # `{ db, tickers, beforeDateISO }` — P&L do dia
-├── getSnapshotHistory.ts       # `{ db, ticker, from?, to? }` — GET /api/snapshots
-├── listSnapshotPointsForWindow.ts # `{ db, tickers, windowStart, endDate }` — /history
-├── runSnapshotJob.ts           # `{ db }` — a coleta
-├── catchUpIfNeeded.ts          # `{ db }` — o gatilho do boot
+├── resolveActiveTickers.ts     # `{ query }`
+├── saveSnapshot.ts             # `{ query, ticker, price }` — ON CONFLICT DO NOTHING
+├── saveSnapshotForDate.ts      # `{ query, ticker, price, isoDate }` — backfill
+├── getPreviousCloseSnapshots.ts # `{ query, tickers, beforeDateISO }` — P&L do dia
+├── getSnapshotHistory.ts       # `{ query, ticker, from?, to? }` — GET /api/snapshots
+├── listSnapshotPointsForWindow.ts # `{ query, tickers, windowStart, endDate }` — /history
+├── runSnapshotJob.ts           # `{ query }` — a coleta
+├── catchUpIfNeeded.ts          # `{ query }` — o gatilho do boot
 └── index.ts                    # barrel (não abre conexão)
-tests/unit/               # Jest (jest.config.ts, testDb.ts, mockDb.ts, makeOp.ts, tests/)
+tests/unit/               # Jest (jest.config.ts, testQuery.ts, mockQuery.ts, makeOp.ts, tests/)
 ```
 
 Rotas: `packages/rest-api/src/api/routes/{wallets,operations,portfolio,snapshots,import,alerts}.ts`
 — `portfolio.ts` e `snapshots.ts` sem nenhum SQL desde a fatia 2/2 (a leitura de
 `operations` delas é `listOperationsChronological`, do `operations-core`).
-Boot: `packages/rest-api/src/api/index.ts` chama `catchUpIfNeeded({ db })` — ver
-"Coleta diária" abaixo.
+Boot: `packages/rest-api/src/api/index.ts` chama
+`catchUpIfNeeded({ query: createSqliteQuery(db) })` — ver "Coleta diária" abaixo.
 Telas: `packages/web/src/routes/DashboardPage.tsx` e os módulos puros ao lado.
 
 ## Invariantes (não quebrar)
@@ -75,12 +78,17 @@ Telas: `packages/web/src/routes/DashboardPage.tsx` e os módulos puros ao lado.
   por ela; nunca duplique a fórmula.
 - **Carteira ÚNICA por usuário** (T-050): `POST /api/wallets` recusa a segunda;
   `walletId` vindo do cliente é sempre ignorado.
-- **`db` é injetado** (`{ db, userId, ... }`), nunca importado — em todo o
-  package. Quem passa o client é a rota (`rest-api`), o entry no boot
-  (`catchUpIfNeeded({ db })`) ou o core chamador (`auth-core`). As funções
+- **`query` é injetado** (`{ query, userId, ... }`; era `db` até a T-114),
+  nunca importado — em todo o package. Quem passa o client é a rota
+  (`rest-api`), o entry no boot (`catchUpIfNeeded({ query })`) ou o core
+  chamador (`auth-core`) — hoje sempre um `createSqliteQuery(db)`. As funções
   puras (posição, série, datas, `withRetry`) mantêm a assinatura posicional de
-  sempre — não há `db` para injetar nelas, e trocar a forma da chamada em vários
-  consumidores sem ganho seria só ruído na review.
+  sempre — não há client para injetar nelas, e trocar a forma da chamada em
+  vários consumidores sem ganho seria só ruído na review.
+- **SQL portável**: `$N` sem repetir número (o adaptador SQLite traduz por
+  ordem de aparição — valor usado duas vezes entra duas vezes em `values`),
+  `ON CONFLICT DO NOTHING` em vez de `INSERT OR IGNORE`, e `date(captured_at)`
+  (função no SQLite, cast no Postgres).
 - **Falha de cotação nunca derruba a request** — degrada em
   `quotesUnavailable`.
 - **A coleta de snapshots só é idempotente por causa do banco**
@@ -162,7 +170,7 @@ Decisão do humano (`TODO-HUMANO.md`, 2026-07-24, opção b): os componentes `Al
 ## Decisões: snapshots e histórico de preços
 
 ### Coleta diária de snapshots ligada no boot + série histórica (T-058a)
-Até a T-058a, `runSnapshotJob()`/`catchUpIfNeeded()` (hoje `packages/portfolio-core/src/{runSnapshotJob,catchUpIfNeeded}.ts`; um `snapshots.ts` só até a T-104) existiam mas **nunca eram chamados** — código morto, e `quote_snapshots` de uma base típica tinha uma dúzia de linhas paradas. Agora `index.ts` chama `catchUpIfNeeded({ db })` logo depois do `initDb()`.
+Até a T-058a, `runSnapshotJob()`/`catchUpIfNeeded()` (hoje `packages/portfolio-core/src/{runSnapshotJob,catchUpIfNeeded}.ts`; um `snapshots.ts` só até a T-104) existiam mas **nunca eram chamados** — código morto, e `quote_snapshots` de uma base típica tinha uma dúzia de linhas paradas. Agora `index.ts` chama `catchUpIfNeeded` logo depois do `initDb()` (com o client injetado — `{ query: createSqliteQuery(db) }` desde a T-114).
 
 - **Por que o boot basta como "guarda"**: `catchUpIfNeeded` já só roda em **dia útil, depois das 18:15 BRT e apenas se não houver snapshot do dia**; o `UNIQUE(ticker, date(captured_at))` fecha a idempotência no banco. Nenhuma guarda nova foi inventada.
 - **Não-fatal e não-bloqueante**: a chamada vem **depois** do `app.listen` e num `.catch` que só loga — mesmo espírito do `createUser` da T-050a. `runSnapshotJob` já engole a falha de fetch (3 tentativas com backoff via `withRetry`); o `catch` do boot cobre o resto (erro de banco, rejeição inesperada). Coberto por teste: `catchUpIfNeeded` **resolve** com a brapi indisponível, sem gravar nada.
@@ -263,6 +271,48 @@ um snapshot do dia já gravado → chamado e resolveu **sem** rodar o job (a
 guarda lê o `db` injetado); sábado e segunda 18:14 BRT → chamado, nada roda.
 Nenhum `setInterval` em nenhum dos cenários (o scheduler saiu na T-109b).
 
+## Troca de `db` por `query` (T-114, última fatia)
+
+Passo 5 de `docs/multi-agent/plano-migracao-aws.md`: as 11 funções que tocam
+banco trocaram `db: Db` por `query: Query`, com SQL em `$N`. Sem `db.batch` nem
+transação aqui — **nenhuma perda de atomicidade**, ao contrário de
+`subscription-core`/`expenses-core`. O que vale registrar:
+
+- **`@vetor-wallet/db` e `@libsql/client` saíram do `package.json`.** Primeira
+  fatia em que isso foi possível: nenhuma função ficou para trás, e o único uso
+  de `@libsql/client` (o tipo `Row` de `findDefaultWallet`) virou `Wallet`
+  (`@vetor-wallet/shared`), o mesmo retorno de `operations-core.findWalletById`.
+- **`INSERT OR IGNORE` → `INSERT ... ON CONFLICT DO NOTHING`** em
+  `saveSnapshot`/`saveSnapshotForDate`. Sem alvo de conflito, a forma roda no
+  SQLite ≥ 3.24 e no Postgres e casa nos dois com o índice único de EXPRESSÃO
+  `(ticker, date(captured_at))` — conferido contra o libSQL de verdade (segunda
+  inserção do dia → `rowsAffected` 0) e no boot abaixo. Borda aceita: `OR
+  IGNORE` também engolia violação de NOT NULL; `DO NOTHING` só a de unicidade.
+- **Sem `RETURNING id` em `getOrCreateDefaultWallet`**, de propósito: o id que
+  vale é o da releitura (a carteira mais antiga), não o do INSERT — é isso que
+  faz a corrida convergir.
+- **Placeholders nunca repetem número**: `getPreviousCloseSnapshots` usa a data
+  de corte duas vezes, então ela entra duas vezes em `values` (`$N+1`, `$N+2`).
+  O adaptador SQLite traduz por ordem de aparição; um `$3` reusado quebraria lá.
+- **`createSqliteQuery` foi para `@vetor-wallet/query`** (era
+  `rest-api/src/api/sqliteQuery.ts`): o `auth-core` chama
+  `getOrCreateDefaultWallet` e core não importa do `rest-api`. Os dois call
+  sites do `auth-core` (`createUser`, `createCognitoUser`) passam
+  `createSqliteQuery(db)` sobre o mesmo singleton que já usavam; o resto do
+  `auth-core` continua em `db`.
+- **`insights-core` não mudou**: só consome `buildPositionMap`/
+  `buildPortfolioSummary`, que são puras.
+
+**Verificação de boot (T-114).** Mesmo método das fatias da T-104 (preload que
+força o relógio, envolve `catchUpIfNeeded` e o `setInterval`), contra o
+`dist/api/index.js` compilado e um SQLite descartável: segunda 19h BRT com
+banco vazio → chamado com `{ query }` (sem `db`), "running job now", "No active
+tickers", resolveu; com um ticker ativo e a brapi interceptada → "1 saved"; de
+novo com a linha já gravada → "0 saved, 1 duplicate(s) skipped" (o `ON CONFLICT
+DO NOTHING` devolvendo `rowCount` 0 pelo adaptador); snapshot do dia já gravado
+→ resolveu **sem** rodar o job; sábado e segunda 18:14 BRT → nada roda. Nenhum
+`setInterval`.
+
 ## Fusão com `operations-core`: avaliada e adiada (fatia 2/2 da T-104)
 
 **Decisão: não fundir nesta migração.** O impedimento técnico que segurava a
@@ -306,11 +356,12 @@ conta).
 ## Convenções
 
 - **Formato-alvo** (molde `alerts-core`/`operations-core`) — uma função por
-  arquivo, `db` injetado, Jest em `tests/unit/tests/` importando por `src/...`,
-  cobertura 100%. Mock de `db`: `tests/unit/testDb.ts` (`makeTestDb`, fila de
-  resultados — prefira para teste novo) ou `tests/unit/mockDb.ts`
-  (`makeMockDb`, `execute` como `jest.fn()` cru — o molde dos testes portados
-  do Vitest).
+  arquivo, `query` injetado, Jest em `tests/unit/tests/` importando por
+  `src/...`, cobertura 100%. Mock de `query`: `tests/unit/testQuery.ts`
+  (`makeTestQuery`, fila de resultados — prefira para teste novo) ou
+  `tests/unit/mockQuery.ts` (`makeMockQuery`, o `query` como `jest.fn()` cru —
+  o molde dos testes portados do Vitest; eram `testDb.ts`/`mockDb.ts` até a
+  T-114).
 - Nenhuma cor literal nos gráficos do web: sempre CSS custom properties.
 
 Ver também `CLAUDE.md` da raiz, `docs/PACKAGES.md` (regras de dependência),

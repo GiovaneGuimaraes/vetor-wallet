@@ -2,17 +2,16 @@ import { Router, Request, Response } from 'express';
 import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
-import { createSqliteQuery } from '../sqliteQuery';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import { countWallets, getOrCreateDefaultWallet, withUserLock } from '@vetor-wallet/portfolio-core';
 import { findWalletById, listWallets } from '@vetor-wallet/operations-core';
 import type { NewWallet } from '@vetor-wallet/shared';
 
 const router = Router();
 
-// Mesma ponte das demais rotas migradas (T-114): o `operations-core` fala
-// `Query` com `$1, $2…` e este adaptador os traduz para o libSQL de hoje. O
-// `portfolio-core` ainda fala `Db` direto (fatia futura da migração) — por
-// isso as duas variáveis convivem aqui.
+// Mesma ponte das demais rotas migradas (T-114): `operations-core` e
+// `portfolio-core` falam `Query` com `$1, $2…` e este adaptador os traduz para
+// o libSQL de hoje — um `query` só para os dois.
 const query = createSqliteQuery(db);
 
 router.use(requireAuth);
@@ -24,7 +23,7 @@ router.get(
   asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
 
-    await getOrCreateDefaultWallet({ db, userId });
+    await getOrCreateDefaultWallet({ query, userId });
 
     res.json(await listWallets({ query, userId }));
   })
@@ -51,12 +50,12 @@ router.post(
     // do mesmo usuário passavam os dois pela checagem de countWallets antes
     // de qualquer INSERT, e os dois criavam carteira (violando T-050).
     const outcome = await withUserLock(userId, async () => {
-      if ((await countWallets({ db, userId })) > 0) {
+      if ((await countWallets({ query, userId })) > 0) {
         return { conflict: true as const };
       }
 
       const walletId = await getOrCreateDefaultWallet({
-        db,
+        query,
         userId,
         overrides: { name: name.trim(), description, color },
       });

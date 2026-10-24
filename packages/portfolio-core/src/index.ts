@@ -1,6 +1,6 @@
-// Formato-alvo (T-104, fatias 1/2 e 2/2): uma função por arquivo, `db` injetado
-// nas que tocam banco. Nenhum arquivo daqui importa o singleton de
-// `@vetor-wallet/db` — importar este barrel NÃO abre conexão (só o tipo `Db`).
+// Formato-alvo (T-104, fatias 1/2 e 2/2): uma função por arquivo, client
+// injetado nas que tocam banco — `query: Query` desde a T-114. Nenhum arquivo
+// daqui importa `@vetor-wallet/db` — importar este barrel NÃO abre conexão.
 
 // ── Posição e resumo (puros) ──
 export { applyOperation } from './applyOperation';

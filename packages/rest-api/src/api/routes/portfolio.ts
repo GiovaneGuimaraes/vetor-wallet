@@ -13,14 +13,13 @@ import {
 } from '@vetor-wallet/portfolio-core';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
-import { createSqliteQuery } from '../sqliteQuery';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import { parseDaysParam } from '@vetor-wallet/validation-core';
 
 const router = Router();
 
-// `operations-core` fala `Query` (T-114); `portfolio-core` ainda fala `Db`
-// direto (fatia futura da migração) — as duas convivem aqui porque esta rota
-// cruza os dois cores.
+// `operations-core` e `portfolio-core` falam `Query` (T-114) — um `query` só
+// serve os dois cores que esta rota cruza.
 const query = createSqliteQuery(db);
 
 const DEFAULT_HISTORY_DAYS = 90;
@@ -48,7 +47,7 @@ router.get(
 
     const todayISO = getBRTDate().toISOString().split('T')[0];
     const previousCloses = await getPreviousCloseSnapshots({
-      db,
+      query,
       tickers: activeTickers,
       beforeDateISO: todayISO,
     });
@@ -88,7 +87,7 @@ router.get(
     // (T-063) vive em `listSnapshotPointsForWindow`.
     const tickers = [...new Set(ops.map((op) => op.ticker))];
     const snapshots = await listSnapshotPointsForWindow({
-      db,
+      query,
       tickers,
       windowStart: dates[0],
       endDate,

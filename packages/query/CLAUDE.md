@@ -4,16 +4,37 @@ A função `query({ text, values })` que vai substituir o `db` injetado nos
 `*-core` (passo 5 de `docs/multi-agent/plano-migracao-aws.md`). Copiado em forma
 do `@ttoss/lambda-postgres-query`.
 
-## Dois backends, o mesmo contrato
+## Três backends, o mesmo contrato
 
 | | Quando | O que faz |
 |---|---|---|
+| `createSqliteQuery` | **hoje**, enquanto o app roda em SQLite | Envelopa o `Db` (libSQL) e traduz `$N` → `?` |
 | `createPgQuery` | **fase 1**, local e CI | Pool do `pg` direto no Postgres do container |
 | `createLambdaQuery` | fase 3, na nuvem | Invoca o Lambda que vive na VPC — a única coisa que abre conexão com a Aurora |
 
-**Nenhum core sabe qual dos dois está em uso.** É essa a razão de existir o
+**Nenhum core sabe qual deles está em uso.** É essa a razão de existir o
 package: o passo 5 pode acontecer inteiro na máquina do humano, contra Docker,
 e a ida para a nuvem depois não toca regra de negócio nenhuma.
+
+### `createSqliteQuery` mora aqui desde a T-114
+
+Nasceu em `rest-api/src/api/sqliteQuery.ts` (T-113) como ponte das rotas, e
+veio para cá na última fatia da T-114 (`portfolio-core`): o `auth-core` chama
+`getOrCreateDefaultWallet` — que passou a falar `Query` — e **core nenhum
+importa do `rest-api`** (inverteria a dependência). Morando aqui, ele é o
+terceiro backend como os outros dois, acessível a qualquer chamador: rota, boot
+(`catchUpIfNeeded` no `rest-api/src/api/index.ts`) ou core (`auth-core`).
+
+- Por isso este package depende de `@vetor-wallet/db` — **só pelo tipo `Db`**
+  (e `@libsql/client` só como devDependency, pelo tipo `InStatement`). Importar
+  o barrel não abre conexão; quem passa o `db` é o chamador.
+- Tradução por **ordem de aparição**: um core migrado nunca repete o mesmo `$N`
+  numa query — valor que entra duas vezes vai duas vezes em `values` (ver
+  `portfolio-core.getPreviousCloseSnapshots`).
+- `rowCount` vem de `rowsAffected`; `RETURNING id` funciona porque o SQLite ≥
+  3.35 aceita a cláusula e o libSQL devolve as linhas em `rows`.
+- Some quando o passo 6 ligar o Postgres: a troca é `createSqliteQuery(db)` →
+  `createPgQuery(...)` em quem constrói o client, sem tocar core nenhum.
 
 ## Onde DIVERGE da referência, e por quê
 
@@ -66,6 +87,7 @@ o core, que soma em centavos inteiros.
 | `lastInsertRowid` | `RETURNING id` |
 | `rowsAffected` | `rowCount` |
 | `SQLITE_CONSTRAINT_UNIQUE` | `23505` |
+| `INSERT OR IGNORE` | `INSERT ... ON CONFLICT DO NOTHING` (roda nos dois; ver `portfolio-core.saveSnapshot`) |
 | `db.transaction()` interativa | **não existe** por proxy — ver `expenses-core` |
 
 A última linha é dívida conhecida: `createRecurringExpenseEntry` (ainda não
@@ -80,6 +102,8 @@ registrada em `subscription-core/CLAUDE.md` e `docs/multi-agent/TODO-HUMANO.md`.
 
 ## Convenções
 
-Jest, teste em `tests/unit/tests/`. `createPgQuery` **não tem teste unitário**:
+Jest, teste em `tests/unit/tests/`. `createSqliteQuery` tem teste com `Db`
+mockado (tradução de placeholder, `args`, `rowCount`) desde a T-114 — antes só
+era coberto indiretamente pelos testes de rota. `createPgQuery` **não tem teste unitário**:
 ele é um envelope fino do `Pool` do `pg`, e prová-lo exige um Postgres no ar —
 é teste de integração, e virá junto do primeiro core migrado.

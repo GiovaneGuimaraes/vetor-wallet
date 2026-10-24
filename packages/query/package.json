@@ -10,9 +10,11 @@
     "test": "jest --projects tests/unit"
   },
   "dependencies": {
+    "@vetor-wallet/db": "workspace:*",
     "pg": "^8.13.1"
   },
   "devDependencies": {
+    "@libsql/client": "^0.14.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.14.0",
     "@types/pg": "^8.11.10",

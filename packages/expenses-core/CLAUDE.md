@@ -41,7 +41,7 @@ anteriores). **Duas funções ficaram de fora, por motivos diferentes**:
   `TODO-HUMANO.md` para as opções levantadas).
 
 O `rest-api` **continua em SQLite** — as rotas injetam `createSqliteQuery(db)`
-(`packages/rest-api/src/api/sqliteQuery.ts`). `routes/expenses.ts` trocou `db`
+(`packages/query/src/createSqliteQuery.ts` — em `rest-api/src/api/sqliteQuery.ts` até a T-114). `routes/expenses.ts` trocou `db`
 por `query` por completo (as 4 funções do CRUD de despesa fixa migraram);
 `routes/expenseEntries.ts` tem as DUAS variáveis lado a lado — `query` para as
 5 chamadas migradas (`summarizeExpenseEntries`, `listExpenseEntriesByMonth`,

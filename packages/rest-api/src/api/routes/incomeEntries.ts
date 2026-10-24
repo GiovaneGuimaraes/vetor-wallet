@@ -3,7 +3,7 @@ import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
-import { createSqliteQuery } from '../sqliteQuery';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import type { NewIncomeEntry, IncomeEntryUpdate } from '@vetor-wallet/shared';
 // Mês corrente no fuso local do processo — a MESMA função usada pela visão
 // mensal de despesas (T-022). Importada de lá em vez de duplicada: mover o

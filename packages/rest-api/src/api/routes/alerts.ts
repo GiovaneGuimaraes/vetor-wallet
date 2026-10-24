@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
-import { createSqliteQuery } from '../sqliteQuery';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import { isValidMoneyAmount, moneyAmountError } from '@vetor-wallet/validation-core';
 import { createAlertRule, deleteAlertRule, listAlertRules } from '@vetor-wallet/alerts-core';
 import type { NewAlertRule } from '@vetor-wallet/shared';

@@ -3,7 +3,7 @@ import express from 'express';
 import { createHmac } from 'crypto';
 import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { createSqliteQuery } from '../sqliteQuery';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import { markChargePaidAndActivate, safeEqual } from '@vetor-wallet/subscription-core';
 
 const router = Router();

@@ -142,6 +142,13 @@ recebe o `db` injetado: `createUser` e `cognitoMirror` chamam
 `getOrCreateDefaultWallet({ db, userId: id })` passando o mesmo singleton que já
 usam. O acoplamento não piorou nem melhorou — só a forma da chamada mudou.
 
+Desde a T-114 (última fatia, `portfolio-core`) a função recebe `query: Query`
+em vez de `db`. Os dois call sites passaram a construir
+`const query = createSqliteQuery(db)` (de `@vetor-wallet/query`, nova
+dependência deste package) sobre o **mesmo singleton** e chamar
+`getOrCreateDefaultWallet({ query, userId: id })`. Só esses dois pontos mudaram:
+o resto do `auth-core` continua no `db` cru e fora do formato-alvo.
+
 ## Testes: o que veio e o que ficou no `server`
 
 Veio para cá:

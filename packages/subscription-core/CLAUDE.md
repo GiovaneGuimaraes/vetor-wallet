@@ -17,7 +17,7 @@ Nenhuma das quatro fazia `INSERT` com `lastInsertRowid` só para ler de volta
 seguido à risca de `savings-core` (T-113, a migração real mais recente de um
 package existente) e `alerts-core` (T-114, fatia 1). O `rest-api` **continua
 em SQLite** — a rota/middleware injeta `createSqliteQuery(db)`
-(`packages/rest-api/src/api/sqliteQuery.ts`), um adaptador que traduz `$N`
+(`packages/query/src/createSqliteQuery.ts` — em `rest-api/src/api/sqliteQuery.ts` até a T-114), um adaptador que traduz `$N`
 para `?` e devolve o `Db` de sempre por baixo. Nenhuma linha deste package
 sabe disso; quando o Postgres entrar de verdade, a rota troca para
 `createPgQuery(...)` sem tocar este core.

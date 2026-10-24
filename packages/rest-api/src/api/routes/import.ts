@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import express from 'express';
 import { db } from '@vetor-wallet/db';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
@@ -19,6 +20,11 @@ import {
 import type { NewOperation, CsvRowError, CsvImportResult, Operation } from '@vetor-wallet/shared';
 
 const router = Router();
+
+// `portfolio-core` fala `Query` (T-114) — só `getOrCreateDefaultWallet` passa
+// por ele. O INSERT em lote das operações continua com `db.batch` cru: o CSV
+// não foi migrado para core nenhum (ver `rest-api/CLAUDE.md`).
+const query = createSqliteQuery(db);
 
 interface ParsedRow {
   line: number;
@@ -132,7 +138,7 @@ router.post(
     errors.sort((a, b) => a.line - b.line);
 
     if (valid.length > 0) {
-      const walletId = await getOrCreateDefaultWallet({ db, userId });
+      const walletId = await getOrCreateDefaultWallet({ query, userId });
       await db.batch(
         valid.map((op) => ({
           sql: 'INSERT INTO operations (ticker, type, quantity, price, date, user_id, wallet_id) VALUES (?, ?, ?, ?, ?, ?, ?)',

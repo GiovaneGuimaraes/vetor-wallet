@@ -1,6 +1,6 @@
 import { fetchQuotesStrict } from 'src/fetchQuotesStrict';
 import { runSnapshotJob } from 'src/runSnapshotJob';
-import { makeTestDb } from 'tests/unit/testDb';
+import { makeTestQuery } from 'tests/unit/testQuery';
 
 // A brapi e o backoff real ficam fora: o caminho com retry de verdade já é
 // exercido pelo teste "brapi indisponível" de `catchUpIfNeeded`.
@@ -23,9 +23,9 @@ describe('runSnapshotJob', () => {
   });
 
   it('sem tickers ativos: não chama a brapi nem grava nada', async () => {
-    const { db, calls } = makeTestDb([{ rows: [] }]);
+    const { query, calls } = makeTestQuery([{ rows: [] }]);
 
-    await runSnapshotJob({ db });
+    await runSnapshotJob({ query });
 
     expect(mockFetch).not.toHaveBeenCalled();
     expect(calls).toHaveLength(1);
@@ -33,13 +33,13 @@ describe('runSnapshotJob', () => {
   });
 
   it('brapi falhou depois dos retries: loga e RESOLVE sem gravar', async () => {
-    const { db, calls } = makeTestDb([{ rows: [{ ticker: 'PETR4' }] }]);
+    const { query, calls } = makeTestQuery([{ rows: [{ ticker: 'PETR4' }] }]);
     const erro = new Error('fora do ar');
     mockFetch.mockImplementation(async () => {
       throw erro;
     });
 
-    await expect(runSnapshotJob({ db })).resolves.toBeUndefined();
+    await expect(runSnapshotJob({ query })).resolves.toBeUndefined();
 
     expect(calls).toHaveLength(1);
     expect(console.error).toHaveBeenCalledWith(
@@ -49,10 +49,10 @@ describe('runSnapshotJob', () => {
   });
 
   it('grava cada cotação recebida e conta salvos, duplicados e tickers sem cotação', async () => {
-    const { db, calls } = makeTestDb([
+    const { query, calls } = makeTestQuery([
       { rows: [{ ticker: 'PETR4' }, { ticker: 'VALE3' }, { ticker: 'ITUB4' }] },
-      { rowsAffected: 1 }, // PETR4 novo
-      { rowsAffected: 0 }, // VALE3 já existia hoje
+      { rowCount: 1 }, // PETR4 novo
+      { rowCount: 0 }, // VALE3 já existia hoje
     ]);
     mockFetch.mockResolvedValue(
       new Map([
@@ -61,10 +61,10 @@ describe('runSnapshotJob', () => {
       ])
     );
 
-    await runSnapshotJob({ db });
+    await runSnapshotJob({ query });
 
     expect(mockFetch).toHaveBeenCalledWith(['PETR4', 'VALE3', 'ITUB4']);
-    expect(calls.slice(1).map((c) => c.args)).toEqual([
+    expect(calls.slice(1).map((c) => c.values)).toEqual([
       ['PETR4', 38.5],
       ['VALE3', 61],
     ]);

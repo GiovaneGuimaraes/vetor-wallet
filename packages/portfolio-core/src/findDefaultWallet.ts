@@ -1,8 +1,8 @@
-import type { Row } from '@libsql/client';
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
+import type { Wallet } from '@vetor-wallet/shared';
 
 export interface FindDefaultWalletParams {
-  db: Db;
+  query: Query;
   userId: number;
 }
 
@@ -11,11 +11,11 @@ export interface FindDefaultWalletParams {
  * Desempate por `id` porque `created_at` tem resolução de segundos e duas
  * carteiras legadas podem compartilhar o mesmo instante.
  */
-export async function findDefaultWallet(params: FindDefaultWalletParams): Promise<Row | null> {
-  const { db, userId } = params;
-  const result = await db.execute({
-    sql: 'SELECT * FROM wallets WHERE user_id = ? ORDER BY created_at ASC, id ASC LIMIT 1',
-    args: [userId],
+export async function findDefaultWallet(params: FindDefaultWalletParams): Promise<Wallet | null> {
+  const { query, userId } = params;
+  const result = await query<Wallet>({
+    text: 'SELECT * FROM wallets WHERE user_id = $1 ORDER BY created_at ASC, id ASC LIMIT 1',
+    values: [userId],
   });
   return result.rows[0] ?? null;
 }

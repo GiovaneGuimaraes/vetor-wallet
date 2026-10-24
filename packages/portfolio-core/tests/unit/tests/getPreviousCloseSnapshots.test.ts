@@ -1,30 +1,33 @@
 import { getPreviousCloseSnapshots } from 'src/getPreviousCloseSnapshots';
-import { makeMockDb } from 'tests/unit/mockDb';
+import { makeMockQuery } from 'tests/unit/mockQuery';
 
 // Portado do Vitest (snapshots.test.ts, T-016) na T-104, fatia 2/2 —
-// assertivas intactas; o `vi.mock` do singleton virou o `db` injetado.
+// assertivas intactas; o `vi.mock` do singleton virou o client injetado (`query` desde a T-114).
 describe('getPreviousCloseSnapshots', () => {
-  let { db, mockExecute } = makeMockDb();
-  beforeEach(() => ({ db, mockExecute } = makeMockDb()));
+  let { query, mockQuery } = makeMockQuery();
+  beforeEach(() => ({ query, mockQuery } = makeMockQuery()));
 
   it('returns an empty map without querying when no tickers are given', async () => {
-    const map = await getPreviousCloseSnapshots({ db, tickers: [], beforeDateISO: '2024-01-10' });
+    const map = await getPreviousCloseSnapshots({
+      query,
+      tickers: [],
+      beforeDateISO: '2024-01-10',
+    });
     expect(map).toEqual(new Map());
-    expect(mockExecute).not.toHaveBeenCalled();
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 
   it('builds a ticker → price map from the query result', async () => {
-    mockExecute.mockResolvedValue({
+    mockQuery.mockResolvedValue({
       rows: [
         { ticker: 'PETR4', price: 32 },
         { ticker: 'VALE3', price: 80 },
       ],
-      rowsAffected: 0,
-      lastInsertRowid: undefined,
+      rowCount: 0,
     } as never);
 
     const map = await getPreviousCloseSnapshots({
-      db,
+      query,
       tickers: ['PETR4', 'VALE3'],
       beforeDateISO: '2024-01-10',
     });
@@ -34,14 +37,13 @@ describe('getPreviousCloseSnapshots', () => {
   });
 
   it('omits tickers with no snapshot before the given date', async () => {
-    mockExecute.mockResolvedValue({
+    mockQuery.mockResolvedValue({
       rows: [{ ticker: 'PETR4', price: 32 }],
-      rowsAffected: 0,
-      lastInsertRowid: undefined,
+      rowCount: 0,
     } as never);
 
     const map = await getPreviousCloseSnapshots({
-      db,
+      query,
       tickers: ['PETR4', 'VALE3'],
       beforeDateISO: '2024-01-10',
     });
@@ -51,20 +53,22 @@ describe('getPreviousCloseSnapshots', () => {
   });
 
   it('filters strictly before the given date and passes tickers + date as args', async () => {
-    mockExecute.mockResolvedValue({
+    mockQuery.mockResolvedValue({
       rows: [],
-      rowsAffected: 0,
-      lastInsertRowid: undefined,
+      rowCount: 0,
     } as never);
 
     await getPreviousCloseSnapshots({
-      db,
+      query,
       tickers: ['PETR4', 'VALE3'],
       beforeDateISO: '2024-01-10',
     });
 
-    const call = mockExecute.mock.calls[0][0] as { sql: string; args: unknown[] };
-    expect(call.sql).toMatch(/date\(captured_at\)\s*<\s*\?/i);
-    expect(call.args).toEqual(['PETR4', 'VALE3', '2024-01-10', '2024-01-10']);
+    const call = mockQuery.mock.calls[0][0] as { text: string; values: unknown[] };
+    expect(call.text).toMatch(/date\(captured_at\)\s*<\s*\$3/i);
+    // Placeholders sem repetição: o adaptador SQLite traduz por ORDEM.
+    expect(call.text).toContain('ticker IN ($1,$2)');
+    expect(call.text).toMatch(/date\(qs2\.captured_at\)\s*<\s*\$4/i);
+    expect(call.values).toEqual(['PETR4', 'VALE3', '2024-01-10', '2024-01-10']);
   });
 });

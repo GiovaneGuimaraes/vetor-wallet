@@ -21,7 +21,9 @@
       // do Node e exigiria o `dist` de portfolio-core/brapi-core já construído —
       // um job de CLI não pode depender de `pnpm build` ter rodado antes.
       "@vetor-wallet/portfolio-core": ["../portfolio-core/src/index.ts"],
-      "@vetor-wallet/brapi-core": ["../brapi-core/src/index.ts"]
+      "@vetor-wallet/brapi-core": ["../brapi-core/src/index.ts"],
+      // Transitivo desde a T-114: o auth-core chama `createSqliteQuery`.
+      "@vetor-wallet/query": ["../query/src/index.ts"]
     }
   },
   "include": ["src"],
@@ -33,6 +35,7 @@
     { "path": "../bank-import-core" },
     { "path": "../pluggy-core" },
     { "path": "../portfolio-core" },
-    { "path": "../brapi-core" }
+    { "path": "../brapi-core" },
+    { "path": "../query" }
   ]
 }

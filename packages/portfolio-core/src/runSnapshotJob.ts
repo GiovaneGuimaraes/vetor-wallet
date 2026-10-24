@@ -1,11 +1,11 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import { fetchQuotesStrict } from './fetchQuotesStrict';
 import { resolveActiveTickers } from './resolveActiveTickers';
 import { saveSnapshot } from './saveSnapshot';
 import { withRetry } from './withRetry';
 
 export interface RunSnapshotJobParams {
-  db: Db;
+  query: Query;
 }
 
 /**
@@ -14,8 +14,8 @@ export interface RunSnapshotJobParams {
  * loga e desiste — quem chama no boot não pode cair por isso.
  */
 export async function runSnapshotJob(params: RunSnapshotJobParams): Promise<void> {
-  const { db } = params;
-  const tickers = await resolveActiveTickers({ db });
+  const { query } = params;
+  const tickers = await resolveActiveTickers({ query });
   if (tickers.length === 0) {
     console.log('[snapshots] No active tickers — skipping job');
     return;
@@ -31,7 +31,7 @@ export async function runSnapshotJob(params: RunSnapshotJobParams): Promise<void
 
   let saved = 0;
   for (const [ticker, price] of quotesMap) {
-    const inserted = await saveSnapshot({ db, ticker, price });
+    const inserted = await saveSnapshot({ query, ticker, price });
     if (inserted) saved++;
   }
 

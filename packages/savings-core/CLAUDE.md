@@ -15,7 +15,7 @@ placeholders `$1, $2, ...` (convenção Postgres), `RETURNING id` no lugar de
 `lastInsertRowid`, `rowCount` no lugar de `rowsAffected`. O `rest-api`
 **continua em SQLite** — os passos 6-8 da fase 1 (VPC, Aurora, migração dos
 dados) seguem parados por decisão do humano — então a rota injeta
-`createSqliteQuery(db)` (`packages/rest-api/src/api/sqliteQuery.ts`), um
+`createSqliteQuery(db)` (`packages/query/src/createSqliteQuery.ts` — em `rest-api/src/api/sqliteQuery.ts` até a T-114), um
 adaptador que traduz `$N` para `?` e devolve o `Db` de sempre por baixo.
 Nenhuma linha deste package sabe disso; quando o Postgres entrar de verdade, a
 rota troca para `createPgQuery(...)` sem tocar este core.

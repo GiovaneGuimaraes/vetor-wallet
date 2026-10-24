@@ -14,7 +14,8 @@
     "paths": {
       "@vetor-wallet/db": ["../db/src/index.ts"],
       "@vetor-wallet/shared": ["../shared/src/index.ts"],
-      "@vetor-wallet/portfolio-core": ["../portfolio-core/src/index.ts"]
+      "@vetor-wallet/portfolio-core": ["../portfolio-core/src/index.ts"],
+      "@vetor-wallet/query": ["../query/src/index.ts"]
     }
   },
   "include": ["src"],
@@ -22,6 +23,7 @@
   "references": [
     { "path": "../db" },
     { "path": "../shared" },
-    { "path": "../portfolio-core" }
+    { "path": "../portfolio-core" },
+    { "path": "../query" }
   ]
 }

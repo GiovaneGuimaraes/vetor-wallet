@@ -12,8 +12,9 @@ import type { Config } from 'jest';
  * testes importam por `src/...` para deixar explícito que olham de fora.
  *
  * `moduleNameMapper` aponta os workspace packages para o CÓDIGO-FONTE (sem isso
- * a resolução cairia no `dist/` — falso verde). `@vetor-wallet/db` entra só pelo
- * TIPO `Db`: nenhuma função do package importa o singleton.
+ * a resolução cairia no `dist/` — falso verde). `@vetor-wallet/query` entra só pelo
+ * TIPO `Query` (T-114): o client é injetado, e o teste passa o mock de
+ * `tests/unit/testQuery.ts`.
  */
 const config: Config = {
   displayName: '@vetor-wallet/portfolio-core',
@@ -24,7 +25,7 @@ const config: Config = {
     '^.+\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tests/tsconfig.json' }],
   },
   moduleNameMapper: {
-    '^@vetor-wallet/db$': '<rootDir>/../db/src/index.ts',
+    '^@vetor-wallet/query$': '<rootDir>/../query/src/index.ts',
     '^@vetor-wallet/shared$': '<rootDir>/../shared/src/index.ts',
     '^src/(.*)$': '<rootDir>/src/$1',
     '^tests/(.*)$': '<rootDir>/tests/$1',

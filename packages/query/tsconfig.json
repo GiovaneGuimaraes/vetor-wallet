@@ -10,8 +10,12 @@
     "rootDir": "src",
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "baseUrl": "."
+    "baseUrl": ".",
+    "paths": {
+      "@vetor-wallet/db": ["../db/src/index.ts"]
+    }
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  "exclude": ["src/**/*.test.ts"],
+  "references": [{ "path": "../db" }]
 }
