@@ -181,12 +181,15 @@ export async function forgotPassword(email: string): Promise<void> {
 
 /**
  * Fecha a recuperação de senha com o código do e-mail e a senha nova
- * (T-108b, rota da T-108a).
+ * (T-108b, rota da T-108a; T-115 diferenciou o desfecho).
  *
- * Mesma cautela do `forgotPassword`: **204 sempre**, inclusive código errado
- * ou vencido — o backend nunca confirma nem nega isso ao cliente. Um erro
- * lançado por esta função é sempre um problema real de transporte/configuração
- * (rede, `AUTH_UNAVAILABLE`), nunca "código inválido".
+ * O backend mascara em 204 só o que vazaria existência de conta
+ * (`userNotFound` e qualquer erro inesperado) — **mas responde 400 com
+ * mensagem própria para código errado/vencido e para senha fraca**, porque o
+ * usuário já sabe o código/senha que ele mesmo digitou e isso não é um oráculo
+ * de conta. Esta função lança `AuthApiError` com essa mensagem para esses dois
+ * casos, igual a qualquer outra rota de auth; só um 204 significa "pode ter
+ * dado certo, sem confirmar".
  */
 export async function resetPassword(params: {
   email: string;

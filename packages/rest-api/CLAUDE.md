@@ -240,12 +240,14 @@ essa liberdade acaba.
 
 - **AWS Cognito entrou na T-106** (identidade única; `auth/router.ts` orquestra
   `@vetor-wallet/cognito-core` + `@vetor-wallet/auth-core`). **Recuperação de
-  senha entrou na T-108a**: `POST /api/auth/forgot-password` e
-  `/reset-password`, sempre 204 (mascarado), fail closed a 503 sem
-  `COGNITO_*`. Continua TODO: MFA, login social, a tela de recuperação de
-  senha e a de digitar o código de confirmação no `web` (backend pronto:
-  `POST /api/auth/confirm`, `/resend-code`, `/forgot-password`,
-  `/reset-password`) e o `DROP` de `users.password_hash`.
+  senha entrou na T-108a**: `POST /api/auth/forgot-password` (sempre 204,
+  mascarado) e `/reset-password`, fail closed a 503 sem `COGNITO_*`. Na T-115
+  `/reset-password` deixou de ser "sempre 204": `invalidCode`/`expiredCode`
+  (uma resposta só, 400) e `weakPassword` (400 próprio) passaram a diferenciar
+  do sucesso — só `userNotFound` e erro inesperado seguem mascarados em 204,
+  porque só eles vazariam existência de conta (ver `cognitoErrorResponse.ts` e
+  `packages/cognito-core/CLAUDE.md`). Continua TODO: MFA, login social, e o
+  `DROP` de `users.password_hash`.
 - Coleta de cotações em background em Lambda + EventBridge (hoje: só o scheduler in-process de
   snapshots). O job de insights horários foi removido na T-109a e renasce lá — mesmo destino da
   fase 3 do plano de migração (passos 6-8).

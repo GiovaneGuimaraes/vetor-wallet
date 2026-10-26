@@ -317,6 +317,48 @@ describe('AuthPage — recuperação de senha (T-108b)', () => {
     expect(screen.getByText(/se o código estava certo/i)).toBeTruthy();
   });
 
+  it('código errado/vencido na troca mostra a mensagem real e fica na mesma tela (T-115)', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await irAteTrocarSenha(user);
+
+    resetImpl = () =>
+      Promise.reject(new AuthApiError('Codigo incorreto ou vencido. Peca um novo codigo.', null));
+
+    await user.type(campo(/Código de confirmação/), '123456');
+    await user.type(campo(/Senha nova/), SENHA_NOVA);
+    await user.type(campo(/Confirmar senha nova/), SENHA_NOVA);
+    await user.click(botao('Trocar senha'));
+
+    await waitFor(() =>
+      expect(screen.getByText('Codigo incorreto ou vencido. Peca um novo codigo.')).toBeTruthy()
+    );
+    // Continua na tela de troca — nunca a genérica de sucesso, nem volta ao login.
+    expect(screen.getByRole('heading', { name: 'Nova senha' })).toBeTruthy();
+    expect(screen.queryByText(/se o código estava certo/i)).toBeNull();
+  });
+
+  it('senha fraca na troca mostra a mensagem real e fica na mesma tela (T-115)', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await irAteTrocarSenha(user);
+
+    resetImpl = () =>
+      Promise.reject(
+        new AuthApiError('Senha nao atende aos requisitos da politica de senha.', null)
+      );
+
+    await user.type(campo(/Código de confirmação/), '123456');
+    await user.type(campo(/Senha nova/), SENHA_NOVA);
+    await user.type(campo(/Confirmar senha nova/), SENHA_NOVA);
+    await user.click(botao('Trocar senha'));
+
+    await waitFor(() =>
+      expect(screen.getByText('Senha nao atende aos requisitos da politica de senha.')).toBeTruthy()
+    );
+    expect(screen.getByRole('heading', { name: 'Nova senha' })).toBeTruthy();
+  });
+
   it('senhas diferentes na troca não chegam a sair do navegador', async () => {
     const user = userEvent.setup();
     renderPage();
