@@ -18,6 +18,16 @@
 
 ## Abertos
 
+### [2026-10-26] ~~Nova arte pixel art (logo + mascotes de 4 layers)~~ — ENTREGUE em 2026-10-26
+- **Origem**: humano, adicionou `logo-vetor-wallet-pixels.png` na raiz do repo e pediu a troca.
+- **Bloqueia**: nada — entregue.
+- **O que foi trocado**: a folha trazia a logo principal (personagem + texto "Vetor-Wallet") e 8 variações coloridas de mascote. Recortados com `sharp` fora do repo (mesma técnica da T-020b: flood fill a partir das bordas pra remover o fundo xadrez, que **não** era transparência real — a imagem veio sem canal alpha, RGB puro, com o padrão xadrez desenhado como pixel). Mapeamento cor→layer confirmado por humano via `AskUserQuestion`: azul=Renda, vermelho=Despesas, amarelo/dourado(com gráfico)=Investimentos, roxo=Cripto. Arquivos trocados **no mesmo nome** (`logo.png`, `favicon-32.png`, `apple-touch-icon.png`, `layers/{receitas,despesas,acoes,cripto,poupanca}-t.png`) — nenhuma referência de código mudou por causa disso. `layers/metas-t.png` continua órfão, intocado (T-091b1).
+- **Achado técnico que não era óbvio**: a folha **não trouxe uma 5ª cor distinta** para Poupança — as 4 variações "menores" da fileira de baixo são os mesmos 4 personagens (mesmas cores) em pose diferente, não personagens novos. Confirmado medindo RGB de cada recorte antes de aplicar. O humano escolheu reaproveitar o azul (mesmo da Renda, pose de dinheiro) em vez de manter o mascote antigo — **Renda e Poupança ficam visualmente parecidos** de propósito, risco aceito.
+- **Achado técnico 2**: ao contrário do mascote anterior (corpo inteiro, 285×390, virava borrão em 56px — achado da T-020b), o personagem novo é mais quadrado/gráfico e **sobrevive** ao header (56px) e até ao favicon (32px) sem perder legibilidade — testado renderizando de verdade antes de aplicar, não só por medida de pixel.
+- **Refactor feito junto na tela de login** (pedido do humano, "ainda está mostrando o padrão antigo dos layers"): não havia layer morto (Metas já tinha saído certo) — o problema real era `AuthPage.tsx` ainda listar **"Ações"** como item isolado, desatualizado desde a T-091a, que uniu Ações+Cripto+Renda Fixa sob **"Investimentos"** (a Home já usava o nome certo). Corrigido o card e o parágrafo de abertura da landing.
+- **Débito que fica, não bloqueante**: o problema das "três origens de mascote" (`mascots.ts`, `AuthPage.tsx`, `HomePage.tsx` cada um com sua própria lista hardcoded) continua em `BACKLOG.md` → Candidatas — este fix só corrigiu o texto desatualizado, não unificou as três listas.
+- **Resposta do humano**: mapeamento de cor confirmado, reaproveitar azul em Poupança confirmado, fix do "Ações"→"Investimentos" confirmado. PR aberta para revisão.
+
 ### [2026-10-23] ~~T-114 (migração AWS, fatia `expenses-core`): `materializeRecurringExpenses` perde atomicidade ao trocar `db` por `query`, e a falha é irrecuperável por desenho~~ — RESPONDIDO em 2026-10-23
 - **Origem**: executor da fatia `expenses-core`, T-114 (passo 5, troca `db`→`query`)
 - **Bloqueia**: nada da T-114 em si — as outras 9 funções do package migraram normalmente; `materializeRecurringExpenses` continua em `db: Db`, exatamente como hoje, até esta pendência ser resolvida.

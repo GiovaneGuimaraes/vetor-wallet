@@ -54,13 +54,16 @@ const FEATURES: FeatureConfig[] = [
     desc: 'Acompanhe saldo, aportes e rendimento',
   },
   {
-    key: 'acoes',
+    key: 'investimentos',
     mascot: 'acoes-t.png',
-    title: 'Ações',
-    desc: 'Carteiras da B3 com cotações em tempo real',
+    title: 'Investimentos',
+    desc: 'Ações, cripto e renda fixa, com cotações em tempo real da B3',
   },
   // Metas saiu desta lista na T-089g (pedido do humano) e, na T-091b1, do app
   // inteiro — rota, card da Home e backend. Nada a reanunciar aqui.
+  // "Ações" virou "Investimentos" (guarda-chuva de Ações+Cripto+Renda Fixa,
+  // T-091a) para bater com o nome que a Home já usa — landing tinha ficado
+  // para trás (achado do humano, 2026-10-26).
 ];
 
 /**
@@ -310,8 +313,8 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
 
           <h1 className="vw-landing-title">Sua vida financeira, organizada em camadas.</h1>
           <p className="vw-landing-desc">
-            Renda, despesas, poupança e ações — tudo em um só lugar, com cotações em tempo real da
-            B3 e lançamentos que chegam direto do seu banco.
+            Renda, despesas, poupança e investimentos — tudo em um só lugar, com cotações em tempo
+            real da B3 e lançamentos que chegam direto do seu banco.
           </p>
 
           <ul className="vw-landing-features">
