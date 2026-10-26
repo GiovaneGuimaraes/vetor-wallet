@@ -18,17 +18,11 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ## Fila
 
-> **Retomar aqui.** T-091c/d (dashboard de Investimentos, c1-c3+d1-d4) **concluída** (PR #234) e
+> **Retomar aqui.** T-091c/d (dashboard de Investimentos, c1-c3+d1-d4) **concluída** (PR #234),
 > T-114 (migração AWS, passo 5 — troca `db`→`query`) **concluída** (PRs #238/#241/#244/#246/#249/#251)
-> — detalhe no histórico de PRs, não repetir aqui.
-
-### T-115 — `reset-password` mascara TUDO atrás de 204, inclusive código errado/vencido e senha fraca
-
-- **Origem**: humano, achado ao usar "esqueceu sua senha" e ver sempre "Se o código estava certo, a senha nova já vale — tente entrar.", sem saber se deu certo.
-- **Pedido**: distinguir `invalidCode`/`expiredCode`/`weakPassword` na resposta — esses 3 **não** vazam existência de conta (o usuário já sabe o código/senha que digitou), só `userNotFound` precisa continuar mascarado (doutrina em `cognito-core/CLAUDE.md`, "exatamente um usuário real").
-- **Hoje**: `POST /api/auth/reset-password` (`rest-api/src/api/auth/router.ts`) captura `CognitoApiError` e sempre responde 204, mesmo already tendo o `err.code` tipado em mãos — só loga. `AuthPage.tsx` sempre mostra a mesma mensagem genérica após o POST.
-- **Escopo**: no router, tratar `invalidCode`/`expiredCode` (um 400 só, não dar pista de qual dos dois) e `weakPassword` com mensagem própria; manter `userNotFound` e qualquer outro erro mascarados em 204 como hoje. No web, mostrar a mensagem real quando vier erro, manter a genérica só no sucesso. Atualizar `cognito-core/CLAUDE.md` e `rest-api/CLAUDE.md` (a doutrina do "204 sempre" muda de "sempre" para "exceto estes 3"). Testes cobrindo os 2 novos status.
-- **Fora de escopo**: `/forgot-password` continua 204 sempre (lá o único erro possível é `userNotFound`, que tem que seguir mascarado).
+> e T-115 (`reset-password` diferencia código errado/vencido e senha fraca do 204 mascarado)
+> **concluída** (PR #254) — detalhe no histórico de PRs, não repetir aqui. Fila vazia; próxima
+> tarefa a definir com o humano ou puxar das Candidatas abaixo.
 
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 

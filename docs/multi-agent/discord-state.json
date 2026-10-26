@@ -8,7 +8,7 @@
   },
   "backlog": {
     "messageId": "1536142925069557824",
-    "atualizadoEm": "2026-10-26T02:27:46-03:00"
+    "atualizadoEm": "2026-10-26T02:46:49-03:00"
   },
   "docsApp": {
     "messageId": "1536196532053737605",
@@ -159,8 +159,9 @@
     "T-115": {
       "canal": "todo-ai",
       "messageId": "1564148534419394653",
-      "status": "PENDENTE",
-      "nota": "reset-password mascara codigo errado/vencido e senha fraca atras de 204; so userNotFound precisa continuar mascarado."
+      "status": "CONCLUIDA",
+      "pr": 254,
+      "nota": "invalidCode+expiredCode e weakPassword agora respondem 400 em vez de 204; userNotFound continua mascarado. Revisao aprovada."
     }
   },
   "humanTodos": {
