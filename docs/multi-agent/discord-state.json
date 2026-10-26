@@ -20,7 +20,7 @@
   },
   "todoHumano": {
     "_comment": "Marcador agregado para o discord-guard (T-090): nao existe UMA mensagem-espelho do TODO-HUMANO.md inteiro (cada pendencia tem a sua, em humanTodos abaixo). atualizadoEm aqui significa 'todas as pendencias deste arquivo estavam refletidas no Discord a partir deste instante' e deve ser atualizado pelo orquestrador toda vez que ele editar o arquivo E sincronizar o Discord (relogio local — ver _atualizadoEm_contrato).",
-    "atualizadoEm": "2026-10-23T21:03:40-03:00"
+    "atualizadoEm": "2026-10-26T00:49:48-03:00"
   },
   "tasks": {
     "T-091b1": {
@@ -410,6 +410,12 @@
       "messageId": "1563342136446034042",
       "modo": "so aviso",
       "status": "RESPONDIDO 2026-10-23: materializeRecurringExpenses fica de fora (risco pior que subscription-core: falha silenciosa e permanente). CTE tambem nao roda em SQLite. Migra quando Postgres estiver no ar."
+    },
+    "logo-pixel-art-2026-10-26": {
+      "canal": "todo-human",
+      "messageId": "1564169151617179681",
+      "modo": "so aviso",
+      "status": "ENTREGUE 2026-10-26: logo + 4 mascotes trocados pela arte pixel art. Achado: sem 5a cor distinta pra Poupanca (reaproveitou azul da Renda, aceito). AuthPage.tsx corrigido (Acoes -> Investimentos)."
     }
   },
   "lastSeen": {
