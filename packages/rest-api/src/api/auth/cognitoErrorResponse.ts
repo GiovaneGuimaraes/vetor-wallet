@@ -78,6 +78,40 @@ export function cognitoErrorResponse(code: CognitoErrorCode): CognitoErrorRespon
   }
 }
 
+/**
+ * `invalidCode`/`expiredCode`/`weakPassword` → resposta própria de
+ * `POST /api/auth/reset-password` (T-115). `null` para qualquer outro código —
+ * inclusive `userNotFound` — que deve continuar mascarado atrás do 204 do
+ * router (ver doc do handler em `router.ts`).
+ *
+ * Tabela separada de `cognitoErrorResponse` de propósito: aquela é a tradução
+ * geral "erro do Cognito → HTTP" (login, cadastro etc.), e nela `invalidCode`/
+ * `expiredCode` têm mensagem e `code` PRÓPRIOS (`INVALID_CODE`/`EXPIRED_CODE`,
+ * usados por `/confirm`) — faz sentido lá, porque quem confirma um cadastro
+ * digitou o e-mail agora mesmo, no mesmo fluxo, e saber "venceu" vs "errei"
+ * não ajuda a descobrir nada sobre outra conta.
+ *
+ * Aqui a lógica é diferente: **`invalidCode` e `expiredCode` caem na MESMA
+ * mensagem**, sem `code` que distinga os dois. `reset-password` acontece
+ * minutos depois do `forgot-password`, então "o código venceu" revelaria
+ * quanto tempo o código do Cognito dura — e seria a única pista nova que esta
+ * rota daria sobre o relógio do backend. `weakPassword` não tem esse problema
+ * (não fala de tempo nem de conta), por isso ganha mensagem própria.
+ */
+export function resetPasswordErrorResponse(
+  code: CognitoErrorCode
+): Pick<CognitoErrorResponse, 'status' | 'error'> | null {
+  switch (code) {
+    case 'invalidCode':
+    case 'expiredCode':
+      return { status: 400, error: 'Codigo incorreto ou vencido. Peca um novo codigo.' };
+    case 'weakPassword':
+      return { status: 400, error: 'Senha nao atende aos requisitos da politica de senha.' };
+    default:
+      return null;
+  }
+}
+
 /** `true` quando o erro veio do Cognito — usado para não engolir bug nosso como erro de auth. */
 export function isCognitoApiError(err: unknown): err is CognitoApiError {
   return err instanceof CognitoApiError;

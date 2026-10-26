@@ -23,7 +23,11 @@ import {
   type CognitoSession,
 } from '@vetor-wallet/cognito-core';
 import type { User } from '@vetor-wallet/shared';
-import { cognitoErrorResponse, isCognitoApiError } from './cognitoErrorResponse';
+import {
+  cognitoErrorResponse,
+  isCognitoApiError,
+  resetPasswordErrorResponse,
+} from './cognitoErrorResponse';
 
 /**
  * Rotas de autenticação (T-106: identidade no AWS Cognito).
@@ -297,14 +301,19 @@ router.post(
 
 /**
  * `POST /api/auth/reset-password` — fecha a recuperação de senha com o código
- * do e-mail e a senha nova (T-108a).
+ * do e-mail e a senha nova (T-108a; diferenciação de desfecho na T-115).
  *
- * Mesma trava do `/forgot-password`: **sempre 204**, inclusive para código
- * errado/vencido ou senha recusada pela política do pool. Por isso a validação
- * de formato aqui NÃO inclui um mínimo de caracteres para `newPassword` — isso
- * é política de senha, e delegamos ao Cognito (`InvalidPasswordException` vira
- * `weakPassword`, mascarado como qualquer outro desfecho). Só formato bruto do
- * pedido (campo ausente ou do tipo errado) vira 400.
+ * Mesma trava do `/forgot-password` **só para `userNotFound` e qualquer outro
+ * erro, esperado ou não**: mascarados atrás de 204, porque aí sim a resposta
+ * entregaria se o e-mail tem conta. `invalidCode`/`expiredCode`/`weakPassword`
+ * **não** carregam esse risco — o usuário já sabe o código e a senha que ele
+ * mesmo digitou, então diferenciar esses 3 do sucesso não ajuda ninguém a
+ * descobrir se uma conta existe. Ver `resetPasswordErrorResponse` para a
+ * mensagem de cada um (e por que `invalidCode`/`expiredCode` caem na mesma).
+ * Por isso a validação de formato aqui NÃO inclui um mínimo de caracteres para
+ * `newPassword` — isso é política de senha, e delegamos ao Cognito
+ * (`InvalidPasswordException` vira `weakPassword`). Só formato bruto do pedido
+ * (campo ausente ou do tipo errado) vira 400 antes de falar com a AWS.
  */
 router.post(
   '/reset-password',
@@ -336,6 +345,17 @@ router.post(
         return;
       }
       if (!isCognitoApiError(err)) throw err;
+
+      const specific = resetPasswordErrorResponse(err.code);
+      if (specific) {
+        // Não é uma mascara: o usuario ja sabe o codigo/senha que digitou,
+        // entao dizer "codigo errado" ou "senha fraca" nao vaza existencia
+        // de conta (ver doc do handler e resetPasswordErrorResponse).
+        console.error('[auth] reset-password: Cognito respondeu', err.code, '- 400 especifico');
+        res.status(specific.status).json({ error: specific.error });
+        return;
+      }
+
       console.error('[auth] reset-password: Cognito respondeu', err.code, '- mascarado em 204');
     }
 

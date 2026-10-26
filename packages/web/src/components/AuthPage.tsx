@@ -218,8 +218,12 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
         );
         setMode('reset');
       } else if (mode === 'reset') {
-        // Idem: 204 sempre, inclusive código errado ou vencido. O sucesso
-        // desta chamada nunca vira "senha trocada" — só o login prova isso.
+        // T-115: só o sucesso (204) cai aqui e vira "pode ter dado certo,
+        // tente entrar" — o sucesso desta chamada nunca é "senha trocada" com
+        // certeza, só o login prova isso. Código errado/vencido e senha fraca
+        // agora LANÇAM (400 com mensagem própria) e caem no catch abaixo, que
+        // mostra a mensagem real sem sair da tela — só `userNotFound` e erro
+        // inesperado continuam mascarados atrás deste mesmo 204.
         await resetPassword({ email: pendingEmail.trim(), code, newPassword });
         backToLogin('Se o código estava certo, a senha nova já vale — tente entrar.');
       } else {
@@ -232,8 +236,9 @@ export function AuthPage({ onAuth, theme, onToggle }: Props) {
       // etapa de código, alcançada por outra porta (cadastrou, fechou o app,
       // voltou depois). Sem este desvio a conta ficaria presa — o app não tem
       // credencial IAM para as operações `Admin*` do Cognito. Só se aplica a
-      // login/register: um erro em `forgot`/`reset` é sempre falha real de
-      // transporte (rede, `AUTH_UNAVAILABLE`), nunca desvio de fluxo.
+      // login/register: `forgot`/`reset` nunca têm esse desvio de etapa — um
+      // erro ali (transporte, `AUTH_UNAVAILABLE`, ou os 400 específicos do
+      // reset desde a T-115) sempre vira mensagem na própria tela.
       const outcome = interpretAuthError(err);
       if (outcome.needsConfirmation && (mode === 'login' || mode === 'register')) {
         goToConfirmation(email.toLowerCase().trim(), outcome.message);

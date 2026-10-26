@@ -200,14 +200,17 @@ describe('recuperação de senha (T-108a)', () => {
     expect(loginNova.status).toBe(200);
   });
 
-  it('CODIGO ERRADO responde 204 (mascarado), nao 400', async () => {
+  it('CODIGO ERRADO responde 400 com mensagem propria (T-115: nao vaza existencia de conta)', async () => {
     const res = await request(app).post('/api/auth/reset-password').send({
       email: 'recupera@example.com',
       code: '000000',
       newPassword: 'outra-senha-1',
     });
-    expect(res.status).toBe(204);
-    expect(res.body).toEqual({});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Codigo incorreto ou vencido. Peca um novo codigo.');
+    // Sem `code` identificador: o front nao precisa (e nao deve) distinguir
+    // deste 400 de um codigo vencido - a mensagem ja e a mesma de proposito.
+    expect(res.body.code).toBeUndefined();
 
     // A senha NAO mudou: o codigo era invalido.
     const login = await request(app)
@@ -216,14 +219,31 @@ describe('recuperação de senha (T-108a)', () => {
     expect(login.status).toBe(401);
   });
 
-  it('SENHA FRACA (recusada pela politica do pool) responde 204 (mascarado), nao 400', async () => {
+  it('SENHA FRACA (recusada pela politica do pool) responde 400 com mensagem propria (T-115)', async () => {
     const res = await request(app).post('/api/auth/reset-password').send({
       email: 'recupera@example.com',
       code: '123456',
       newPassword: 'curta',
     });
-    expect(res.status).toBe(204);
-    expect(res.body).toEqual({});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Senha nao atende aos requisitos da politica de senha.');
+
+    // A senha NAO mudou: a politica recusou a nova.
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'recupera@example.com', password: 'curta' });
+    expect(login.status).toBe(401);
+  });
+
+  it('CODIGO ERRADO e SENHA FRACA ao mesmo tempo ainda respondem 400 (codigo checado primeiro no fake pool)', async () => {
+    // Documenta que a ordem de checagem no Cognito real pode variar - aqui so
+    // garantimos que nenhum dos dois desfechos cai de volta no 204 mascarado.
+    const res = await request(app).post('/api/auth/reset-password').send({
+      email: 'recupera@example.com',
+      code: '000000',
+      newPassword: 'curta',
+    });
+    expect(res.status).toBe(400);
   });
 
   it('E-MAIL INEXISTENTE em /reset-password tambem responde 204', async () => {

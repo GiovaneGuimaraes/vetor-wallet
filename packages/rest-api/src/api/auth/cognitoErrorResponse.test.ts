@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { CognitoApiError, type CognitoErrorCode } from '@vetor-wallet/cognito-core';
-import { cognitoErrorResponse, isCognitoApiError } from './cognitoErrorResponse';
+import {
+  cognitoErrorResponse,
+  isCognitoApiError,
+  resetPasswordErrorResponse,
+} from './cognitoErrorResponse';
 
 const ALL_CODES: CognitoErrorCode[] = [
   'configMissing',
@@ -83,5 +87,53 @@ describe('cognitoErrorResponse (T-106)', () => {
     expect(isCognitoApiError(new CognitoApiError('network', 'x'))).toBe(true);
     expect(isCognitoApiError(new Error('x'))).toBe(false);
     expect(isCognitoApiError(null)).toBe(false);
+  });
+});
+
+describe('resetPasswordErrorResponse (T-115)', () => {
+  it('invalidCode e expiredCode caem na MESMA resposta, sem code identificador', () => {
+    const invalid = resetPasswordErrorResponse('invalidCode');
+    const expired = resetPasswordErrorResponse('expiredCode');
+    expect(invalid).toEqual(expired);
+    expect(invalid).toEqual({
+      status: 400,
+      error: 'Codigo incorreto ou vencido. Peca um novo codigo.',
+    });
+    // O tipo de retorno já não declara `code` (`Pick<..., 'status' | 'error'>`);
+    // o `toEqual` acima já falharia se um `code` aparecesse em runtime — é
+    // esse identificador que vazaria quanto tempo falta até o código vencer.
+  });
+
+  it('weakPassword tem mensagem própria, diferente de invalidCode/expiredCode', () => {
+    const response = resetPasswordErrorResponse('weakPassword');
+    expect(response).toEqual({
+      status: 400,
+      error: 'Senha nao atende aos requisitos da politica de senha.',
+    });
+    expect(response?.error).not.toBe(resetPasswordErrorResponse('invalidCode')?.error);
+  });
+
+  it('devolve null para userNotFound e qualquer código inesperado — continuam mascarados em 204', () => {
+    const codesThatStayMasked: CognitoErrorCode[] = [
+      'userNotFound',
+      'invalidCredentials',
+      'userNotConfirmed',
+      'emailAlreadyExists',
+      'codeDeliveryFailure',
+      'tooManyRequests',
+      'network',
+      'invalidParameter',
+      'challengeRequired',
+      'unexpectedResponse',
+      'unexpected',
+    ];
+    for (const code of codesThatStayMasked) {
+      expect(resetPasswordErrorResponse(code)).toBeNull();
+    }
+  });
+
+  it('nenhuma das duas mensagens vaza jargão da AWS', () => {
+    expect(resetPasswordErrorResponse('invalidCode')?.error).not.toMatch(/Exception|AWS/i);
+    expect(resetPasswordErrorResponse('weakPassword')?.error).not.toMatch(/Exception|AWS/i);
   });
 });

@@ -176,15 +176,27 @@ tipado, sem tocar o banco. `ConfirmForgotPassword` leva um campo a mais que o
 Cognito exige, `Password` (a senha nova) — nunca aparece em log ou mensagem de
 erro, mesma doutrina do código de confirmação.
 
-**Este package NÃO decide "204 sempre".** As duas funções propagam
-`CognitoApiError` normalmente, inclusive `userNotFound`. Quem mascara o
-resultado atrás de um 204 uniforme (para o formulário não virar enumerador de
-contas — o app tem exatamente um usuário real) é a rota
-(`packages/rest-api/src/api/auth/router.ts`, `POST /forgot-password` e
-`/reset-password`): só `configMissing` continua virando 503 lá, e erro de
-formato do pedido vira 400 antes de a AWS ser chamada. Ver o comentário na
-rota, que também documenta a consequência para a T-108b (a tela não pode dizer
-"e-mail não encontrado").
+**Este package NÃO decide "204 sempre" nem "exceto estes 3".** As duas funções
+propagam `CognitoApiError` normalmente, inclusive `userNotFound`. Quem decide o
+que mascarar é a rota (`packages/rest-api/src/api/auth/router.ts`):
+
+- **`POST /forgot-password`: 204 sempre**, inclusive `userNotFound` — é a
+  doutrina original (formulário não pode virar enumerador de contas; o app tem
+  exatamente um usuário real). Só `configMissing` (503) e corpo malformado
+  (400, antes de falar com a AWS) escapam.
+- **`POST /reset-password`: 204 sempre, EXCETO `invalidCode`/`expiredCode`/
+  `weakPassword`** (T-115). Esses 3 **não** vazam existência de conta — o
+  usuário já sabe o código e a senha que ele mesmo digitou, então diferenciá-los
+  do sucesso não ajuda ninguém a descobrir se uma conta existe. Só `userNotFound`
+  e qualquer erro inesperado continuam mascarados em 204 (mesmo motivo do
+  `/forgot-password`); `configMissing` e corpo malformado seguem a mesma regra
+  acima. `invalidCode`/`expiredCode` caem numa resposta ÚNICA (não diferenciada
+  entre si) para não vazar quanto tempo falta até o código vencer.
+
+Ver `resetPasswordErrorResponse` em `packages/rest-api/src/api/auth/cognitoErrorResponse.ts`
+e o comentário na rota, que também documenta a consequência para a T-108b (a
+tela não pode dizer "e-mail não encontrado", mas pode dizer "código incorreto
+ou vencido"/"senha fraca").
 
 **O que segue sem prova contra o pool real**: se `ForgotPassword` respeita a
 mesma cota diária de e-mail do envio default do Cognito (ver seção "Envio de

@@ -2,22 +2,29 @@ import { CONFIRMATION_CODE_LENGTH } from './authConfirm';
 import { passwordPolicyMet } from './passwordPolicy';
 
 /**
- * Regras da recuperação de senha (T-108b, consumindo a T-108a).
+ * Regras da recuperação de senha (T-108b, consumindo a T-108a; T-115 ajustou
+ * o desfecho do reset).
  *
  * ## A doutrina do 204 que esta tela não pode reabrir
  *
- * `POST /api/auth/forgot-password` e `POST /api/auth/reset-password` respondem
- * **204 sempre** — inclusive e-mail sem cadastro, código errado/vencido ou
- * senha recusada pela política do pool (ver `router.ts` e
- * `packages/cognito-core/CLAUDE.md`). Só corpo malformado (400) ou falta de
- * configuração do Cognito (503) escapam disso, e os dois são falhas reais de
- * transporte, não uma resposta sobre a conta.
+ * `POST /api/auth/forgot-password` responde **204 sempre** — inclusive e-mail
+ * sem cadastro — porque é a única pergunta que a tela faz nesse ponto e
+ * confirmar/negar vazaria existência de conta. `POST /api/auth/reset-password`
+ * **não é mais 204 sempre desde a T-115**: `userNotFound` e qualquer erro
+ * inesperado continuam mascarados em 204 (mesmo motivo), mas código
+ * errado/vencido e senha fora da política do pool respondem 400 com mensagem
+ * própria — o usuário já digitou os dois, então diferenciá-los do sucesso não
+ * entrega nada sobre a conta (ver `router.ts` e `packages/cognito-core/CLAUDE.md`).
+ * Só corpo malformado (400 de formato) ou falta de configuração do Cognito
+ * (503) continuam sendo falhas reais de transporte, não uma resposta sobre a
+ * conta.
  *
  * Consequência para estas funções: elas só decidem **quando o botão trava**
- * (formato local, antes do POST) — nunca interpretam o resultado do POST como
- * prova de que o e-mail existe ou de que a senha trocou. Essa interpretação
- * fica fora daqui, no componente, que sempre volta ao login com um aviso
- * condicional ("se houver conta...", "se o código estava certo...").
+ * (formato local, antes do POST) — nunca interpretam 204 como prova de que o
+ * e-mail existe ou de que a senha trocou. Essa interpretação fica fora daqui,
+ * no componente: 204 vira um aviso condicional ("se houver conta...", "se o
+ * código estava certo..."), e um 400 de `reset-password` vira a mensagem real
+ * (ver `AuthApiError`/`resetPassword` em `api.ts` e o `catch` de `AuthPage`).
  */
 
 /**
