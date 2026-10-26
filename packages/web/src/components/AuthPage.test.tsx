@@ -344,7 +344,9 @@ describe('AuthPage — recuperação de senha (T-108b)', () => {
     await irAteTrocarSenha(user);
 
     resetImpl = () =>
-      Promise.reject(new AuthApiError('Senha nao atende aos requisitos da politica de senha.', null));
+      Promise.reject(
+        new AuthApiError('Senha nao atende aos requisitos da politica de senha.', null)
+      );
 
     await user.type(campo(/Código de confirmação/), '123456');
     await user.type(campo(/Senha nova/), SENHA_NOVA);
@@ -352,9 +354,7 @@ describe('AuthPage — recuperação de senha (T-108b)', () => {
     await user.click(botao('Trocar senha'));
 
     await waitFor(() =>
-      expect(
-        screen.getByText('Senha nao atende aos requisitos da politica de senha.')
-      ).toBeTruthy()
+      expect(screen.getByText('Senha nao atende aos requisitos da politica de senha.')).toBeTruthy()
     );
     expect(screen.getByRole('heading', { name: 'Nova senha' })).toBeTruthy();
   });
