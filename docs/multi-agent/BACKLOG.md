@@ -23,6 +23,10 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 > e T-115 (`reset-password` diferencia código errado/vencido e senha fraca do 204 mascarado)
 > **concluída** (PR #254) — detalhe no histórico de PRs, não repetir aqui. Fila vazia; próxima
 > tarefa a definir com o humano ou puxar das Candidatas abaixo.
+>
+> **Migração AWS PAUSADA (2026-11-04, decisão 9 do plano):** SQLite em arquivo também em staging;
+> sem Aurora/bastion/`packages/infra` por ora (custo fixo, só um usuário, produção incerta). Retomar
+> se for abrir para mais de um usuário ou se o staging precisar rodar em Lambda.
 
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 
@@ -38,7 +42,7 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 - **Dado morto no schema, à espera de um `DROP`** (migração destrutiva: tarefa própria, com dump para fora do repo antes): `users.password_hash` desde a T-106 (guarda hash de senha antiga sem serventia) e a tabela `hourly_quote_insights` desde a T-109a (ninguém escreve; ninguém nunca leu). Juntar as duas numa migração só.
 - **Webhook da Pluggy** (`item/*`) daria o `itemId` e o gatilho de sync, mas exige HTTPS público — depende de deploy (spec em `pluggy-core/CLAUDE.md`).
 - **Agente de insights ações/cripto** (decisão em `TODO-HUMANO.md`, 2026-10-15): informativo, não consultivo (CVM); função > LLM onde der; MCP depois. Depende da fase 3 AWS.
-- **Resto do passo 5 da migração AWS (T-114 concluiu só os candidatos já no formato-alvo)**: `auth-core`/`insights-core`/`bank-import-core` ainda usam `db` singleton (precisam de formato + `query` juntos, não só facade) e `expenses-core.createRecurringExpenseEntry`/`materializeRecurringExpenses` ficam em `db`/transação até o Postgres estar no ar (CTE testado 2x, não roda em SQLite — ver `TODO-HUMANO.md`).
+- **(Pausado, ver "Retomar aqui")** **Resto do passo 5 da migração AWS (T-114 concluiu só os candidatos já no formato-alvo)**: `auth-core`/`insights-core`/`bank-import-core` ainda usam `db` singleton (precisam de formato + `query` juntos, não só facade) e `expenses-core.createRecurringExpenseEntry`/`materializeRecurringExpenses` ficam em `db`/transação até o Postgres estar no ar (CTE testado 2x, não roda em SQLite — ver `TODO-HUMANO.md`).
 - **3 débitos da T-091d4** (achados do revisor, não-bloqueantes): `RendaFixaPage` ainda calcula o total de RF por conta própria em vez de reaproveitar `consolidateFixedIncome` (3ª implementação do mesmo conceito, mas essa página não combina manual+Pluggy então o risco de divergência é menor); o card "Investimentos" da Home mostra só Ações enquanto o hero já inclui RF (escopo de exibição, decisão de produto se quiser igualar); RF manual falhando tira a RF inteira do patrimônio, inclusive a parte da Pluggy que pode estar OK (design conservador documentado e testado, não bug).
 - Casing da API inconsistente; default silencioso `type: 'OUTRO'` no POST /api/income; ampliar `/admin`; backend de cripto; redesign de Alertas/Import (sem UI desde a T-026).
 
