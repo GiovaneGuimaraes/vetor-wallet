@@ -51,88 +51,43 @@ operacional das quatro regras; o motivo de cada uma fica aqui:
 - **Critério de aceite**: verificável + comando de teste.
 ```
 
-## Interface no Discord
+## Estado e comunicação ficam no repo
 
-O loop tem uma superfície opcional no Discord — 5 canais (`#backlog`, `#todo-ai`,
-`#todo-human`, `#docs-app`, `#agentic-system`), operada pelo orquestrador via
-[`tools/discord/`](../../tools/discord/README.md).
-
-**É só saída, mais decisões.** Não há canal de entrada: trabalho novo nasce na sessão do
-Claude Code, conversado. Status e pendências viajam bem por mensagem porque são conteúdo
-pronto e a resposta é um clique; *começar* trabalho exige ida e volta, que uma mensagem
-única não tem. Um `#new-tasks` e um daemon de Gateway existiram e foram removidos em
-2026-08-10 por isso — estão no git se o cenário mudar.
+O loop **não tem superfície externa**. Todo o estado vive em arquivos versionados que o agente lê
+direto, sem rede: `BACKLOG.md` (fila), `TODO-HUMANO.md` (pendências do humano) e os `CLAUDE.md`.
+Havia um espelho no Discord (5 canais, `bridge.mjs`, `discord-guard`, hook de leitura de
+reações); foi **removido em 2026-11-04** por ser uma segunda cópia do estado, que cobrava fetch a
+cada sessão e um guard no CI para não divergir. Está no git se o cenário mudar
+(`git log -- tools/discord`). O formato que o substitui (blocos de nota dentro do repo) ainda
+está por definir.
 
 Regras que valem sempre:
 
-- **REGRA DURA (2026-08-12): espelhar é parte de concluir, não um passo opcional no fim.**
-  Toda vez que o orquestrador **escreve no `BACKLOG.md` ou no `TODO-HUMANO.md`**, o espelho
-  correspondente vai junto — na **mesma resposta**, antes de reportar ao humano. Não existe
-  "atualizo o Discord depois": o humano acompanha o loop pelo celular, e markdown atualizado
-  com Discord parado é pior que Discord nenhum, porque ele confia no que está lendo lá.
-  Vale para: tarefa que muda de status, tarefa nova, pendência nova, decisão registrada,
-  tarefa concluída. Se o commit tocou um desses dois arquivos e nenhuma chamada ao
-  `bridge.mjs` aconteceu, o ciclo está incompleto.
-- **Tarefa concluída mexe em DOIS canais, não um** (regra dura, 2026-08-12 — pedido explícito
-  do humano). Ao concluir, faça os três passos como um bloco só:
-  1. o bloco da tarefa **sai** do `BACKLOG.md` (higiene);
-  2. a mensagem dela no **`#todo-ai`** é editada para `CONCLUIDA` **com o link da PR**;
-  3. o espelho do **`#backlog`** é editado — a tarefa sai da fila e entra na lista
-     "Concluídas desde o último espelho", e as tarefas que mudaram de posição refletem isso.
-  O passo 3 é o mais esquecido justamente por ser o que não tem mensagem própria: o `#backlog`
-  é **uma** mensagem editada, então quem só mexe no `#todo-ai` deixa a fila mentindo — mostrando
-  como pendente algo que já foi mergeado. É a visão que o humano abre primeiro.
-  *Origem*: em 2026-08-12 o humano cobrou — a T-088 foi espelhada, mas a T-089, o bloqueador
-  comercial da Pluggy e o incidente de privacidade ficaram só no git por três atualizações.
-- **REGRA DURA (2026-08-15): colher resposta é o passo 0, não um favor do humano.** O loop
-  escrevia no `#todo-human` e nunca voltava para ler. A pendência da T-091b (remover Metas)
-  ficou **dois dias** com a resposta dada — reação 2️⃣ na mensagem — e só foi vista porque o
-  humano abriu a sessão dizendo "veja a resposta no Discord". Enquanto isso a tarefa constava
-  BLOQUEADA e o orquestrador replanejava em torno de uma pergunta já respondida. O campo
-  `lastSeen.todoHuman` do `discord-state.json` existe para isso e estava parado.
-  **Desde 2026-08-15 isso não depende mais de memória**: o hook `SessionStart` roda
-  `tools/colher-respostas.mjs`, que varre as pendências ABERTAS do `discord-state.json`
-  (aberta = sem `status` RESOLVIDO/RESPONDIDO/AUTORIZADO e `modo` diferente de "so aviso"),
-  lê as reações do humano — só o `doHumano` conta, o 👀 do próprio bot é ack — e as mensagens
-  novas depois do `lastSeen.todoHuman`. O resultado chega no contexto no início da sessão.
-  O que continua sendo trabalho do orquestrador: **transcrever** para o campo "Resposta do
-  humano" do `TODO-HUMANO.md` antes de escolher a próxima tarefa, e atualizar o `lastSeen`.
-  Se a linha disser "não consegui ler o Discord", colha à mão com `bridge.mjs reactions` —
-  o script degrada de propósito em vez de travar a sessão, e silêncio dele não é "sem resposta".
+- **O humano responde no `TODO-HUMANO.md`** (campo "Resposta do humano") ou na conversa da
+  sessão. No início de cada sessão o orquestrador lê o arquivo: pendência com resposta e tarefa
+  `BLOQUEADA` por ela → a tarefa volta à fila antes de escolher a próxima.
 - **Migração destrutiva vai em duas etapas, com o humano confirmando entre elas** (regra
   criada na T-091b, 2026-08-14): a etapa 1 tira o recurso da **UI e da API** sem apagar uma
   linha; a etapa 2 dropa o dado, e **só roda com confirmação explícita** depois de o humano
   ver o app sem o recurso. Entre as duas, desfazer é reverter código; depois da segunda, não
   há desfazer — não existe backup do `wallet.db`. A etapa 2 leva **dump para fora do repo**
   (que é público) como passo da tarefa, salvo recusa explícita do humano.
-- **Discord é interface, não fonte da verdade.** `BACKLOG.md` e `TODO-HUMANO.md` continuam
-  sendo o estado real; as mensagens são espelhos editáveis. Divergiu? O markdown ganha.
-- **Dado sensível não atravessa a ponte.** Valor real de conta do humano, saldo, nome de
-  estabelecimento, id de conta/item, credencial: nada disso vai para o Discord (nem para
-  arquivo versionado — ver `CLAUDE.md` da raiz). Descreva relativo: "a maior parte do débito
-  do mês", nunca o número. Uma mensagem já postada com dado assim precisa de `edit`, e o
-  `edit` **não** notifica — então o vazamento fica silencioso se ninguém olhar.
-- **Só o orquestrador escreve no Discord e em `discord-state.json`** — mesma regra do
-  `BACKLOG.md`, para não haver conflito de escrita entre worktrees. Executores seguem
-  reportando ao orquestrador. Continua sendo regra de prompt, não trava — nunca foi violada
-  (ver "Travas executáveis" sobre o hook que foi criado para isto e removido no mesmo dia).
-- O humano confirma por reação (✅ aprova · ❌ recusa · 🔁 refaz) ou por resposta em texto;
-  o orquestrador transcreve a resposta para o campo "Resposta do humano" do `TODO-HUMANO.md`,
-  que segue sendo o registro permanente da decisão.
-- **Ao fechar uma onda de tarefas, atualize o `#docs-app`** (mensagem única, editada) com o
-  resumo legível do app. É vista derivada dos `CLAUDE.md` de package e de `docs/decisions/` —
-  nunca uma quarta cópia de "o que o app é". Se divergir do repo, o repo ganha.
+- **Dado sensível não entra em arquivo versionado, PR nem commit.** Valor real de conta do
+  humano, saldo, nome de estabelecimento, id de conta/item, credencial — ver `CLAUDE.md` da
+  raiz. Descreva relativo: "a maior parte do débito do mês", nunca o número.
+- **Só o orquestrador escreve no `BACKLOG.md`** — para não haver conflito de escrita entre
+  worktrees. Executores reportam ao orquestrador. Continua sendo regra de prompt, não trava —
+  nunca foi violada (ver "Travas executáveis" sobre o hook que foi criado para isto e removido
+  no mesmo dia).
 
 ## O loop fechado
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ 0. COLHER RESPOSTAS — automático desde 2026-08-15        │
-│    O hook SessionStart roda tools/colher-respostas.mjs   │
-│    e injeta reações/respostas novas no contexto.         │
-│    Achou? transcreve para o markdown, atualiza o         │
-│    lastSeen e a tarefa BLOQUEADA volta à fila.           │
-│    Degradou ("não consegui ler")? colha à mão.           │
+│ 0. LER RESPOSTAS — início de cada sessão                │
+│    Lê o TODO-HUMANO.md. Pendência com "Resposta do      │
+│    humano" preenchida? A tarefa BLOQUEADA por ela       │
+│    volta à fila antes de escolher a próxima.            │
 │                        │                                 │
 │ 1. PLANEJAR (orquestrador / Fable)                       │
 │    Lê ORQUESTRADOR.md + CLAUDE.md + BACKLOG.md           │
@@ -179,28 +134,19 @@ Regras que valem sempre:
 | Trava | Onde roda | O que impede |
 |---|---|---|
 | `pnpm backlog:check` | CI | backlog acima de 8 KB ou tarefa CONCLUIDA parada nele |
-| `pnpm discord:check` | CI | commit em `BACKLOG.md`/`TODO-HUMANO.md` mais novo que o espelho |
-| `tools/colher-respostas.mjs` | hook `SessionStart` | o passo 0 depender de o orquestrador lembrar |
 | ruleset "main protegida" | GitHub | `non_fast_forward` e `deletion` na `main` |
 
-O hook vive em [`.claude/settings.json`](../../.claude/settings.json) e **vale automaticamente** —
-settings de projeto são carregados sob o *workspace trust* da pasta, e edição direta no arquivo é
-pega pelo file watcher na sessão em curso, sem reiniciar. Não há passo de aceite: `/hooks` é um
-**navegador read-only** (mostra evento, matcher, comando e de qual settings veio) e serve para
-auditar, não para aprovar. Ele **falha aberto**: erro próprio libera e imprime que degradou. Um
-guard de higiene que trava a sessão por bug próprio custa mais que a regra que ele protege. (Quem
-falha *fechado* é o gate `ENVIRONMENT` da Pluggy — lá o desfecho de um typo seria violar
-contrato, não perder higiene.)
-
-**O critério tem lado negativo, e ele foi exercido no mesmo dia.** Junto com o hook do passo 0
-nasceu um segundo, `PreToolUse`, que bloqueava worktree de escrever em `BACKLOG.md`,
-`discord-state.json` e no Discord. Foi **removido horas depois**, a pedido do humano, por não
-passar no próprio critério: essa regra nunca foi violada — nenhuma vez, muito menos duas. Era
+**O critério tem lado negativo, e ele foi exercido no mesmo dia.** Em 2026-08-15 nasceu um hook
+`PreToolUse` que bloqueava worktree de escrever em `BACKLOG.md`, `discord-state.json` e no
+Discord. Foi **removido horas depois**, a pedido do humano, por não passar no próprio critério: essa regra nunca foi violada — nenhuma vez, muito menos duas. Era
 trava para falha hipotética, exatamente o "existir prematuramente" que o custo de um graph
 prematuro cobra. E o preço era real: `PreToolUse` em `Write|Edit|Bash` paga **~264 ms de startup
 do Node por chamada** (Windows), em toda edição de toda sessão. A regra voltou para onde já
 funcionava, o prompt do executor. Se um dia um executor de fato escrever no backlog de dentro de
 um worktree, ela cumpre o critério e a trava volta — aí com o custo justificado.
+
+(O hook `SessionStart` que lia as respostas do Discord no passo 0 saiu em 2026-11-04, junto com
+a integração: sem Discord, o passo 0 é ler o `TODO-HUMANO.md`, que já está no repo.)
 
 ## Roteamento de modelos (quem roda em quê)
 
@@ -232,7 +178,7 @@ Regras complementares:
 
 O que fecha uma tarefa é **evidência**, não a afirmação de que ela terminou. Concretamente:
 
-- O orquestrador **não aceita "testes passaram"** vindo do relatório do executor nem do revisor. O gate é o **check do CI na PR** (`pnpm build`, `lint`, `format:check`, `backlog:check`, `discord:check`, `pnpm test`). Relatório vale para saber *o que foi feito* e *o que ficou de fora*; não vale como prova de que funciona.
+- O orquestrador **não aceita "testes passaram"** vindo do relatório do executor nem do revisor. O gate é o **check do CI na PR** (`pnpm build`, `lint`, `format:check`, `backlog:check`, `pnpm test`). Relatório vale para saber *o que foi feito* e *o que ficou de fora*; não vale como prova de que funciona.
 - Isso já mordeu: na **T-095** o Haiku entregou o código certo e o **relatório errado** — alegou uma falha que não existia. Se o veredito dependesse da prosa, a tarefa teria sido rejeitada por um problema inventado.
 - **Merge com CI vermelho continua tecnicamente possível** (o ruleset é o nível mínimo — ver `TODO-HUMANO.md`, 2026-08-10). Enquanto for, esta regra é a única coisa entre um relatório otimista e a `main`: **espere o check** antes do merge.
 - **Risco que nenhum teste cobre exige execução, não leitura** — o `snapshotScheduler` roda no boot e nenhum teste pega se ele parar de ser chamado (T-099c). Nesses pontos, a evidência é subir o código e observar; ler o diff não é evidência.
