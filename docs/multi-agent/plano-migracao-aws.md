@@ -1,5 +1,12 @@
 # Plano — levar o app para a AWS: Postgres na Aurora, API REST no API Gateway
 
+> **PAUSADO (2026-11-04, decisão 9): o app segue em SQLite em arquivo, inclusive em staging.**
+> Só o humano testa, produção não é certa e Aurora + bastion + rede privada têm custo fixo real.
+> **Não há Aurora, bastion nem Lambda de query a criar por ora** (passos 6 e 7 da §5.4 pausados).
+> O que já foi construído fica como está: `packages/postgresdb` (schema provado contra Postgres
+> local), `packages/query` e o `docker-compose` — servem para retomar sem refazer. O resto deste
+> documento é o desenho de **quando** retomar; critérios de retomada na decisão 9 (§8).
+
 > **Virada de rumo (2026-09-20): o AppSync e o Relay SAÍRAM do plano.** O humano
 > avaliou que o app é simples demais para pagar o preço deles, e concordo — o
 > raciocínio está na §1.1. O arquivo mudou de nome (`plano-appsync-relay.md` →
@@ -288,14 +295,9 @@ Cada passo é uma coisa só e dá para parar entre eles. **(H)** = só o humano 
    `{ sql, args }`, `$1` em vez de `?`, `RETURNING id` no lugar de `lastInsertRowid`,
    `rowCount` no lugar de `rowsAffected`. **É aqui que os 176 pontos são tocados** — um package
    por PR.
-6. **Rede e banco na AWS** — agora é código nosso, por causa da decisão 2 (§8.1): `packages/infra`
-   com um `ensureX` por recurso (VPC, subnets, security groups, endpoint do Secrets Manager,
-   Aurora Serverless v2 com capacidade mínima no menor valor aceitável) **+ um bastion EC2 mínimo
-   para acesso de operador** (decisão 7, 2026-10-23 — ver abaixo). Eu escrevo, **(H)** roda
-   com as credenciais dele — credencial de deploy nunca passa por mim. Os segredos vão para o
-   Secrets Manager e os ids dos recursos para o **SSM Parameter Store**, nunca para o repo.
-7. **Deploy do `lambda-postgres-query`** (eu escrevo, humano roda o deploy): os dois Lambdas na
-   VPC, read e write, pelo mesmo `ensureX` do passo 6.
+6. ~~**Rede e banco na AWS**~~ **PAUSADO (decisão 9, 2026-11-04).** Seria `packages/infra` com
+   `ensureX` por recurso (VPC, Aurora Serverless v2, bastion EC2 + SSM) — não escrito.
+7. ~~**Deploy do `lambda-postgres-query`**~~ **PAUSADO (decisão 9)**, depende do passo 6.
 8. ~~**(H) Migrar os dados.**~~ **REMOVIDO da fase 1 (decisão 8, 2026-10-23)**: a Aurora nasce
    **vazia**, com só o schema aplicado (já provado via `db:sync`, T-112) — não há dump do
    `wallet.db`, não há conversão de tipo, não há conferência de contagem/soma. O histórico do
@@ -402,6 +404,14 @@ migração de banco. A 1 é melhor no fim, quando houver menos coisa se mexendo 
   hoje no SQLite **não atravessa** e fica inacessível pelo app depois que o SQLite for desligado.
   Quem quiser um backup pessoal (fora do repo, sem recriar no Postgres) deve pedir antes do corte
   acontecer — não é passo automático desta migração.
+- **9 — banco em staging: RESPONDIDA em 2026-11-04 — manter SQLite em arquivo; Aurora/bastion
+  adiados.** Motivo: só o humano usa o app, produção para terceiros não é certa, e a Aurora cobra
+  capacidade mínima + rede (NAT/endpoints) enquanto existe. **Condição que isto impõe:** o staging
+  precisa de disco persistente (máquina ou container com volume) — SQLite não sobrevive em Lambda.
+  **Retomar a migração se:** (a) houver decisão de abrir para mais de um usuário/produção, ou
+  (b) o staging precisar rodar em Lambda/API Gateway (fase 3). Se (b) vier antes de (a), avaliar
+  um Postgres gerenciado pequeno antes de montar a Aurora completa. O `.db` nunca é versionado
+  (`.gitignore`: `*.db`, `packages/*/data/`); o backup do arquivo é responsabilidade do humano.
 
 ### 8.1 Deploy: SDK puro para o que já existe, `carlin` liberado por recurso novo
 

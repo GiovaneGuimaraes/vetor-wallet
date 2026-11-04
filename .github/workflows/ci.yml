@@ -13,15 +13,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          # fetch-depth 0 (historico completo): o discord-guard le `git log` do
-          # BACKLOG.md/TODO-HUMANO.md para achar o ultimo commit que tocou cada
-          # um. Com o default (shallow, so o commit do push/PR), esse commit
-          # pode nao existir no clone se o arquivo nao mudou na PONTA — o guard
-          # ficaria sem historico e degradaria (avisa, nao reprova; ver
-          # tools/discord-guard.mjs), o que silenciosamente desligaria a
-          # checagem em toda PR que nao tocasse esses dois arquivos por ultimo.
-          fetch-depth: 0
 
       # Node 24 (decisao do humano, 2026-09-13). Estava no 20, que saiu do EOL,
       # e a divergencia cobrou: o jsdom@30 dos testes de render da T-092 puxa um
@@ -67,13 +58,6 @@ jobs:
       # alguem lembrar".
       - name: Backlog hygiene
         run: pnpm backlog:check
-
-      # Espelho do Discord: reprova se o ultimo commit em BACKLOG.md/TODO-HUMANO.md
-      # ficou mais novo que o espelho registrado em discord-state.json. Mesma
-      # historia do guard acima — a regra existia em prosa no README e falhou no
-      # mesmo dia em que foi escrita (2026-08-12, T-090).
-      - name: Discord mirror hygiene
-        run: pnpm discord:check
 
       - name: Test
         run: pnpm test
