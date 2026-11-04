@@ -8,8 +8,15 @@ arquitetura em módulos). Categoria **Core**, módulo **BankImport** (ver
 
 Escreve em `income_entries` e `expense_entries` — tabelas cujas *regras* são do
 módulo Expenses/Income — mas o dono da **política de importação** (chave de
-origem, unicidade parcial, o que é duplicata) é este package; por isso importa
-`@vetor-wallet/db`. "Core" é *dono das regras do domínio*, não *nunca faz I/O*.
+origem, unicidade parcial, o que é duplicata) é este package. "Core" é *dono das
+regras do domínio*, não *nunca faz I/O*.
+
+**Formato-alvo desde a T-116c (passo 5 da migração AWS):** 1 função por arquivo,
+`query` (`@vetor-wallet/query`) INJETADO no lugar do `db` — quem constrói o
+client (rota, `cli`) faz `createSqliteQuery(db)`. SQL em `$1`, `$2` (nunca o
+mesmo `$N` duas vezes), `RETURNING id`, `rowCount`. **Única exceção:**
+`wipeUserFinancialEntries` segue com `db: Db` + `db.batch` (ver abaixo); é por
+ela que o package ainda depende de `@vetor-wallet/db`.
 
 As seções T-084/T-085/T-086 abaixo vieram de `packages/expenses-core/CLAUDE.md`
 (onde estavam marcadas "Ainda por mover") — lá restou só um ponteiro para cá.
@@ -21,24 +28,29 @@ são de `@vetor-wallet/validation-core` (transversais, T-099a).
 
 ```
 src/
-├── externalId.ts        # validateExternalId (pura), insertEntryWithExternalId
-│                        # (INSERT-first + tradução da violação de unicidade),
-│                        # duplicateEntryResponse
+├── MAX_EXTERNAL_ID_LENGTH.ts / EntryTable.ts
+├── validateExternalId.ts        # pura
+├── insertEntryWithExternalId.ts # INSERT … ON CONFLICT DO NOTHING RETURNING id
+│                        # (sem linha = duplicata; ver "Dedupe" abaixo)
+├── duplicateEntryResponse.ts
 ├── ofx.ts               # decodeOfx (charset pelo header), parseOfx (scanner
 │                        # tag→valor dos dois dialetos), parseOfxDate/Amount,
 │                        # ofxExternalId, mapOfxTransaction
 ├── pluggy.ts            # pluggyExternalId, parsePluggyDate,
 │                        # mapPluggyTransaction (sinal × type, PENDING, BRL),
-│                        # importPluggyTransactions (relatório + dry-run)
+│                        # (puro, sem banco)
+├── importPluggyTransactions.ts # relatório + dry-run; `query` injetado
 ├── internalMovement.ts  # classifyInternalMovement — a lista fechada de
 │                        # categorias da Pluggy que NÃO viram lançamento (T-088)
-├── PluggyItem.ts        # PluggyItem + toPluggyItem (T-089a)
+├── PluggyItem.ts        # o tipo (T-089a); toPluggyItem.ts e
+│                        # UNKNOWN_PLUGGY_ITEM_STATUS.ts em arquivo próprio
 ├── PluggyItemError.ts   # erro tipado (INVALID_ITEM_ID, ITEM_ALREADY_LINKED)
 ├── linkPluggyItem.ts    # upsert idempotente de um item para um usuário
 ├── listPluggyItems.ts   # os items de UM usuário (sempre filtrado)
 ├── unlinkPluggyItem.ts  # remove o vínculo (false = não é seu / não existe)
 ├── syncPluggyItems.ts   # itera os N items do usuário, isolando falhas;
 │                        # recebe o client da Pluggy INJETADO
+├── wipeUserFinancialEntries.ts # modo replace; ÚNICA função com `db`
 ├── __fixtures__/ofx.ts  # fixtures dos dois dialetos, compartilhadas com o
 │                        # teste de rota do server (não é `.test.ts` de propósito)
 └── index.ts             # barrel
@@ -78,7 +90,7 @@ resolveria para `.../src/index.ts/fixtures`. As fixtures ficam fora do build
 
 `expense_entries.external_id` guarda o id da transação no sistema de **origem** (`ofx:<FITID>`, `pluggy:<id>` — a prefixação é convenção dos importadores, **não** validada pela rota); `NULL` = lançamento digitado à mão, a maioria das linhas. A unicidade é um índice **parcial** `(user_id, external_id) WHERE external_id IS NOT NULL` (ver `db-schema.md`): dois usuários podem importar o mesmo FITID, e as linhas manuais ficam fora do índice.
 
-- **A idempotência é do banco, não do código** (mesma decisão da T-035): `POST /api/expense-entries` faz o INSERT primeiro e traduz a violação de unicidade em resposta de duplicata (`insertEntryWithExternalId`, em `src/externalId.ts`). Um SELECT-antes-do-INSERT seria TOCTOU — duas requests paralelas passariam as duas pela checagem e a segunda viraria 500.
+- **A idempotência é do banco, não do código** (mesma decisão da T-035): `POST /api/expense-entries` faz o INSERT primeiro e traduz o conflito em resposta de duplicata (`insertEntryWithExternalId`, em `src/insertEntryWithExternalId.ts`). **Desde a T-116c o INSERT é `ON CONFLICT (user_id, external_id) WHERE external_id IS NOT NULL DO NOTHING RETURNING id` e "nenhuma linha devolvida" é a duplicata — não há `catch` de exceção.** Motivo: o `isUniqueViolation` de `@vetor-wallet/query` só reconhece o `23505` do Postgres; sobre `createSqliteQuery` o erro do SQLite (`SQLITE_CONSTRAINT_UNIQUE`) não casaria e a duplicata viraria 500 **sem quebrar build nem tipo**. A cláusula roda igual nos dois bancos, então a dedupe não depende de qual backend está no ar. Provado por teste contra SQLite real (`insertEntryWithExternalId.test.ts`, `pluggyImport.test.ts`) e contra um `Query` de mentira que devolve zero linhas. Um SELECT-antes-do-INSERT seria TOCTOU — duas requests paralelas passariam as duas pela checagem e a segunda viraria 500.
 - **Duplicata unitária responde `409`** `{ error, duplicate: true, entry }`, com a linha já existente no corpo (dá o `id` sem busca extra). `200` + flag seria ignorável por clientes que fazem append otimista, e `201` mentiria. Convenção para a importação em lote (endpoint de arquivo, T-085): duplicata **não** é 409 — vira uma linha do relatório com `200`.
 - **`externalId` é validado** por `validateExternalId` (pura, testada): `undefined`/`null` = ausente; `trim()` antes de gravar/comparar (senão `' FIT-1 '` e `'FIT-1'` seriam chaves diferentes); vazio após trim → `400` (string vazia de importador é bug, e engoli-la desligaria o dedupe); máx. 255 chars (limite de FITID na spec OFX; ids Pluggy são UUIDs); sem restrição de charset nem normalização de caixa.
 - **`externalId` + `recurring: true` → `400`**: nenhum importador cria recorrência, e os dois mecanismos de idempotência não se misturam (as ocorrências futuras não teriam id de origem para herdar).
@@ -231,13 +243,10 @@ Decisões travadas:
   não é "0 contas importadas, sucesso": é a falha silenciosa mais provável da
   integração, e o CLI responde com a mensagem acionável (rode `pluggy:link`).
   Mesma razão de item existente **sem nenhuma conta** contar como falha.
-- **`db` chega injetado** nas funções novas (`linkPluggyItem`, `listPluggyItems`,
-  `unlinkPluggyItem`, `syncPluggyItems`) — é o formato-alvo de
-  `docs/PACKAGES.md`. Divergência consciente: `importPluggyTransactions` e
-  `insertEntryWithExternalId` seguem usando o singleton, e trocar a assinatura
-  delas arrastaria as rotas de income/expense entries. Essa unificação é da
-  migração deste package (T-104), não desta tarefa. O runner segue Vitest com
-  teste ao lado, pela mesma razão.
+- **`query` chega injetado** em todas as funções que tocam banco, exceto
+  `wipeUserFinancialEntries` (T-116c). `importPluggyTransactions` e
+  `insertEntryWithExternalId` deixaram o singleton `db` na T-116c; `syncPluggyItems`
+  repassa o `query` a `listPluggyItems` e `importPluggyTransactions`.
 
 ## Movimentação interna não vira lançamento (T-088)
 
@@ -310,6 +319,7 @@ humano (2026-08-12), tomada com o risco apresentado e depois de as alternativas
 mais estreitas (só as linhas `pluggy:*`; só a janela sincronizada) terem sido
 recusadas explicitamente.
 
+- **Os três DELETEs vão num `db.batch` só — e por isso esta função NÃO migrou para `query` (T-116c).** O `Query` não tem batch nem transação por proxy, e a CTE com `DELETE` só roda em Postgres (o SQLite rejeita escrita em `WITH`). Três chamadas sequenciais abririam a janela "despesas apagadas, rendas não" numa operação sem volta. Pendência em `docs/multi-agent/TODO-HUMANO.md`; vira CTE única quando o Postgres estiver no ar.
 - **Os três DELETEs vão num `db.batch` só.** Meio caminho — despesas apagadas e
   rendas não — inventaria um mês negativo, e não há desfazer.
 - **A poupança não volta**: a importação escreve renda e despesa, nunca
@@ -329,7 +339,12 @@ recusadas explicitamente.
 
 ## Convenções
 
-- Teste ao lado do código (`src/**/*.test.ts`), Vitest. Teste que toca banco
+- Testes em `tests/unit/tests/`, importando por `src/...`. **Runner segue Vitest**
+  (como `cognito-core`/`pluggy-core`): as suítes de SQL rodam contra SQLite real,
+  e é isso que prova a dedupe/upsert/DELETE — portar para Jest só trocaria o
+  runner sem ganho. Cobertura medida (`vitest run --coverage`), **não imposta**:
+  os parsers `ofx.ts`/`pluggy.ts` têm ramos sem teste desde antes da T-116c
+  (fechar é tarefa própria). Teste que toca banco
   define `DATABASE_URL` **antes** do `await import('@vetor-wallet/db')` — o
   client lê o env no top-level do módulo.
 

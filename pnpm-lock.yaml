@@ -94,12 +94,12 @@ importers:
 
   packages/bank-import-core:
     dependencies:
-      '@libsql/client':
-        specifier: ^0.14.0
-        version: 0.14.0
       '@vetor-wallet/db':
         specifier: workspace:*
         version: link:../db
+      '@vetor-wallet/query':
+        specifier: workspace:*
+        version: link:../query
       '@vetor-wallet/validation-core':
         specifier: workspace:*
         version: link:../validation-core
@@ -159,6 +159,9 @@ importers:
       '@vetor-wallet/pluggy-core':
         specifier: workspace:*
         version: link:../pluggy-core
+      '@vetor-wallet/query':
+        specifier: workspace:*
+        version: link:../query
       '@vetor-wallet/shared':
         specifier: workspace:*
         version: link:../shared

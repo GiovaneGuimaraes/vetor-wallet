@@ -17,6 +17,7 @@
 
 import 'dotenv/config';
 import { db, initDb } from '@vetor-wallet/db';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import { isValidIsoDate } from '@vetor-wallet/validation-core';
 import { fetchPluggyAccounts, fetchPluggyTransactions } from '@vetor-wallet/pluggy-core';
 import {
@@ -90,6 +91,7 @@ async function main(): Promise<void> {
   const dateFrom = dateArg ?? defaultDateFrom();
 
   await initDb();
+  const query = createSqliteQuery(db);
   const userId = await resolvePluggyUserId(args);
 
   console.log(
@@ -98,7 +100,7 @@ async function main(): Promise<void> {
   );
 
   const report = await syncPluggyItems({
-    db,
+    query,
     userId,
     dateFrom,
     dryRun,

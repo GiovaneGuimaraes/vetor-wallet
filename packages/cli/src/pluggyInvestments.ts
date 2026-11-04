@@ -20,6 +20,7 @@
 
 import 'dotenv/config';
 import { db, initDb } from '@vetor-wallet/db';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import { listPluggyItems } from '@vetor-wallet/bank-import-core';
 import { fetchPluggyInvestments, summarizePluggyInvestments } from '@vetor-wallet/pluggy-core';
 import { maskItemId, resolvePluggyUserId } from './pluggyCli';
@@ -29,8 +30,9 @@ async function main(): Promise<void> {
   const dryRun = args.includes('--dry-run');
 
   await initDb();
+  const query = createSqliteQuery(db);
   const userId = await resolvePluggyUserId(args);
-  const items = await listPluggyItems({ db, userId });
+  const items = await listPluggyItems({ query, userId });
 
   if (items.length === 0) {
     console.error(

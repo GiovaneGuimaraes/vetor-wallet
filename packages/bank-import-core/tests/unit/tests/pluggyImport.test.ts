@@ -17,13 +17,15 @@ process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
 // `import type` é apagado na compilação: não carrega o módulo (que importaria
 // `db`) antes do set de DATABASE_URL acima.
-import type { RawPluggyTransaction } from './pluggy';
+import type { Query } from '@vetor-wallet/query';
+import type { RawPluggyTransaction } from 'src/pluggy';
 
 type Db = (typeof import('@vetor-wallet/db'))['db'];
-type PluggyModule = typeof import('./pluggy');
+type ImportModule = typeof import('src/importPluggyTransactions');
 
 let db: Db;
-let pluggy: PluggyModule;
+let importPluggyTransactions: ImportModule['importPluggyTransactions'];
+let query: Query;
 let userId: number;
 
 function raw(overrides: Partial<RawPluggyTransaction> = {}): RawPluggyTransaction {
@@ -45,7 +47,10 @@ beforeAll(async () => {
   const dbMod = await import('@vetor-wallet/db');
   db = dbMod.db;
   await dbMod.initDb();
-  pluggy = await import('./pluggy');
+  const { createSqliteQuery } = await import('@vetor-wallet/query');
+  query = createSqliteQuery(db);
+  importPluggyTransactions = (await import('src/importPluggyTransactions'))
+    .importPluggyTransactions;
 });
 
 beforeEach(async () => {
@@ -67,7 +72,8 @@ async function countEntries(): Promise<{ income: number; expense: number }> {
 
 describe('importPluggyTransactions — gravação (T-087)', () => {
   it('grava débito em expense_entries e crédito em income_entries, com external_id prefixado', async () => {
-    const result = await pluggy.importPluggyTransactions({
+    const result = await importPluggyTransactions({
+      query,
       userId,
       transactions: [
         raw({ id: 'tx-debito' }),
@@ -100,11 +106,11 @@ describe('importPluggyTransactions — gravação (T-087)', () => {
       raw({ id: 'tx-c', type: 'CREDIT', amount: 300 }),
     ];
 
-    const first = await pluggy.importPluggyTransactions({ userId, transactions });
+    const first = await importPluggyTransactions({ query, userId, transactions });
     expect(first).toMatchObject({ imported: 3, duplicated: 0 });
     expect(await countEntries()).toEqual({ income: 1, expense: 2 });
 
-    const second = await pluggy.importPluggyTransactions({ userId, transactions });
+    const second = await importPluggyTransactions({ query, userId, transactions });
     expect(second).toMatchObject({ imported: 0, duplicated: 3, rejected: 0, skipped: 0 });
     expect(second.transactions.every((t) => t.status === 'duplicated')).toBe(true);
     // Nada de novo no banco.
@@ -118,7 +124,8 @@ describe('importPluggyTransactions — gravação (T-087)', () => {
   });
 
   it('id repetido DENTRO do mesmo lote cai como duplicata (INSERTs sequenciais)', async () => {
-    const result = await pluggy.importPluggyTransactions({
+    const result = await importPluggyTransactions({
+      query,
       userId,
       transactions: [raw({ id: 'tx-repetido' }), raw({ id: 'tx-repetido' })],
     });
@@ -129,7 +136,8 @@ describe('importPluggyTransactions — gravação (T-087)', () => {
 
   it('a transação PENDING não grava; quando volta POSTED, grava (armadilha de idempotência)', async () => {
     // 1ª passagem: pendente, com valor PROVISÓRIO.
-    const pending = await pluggy.importPluggyTransactions({
+    const pending = await importPluggyTransactions({
+      query,
       userId,
       transactions: [raw({ id: 'tx-pend', amount: -10, status: 'PENDING' })],
     });
@@ -138,7 +146,8 @@ describe('importPluggyTransactions — gravação (T-087)', () => {
     expect((await countEntries()).expense).toBe(0);
 
     // 2ª passagem: mesma transação efetivada, com o valor DEFINITIVO.
-    const posted = await pluggy.importPluggyTransactions({
+    const posted = await importPluggyTransactions({
+      query,
       userId,
       transactions: [raw({ id: 'tx-pend', amount: -12.35, status: 'POSTED' })],
     });
@@ -154,7 +163,8 @@ describe('importPluggyTransactions — gravação (T-087)', () => {
   });
 
   it('mistura desfechos num relatório só, sem derrubar o lote', async () => {
-    const result = await pluggy.importPluggyTransactions({
+    const result = await importPluggyTransactions({
+      query,
       userId,
       transactions: [
         raw({ id: 'tx-ok' }),
@@ -183,8 +193,9 @@ describe('importPluggyTransactions — gravação (T-087)', () => {
     });
     const otherId = Number(other.lastInsertRowid ?? 0);
 
-    await pluggy.importPluggyTransactions({ userId, transactions: [raw({ id: 'tx-x' })] });
-    const second = await pluggy.importPluggyTransactions({
+    await importPluggyTransactions({ query, userId, transactions: [raw({ id: 'tx-x' })] });
+    const second = await importPluggyTransactions({
+      query,
       userId: otherId,
       transactions: [raw({ id: 'tx-x' })],
     });
@@ -235,10 +246,7 @@ describe('importPluggyTransactions — movimentação interna (T-088)', () => {
   ];
 
   it('o mês importado tem SÓ o gasto real — aplicação, resgate e fatura não entram', async () => {
-    const result = await pluggy.importPluggyTransactions({
-      userId,
-      transactions: mesRealista,
-    });
+    const result = await importPluggyTransactions({ query, userId, transactions: mesRealista });
 
     expect(result).toMatchObject({ imported: 1, internal: 4, rejected: 0, skipped: 0 });
     expect(await countEntries()).toEqual({ income: 0, expense: 1 });
@@ -254,10 +262,7 @@ describe('importPluggyTransactions — movimentação interna (T-088)', () => {
   });
 
   it('cada linha interna vem com o motivo no relatório, e nunca como `rejected`', async () => {
-    const result = await pluggy.importPluggyTransactions({
-      userId,
-      transactions: mesRealista,
-    });
+    const result = await importPluggyTransactions({ query, userId, transactions: mesRealista });
 
     const internas = result.transactions.filter((t) => t.status === 'internal');
     expect(internas).toHaveLength(4);
@@ -273,7 +278,8 @@ describe('importPluggyTransactions — movimentação interna (T-088)', () => {
   });
 
   it('transferência a TERCEIROS (`Transfers`) segue sendo lançamento real', async () => {
-    const result = await pluggy.importPluggyTransactions({
+    const result = await importPluggyTransactions({
+      query,
       userId,
       transactions: [
         raw({ id: 'tx-pix-amigo', amount: -80, description: 'Pix enviado', category: 'Transfers' }),
@@ -294,15 +300,13 @@ describe('importPluggyTransactions — movimentação interna (T-088)', () => {
   it('interna NÃO consome a chave: quando o layer de investimentos existir, reimportar funciona', async () => {
     const aplicacao = raw({ id: 'tx-aplicacao', amount: -5000, category: 'Investments' });
 
-    const primeira = await pluggy.importPluggyTransactions({
-      userId,
-      transactions: [aplicacao],
-    });
+    const primeira = await importPluggyTransactions({ query, userId, transactions: [aplicacao] });
     expect(primeira).toMatchObject({ internal: 1, imported: 0 });
 
     // Mesma transação, agora sem a categoria que a marcava como interna —
     // prova que o `external_id` seguiu livre (nada foi gravado no banco).
-    const segunda = await pluggy.importPluggyTransactions({
+    const segunda = await importPluggyTransactions({
+      query,
       userId,
       transactions: [{ ...aplicacao, category: null }],
     });
@@ -310,7 +314,8 @@ describe('importPluggyTransactions — movimentação interna (T-088)', () => {
   });
 
   it('interna é interna também no dry-run — o desfecho não muda entre as modalidades', async () => {
-    const result = await pluggy.importPluggyTransactions({
+    const result = await importPluggyTransactions({
+      query,
       userId,
       dryRun: true,
       transactions: mesRealista,
@@ -323,7 +328,8 @@ describe('importPluggyTransactions — movimentação interna (T-088)', () => {
 
 describe('importPluggyTransactions — dry-run (T-087)', () => {
   it('não grava NADA e marca as linhas mapeadas como `previewed`', async () => {
-    const result = await pluggy.importPluggyTransactions({
+    const result = await importPluggyTransactions({
+      query,
       userId,
       dryRun: true,
       transactions: [
@@ -351,8 +357,8 @@ describe('importPluggyTransactions — dry-run (T-087)', () => {
   });
 
   it('dry-run não consome a chave: a gravação seguinte importa normalmente', async () => {
-    await pluggy.importPluggyTransactions({ userId, dryRun: true, transactions: [raw()] });
-    const real = await pluggy.importPluggyTransactions({ userId, transactions: [raw()] });
+    await importPluggyTransactions({ query, userId, dryRun: true, transactions: [raw()] });
+    const real = await importPluggyTransactions({ query, userId, transactions: [raw()] });
     expect(real).toMatchObject({ imported: 1, duplicated: 0 });
   });
 });

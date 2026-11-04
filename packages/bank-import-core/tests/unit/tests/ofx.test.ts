@@ -10,8 +10,8 @@ import {
   parseOfxAmount,
   parseOfxDate,
   type RawOfxTransaction,
-} from './ofx';
-import { OFX_SGML_ITAU, OFX_XML_NUBANK, ofxSgmlLatin1Buffer } from './__fixtures__/ofx';
+} from 'src/ofx';
+import { OFX_SGML_ITAU, OFX_XML_NUBANK, ofxSgmlLatin1Buffer } from 'src/__fixtures__/ofx';
 
 function raw(overrides: Partial<RawOfxTransaction> = {}): RawOfxTransaction {
   return {

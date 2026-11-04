@@ -10,7 +10,7 @@ const testDbPath = path.join(
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
 type Db = (typeof import('@vetor-wallet/db'))['db'];
-type WipeModule = typeof import('./wipeUserFinancialEntries');
+type WipeModule = typeof import('src/wipeUserFinancialEntries');
 
 let db: Db;
 let wipe: WipeModule;
@@ -56,7 +56,7 @@ beforeAll(async () => {
   const dbMod = await import('@vetor-wallet/db');
   db = dbMod.db;
   await dbMod.initDb();
-  wipe = await import('./wipeUserFinancialEntries');
+  wipe = await import('src/wipeUserFinancialEntries');
 });
 
 beforeEach(async () => {

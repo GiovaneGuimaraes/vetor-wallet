@@ -275,6 +275,7 @@ router.post(
       // política de importação é do módulo BankImport (mesmo arranjo do
       // `incomeEntries.ts`, T-110d).
       const result = await insertEntryWithExternalId({
+        query,
         table: 'expense_entries',
         userId,
         values: {

@@ -16,17 +16,19 @@ const testDbPath = path.join(
 process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
 import type { Db } from '@vetor-wallet/db';
-import type { RawPluggyTransaction } from './pluggy';
-import type { PluggySyncDeps, RawPluggyAccount } from './syncPluggyItems';
+import type { Query } from '@vetor-wallet/query';
+import type { RawPluggyTransaction } from 'src/pluggy';
+import type { PluggySyncDeps, RawPluggyAccount } from 'src/syncPluggyItems';
 
-type SyncModule = typeof import('./syncPluggyItems');
-type LinkModule = typeof import('./linkPluggyItem');
+type SyncModule = typeof import('src/syncPluggyItems');
+type LinkModule = typeof import('src/linkPluggyItem');
 
 // UUIDs INVENTADOS — nenhum itemId real entra em arquivo versionado.
 const ITEM_A = '7a1b2c3d-0000-4000-8000-aaaaaaaaaaaa';
 const ITEM_B = '7a1b2c3d-0000-4000-8000-bbbbbbbbbbbb';
 
 let db: Db;
+let query: Query;
 let sync: SyncModule;
 let link: LinkModule;
 let userId: number;
@@ -75,9 +77,10 @@ function deps(config: {
 beforeAll(async () => {
   const dbMod = await import('@vetor-wallet/db');
   db = dbMod.db;
+  query = (await import('@vetor-wallet/query')).createSqliteQuery(db);
   await dbMod.initDb();
-  sync = await import('./syncPluggyItems');
-  link = await import('./linkPluggyItem');
+  sync = await import('src/syncPluggyItems');
+  link = await import('src/linkPluggyItem');
 });
 
 beforeEach(async () => {
@@ -95,7 +98,7 @@ beforeEach(async () => {
 describe('syncPluggyItems (T-089a)', () => {
   it('usuário SEM item: devolve noItems, não "0 contas, sucesso"', async () => {
     const report = await sync.syncPluggyItems({
-      db,
+      query,
       userId,
       dateFrom: '2026-08-01',
       deps: deps({}),
@@ -107,12 +110,12 @@ describe('syncPluggyItems (T-089a)', () => {
   });
 
   it('itera os N items do usuário e soma o relatório de todos', async () => {
-    await link.linkPluggyItem({ db, userId, itemId: ITEM_A, connectorName: 'Banco A' });
-    await link.linkPluggyItem({ db, userId, itemId: ITEM_B, connectorName: 'Banco B' });
+    await link.linkPluggyItem({ query, userId, itemId: ITEM_A, connectorName: 'Banco A' });
+    await link.linkPluggyItem({ query, userId, itemId: ITEM_B, connectorName: 'Banco B' });
 
     const calls = { items: [] as string[], accounts: [] as string[] };
     const report = await sync.syncPluggyItems({
-      db,
+      query,
       userId,
       dateFrom: '2026-08-01',
       deps: deps({
@@ -138,11 +141,11 @@ describe('syncPluggyItems (T-089a)', () => {
   });
 
   it('falha ao listar contas de UM item não aborta os outros', async () => {
-    await link.linkPluggyItem({ db, userId, itemId: ITEM_A });
-    await link.linkPluggyItem({ db, userId, itemId: ITEM_B });
+    await link.linkPluggyItem({ query, userId, itemId: ITEM_A });
+    await link.linkPluggyItem({ query, userId, itemId: ITEM_B });
 
     const report = await sync.syncPluggyItems({
-      db,
+      query,
       userId,
       dateFrom: '2026-08-01',
       deps: deps({
@@ -163,10 +166,10 @@ describe('syncPluggyItems (T-089a)', () => {
   });
 
   it('falha em UMA conta não aborta as outras contas do mesmo item', async () => {
-    await link.linkPluggyItem({ db, userId, itemId: ITEM_A });
+    await link.linkPluggyItem({ query, userId, itemId: ITEM_A });
 
     const report = await sync.syncPluggyItems({
-      db,
+      query,
       userId,
       dateFrom: '2026-08-01',
       deps: deps({
@@ -193,10 +196,10 @@ describe('syncPluggyItems (T-089a)', () => {
   });
 
   it('item sem NENHUMA conta é falha com mensagem acionável, não sucesso vazio', async () => {
-    await link.linkPluggyItem({ db, userId, itemId: ITEM_A });
+    await link.linkPluggyItem({ query, userId, itemId: ITEM_A });
 
     const report = await sync.syncPluggyItems({
-      db,
+      query,
       userId,
       dateFrom: '2026-08-01',
       deps: deps({ accounts: { [ITEM_A]: [] } }),
@@ -213,11 +216,11 @@ describe('syncPluggyItems (T-089a)', () => {
       args: [`pluggy-sync-other-${Math.random().toString(36).slice(2)}@test.local`, 'x'],
     });
     const otherId = Number(other.lastInsertRowid ?? 0);
-    await link.linkPluggyItem({ db, userId: otherId, itemId: ITEM_A });
+    await link.linkPluggyItem({ query, userId: otherId, itemId: ITEM_A });
 
     const calls = { items: [] as string[], accounts: [] as string[] };
     const report = await sync.syncPluggyItems({
-      db,
+      query,
       userId,
       dateFrom: '2026-08-01',
       deps: deps({ accounts: { [ITEM_A]: [account()] }, calls }),
@@ -228,10 +231,10 @@ describe('syncPluggyItems (T-089a)', () => {
   });
 
   it('cartão inverte o sinal esperado (accountKind derivado do tipo da conta)', async () => {
-    await link.linkPluggyItem({ db, userId, itemId: ITEM_A });
+    await link.linkPluggyItem({ query, userId, itemId: ITEM_A });
 
     const report = await sync.syncPluggyItems({
-      db,
+      query,
       userId,
       dateFrom: '2026-08-01',
       deps: deps({
@@ -249,10 +252,10 @@ describe('syncPluggyItems (T-089a)', () => {
   });
 
   it('dry-run não grava nada e reporta previewed', async () => {
-    await link.linkPluggyItem({ db, userId, itemId: ITEM_A });
+    await link.linkPluggyItem({ query, userId, itemId: ITEM_A });
 
     const report = await sync.syncPluggyItems({
-      db,
+      query,
       userId,
       dateFrom: '2026-08-01',
       dryRun: true,
@@ -268,20 +271,20 @@ describe('syncPluggyItems (T-089a)', () => {
   });
 
   it('reimportar os mesmos items é idempotente (dedupe da T-084 por trás)', async () => {
-    await link.linkPluggyItem({ db, userId, itemId: ITEM_A });
+    await link.linkPluggyItem({ query, userId, itemId: ITEM_A });
     const config = {
       accounts: { [ITEM_A]: [account({ id: 'acc-a' })] },
       transactions: { 'acc-a': [tx({ id: 'tx-a' })] },
     };
 
     const first = await sync.syncPluggyItems({
-      db,
+      query,
       userId,
       dateFrom: '2026-08-01',
       deps: deps(config),
     });
     const second = await sync.syncPluggyItems({
-      db,
+      query,
       userId,
       dateFrom: '2026-08-01',
       deps: deps(config),
@@ -296,11 +299,11 @@ describe('syncPluggyItems (T-089a)', () => {
   it('soma a movimentação interna das DUAS pontas da fatura (T-088)', async () => {
     // O caso que contava a fatura duas vezes: conta e cartão são items/contas
     // diferentes, então o total só fecha se `internal` agregar como os demais.
-    await link.linkPluggyItem({ db, userId, itemId: ITEM_A, connectorName: 'Conta' });
-    await link.linkPluggyItem({ db, userId, itemId: ITEM_B, connectorName: 'Cartão' });
+    await link.linkPluggyItem({ query, userId, itemId: ITEM_A, connectorName: 'Conta' });
+    await link.linkPluggyItem({ query, userId, itemId: ITEM_B, connectorName: 'Cartão' });
 
     const report = await sync.syncPluggyItems({
-      db,
+      query,
       userId,
       dateFrom: '2026-08-01',
       deps: deps({

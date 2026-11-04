@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { INTERNAL_MOVEMENT_CATEGORIES, classifyInternalMovement } from './internalMovement';
+import { INTERNAL_MOVEMENT_CATEGORIES, classifyInternalMovement } from 'src/internalMovement';
 
 describe('classifyInternalMovement', () => {
   it('marca transferência entre contas do próprio titular', () => {

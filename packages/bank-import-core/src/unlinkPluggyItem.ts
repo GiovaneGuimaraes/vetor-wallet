@@ -1,7 +1,7 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 
 export interface UnlinkPluggyItemParams {
-  db: Db;
+  query: Query;
   userId: number;
   itemId: string;
 }
@@ -20,13 +20,13 @@ export interface UnlinkPluggyItemParams {
  *   (rota da fase (b)) — este core não fala com terceiro.
  */
 export async function unlinkPluggyItem(params: UnlinkPluggyItemParams): Promise<boolean> {
-  const { db, userId } = params;
+  const { query, userId } = params;
   const itemId = typeof params.itemId === 'string' ? params.itemId.trim() : '';
   if (!itemId) return false;
 
-  const result = await db.execute({
-    sql: `DELETE FROM pluggy_items WHERE user_id = ? AND item_id = ?`,
-    args: [userId, itemId],
+  const result = await query({
+    text: `DELETE FROM pluggy_items WHERE user_id = $1 AND item_id = $2`,
+    values: [userId, itemId],
   });
-  return Number(result.rowsAffected ?? 0) > 0;
+  return result.rowCount > 0;
 }
