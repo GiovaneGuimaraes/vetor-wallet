@@ -85,7 +85,8 @@ packages/
 ├── auth-core/        # @vetor-wallet/auth-core — dono da tabela users: espelho
 │                     # da identidade (cognito_sub, vínculo por e-mail — T-106),
 │                     # perfil, papéis (T-099c, Ciclo 19). O login NÃO usa mais
-│                     # bcrypt; password_hash ficou no banco, sem uso
+│                     # bcrypt; password_hash ficou no banco, sem uso. Formato-alvo
+│                     # com `query` injetado, Jest, cobertura 100% (T-116a)
 ├── cognito-core/     # @vetor-wallet/cognito-core — client HTTP do AWS Cognito
 │                     # (SignUp, InitiateAuth, ConfirmSignUp, ResendConfirmation
 │                     # Code, GetUser, ChangePassword): erro tipado, SECRET_HASH
@@ -158,7 +159,7 @@ pnpm --filter @vetor-wallet/bank-import-core test  # Vitest (bank-import-core)
 pnpm --filter @vetor-wallet/pluggy-core test       # Vitest (pluggy-core)
 pnpm --filter @vetor-wallet/portfolio-core test    # Jest (portfolio-core; cobertura 100%)
 pnpm --filter @vetor-wallet/insights-core test     # Vitest (insights-core)
-pnpm --filter @vetor-wallet/auth-core test         # Vitest (auth-core)
+pnpm --filter @vetor-wallet/auth-core test         # Jest (auth-core; cobertura 100%)
 pnpm --filter @vetor-wallet/cognito-core test      # Vitest (cognito-core)
 pnpm --filter @vetor-wallet/cognito-core test --coverage  # 100% é a meta do formato
 pnpm --filter vetor-wallet-web test       # Vitest (web, funções puras)

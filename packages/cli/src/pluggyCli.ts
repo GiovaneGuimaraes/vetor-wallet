@@ -2,6 +2,8 @@
 // `pluggy:sync`): leitura de argv/env e mascaramento para o log. Nenhuma regra
 // de negócio aqui — isso vive nos `*-core` (ver packages/cli/CLAUDE.md).
 
+import { db } from '@vetor-wallet/db';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import { findUserByEmail } from '@vetor-wallet/auth-core';
 
 /** `--chave=valor` no argv; `undefined` quando a flag não veio. */
@@ -28,7 +30,7 @@ export async function resolvePluggyUserId(args: string[]): Promise<number> {
       'Usuário não informado: passe --email=voce@exemplo.com ou defina PLUGGY_USER_EMAIL no .env do cli'
     );
   }
-  const user = await findUserByEmail(email);
+  const user = await findUserByEmail({ query: createSqliteQuery(db), email });
   if (!user) throw new Error(`Usuário não encontrado para o e-mail: ${email}`);
   return user.id;
 }
