@@ -1,10 +1,20 @@
-import { describe, it, expect } from 'vitest';
-import {
-  brapiRangeForDays,
-  buildCdiIndexSeries,
-  buildIbovespaSeries,
-  clampSeriesToWindow,
-} from './benchmarkHistory';
+import { bcbDateToIso } from 'src/bcbDateToIso';
+import { isoToBcbDate } from 'src/isoToBcbDate';
+import { brapiRangeForDays } from 'src/brapiRangeForDays';
+import { buildCdiIndexSeries } from 'src/buildCdiIndexSeries';
+import { buildIbovespaSeries } from 'src/buildIbovespaSeries';
+import { clampSeriesToWindow } from 'src/clampSeriesToWindow';
+
+describe('isoToBcbDate / bcbDateToIso', () => {
+  it('converte ISO para dd/mm/yyyy e de volta', () => {
+    expect(isoToBcbDate('2026-01-05')).toBe('05/01/2026');
+    expect(bcbDateToIso('05/01/2026')).toBe('2026-01-05');
+  });
+
+  it('formato inesperado vira null', () => {
+    expect(bcbDateToIso('2026-01-05')).toBeNull();
+  });
+});
 
 describe('buildCdiIndexSeries', () => {
   it('acumula as taxas diárias em índice base 100 e converte dd/mm/yyyy para ISO', () => {
@@ -39,7 +49,12 @@ describe('buildCdiIndexSeries', () => {
     expect(series[0].value).toBeCloseTo(100.1, 6);
   });
 
-  it('série vazia devolve []', () => {
+  it('tolera linhas nulas e série vazia', () => {
+    expect(buildCdiIndexSeries([null as never, undefined as never])).toEqual([]);
+    // valor ausente vira '' → 0% (comportamento original preservado)
+    expect(buildCdiIndexSeries([{ data: '05/01/2026', valor: undefined as never }])).toEqual([
+      { date: '2026-01-05', value: 100 },
+    ]);
     expect(buildCdiIndexSeries([])).toEqual([]);
   });
 });
@@ -58,12 +73,14 @@ describe('buildIbovespaSeries', () => {
     ]);
   });
 
-  it('deduplica por data mantendo o último fechamento e descarta close inválido', () => {
+  it('deduplica por data mantendo o último fechamento e descarta close/data inválidos', () => {
     const series = buildIbovespaSeries([
       { date: ts('2026-01-02'), close: 128000 },
       { date: ts('2026-01-02'), close: 128500 },
       { date: ts('2026-01-03'), close: 0 },
       { date: ts('2026-01-06'), close: Number.NaN },
+      { date: Number.NaN, close: 100 },
+      null as never,
     ]);
     expect(series).toEqual([{ date: '2026-01-02', value: 128500 }]);
   });
@@ -93,6 +110,7 @@ describe('brapiRangeForDays', () => {
     expect(brapiRangeForDays(30)).toBe('3mo');
     expect(brapiRangeForDays(31)).toBe('6mo');
     expect(brapiRangeForDays(90)).toBe('6mo');
+    expect(brapiRangeForDays(91)).toBe('2y');
     expect(brapiRangeForDays(365)).toBe('2y');
     expect(brapiRangeForDays(900)).toBe('5y');
   });

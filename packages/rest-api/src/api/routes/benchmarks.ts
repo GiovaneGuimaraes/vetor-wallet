@@ -8,11 +8,16 @@ import {
 } from '@vetor-wallet/insights-core';
 import { buildDateWindow, getBRTDate } from '@vetor-wallet/portfolio-core';
 import { parseDaysParam } from '@vetor-wallet/validation-core';
+import { db } from '@vetor-wallet/db';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import type { BenchmarkData, BenchmarkHistoryResponse } from '@vetor-wallet/shared';
 
 const router = Router();
+
+// Ponte SQLite → `Query` das rotas migradas (T-116b): o core fala `$N`.
+const query = createSqliteQuery(db);
 
 // Mesmos limites de janela de `GET /api/portfolio/history` — as duas séries
 // são desenhadas no MESMO gráfico (T-068), então divergir aqui deixaria o
@@ -27,7 +32,10 @@ router.get(
   asyncHandler(async (_req: Request, res: Response) => {
     const userId = res.locals.userId as number;
     const today = new Date().toISOString().split('T')[0];
-    const { pct: portfolioPct, earliestDate } = await getPortfolioReturnAndEarliestDate(userId);
+    const { pct: portfolioPct, earliestDate } = await getPortfolioReturnAndEarliestDate({
+      query,
+      userId,
+    });
 
     if (!earliestDate) {
       const result: BenchmarkData = {
