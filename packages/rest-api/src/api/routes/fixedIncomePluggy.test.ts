@@ -29,6 +29,7 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
   let agentB: ReturnType<typeof request.agent>;
   let userIdA: number;
   let db: Awaited<typeof import('@vetor-wallet/db')>['db'];
+  let query: import('@vetor-wallet/query').Query;
   let linkPluggyItem: Awaited<typeof import('@vetor-wallet/bank-import-core')>['linkPluggyItem'];
   let resetApiKeyCache: () => void;
 
@@ -86,6 +87,7 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
     ({ _resetPluggyApiKeyCache: resetApiKeyCache } = await import('@vetor-wallet/pluggy-core'));
 
     db = dbModule.db;
+    query = (await import('@vetor-wallet/query')).createSqliteQuery(db);
     await dbModule.initDb();
 
     app = express();
@@ -144,7 +146,7 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
 
   it('integração desligada (ENVIRONMENT ≠ Staging): enabled false, sem chamar a Pluggy', async () => {
     process.env.ENVIRONMENT = 'Production';
-    await linkPluggyItem({ db, userId: userIdA, itemId: ITEM_OK });
+    await linkPluggyItem({ query, userId: userIdA, itemId: ITEM_OK });
     const fetchMock = stubPluggy();
 
     const res = await agentA.get('/api/fixed-income/pluggy');
@@ -177,7 +179,7 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
   });
 
   it('com conexão: devolve só FIXED_INCOME traduzido e conta os outros tipos', async () => {
-    await linkPluggyItem({ db, userId: userIdA, itemId: ITEM_OK });
+    await linkPluggyItem({ query, userId: userIdA, itemId: ITEM_OK });
 
     const res = await agentA.get('/api/fixed-income/pluggy');
 
@@ -206,7 +208,7 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
   });
 
   it('vínculo (fatia d3a): PATCH e GET manuais não chamam a Pluggy, mesmo com a integração desligada', async () => {
-    await linkPluggyItem({ db, userId: userIdA, itemId: ITEM_OK });
+    await linkPluggyItem({ query, userId: userIdA, itemId: ITEM_OK });
     const created = await agentA.post('/api/fixed-income').send({
       name: 'CDB manual',
       kind: 'CDB',
@@ -246,7 +248,7 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
   });
 
   it('nunca grava: nenhuma linha nova em fixed_income_positions nem em lançamentos', async () => {
-    await linkPluggyItem({ db, userId: userIdA, itemId: ITEM_OK });
+    await linkPluggyItem({ query, userId: userIdA, itemId: ITEM_OK });
     const before = {
       fixed: await countRows('fixed_income_positions'),
       income: await countRows('income_entries'),
@@ -266,8 +268,8 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
   });
 
   it('item que falha não derruba os outros: 200, failedConnections 1, posições do item bom', async () => {
-    await linkPluggyItem({ db, userId: userIdA, itemId: ITEM_OK });
-    await linkPluggyItem({ db, userId: userIdA, itemId: ITEM_BROKEN });
+    await linkPluggyItem({ query, userId: userIdA, itemId: ITEM_OK });
+    await linkPluggyItem({ query, userId: userIdA, itemId: ITEM_BROKEN });
 
     const res = await agentA.get('/api/fixed-income/pluggy');
 
@@ -278,7 +280,7 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
   });
 
   it('Pluggy fora do ar (rede): 200 com failedConnections, nunca 500/502', async () => {
-    await linkPluggyItem({ db, userId: userIdA, itemId: ITEM_OK });
+    await linkPluggyItem({ query, userId: userIdA, itemId: ITEM_OK });
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
@@ -298,7 +300,7 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
   });
 
   it('credencial da Pluggy ausente conta como falha da conexão, não como 500', async () => {
-    await linkPluggyItem({ db, userId: userIdA, itemId: ITEM_OK });
+    await linkPluggyItem({ query, userId: userIdA, itemId: ITEM_OK });
     delete process.env.PLUGGY_CLIENT_SECRET;
 
     const res = await agentA.get('/api/fixed-income/pluggy');
@@ -308,7 +310,7 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
   });
 
   it('isolamento: com a Pluggy fora do ar, o GET da RF manual segue intacto', async () => {
-    await linkPluggyItem({ db, userId: userIdA, itemId: ITEM_OK });
+    await linkPluggyItem({ query, userId: userIdA, itemId: ITEM_OK });
     const created = await agentA.post('/api/fixed-income').send({
       name: 'CDB manual',
       kind: 'CDB',
@@ -333,7 +335,7 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
   });
 
   it('conexão de outro usuário não aparece', async () => {
-    await linkPluggyItem({ db, userId: userIdA, itemId: ITEM_OK });
+    await linkPluggyItem({ query, userId: userIdA, itemId: ITEM_OK });
 
     const res = await agentB.get('/api/fixed-income/pluggy');
 

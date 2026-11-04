@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { validateExternalId, MAX_EXTERNAL_ID_LENGTH } from './externalId';
+import { MAX_EXTERNAL_ID_LENGTH } from 'src/MAX_EXTERNAL_ID_LENGTH';
+import { validateExternalId } from 'src/validateExternalId';
 
 describe('validateExternalId (T-084)', () => {
   it('trata undefined e null como ausente (grava NULL)', () => {

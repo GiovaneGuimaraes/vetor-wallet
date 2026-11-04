@@ -18,6 +18,14 @@
 
 ## Abertos
 
+### [2026-11-04] T-116c (migração AWS, fatia `bank-import-core`): `wipeUserFinancialEntries` perde atomicidade ao trocar `db` por `query` — deixado em `db.batch`
+- **Origem**: executor (T-116c, passo 5, troca `db`→`query`)
+- **Bloqueia**: nada da T-116c em si — o resto do package migrou; só esta função segue com `db: Db`. Bloqueia apenas o fim da migração do `bank-import-core` (o package ainda depende de `@vetor-wallet/db` por causa dela).
+- **O que achei**: o modo `replace` da Pluggy apaga `income_entries`, `expense_entries` e `savings_entries` do usuário num `db.batch([...], 'write')` atômico — decisão da T-089b: ou apaga os três ou nenhum (meio caminho deixaria um mês negativo inventado, sem desfazer). O `Query` não oferece atomicidade equivalente: não tem `batch` nem transação interativa por proxy, e a alternativa de instrução única com CTE (`WITH a AS (DELETE ...), b AS (DELETE ...) ...`) roda em Postgres mas **o SQLite rejeita escrita dentro de `WITH`** (mesmo achado de `createRecurringExpenseEntry` e `materializeRecurringExpenses`). Três `query()` sequenciais deixariam a janela "despesas apagadas, rendas não" numa operação destrutiva sem volta — não apliquei.
+- **O que fiz nesta fatia**: `wipeUserFinancialEntries.ts` ficou **intocado** (`db: Db`, `db.batch`, teste real contra SQLite); a rota `pluggy.ts` continua passando `db` a ele e `query` às demais funções do package. Quando o Postgres estiver no ar a função vira a CTE única (atômica por natureza), sem pergunta nova.
+- **Opções**: 1️⃣ aceitar chamadas sequenciais (não recomendo: destrutivo, sem rede); 2️⃣ deixar em `db`/`db.batch` até o Postgres (o que está feito, mesmo precedente do `expenses-core`).
+- **Resposta do humano**: _(preencher — default adotado: 2️⃣)_
+
 ### [2026-10-26] ~~Nova arte pixel art (logo + mascotes de 4 layers)~~ — ENTREGUE em 2026-10-26
 - **Origem**: humano, adicionou `logo-vetor-wallet-pixels.png` na raiz do repo e pediu a troca.
 - **Bloqueia**: nada — entregue.

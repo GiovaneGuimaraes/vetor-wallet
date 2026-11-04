@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { db } from '@vetor-wallet/db';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
@@ -55,6 +56,7 @@ import type {
  *    Como ele só barra métodos de escrita, o `GET /status` passa livre de
  *    propósito: quem está sem assinatura continua vendo as próprias conexões.
  */
+const query = createSqliteQuery(db);
 const router = Router();
 
 function toView(item: PluggyItem): PluggyItemView {
@@ -104,7 +106,7 @@ router.get(
       return;
     }
 
-    const items = await listPluggyItems({ db, userId });
+    const items = await listPluggyItems({ query, userId });
     const body: PluggyStatusResponse = { enabled: true, items: items.map(toView) };
     res.json(body);
   })
@@ -134,7 +136,7 @@ router.post(
     const rawItemId = typeof req.body?.itemId === 'string' ? req.body.itemId.trim() : '';
 
     if (rawItemId) {
-      const items = await listPluggyItems({ db, userId });
+      const items = await listPluggyItems({ query, userId });
       if (!items.some((item) => item.itemId === rawItemId)) {
         // 404, não 403: item de outro usuário é invisível (doutrina da T-089a).
         res.status(404).json({ error: 'Conexão não encontrada' });
@@ -170,7 +172,7 @@ router.post(
 
     try {
       const item = await linkPluggyItem({
-        db,
+        query,
         userId,
         itemId: typeof itemId === 'string' ? itemId : '',
         connectorId: typeof connectorId === 'number' ? connectorId : null,
@@ -215,14 +217,14 @@ router.delete(
     const userId = res.locals.userId as number;
     const itemId = String(req.params.itemId ?? '').trim();
 
-    const items = await listPluggyItems({ db, userId });
+    const items = await listPluggyItems({ query, userId });
     if (!items.some((item) => item.itemId === itemId)) {
       res.status(404).json({ error: 'Conexão não encontrada' });
       return;
     }
 
     await deletePluggyItem(itemId);
-    await unlinkPluggyItem({ db, userId, itemId });
+    await unlinkPluggyItem({ query, userId, itemId });
 
     res.status(204).end();
   })
@@ -273,7 +275,7 @@ router.post(
     }
     const dateFrom = rawDateFrom ? String(rawDateFrom) : defaultDateFrom();
 
-    const items = await listPluggyItems({ db, userId });
+    const items = await listPluggyItems({ query, userId });
     if (items.length === 0) {
       // Desfecho próprio, não "0 importadas, sucesso" (doutrina da T-089a): é a
       // falha silenciosa mais provável da integração.
@@ -287,7 +289,7 @@ router.post(
     const wiped = mode === 'replace' ? await wipeUserFinancialEntries({ db, userId }) : undefined;
 
     const report = await syncPluggyItems({
-      db,
+      query,
       userId,
       dateFrom,
       deps: {
@@ -359,7 +361,7 @@ router.get(
       return;
     }
 
-    const items = await listPluggyItems({ db, userId });
+    const items = await listPluggyItems({ query, userId });
     const results = await Promise.allSettled(items.map((item) => fetchPluggyAccounts(item.itemId)));
 
     let totalBankBalance = 0;

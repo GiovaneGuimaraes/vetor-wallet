@@ -206,7 +206,7 @@ router.get(
       return;
     }
 
-    const items = await listPluggyItems({ db, userId });
+    const items = await listPluggyItems({ query, userId });
     const results = await Promise.allSettled(
       items.map((item) => fetchPluggyInvestments(item.itemId))
     );

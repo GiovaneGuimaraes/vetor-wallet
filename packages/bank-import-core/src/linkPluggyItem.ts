@@ -1,6 +1,8 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import { PluggyItemError } from './PluggyItemError';
-import { UNKNOWN_PLUGGY_ITEM_STATUS, toPluggyItem, type PluggyItem } from './PluggyItem';
+import type { PluggyItem } from './PluggyItem';
+import { UNKNOWN_PLUGGY_ITEM_STATUS } from './UNKNOWN_PLUGGY_ITEM_STATUS';
+import { toPluggyItem } from './toPluggyItem';
 
 /**
  * Teto de tamanho do `itemId`. Os ids da Pluggy são UUIDs (36 chars); 64 dá
@@ -17,7 +19,7 @@ export const MAX_PLUGGY_ITEM_ID_LENGTH = 64;
 const ITEM_ID_RE = /^[A-Za-z0-9_.:-]+$/;
 
 export interface LinkPluggyItemParams {
-  db: Db;
+  query: Query;
   userId: number;
   /** UUID da conexão, como a Pluggy o devolve. */
   itemId: string;
@@ -49,7 +51,7 @@ export interface LinkPluggyItemParams {
  * atômica e a leitura só projeta o resultado (e nunca enxerga linha alheia).
  */
 export async function linkPluggyItem(params: LinkPluggyItemParams): Promise<PluggyItem> {
-  const { db, userId } = params;
+  const { query, userId } = params;
 
   const itemId = typeof params.itemId === 'string' ? params.itemId.trim() : '';
   if (!itemId) {
@@ -72,21 +74,21 @@ export async function linkPluggyItem(params: LinkPluggyItemParams): Promise<Plug
       : null;
   const status = params.status?.trim() || UNKNOWN_PLUGGY_ITEM_STATUS;
 
-  await db.execute({
-    sql: `INSERT INTO pluggy_items (user_id, item_id, connector_id, connector_name, status)
-          VALUES (?, ?, ?, ?, ?)
+  await query({
+    text: `INSERT INTO pluggy_items (user_id, item_id, connector_id, connector_name, status)
+          VALUES ($1, $2, $3, $4, $5)
           ON CONFLICT(item_id) DO UPDATE SET
             connector_id   = COALESCE(excluded.connector_id, pluggy_items.connector_id),
             connector_name = COALESCE(excluded.connector_name, pluggy_items.connector_name),
             status         = excluded.status,
-            updated_at     = datetime('now')
+            updated_at     = CURRENT_TIMESTAMP
           WHERE pluggy_items.user_id = excluded.user_id`,
-    args: [userId, itemId, connectorId, connectorName, status],
+    values: [userId, itemId, connectorId, connectorName, status],
   });
 
-  const saved = await db.execute({
-    sql: `SELECT * FROM pluggy_items WHERE user_id = ? AND item_id = ?`,
-    args: [userId, itemId],
+  const saved = await query({
+    text: `SELECT * FROM pluggy_items WHERE user_id = $1 AND item_id = $2`,
+    values: [userId, itemId],
   });
 
   const row = saved.rows[0];

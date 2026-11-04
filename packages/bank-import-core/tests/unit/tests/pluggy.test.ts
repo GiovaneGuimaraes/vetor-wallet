@@ -7,8 +7,8 @@ import {
   parsePluggyDate,
   pluggyExternalId,
   type RawPluggyTransaction,
-} from './pluggy';
-import { MAX_EXTERNAL_ID_LENGTH } from './externalId';
+} from 'src/pluggy';
+import { MAX_EXTERNAL_ID_LENGTH } from 'src/MAX_EXTERNAL_ID_LENGTH';
 
 /** Transação POSTED em conta, débito de R$ 123,45 — a base dos casos abaixo. */
 function raw(overrides: Partial<RawPluggyTransaction> = {}): RawPluggyTransaction {

@@ -1,11 +1,7 @@
-import type { Db } from '@vetor-wallet/db';
+import type { Query } from '@vetor-wallet/query';
 import { listPluggyItems } from './listPluggyItems';
-import {
-  importPluggyTransactions,
-  type PluggyAccountKind,
-  type PluggyImportResult,
-  type RawPluggyTransaction,
-} from './pluggy';
+import { importPluggyTransactions } from './importPluggyTransactions';
+import type { PluggyAccountKind, PluggyImportResult, RawPluggyTransaction } from './pluggy';
 
 /**
  * Sincronização de TODOS os items de um usuário (T-089a).
@@ -83,7 +79,7 @@ export interface PluggySyncReport {
 }
 
 export interface SyncPluggyItemsParams {
-  db: Db;
+  query: Query;
   userId: number;
   /** `YYYY-MM-DD` — piso da janela de transações. */
   dateFrom: string;
@@ -121,9 +117,9 @@ function errorMessage(err: unknown): string {
  *   credencial (ver `packages/pluggy-core/CLAUDE.md`).
  */
 export async function syncPluggyItems(params: SyncPluggyItemsParams): Promise<PluggySyncReport> {
-  const { db, userId, dateFrom, dryRun = false, deps } = params;
+  const { query, userId, dateFrom, dryRun = false, deps } = params;
 
-  const items = await listPluggyItems({ db, userId });
+  const items = await listPluggyItems({ query, userId });
   const totals: PluggySyncTotals = {
     imported: 0,
     duplicated: 0,
@@ -187,6 +183,7 @@ export async function syncPluggyItems(params: SyncPluggyItemsParams): Promise<Pl
       try {
         const transactions = await deps.fetchTransactions({ accountId: account.id, dateFrom });
         const result = await importPluggyTransactions({
+          query,
           userId,
           transactions,
           accountKind: pluggyAccountKindOf(account.type),

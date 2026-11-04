@@ -1,4 +1,6 @@
 import { Router, Request, Response } from 'express';
+import { db } from '@vetor-wallet/db';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import express from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
@@ -44,6 +46,7 @@ import type { OfxImportResult, OfxImportTransaction } from '@vetor-wallet/shared
  * tabelas de `income_entries`/`expense_entries`, que já são gateadas nos seus
  * routers. Sem isso, a importação seria o caminho de escrita sem assinatura.
  */
+const query = createSqliteQuery(db);
 const router = Router();
 
 const OFX_BODY_LIMIT = '1mb';
@@ -104,6 +107,7 @@ router.post(
       const tx = mapped.transaction;
       const isIncome = tx.entryType === 'income';
       const result = await insertEntryWithExternalId({
+        query,
         table: isIncome ? 'income_entries' : 'expense_entries',
         userId,
         values: isIncome

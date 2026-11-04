@@ -1,8 +1,9 @@
-import type { Db } from '@vetor-wallet/db';
-import { toPluggyItem, type PluggyItem } from './PluggyItem';
+import type { Query } from '@vetor-wallet/query';
+import type { PluggyItem } from './PluggyItem';
+import { toPluggyItem } from './toPluggyItem';
 
 export interface ListPluggyItemsParams {
-  db: Db;
+  query: Query;
   userId: number;
 }
 
@@ -16,10 +17,10 @@ export interface ListPluggyItemsParams {
  * N vezes, e assim nenhum caminho de código pode devolver item alheio.
  */
 export async function listPluggyItems(params: ListPluggyItemsParams): Promise<PluggyItem[]> {
-  const { db, userId } = params;
-  const result = await db.execute({
-    sql: `SELECT * FROM pluggy_items WHERE user_id = ? ORDER BY created_at, id`,
-    args: [userId],
+  const { query, userId } = params;
+  const result = await query({
+    text: `SELECT * FROM pluggy_items WHERE user_id = $1 ORDER BY created_at, id`,
+    values: [userId],
   });
   return result.rows.map(toPluggyItem);
 }
