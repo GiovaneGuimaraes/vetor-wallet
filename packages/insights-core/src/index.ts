@@ -1,7 +1,5 @@
 export { fetchCDIAccumulated } from './fetchCDIAccumulated';
 export { fetchIbovespaReturn } from './fetchIbovespaReturn';
-export { getPortfolioReturnAndEarliestDate } from './getPortfolioReturnAndEarliestDate';
-export type { GetPortfolioReturnAndEarliestDateParams } from './getPortfolioReturnAndEarliestDate';
 export { buildCdiIndexSeries } from './buildCdiIndexSeries';
 export { buildIbovespaSeries } from './buildIbovespaSeries';
 export { brapiRangeForDays } from './brapiRangeForDays';

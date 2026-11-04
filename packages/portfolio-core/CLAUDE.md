@@ -100,6 +100,8 @@ Telas: `packages/web/src/routes/DashboardPage.tsx` e os módulos puros ao lado.
   preço falso**; o `fetchQuotes` da mesma lib degrada em silêncio (telas). Política
   diferente de propósito, mesmo client. Detalhes no `CLAUDE.md` do `brapi-core`.
 
+**T-121:** `getPortfolioReturnAndEarliestDate({ query, userId, fetchQuotes })` (retorno % da carteira + data da 1ª operação, para `GET /api/benchmarks`) veio do `insights-core` para cá. A cotação é injetada pela rota (`fetchQuotes` do `brapi-core`) — este package continua sem depender dele. A criação da carteira padrão no 1º login é chamada pela rota de auth, não pelo `auth-core`.
+
 ## Decisões: carteira, ações e dashboard
 
 ### Carteira única de ações (T-050 server, T-050b web)

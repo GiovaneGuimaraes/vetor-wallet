@@ -20,6 +20,10 @@ export { withUserLock } from './withUserLock';
 export { DEFAULT_WALLET, getOrCreateDefaultWallet } from './getOrCreateDefaultWallet';
 export type { GetOrCreateDefaultWalletParams } from './getOrCreateDefaultWallet';
 
+// ── Retorno da carteira para o GET /api/benchmarks (T-121; cotação injetada) ──
+export { getPortfolioReturnAndEarliestDate } from './getPortfolioReturnAndEarliestDate';
+export type { GetPortfolioReturnAndEarliestDateParams } from './getPortfolioReturnAndEarliestDate';
+
 // ── Série histórica (puros) ──
 export { shiftDate } from './shiftDate';
 export { buildDateWindow } from './buildDateWindow';

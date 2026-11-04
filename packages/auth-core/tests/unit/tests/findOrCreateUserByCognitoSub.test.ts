@@ -2,10 +2,6 @@ import { CognitoLinkRequiresVerifiedEmailError } from 'src/CognitoLinkRequiresVe
 import { findOrCreateUserByCognitoSub } from 'src/findOrCreateUserByCognitoSub';
 import { makeTestQuery } from 'tests/unit/testQuery';
 
-jest.mock('@vetor-wallet/portfolio-core', () => ({
-  getOrCreateDefaultWallet: jest.fn(),
-}));
-
 const mirrorRow = (id: number, email = 'dono@b.com') => ({
   id,
   email,
