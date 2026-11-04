@@ -126,20 +126,20 @@ Consumidores: `packages/rest-api/src/api/auth/{router,middleware}.ts`
 - **`findUserByEmail`/`findUserById` devolvem o `password_hash`** — são as únicas
   funções que o expõem. Nunca devolva esse objeto direto numa resposta HTTP.
 
-## Dependência de `@vetor-wallet/portfolio-core` (nota de arquitetura)
+## Sem dependência de outro core (T-121)
 
-`createUser` e `createCognitoUser` chamam `getOrCreateDefaultWallet({ query,
-userId })` de `@vetor-wallet/portfolio-core` — **core → core de outro módulo**,
-contra a regra 6 de `docs/PACKAGES.md`. É o acoplamento que já existia dentro do
-`server`, tornado explícito pela extração (T-099c); a saída natural seria a rota
-de registro orquestrar os dois, mas isso muda quem é responsável por criar a
-carteira e fica para tarefa futura. O mesmo `query` injetado é repassado.
+Até a T-121 `createUser` e `createCognitoUser` chamavam `getOrCreateDefaultWallet` do `portfolio-core` — **core → core de
+outro módulo**, contra a regra 6 de `docs/PACKAGES.md`. **A rota orquestra:** `establishSession`
+(`packages/rest-api/src/api/auth/router.ts`) chama `getOrCreateDefaultWallet` quando o desfecho é `created` (usuário recém-
+espelhado), logo depois do `findOrCreateUserByCognitoSub` — portanto depois do gate `EMAIL_NOT_VERIFIED`, que lança antes de
+qualquer escrita. Falha na carteira só é logada e não derruba o login (T-050a; o lazy-create do `GET /api/wallets` é a rede
+de segurança). Login de conta já conhecida/vinculada não cria carteira (carteira única, T-050). Os creators daqui só
+inserem em `users`; **quem chama um creator fora da rota (CLI, teste) é responsável pela carteira**.
 
 ## Testes
 
 Jest, cobertura 100% (meta do formato), em `tests/unit/tests/`, com o mock de
-`query` de `tests/unit/testQuery.ts` — sem banco. `portfolio-core` é mockado com
-factory. Rodar: `pnpm --filter @vetor-wallet/auth-core test`.
+`query` de `tests/unit/testQuery.ts` — sem banco. Rodar: `pnpm --filter @vetor-wallet/auth-core test`.
 
 **Prova contra SQLite real fora do package (T-116a):** o teste de banco que existia
 saiu daqui — o mock prova a ordem dos caminhos e o gate de `emailVerified`, mas

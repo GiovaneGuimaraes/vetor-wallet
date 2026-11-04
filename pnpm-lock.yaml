@@ -57,9 +57,6 @@ importers:
 
   packages/auth-core:
     dependencies:
-      '@vetor-wallet/portfolio-core':
-        specifier: workspace:*
-        version: link:../portfolio-core
       '@vetor-wallet/query':
         specifier: workspace:*
         version: link:../query
@@ -323,12 +320,6 @@ importers:
 
   packages/insights-core:
     dependencies:
-      '@vetor-wallet/brapi-core':
-        specifier: workspace:*
-        version: link:../brapi-core
-      '@vetor-wallet/portfolio-core':
-        specifier: workspace:*
-        version: link:../portfolio-core
       '@vetor-wallet/query':
         specifier: workspace:*
         version: link:../query

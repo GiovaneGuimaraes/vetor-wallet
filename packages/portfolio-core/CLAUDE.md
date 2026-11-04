@@ -99,6 +99,8 @@ Telas: `packages/web/src/routes/DashboardPage.tsx` e os módulos puros ao lado.
   degrada em silêncio). São contratos de erro opostos de propósito; este package
   **não** importa `brapi-core` hoje. Ver "Pendências".
 
+**T-121:** `getPortfolioReturnAndEarliestDate({ query, userId, fetchQuotes })` (retorno % da carteira + data da 1ª operação, para `GET /api/benchmarks`) veio do `insights-core` para cá. A cotação é injetada pela rota (`fetchQuotes` do `brapi-core`) — este package continua sem depender dele. A criação da carteira padrão no 1º login é chamada pela rota de auth, não pelo `auth-core`.
+
 ## Decisões: carteira, ações e dashboard
 
 ### Carteira única de ações (T-050 server, T-050b web)
