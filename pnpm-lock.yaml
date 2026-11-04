@@ -409,6 +409,9 @@ importers:
 
   packages/portfolio-core:
     dependencies:
+      '@vetor-wallet/brapi-core':
+        specifier: workspace:*
+        version: link:../brapi-core
       '@vetor-wallet/query':
         specifier: workspace:*
         version: link:../query

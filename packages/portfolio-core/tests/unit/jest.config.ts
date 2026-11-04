@@ -25,6 +25,7 @@ const config: Config = {
     '^.+\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/tests/tsconfig.json' }],
   },
   moduleNameMapper: {
+    '^@vetor-wallet/brapi-core$': '<rootDir>/../brapi-core/src/index.ts',
     '^@vetor-wallet/query$': '<rootDir>/../query/src/index.ts',
     '^@vetor-wallet/shared$': '<rootDir>/../shared/src/index.ts',
     '^src/(.*)$': '<rootDir>/src/$1',
