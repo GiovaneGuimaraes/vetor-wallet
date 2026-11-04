@@ -3,7 +3,7 @@ import {
   isValidMoneyAmount,
   normalizeCategory,
 } from '@vetor-wallet/validation-core';
-import { MAX_EXTERNAL_ID_LENGTH } from './externalId';
+import { MAX_EXTERNAL_ID_LENGTH } from './MAX_EXTERNAL_ID_LENGTH';
 
 /**
  * Parser de extrato OFX + mapeamento para lançamentos (T-085).

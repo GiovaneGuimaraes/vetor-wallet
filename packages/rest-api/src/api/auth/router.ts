@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { db } from '@vetor-wallet/db';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import {
   CognitoLinkRequiresVerifiedEmailError,
   findOrCreateUserByCognitoSub,
@@ -28,6 +29,8 @@ import {
   isCognitoApiError,
   resetPasswordErrorResponse,
 } from './cognitoErrorResponse';
+
+const query = createSqliteQuery(db);
 
 /**
  * Rotas de autenticação (T-106: identidade no AWS Cognito).
@@ -121,6 +124,7 @@ async function establishSession(
 ): Promise<{ user: User; outcome: string }> {
   const { sub, email, emailVerified } = await cognitoGetUser(session.accessToken);
   const { user, outcome } = await findOrCreateUserByCognitoSub({
+    query,
     cognitoSub: sub,
     email,
     emailVerified,
@@ -470,7 +474,7 @@ router.patch(
 
     // `name`/`phone` são NOSSOS (o Cognito nem sabe deles): o perfil continua
     // sendo do `auth-core`, sem ida à AWS.
-    const user = await updateUserProfile(req.session.userId, update);
+    const user = await updateUserProfile({ query, userId: req.session.userId, update });
     if (!user) {
       req.session.destroy(() => null);
       res.status(401).json({ error: 'Sessao invalida' });

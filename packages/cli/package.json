@@ -16,6 +16,7 @@
     "@vetor-wallet/auth-core": "workspace:*",
     "@vetor-wallet/bank-import-core": "workspace:*",
     "@vetor-wallet/pluggy-core": "workspace:*",
+    "@vetor-wallet/query": "workspace:*",
     "@vetor-wallet/shared": "workspace:*",
     "@vetor-wallet/validation-core": "workspace:*",
     "dotenv": "^16.4.5"

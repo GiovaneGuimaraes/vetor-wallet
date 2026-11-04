@@ -1,15 +1,10 @@
-export {
-  MAX_EXTERNAL_ID_LENGTH,
-  validateExternalId,
-  insertEntryWithExternalId,
-  duplicateEntryResponse,
-} from './externalId';
-export type {
-  EntryTable,
-  ExternalIdValidation,
-  InsertEntryParams,
-  InsertEntryResult,
-} from './externalId';
+export { MAX_EXTERNAL_ID_LENGTH } from './MAX_EXTERNAL_ID_LENGTH';
+export { validateExternalId } from './validateExternalId';
+export type { ExternalIdValidation } from './validateExternalId';
+export { insertEntryWithExternalId } from './insertEntryWithExternalId';
+export type { InsertEntryParams, InsertEntryResult } from './insertEntryWithExternalId';
+export { duplicateEntryResponse } from './duplicateEntryResponse';
+export type { EntryTable } from './EntryTable';
 export {
   decodeOfx,
   decodeEntities,
@@ -28,7 +23,6 @@ export {
   pluggyExternalId,
   parsePluggyDate,
   mapPluggyTransaction,
-  importPluggyTransactions,
   DEFAULT_PLUGGY_CATEGORY,
   DEFAULT_PLUGGY_DESCRIPTION,
   MAX_PLUGGY_DESCRIPTION_LENGTH,
@@ -36,7 +30,10 @@ export {
 } from './pluggy';
 export { INTERNAL_MOVEMENT_CATEGORIES, classifyInternalMovement } from './internalMovement';
 export type { InternalMovementReason } from './internalMovement';
-export { UNKNOWN_PLUGGY_ITEM_STATUS, toPluggyItem } from './PluggyItem';
+export { UNKNOWN_PLUGGY_ITEM_STATUS } from './UNKNOWN_PLUGGY_ITEM_STATUS';
+export { toPluggyItem } from './toPluggyItem';
+export { importPluggyTransactions } from './importPluggyTransactions';
+export type { ImportPluggyTransactionsParams } from './importPluggyTransactions';
 export type { PluggyItem } from './PluggyItem';
 export { PluggyItemError } from './PluggyItemError';
 export type { PluggyItemErrorCode } from './PluggyItemError';
@@ -64,7 +61,6 @@ export type {
   PluggyImportStatus,
   PluggyImportLine,
   PluggyImportResult,
-  ImportPluggyTransactionsParams,
 } from './pluggy';
 export { wipeUserFinancialEntries } from './wipeUserFinancialEntries';
 export type {

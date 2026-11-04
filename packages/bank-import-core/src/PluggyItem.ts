@@ -1,5 +1,3 @@
-import type { Row } from '@libsql/client';
-
 /**
  * Uma conexão do usuário com uma instituição financeira via Pluggy — o "item"
  * (T-089a).
@@ -25,21 +23,4 @@ export interface PluggyItem {
   status: string;
   createdAt: string;
   updatedAt: string;
-}
-
-/** Estado inicial quando quem registra o item não sabe o estado dele. */
-export const UNKNOWN_PLUGGY_ITEM_STATUS = 'UNKNOWN';
-
-/** Projeta a linha do banco no tipo do domínio (nomes camelCase). */
-export function toPluggyItem(row: Row): PluggyItem {
-  return {
-    id: Number(row.id),
-    userId: Number(row.user_id),
-    itemId: String(row.item_id),
-    connectorId: row.connector_id === null ? null : Number(row.connector_id),
-    connectorName: row.connector_name === null ? null : String(row.connector_name),
-    status: String(row.status),
-    createdAt: String(row.created_at),
-    updatedAt: String(row.updated_at),
-  };
 }
