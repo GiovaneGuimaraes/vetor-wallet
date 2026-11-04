@@ -63,6 +63,7 @@ Duas linhas OPCIONAIS no `HistoryChart`, respondendo "e se o mesmo dinheiro tive
 - **Fora de escopo (segue pendente)**: exportação do gráfico; comparação com outros benchmarks (IPCA, dólar); percentuais de rentabilidade lado a lado (as linhas comparam valor, não mostram "+X% vs +Y%").
 
 ### Por que o job de insights horários foi REMOVIDO (T-109a, 2026-09-20)
+
 Ele gravava em `hourly_quote_insights` de hora em hora e **nenhum `SELECT` no repo lia essa
 tabela** — escrita pura, sem leitor. Sem agendador de verdade, dependia de ser chamado à mão
 (CLI) ou por cron do SO, e a rota de admin existia só para disparar o job a partir do navegador.
@@ -78,3 +79,5 @@ tem tarefa própria (ver `docs/multi-agent/BACKLOG.md`).
 Ver também `CLAUDE.md` da raiz, `docs/PACKAGES.md` (regras de dependência),
 `docs/MODULES.md` (módulo Insights), `packages/portfolio-core/CLAUDE.md` e
 `packages/brapi-core/CLAUDE.md`.
+
+- **Candle do Ibovespa é datado em BRT (T-119, 2026-11-04).** `buildIbovespaSeries` subtrai 3h fixas antes de tirar a data — a mesma âncora da rota (`getBRTDate`); em UTC, um candle após 21h BRT era datado "amanhã" e cortado da janela. Premissa verificada na brapi (consulta sem token, `PETR4`, `interval=1d`): candle diário de ação vem às **03:00Z = 00:00 BRT** do dia do pregão, então nunca cruza a virada de dia. Candle de cripto vem às 00:00Z — se um dia entrar, a premissa muda. A constante é duplicada de propósito: core não importa o `portfolio-core` (regra 6).
