@@ -10,6 +10,7 @@
     "test": "jest --projects tests/unit"
   },
   "dependencies": {
+    "@vetor-wallet/brapi-core": "workspace:*",
     "@vetor-wallet/query": "workspace:*",
     "@vetor-wallet/shared": "workspace:*"
   },

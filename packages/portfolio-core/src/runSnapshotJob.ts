@@ -1,5 +1,5 @@
 import type { Query } from '@vetor-wallet/query';
-import { fetchQuotesStrict } from './fetchQuotesStrict';
+import { fetchQuotesStrict } from '@vetor-wallet/brapi-core';
 import { resolveActiveTickers } from './resolveActiveTickers';
 import { saveSnapshot } from './saveSnapshot';
 import { withRetry } from './withRetry';

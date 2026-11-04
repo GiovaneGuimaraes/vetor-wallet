@@ -26,7 +26,7 @@ export { buildDateWindow } from './buildDateWindow';
 export { buildPortfolioHistory } from './buildPortfolioHistory';
 
 // ── Snapshots: datas BRT, retry, persistência/leitura e a coleta ──
-// `fetchQuotesStrict` fica fora do barrel: só `runSnapshotJob` usa.
+// A cotação estrita (que lança) vem de `@vetor-wallet/brapi-core` — este package não tem client próprio.
 export { getBRTDate } from './getBRTDate';
 export { isBusinessDay } from './isBusinessDay';
 export { withRetry } from './withRetry';
