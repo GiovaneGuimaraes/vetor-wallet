@@ -153,7 +153,7 @@ Packages:
   DELETE). O POST de lançamento **não** está aqui — passa por `insertEntryWithExternalId`
   (`bank-import-core`), porque a dedupe por `external_id` é política do módulo BankImport.
 - `packages/rest-api` — `/api/expenses`, `/api/expense-entries` (+ `/summary`),
-  `/api/recurring-expenses`, `/api/budgets`. As duas primeiras ficaram **sem SQL**;
+  `/api/recurring-expenses` (`/api/budgets` saiu na T-118). As duas primeiras ficaram **sem SQL**;
   `currentMonth`/`shiftMonthKey`/`MATERIALIZATION_HORIZON_MONTHS` continuam na rota por
   serem interpretação do parâmetro da request.
 - `packages/web/src/routes` — página de despesas, histórico mensal, edição inline (T-031).

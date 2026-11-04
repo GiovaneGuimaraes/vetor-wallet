@@ -244,6 +244,7 @@ ALTER TABLE fixed_income_positions ADD COLUMN superseded_by_pluggy_investment_id
 -- A tabela `goals` foi REMOVIDA do banco na T-091b2 (2026-08-18) — ver a seção
 -- "Metas saiu do banco (T-091b2)" no fim deste arquivo.
 
+-- SEM USO desde T-118 (rota /api/budgets removida); DROP pendente (etapa 2).
 -- Orçamento mensal por categoria (T-023): teto de gasto sem vínculo com mês —
 -- vale para qualquer mês exibido em Despesas, só o gasto comparado varia.
 -- UNIQUE(user_id, category); POST faz upsert (substitui o amount existente).
