@@ -4,9 +4,13 @@ import {
   fetchCdiSeries,
   fetchIbovespaReturn,
   fetchIbovespaSeries,
-  getPortfolioReturnAndEarliestDate,
 } from '@vetor-wallet/insights-core';
-import { buildDateWindow, getBRTDate } from '@vetor-wallet/portfolio-core';
+import { fetchQuotes } from '@vetor-wallet/brapi-core';
+import {
+  buildDateWindow,
+  getBRTDate,
+  getPortfolioReturnAndEarliestDate,
+} from '@vetor-wallet/portfolio-core';
 import { parseDaysParam } from '@vetor-wallet/validation-core';
 import { db } from '@vetor-wallet/db';
 import { createSqliteQuery } from '@vetor-wallet/query';
@@ -35,6 +39,7 @@ router.get(
     const { pct: portfolioPct, earliestDate } = await getPortfolioReturnAndEarliestDate({
       query,
       userId,
+      fetchQuotes,
     });
 
     if (!earliestDate) {

@@ -50,7 +50,7 @@ src/
 │   ── snapshots ──
 ├── getBRTDate.ts / isBusinessDay.ts   # puros
 ├── withRetry.ts                # backoff linear, relança o último erro
-├── fetchQuotesStrict.ts        # brapi que LANÇA — fora do barrel
+# (sem client da brapi: a coleta consome `fetchQuotesStrict` de @vetor-wallet/brapi-core)
 ├── resolveActiveTickers.ts     # `{ query }`
 ├── saveSnapshot.ts             # `{ query, ticker, price }` — ON CONFLICT DO NOTHING
 ├── saveSnapshotForDate.ts      # `{ query, ticker, price, isoDate }` — backfill
@@ -94,10 +94,13 @@ Telas: `packages/web/src/routes/DashboardPage.tsx` e os módulos puros ao lado.
 - **A coleta de snapshots só é idempotente por causa do banco**
   (`UNIQUE(ticker, date(captured_at))`) somado às guardas de `catchUpIfNeeded`.
   Não invente guarda nova.
-- **A coleta tem `fetchQuotesStrict` PRÓPRIO** (que *lança* em erro, para o
-  `withRetry` agir), separado do `fetchQuotes` de `@vetor-wallet/brapi-core` (que
-  degrada em silêncio). São contratos de erro opostos de propósito; este package
-  **não** importa `brapi-core` hoje. Ver "Pendências".
+- **A coleta consome `fetchQuotesStrict` de `@vetor-wallet/brapi-core`** (T-120) — este
+  package NÃO tem client próprio da brapi. A versão estrita *lança* em erro de rede,
+  status não-ok e resposta vazia, para o `withRetry` agir e a coleta **nunca gravar
+  preço falso**; o `fetchQuotes` da mesma lib degrada em silêncio (telas). Política
+  diferente de propósito, mesmo client. Detalhes no `CLAUDE.md` do `brapi-core`.
+
+**T-121:** `getPortfolioReturnAndEarliestDate({ query, userId, fetchQuotes })` (retorno % da carteira + data da 1ª operação, para `GET /api/benchmarks`) veio do `insights-core` para cá. A cotação é injetada pela rota (`fetchQuotes` do `brapi-core`) — este package continua sem depender dele. A criação da carteira padrão no 1º login é chamada pela rota de auth, não pelo `auth-core`.
 
 ## Decisões: carteira, ações e dashboard
 
@@ -340,12 +343,6 @@ conta).
 
 ## Pendências / notas de arquitetura
 
-- **`fetchQuotesStrict` duplica o client da brapi.** `fetchQuotesStrict.ts` fala com
-  `https://brapi.dev/api/quote` por conta própria porque precisa **lançar** em
-  erro (o `withRetry` depende disso), enquanto `@vetor-wallet/brapi-core`
-  degrada em silêncio. Unificar (ex.: `fetchQuotesStrict` migrar para
-  `brapi-core` e `fetchQuotes` virar o wrapper tolerante) é candidato a tarefa
-  futura — **não** foi feito na T-099c, que era movimentação mecânica.
 - **`@vetor-wallet/auth-core` e `@vetor-wallet/insights-core` importam este
   package** (`getOrCreateDefaultWallet` no `createUser`; `buildPositionMap` e os
   helpers de snapshot nos benchmarks/insights). Isso cruza módulos, contra a

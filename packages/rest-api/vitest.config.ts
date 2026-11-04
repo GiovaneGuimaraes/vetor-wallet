@@ -16,7 +16,7 @@ export default defineConfig({
       // capturaria também o subpath e resolveria para '.../src/index.ts/fixtures'.
       '@vetor-wallet/bank-import-core/fixtures': path.resolve(
         __dirname,
-        '../bank-import-core/src/__fixtures__/ofx.ts',
+        '../bank-import-core/src/__fixtures__/ofx.ts'
       ),
       '@vetor-wallet/bank-import-core': path.resolve(__dirname, '../bank-import-core/src/index.ts'),
       '@vetor-wallet/portfolio-core': path.resolve(__dirname, '../portfolio-core/src/index.ts'),
@@ -28,11 +28,14 @@ export default defineConfig({
       '@vetor-wallet/brapi-core': path.resolve(__dirname, '../brapi-core/src/index.ts'),
       '@vetor-wallet/cognito-core': path.resolve(__dirname, '../cognito-core/src/index.ts'),
       '@vetor-wallet/validation-core': path.resolve(__dirname, '../validation-core/src/index.ts'),
-      '@vetor-wallet/subscription-core': path.resolve(__dirname, '../subscription-core/src/index.ts'),
+      '@vetor-wallet/subscription-core': path.resolve(
+        __dirname,
+        '../subscription-core/src/index.ts'
+      ),
       '@vetor-wallet/savings-core': path.resolve(__dirname, '../savings-core/src/index.ts'),
       '@vetor-wallet/fixed-income-core': path.resolve(
         __dirname,
-        '../fixed-income-core/src/index.ts',
+        '../fixed-income-core/src/index.ts'
       ),
       '@vetor-wallet/income-core': path.resolve(__dirname, '../income-core/src/index.ts'),
       '@vetor-wallet/expenses-core': path.resolve(__dirname, '../expenses-core/src/index.ts'),

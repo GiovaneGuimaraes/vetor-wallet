@@ -8,7 +8,7 @@
 //
 // IMPRIME SÓ ESTRUTURA. Nada de nome de ativo, valor, instituição, código do
 // papel ou id de investimento — o repo é público e saída de terminal acaba em
-// BACKLOG.md, PR e Discord (CLAUDE.md da raiz). A contagem vem pronta de
+// BACKLOG.md, PR e issue (CLAUDE.md da raiz). A contagem vem pronta de
 // `summarizePluggyInvestments` (pluggy-core), que tem teste garantindo que nada
 // disso vaza; o `itemId` sai mascarado (`maskItemId`).
 //

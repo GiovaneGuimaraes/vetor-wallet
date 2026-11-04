@@ -27,9 +27,8 @@ Packages:
   `InitiateAuth` (`USER_PASSWORD_AUTH` e `REFRESH_TOKEN_AUTH`), `ConfirmSignUp`,
   `ResendConfirmationCode`, `GetUser`, `ChangePassword`. **Não toca o banco.**
 - `packages/auth-core` *(Core, T-099c)* — dono da tabela `users`: espelho da identidade
-  (`cognito_sub`, vínculo por e-mail normalizado), perfil e papéis (`grantRole`). Importa
-  `portfolio-core` (`createUser` cria a carteira padrão) — exceção conhecida à regra 6, ver
-  `PACKAGES.md`.
+  (`cognito_sub`, vínculo por e-mail normalizado), perfil e papéis (`grantRole`). Não importa
+  outro core: a rota de auth chama o `portfolio-core` para criar a carteira padrão (T-121).
 - `packages/db` *(Infraestrutura, T-097)* — `sessionStore` (sessões em SQLite, T-034/T-046).
 - `packages/rest-api` — `POST /api/auth/register·login·logout·confirm·resend-code`,
   `GET/PATCH /me`, `POST /change-password`, e o middleware `requireAuth`/`requireAdmin` (fica
@@ -153,7 +152,7 @@ Packages:
   DELETE). O POST de lançamento **não** está aqui — passa por `insertEntryWithExternalId`
   (`bank-import-core`), porque a dedupe por `external_id` é política do módulo BankImport.
 - `packages/rest-api` — `/api/expenses`, `/api/expense-entries` (+ `/summary`),
-  `/api/recurring-expenses`, `/api/budgets`. As duas primeiras ficaram **sem SQL**;
+  `/api/recurring-expenses` (`/api/budgets` saiu na T-118). As duas primeiras ficaram **sem SQL**;
   `currentMonth`/`shiftMonthKey`/`MATERIALIZATION_HORIZON_MONTHS` continuam na rota por
   serem interpretação do parâmetro da request.
 - `packages/web/src/routes` — página de despesas, histórico mensal, edição inline (T-031).
@@ -216,8 +215,8 @@ Nota: `/api/plans` é a **única** rota de dados sem filtro por `user_id` (catá
 Packages:
 
 - `packages/insights-core` *(Core, T-099c)* — acumulado do período e série diária de benchmarks
-  (T-068), e o job de insights horários. Importa `portfolio-core` — exceção conhecida à
-  regra 6, ver `PACKAGES.md`.
+  (T-068), e o job de insights horários. Não importa outro core: o retorno
+  da carteira vive no `portfolio-core` e a rota `/api/benchmarks` junta os dois (T-121).
 - `packages/rest-api` — `/api/benchmarks`, `/api/benchmarks/history?days=`,
 - `packages/web/src/routes` — gráfico de comparação.
 
