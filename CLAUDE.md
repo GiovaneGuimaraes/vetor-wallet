@@ -138,7 +138,7 @@ pnpm dev:server / pnpm dev:web            # `dev:server` mantém o nome antigo p
 pnpm build                                # rest-api → dist/ (entry dist/api/index.js), web → dist/
 pnpm lint                                 # ESLint em TODO o monorepo (config única na raiz;
                                           # package não tem config nem script próprio — T-102)
-pnpm format / pnpm format:check           # Prettier em packages/*/{src,tests}
+pnpm format / pnpm format:check           # Prettier em packages/*/{src,tests} + configs/json da raiz de cada package
 pnpm --filter vetor-wallet-rest-api test  # Vitest (rest-api)
 pnpm --filter @vetor-wallet/db test       # Vitest (db)
 pnpm --filter @vetor-wallet/brapi-core test        # Vitest (brapi-core)
@@ -215,7 +215,7 @@ Schema completo do banco: `docs/decisions/db-schema.md` (fonte da verdade: `pack
 ## Convenções
 
 - **Dado financeiro real do humano nunca entra em arquivo versionado** (nem em corpo de PR,
-  mensagem de commit ou Discord): **o repo é público**. Isso cobre saldo, valor de lançamento,
+  mensagem de commit ou issue): **o repo é público**. Isso cobre saldo, valor de lançamento,
   nome de estabelecimento e id de conta/`itemId` — não só credencial. Achado que veio de dado
   real se descreve de forma **relativa** ("a maior parte do débito do mês", "vários múltiplos
   acima do gasto real"), que preserva a decisão sem expor a conta. Fixture usa valor inventado.
