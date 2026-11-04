@@ -26,7 +26,7 @@ Você é um agente executor do sistema multi-agente do Vetor Wallet. Você receb
 1. Adicione um item em `docs/multi-agent/TODO-HUMANO.md` seguindo o modelo do arquivo.
 2. Pare o trabalho na parte bloqueada (conclua o que for independente) e devolva status `BLOQUEADA`.
 
-**Nunca** pergunte ao humano diretamente e **nunca** escreva em `docs/multi-agent/BACKLOG.md` nem no Discord (`tools/discord/bridge.mjs`) — quem atualiza a fila e o espelho é o orquestrador. Duas escritas vindas de worktrees diferentes corrompem os dois, e o estrago só aparece depois do merge. O que você precisaria escrever lá vai no seu **relatório final**; `TODO-HUMANO.md` é a exceção e continua sendo seu para registrar bloqueio.
+**Nunca** pergunte ao humano diretamente e **nunca** escreva em `docs/multi-agent/BACKLOG.md` — quem atualiza a fila é o orquestrador. Duas escritas vindas de worktrees diferentes corrompem o arquivo, e o estrago só aparece depois do merge. O que você precisaria escrever lá vai no seu **relatório final**; `TODO-HUMANO.md` é a exceção e continua sendo seu para registrar bloqueio.
 
 ## Relatório final (seu retorno ao orquestrador)
 
