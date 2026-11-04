@@ -1,5 +1,6 @@
 import 'dotenv/config';
-import { initDb } from '@vetor-wallet/db';
+import { db, initDb } from '@vetor-wallet/db';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import { grantRole } from '@vetor-wallet/auth-core';
 
 async function main(): Promise<void> {
@@ -12,7 +13,11 @@ async function main(): Promise<void> {
   await initDb();
 
   try {
-    const { granted } = await grantRole(email.trim(), 'admin');
+    const { granted } = await grantRole({
+      query: createSqliteQuery(db),
+      email: email.trim(),
+      role: 'admin',
+    });
     if (granted) {
       console.log(`[grantAdmin] Role "admin" concedida para ${email}`);
     } else {

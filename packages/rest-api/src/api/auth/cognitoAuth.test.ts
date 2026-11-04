@@ -406,7 +406,12 @@ describe('vínculo da conta que já existia (T-106)', () => {
     // Conta "pré-Cognito": criada como as antigas (bcrypt, sem cognito_sub) e
     // com dado do usuário pendurado nela.
     const { createUser } = await import('@vetor-wallet/auth-core');
-    const legacy = await createUser('Legado@Example.com', 'senha-antiga-1');
+    const { createSqliteQuery } = await import('@vetor-wallet/query');
+    const legacy = await createUser({
+      query: createSqliteQuery(dbModule.db),
+      email: 'Legado@Example.com',
+      password: 'senha-antiga-1',
+    });
     await dbModule.db.execute({
       sql: 'INSERT INTO income_sources (user_id, name, amount) VALUES (?, ?, ?)',
       args: [legacy.id, 'Salario', 123],
@@ -452,7 +457,12 @@ describe('vínculo da conta que já existia (T-106)', () => {
 
   it('a senha ANTIGA do banco não entra mais: quem valida é o Cognito', async () => {
     const { createUser } = await import('@vetor-wallet/auth-core');
-    await createUser('somente-local@example.com', 'senha-do-banco-1');
+    const { createSqliteQuery } = await import('@vetor-wallet/query');
+    await createUser({
+      query: createSqliteQuery(dbModule.db),
+      email: 'somente-local@example.com',
+      password: 'senha-do-banco-1',
+    });
 
     // Existe em `users` com bcrypt válido, mas não existe no pool.
     const res = await request(app)
@@ -484,7 +494,12 @@ describe('takeover pelo vínculo por e-mail: pool auto-confirma SEM verificar e-
 
   it('registro com o e-mail da vítima é 403 EMAIL_NOT_VERIFIED, sem sessão e sem vínculo', async () => {
     const { createUser } = await import('@vetor-wallet/auth-core');
-    const vitima = await createUser('alvo@example.com', 'senha-antiga-1');
+    const { createSqliteQuery } = await import('@vetor-wallet/query');
+    const vitima = await createUser({
+      query: createSqliteQuery(dbModule.db),
+      email: 'alvo@example.com',
+      password: 'senha-antiga-1',
+    });
     await dbModule.db.execute({
       sql: 'INSERT INTO income_sources (user_id, name, amount) VALUES (?, ?, ?)',
       args: [vitima.id, 'Salario', 123],
@@ -524,7 +539,12 @@ describe('takeover pelo vínculo por e-mail: pool auto-confirma SEM verificar e-
 
   it('o login seguinte do atacante também é recusado (a trava não é só do register)', async () => {
     const { createUser } = await import('@vetor-wallet/auth-core');
-    await createUser('alvo2@example.com', 'senha-antiga-1');
+    const { createSqliteQuery } = await import('@vetor-wallet/query');
+    await createUser({
+      query: createSqliteQuery(dbModule.db),
+      email: 'alvo2@example.com',
+      password: 'senha-antiga-1',
+    });
 
     // Cadastro no pool falha no vínculo, mas o usuário JÁ existe lá dentro
     // (o SignUp aconteceu antes do gate) — então o atacante pode tentar o login.
@@ -575,7 +595,12 @@ describe('vínculo liberado quando o e-mail É verificado no pool (T-106)', () =
 
   it('quem confirma o código entra NA conta antiga, com os dados dela', async () => {
     const { createUser } = await import('@vetor-wallet/auth-core');
-    const dono = await createUser('dono-verificado@example.com', 'senha-antiga-1');
+    const { createSqliteQuery } = await import('@vetor-wallet/query');
+    const dono = await createUser({
+      query: createSqliteQuery(dbModule.db),
+      email: 'dono-verificado@example.com',
+      password: 'senha-antiga-1',
+    });
     await dbModule.db.execute({
       sql: 'INSERT INTO income_sources (user_id, name, amount) VALUES (?, ?, ?)',
       args: [dono.id, 'Salario', 321],
@@ -757,7 +782,12 @@ describe('troca de senha sobre o Cognito (T-094 + T-106)', () => {
   it('sessão sem token do Cognito (criada antes da T-106) responde 401 acionável', async () => {
     // Monta um app com uma sessão "legada": tem userId, não tem token.
     const { createUser } = await import('@vetor-wallet/auth-core');
-    const legacy = await createUser('sessao-legada@example.com', 'senha-antiga-1');
+    const { createSqliteQuery } = await import('@vetor-wallet/query');
+    const legacy = await createUser({
+      query: createSqliteQuery(dbModule.db),
+      email: 'sessao-legada@example.com',
+      password: 'senha-antiga-1',
+    });
 
     const legacyApp = express();
     legacyApp.use(express.json());
