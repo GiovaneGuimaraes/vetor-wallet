@@ -19,9 +19,5 @@
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts"],
-  "references": [
-    { "path": "../shared" },
-    { "path": "../portfolio-core" },
-    { "path": "../query" }
-  ]
+  "references": [{ "path": "../shared" }, { "path": "../portfolio-core" }, { "path": "../query" }]
 }

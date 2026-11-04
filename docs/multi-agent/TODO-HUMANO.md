@@ -134,7 +134,7 @@
 ### [2026-08-20] ~~Roteiro AWS: os 6 passos até o user pool do Cognito funcionar~~ — CONCLUÍDO em 2026-09-09 (T-106)
 - **Origem**: orquestrador (conversa de 2026-08-20)
 - **Bloqueia**: T-106 na prática — o backend está mergeado (#169), mas `/api/auth/*` só sai do 503 quando o pool existir e o `.env` estiver preenchido.
-- **Espelho no Discord**: **uma mensagem por passo** no `#todo-human` (pedido do humano, 2026-08-20) — reagir ✅ na mensagem do passo conforme for concluindo.
+- **Espelho no Discord**: removido em 2026-11-04 (a integração saiu); acompanhe os passos só neste arquivo.
 
 **Passo 1 — Conta AWS + MFA no root, e não usar o root pra nada.** Criar um usuário admin no IAM Identity Center e usar ele no console.
   - **Achado do humano (2026-08-20)**: a tela pede um **identity provider** antes de criar usuário. Não é preciso IdP externo: escolher a **"Identity Center directory"** (o diretório embutido), criar o usuário lá e dar o permission set `AdministratorAccess`. SAML/OIDC só existiria se houvesse Google Workspace/Okta para federar — não é o caso.

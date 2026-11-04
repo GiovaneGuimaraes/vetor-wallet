@@ -16,7 +16,7 @@ export interface PluggyInvestmentsSummary {
  * Mora aqui, e não no cli, para a garantia "nada de valor, nome, código ou id
  * sai daqui" ter teste: o retorno só carrega contagens e os rótulos de `type`
  * (vocabulário da Pluggy, não dado do usuário). Saída de terminal acaba em
- * print, `BACKLOG.md` e Discord, e o repo é público.
+ * print, `BACKLOG.md` e issue, e o repo é público.
  */
 export function summarizePluggyInvestments(
   investments: readonly PluggyInvestment[]
