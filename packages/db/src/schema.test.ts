@@ -487,3 +487,45 @@ describe('initDb — Metas não existe mais no schema (T-091b2)', () => {
     expect(columns.rows.map((row) => String(row.name))).not.toContain('goal_id');
   });
 });
+
+/**
+ * Era coberto pelo `cognitoMirror.test.ts` do auth-core (banco real) e perdeu o
+ * teste quando o package migrou para `query` injetado (T-116a): um mock de
+ * `query` não prova índice. `idx_users_cognito_sub` é o que faz a corrida entre
+ * dois logins do mesmo `sub` falhar em vez de duplicar a conta.
+ */
+describe('initDb — idx_users_cognito_sub (T-106)', () => {
+  let db: Db;
+
+  beforeAll(async () => {
+    const mod = await import('./index');
+    db = mod.db;
+    await mod.initDb();
+  });
+
+  it('dois usuários não podem compartilhar o mesmo cognito_sub', async () => {
+    await db.execute({
+      sql: 'INSERT INTO users (email, password_hash, cognito_sub) VALUES (?, ?, ?)',
+      args: ['sub-a@example.com', 'x', 'sub-dup'],
+    });
+    await expect(
+      db.execute({
+        sql: 'INSERT INTO users (email, password_hash, cognito_sub) VALUES (?, ?, ?)',
+        args: ['sub-b@example.com', 'x', 'sub-dup'],
+      })
+    ).rejects.toThrow();
+  });
+
+  it('o índice é parcial: várias contas legadas sem cognito_sub convivem', async () => {
+    for (const email of ['legado-1@example.com', 'legado-2@example.com']) {
+      await db.execute({
+        sql: 'INSERT INTO users (email, password_hash) VALUES (?, ?)',
+        args: [email, 'x'],
+      });
+    }
+    const res = await db.execute(
+      `SELECT COUNT(*) AS cnt FROM users WHERE email LIKE 'legado-%@example.com'`
+    );
+    expect(Number(res.rows[0].cnt)).toBe(2);
+  });
+});

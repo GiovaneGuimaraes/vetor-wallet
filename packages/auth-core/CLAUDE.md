@@ -141,12 +141,14 @@ Jest, cobertura 100% (meta do formato), em `tests/unit/tests/`, com o mock de
 `query` de `tests/unit/testQuery.ts` — sem banco. `portfolio-core` é mockado com
 factory. Rodar: `pnpm --filter @vetor-wallet/auth-core test`.
 
-**O que ficou de fora do package:** o teste contra SQLite de verdade que existia
-(vínculo por e-mail com caixa diferente, unicidade do `sub`, dado antigo
-preservado depois do vínculo) deixou de existir aqui — o mock prova a ordem dos
-caminhos e o gate de `emailVerified`, mas **não** prova o SQL. Essa prova
-continua em `packages/rest-api/src/api/auth/cognitoAuth.test.ts` (banco
-temporário de verdade, via rotas) e vale também para a tradução `$N` → `?`. Ficam
+**Prova contra SQLite real fora do package (T-116a):** o teste de banco que existia
+saiu daqui — o mock prova a ordem dos caminhos e o gate de `emailVerified`, mas
+**não** prova o SQL nem o índice. A prova mora em: `packages/db/src/schema.test.ts`
+(`idx_users_cognito_sub`: sub duplicado falha, contas legadas sem sub convivem),
+`packages/rest-api/src/api/auth/authCoreSqlite.test.ts` (as funções contra SQLite
+real via `createSqliteQuery`: re-vínculo de `sub`, `findUserById`, `userExists`,
+`updateUserPassword`, `grantRole`, `updateUserProfile`) e `cognitoAuth.test.ts`
+(vínculo por e-mail, via rotas). Ficam
 em `packages/rest-api/src/api/auth/` também `middleware.test.ts`,
 `changePassword.test.ts`, `profile.test.ts` e `sessionPersistence.test.ts`.
 
