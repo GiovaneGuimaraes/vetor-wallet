@@ -18,6 +18,7 @@
 
 import 'dotenv/config';
 import { db, initDb } from '@vetor-wallet/db';
+import { createSqliteQuery } from '@vetor-wallet/query';
 import {
   linkPluggyItem,
   listPluggyItems,
@@ -41,10 +42,11 @@ async function main(): Promise<void> {
   }
 
   await initDb();
+  const query = createSqliteQuery(db);
   const userId = await resolvePluggyUserId(args);
 
   if (remove) {
-    const removed = await unlinkPluggyItem({ db, userId, itemId });
+    const removed = await unlinkPluggyItem({ query, userId, itemId });
     if (!removed) {
       // "não encontrado" cobre tanto o item inexistente quanto o de outro
       // usuário — de propósito: nada aqui confirma vínculo alheio.
@@ -63,7 +65,7 @@ async function main(): Promise<void> {
     }
 
     const item = await linkPluggyItem({
-      db,
+      query,
       userId,
       itemId,
       connectorId,
@@ -78,7 +80,7 @@ async function main(): Promise<void> {
     );
   }
 
-  const items = await listPluggyItems({ db, userId });
+  const items = await listPluggyItems({ query, userId });
   console.log(`[pluggyLink] O usuário tem agora ${items.length} item(ns):`);
   for (const it of items) {
     console.log(`  - ${maskItemId(it.itemId)} — ${it.connectorName ?? '—'} — ${it.status}`);

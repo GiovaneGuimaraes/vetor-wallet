@@ -6,8 +6,12 @@ Dono da tabela `users`: o **espelho local da identidade**, o perfil
 módulos). Categoria **Core**, módulo **Auth** (ver `docs/MODULES.md` /
 `docs/PACKAGES.md`).
 
-É dono da tabela `users` e por isso importa `@vetor-wallet/db` — "Core" é *dono
-das regras/dados do domínio*, não *nunca faz I/O*.
+É dono da tabela `users`. Desde a **T-116a** (passo 5 de
+`docs/multi-agent/plano-migracao-aws.md`) **não importa mais `@vetor-wallet/db`**:
+toda função recebe `query: Query` (`@vetor-wallet/query`) por injeção — `{ text,
+values }`, placeholders `$1, $2`, `RETURNING id`, `rowCount`. O app segue em
+SQLite (decisão 9, 2026-11-04): quem constrói o client (rota, CLI) usa
+`createSqliteQuery(db)`; quando o Postgres entrar, troca-se só essa linha.
 
 ## O que a T-106 mudou aqui (leia antes de mexer em senha)
 
@@ -43,28 +47,23 @@ Desde a T-106 (2026-08-18) **a identidade é do AWS Cognito** e este package
 
 ## Estrutura
 
-```
-src/
-├── service.ts   # validadores puros (isValidEmail/isValidName/isValidPhone/
-│                # normalizePhone/parseRoles/serializeRoles), hash e verificação
-│                # bcrypt, e o CRUD de users (createUser, findUserByEmail,
-│                # findUserById, updateUserProfile, updateUserPassword,
-│                # userExists, grantRole)
-├── cognitoMirror.ts # T-106: espelho da identidade do Cognito —
-│                # COGNITO_MANAGED_PASSWORD_HASH, findUserByCognitoSub,
-│                # linkCognitoSub, createCognitoUser, a porta única
-│                # findOrCreateUserByCognitoSub e o erro
-│                # CognitoLinkRequiresVerifiedEmailError (gate do vínculo)
-└── index.ts     # barrel
-```
+Formato-alvo (T-116a): **uma função por arquivo**, nome do arquivo = nome da
+função, `src/index.ts` só reexporta. Funções com I/O recebem um objeto de
+parâmetros `{ query, ... }`; as puras (`isValidEmail`, `isValidName`,
+`isValidPhone`, `normalizePhone`, `parseRoles`, `serializeRoles`,
+`hashPassword`, `verifyPassword`) não recebem `query`.
 
-`cognitoMirror.ts` **não** segue o formato-alvo (uma função por arquivo, `db`
-injetado): o package inteiro ainda usa o singleton `db` e migra de formato numa
-tarefa própria (T-104x). Misturar os dois estilos deixaria metade do package
-testável de um jeito e metade de outro — pior que a inconsistência com o alvo.
+- CRUD de `users`: `createUser`, `findUserByEmail`, `findUserById`,
+  `updateUserProfile`, `updateUserPassword`, `userExists`, `grantRole`.
+- Espelho do Cognito (T-106): `COGNITO_MANAGED_PASSWORD_HASH`,
+  `findUserByCognitoSub`, `linkCognitoSub`, `createCognitoUser`, a porta única
+  `findOrCreateUserByCognitoSub` e o erro `CognitoLinkRequiresVerifiedEmailError`.
+- Internos (fora do `index.ts`): `toUser` (linha → `User`, sem `password_hash`) e
+  `SELECT_COGNITO_USER`.
 
-Consumidores: `packages/rest-api/src/api/auth/{router,middleware}.ts` e
-`packages/cli/src/grantAdmin.ts` (`pnpm --filter vetor-wallet-cli roles:grant-admin`).
+Consumidores: `packages/rest-api/src/api/auth/{router,middleware}.ts`
+(`const query = createSqliteQuery(db)` no topo do router; o middleware só usa
+`parseRoles`) e `packages/cli/src/{grantAdmin,pluggyCli}.ts`.
 
 ## Invariantes (não quebrar)
 
@@ -129,50 +128,29 @@ Consumidores: `packages/rest-api/src/api/auth/{router,middleware}.ts` e
 
 ## Dependência de `@vetor-wallet/portfolio-core` (nota de arquitetura)
 
-`createUser` importa `getOrCreateDefaultWallet` de `@vetor-wallet/portfolio-core`
-— **core → core de outro módulo**, contra a regra 6 de `docs/PACKAGES.md`. É o
-acoplamento que já existia dentro do `server` (`auth/service.ts` importava
-`../services/wallets`), apenas tornado explícito pela extração; a T-099c foi
-movimentação mecânica e **não** o desfez. A saída natural seria a rota de
-registro orquestrar os dois (é o único lugar onde dois módulos podem se cruzar),
-mas isso muda quem é responsável por criar a carteira e fica para tarefa futura.
+`createUser` e `createCognitoUser` chamam `getOrCreateDefaultWallet({ query,
+userId })` de `@vetor-wallet/portfolio-core` — **core → core de outro módulo**,
+contra a regra 6 de `docs/PACKAGES.md`. É o acoplamento que já existia dentro do
+`server`, tornado explícito pela extração (T-099c); a saída natural seria a rota
+de registro orquestrar os dois, mas isso muda quem é responsável por criar a
+carteira e fica para tarefa futura. O mesmo `query` injetado é repassado.
 
-Desde a fatia 1/2 da migração de formato do `portfolio-core` (T-104) a função
-recebe o `db` injetado: `createUser` e `cognitoMirror` chamam
-`getOrCreateDefaultWallet({ db, userId: id })` passando o mesmo singleton que já
-usam. O acoplamento não piorou nem melhorou — só a forma da chamada mudou.
+## Testes
 
-Desde a T-114 (última fatia, `portfolio-core`) a função recebe `query: Query`
-em vez de `db`. Os dois call sites passaram a construir
-`const query = createSqliteQuery(db)` (de `@vetor-wallet/query`, nova
-dependência deste package) sobre o **mesmo singleton** e chamar
-`getOrCreateDefaultWallet({ query, userId: id })`. Só esses dois pontos mudaram:
-o resto do `auth-core` continua no `db` cru e fora do formato-alvo.
+Jest, cobertura 100% (meta do formato), em `tests/unit/tests/`, com o mock de
+`query` de `tests/unit/testQuery.ts` — sem banco. `portfolio-core` é mockado com
+factory. Rodar: `pnpm --filter @vetor-wallet/auth-core test`.
 
-## Testes: o que veio e o que ficou no `server`
-
-Veio para cá:
-
-- **`service.test.ts`** — exercita as funções puras (`hashPassword`/
-  `verifyPassword`, `isValidEmail`, `isValidName`, `isValidPhone`,
-  `normalizePhone`) com `@vetor-wallet/db` mockado. Nenhum Express.
-
-Ficou em `packages/rest-api/src/api/auth/`, porque sobe app Express com
-`supertest` e testa rota/middleware, não o serviço:
-
-- `middleware.test.ts` (`requireAuth`/`requireAdmin` com `Request`/`Response`)
-- `router.ts` via `changePassword.test.ts` (T-094)
-- `profile.test.ts` (`PATCH /api/auth/me`, T-092)
-- `sessionPersistence.test.ts` (restart do server + `SqliteSessionStore`)
-
-Também veio na T-106:
-
-- **`cognitoMirror.test.ts`** — banco temporário de verdade (`DATABASE_URL` antes
-  do `await import('@vetor-wallet/db')`), porque o que se prova ali é SQL:
-  vínculo por e-mail com caixa diferente, unicidade do `sub`, que o dado do
-  usuário antigo continua no lugar depois do vínculo, e o **gate de e-mail
-  verificado** — recusa (inclusive com caixa diferente) sem deixar rastro, e o
-  caso legítimo passando.
+**Prova contra SQLite real fora do package (T-116a):** o teste de banco que existia
+saiu daqui — o mock prova a ordem dos caminhos e o gate de `emailVerified`, mas
+**não** prova o SQL nem o índice. A prova mora em: `packages/db/src/schema.test.ts`
+(`idx_users_cognito_sub`: sub duplicado falha, contas legadas sem sub convivem),
+`packages/rest-api/src/api/auth/authCoreSqlite.test.ts` (as funções contra SQLite
+real via `createSqliteQuery`: re-vínculo de `sub`, `findUserById`, `userExists`,
+`updateUserPassword`, `grantRole`, `updateUserProfile`) e `cognitoAuth.test.ts`
+(vínculo por e-mail, via rotas). Ficam
+em `packages/rest-api/src/api/auth/` também `middleware.test.ts`,
+`changePassword.test.ts`, `profile.test.ts` e `sessionPersistence.test.ts`.
 
 ## Roadmap
 
@@ -181,11 +159,11 @@ espelho por `cognito_sub`. O que **continua** TODO: recuperação de senha
 (`ForgotPassword`), MFA, login social, e o `DROP` de `users.password_hash`
 (migração destrutiva, precisa de confirmação do humano entre as etapas).
 
+
 ## Convenções
 
-- Teste ao lado do código (`src/**/*.test.ts`), Vitest. Teste que toca banco
-  define `DATABASE_URL` **antes** do `await import('@vetor-wallet/db')` — o
-  client lê o env no top-level do módulo.
+- Uma função por arquivo; `query` injetado; `$N` nunca repetido numa mesma
+  query (ver `packages/query/CLAUDE.md`); teste em `tests/unit/tests/`.
 
 Ver também `CLAUDE.md` da raiz, `docs/PACKAGES.md` (regras de dependência),
 `docs/MODULES.md` (módulo Auth), `packages/db/CLAUDE.md` (sessões) e

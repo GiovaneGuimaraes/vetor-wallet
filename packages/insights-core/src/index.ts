@@ -1,14 +1,11 @@
-export {
-  fetchCDIAccumulated,
-  fetchIbovespaReturn,
-  getPortfolioReturnAndEarliestDate,
-} from './benchmarks';
-export {
-  buildCdiIndexSeries,
-  buildIbovespaSeries,
-  brapiRangeForDays,
-  clampSeriesToWindow,
-  fetchCdiSeries,
-  fetchIbovespaSeries,
-} from './benchmarkHistory';
-export type { BcbRateRow, BrapiHistoryPoint } from './benchmarkHistory';
+export { fetchCDIAccumulated } from './fetchCDIAccumulated';
+export { fetchIbovespaReturn } from './fetchIbovespaReturn';
+export { getPortfolioReturnAndEarliestDate } from './getPortfolioReturnAndEarliestDate';
+export type { GetPortfolioReturnAndEarliestDateParams } from './getPortfolioReturnAndEarliestDate';
+export { buildCdiIndexSeries } from './buildCdiIndexSeries';
+export { buildIbovespaSeries } from './buildIbovespaSeries';
+export { brapiRangeForDays } from './brapiRangeForDays';
+export { clampSeriesToWindow } from './clampSeriesToWindow';
+export { fetchCdiSeries } from './fetchCdiSeries';
+export { fetchIbovespaSeries } from './fetchIbovespaSeries';
+export type { BcbRateRow, BrapiHistoryPoint } from './types';

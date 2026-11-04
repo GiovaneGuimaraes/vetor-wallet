@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@libsql/client": "^0.14.0",
+    "@vetor-wallet/query": "workspace:*",
     "@vetor-wallet/db": "workspace:*",
     "@vetor-wallet/validation-core": "workspace:*"
   },

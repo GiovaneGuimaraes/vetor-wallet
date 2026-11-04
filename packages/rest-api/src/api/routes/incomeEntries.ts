@@ -100,6 +100,7 @@ router.post(
     // A dedupe é do banco (índice único parcial): o INSERT vai primeiro e a
     // violação de unicidade é traduzida em 409 — ver @vetor-wallet/bank-import-core.
     const result = await insertEntryWithExternalId({
+      query,
       table: 'income_entries',
       userId,
       values: { description: description.trim(), amount, date },

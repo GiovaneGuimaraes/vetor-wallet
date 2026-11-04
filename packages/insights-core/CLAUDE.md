@@ -11,7 +11,7 @@ A tabela `hourly_quote_insights` continua no schema, **parada**: nada mais escre
 nada nunca leu (foi esse o argumento para remover). O fluxo volta como **Lambda + EventBridge**
 quando a infra da AWS existir.
 
-Lê operações para montar a posição da carteira e por isso importa `@vetor-wallet/db`; busca
+Lê operações para montar a posição da carteira por um `query: Query` injetado (`@vetor-wallet/query`; sem importar o singleton `db`); busca
 séries externas (BCB SGS 12 e brapi `^BVSP`) e por isso importa `@vetor-wallet/brapi-core`.
 
 Este arquivo recebe a parte de Insights de `docs/decisions/snapshots-history.md`
@@ -20,15 +20,7 @@ Este arquivo recebe a parte de Insights de `docs/decisions/snapshots-history.md`
 
 ## Estrutura
 
-```
-src/
-├── benchmarks.ts         # GET /api/benchmarks: UM número por benchmark
-│                         # (acumulado do período inteiro da carteira)
-├── benchmarkHistory.ts   # GET /api/benchmarks/history: SÉRIE diária.
-│                         # buildCdiIndexSeries/buildIbovespaSeries/
-│                         # clampSeriesToWindow/brapiRangeForDays são puras
-└── index.ts              # barrel
-```
+**T-116b (passo 5 da migração AWS)**: formato-alvo inteiro — uma função por arquivo em `src/`, `query` injetado (só `getPortfolioReturnAndEarliestDate({ query, userId })` toca banco, SQL com `$1`), Jest em `tests/unit/tests/` com 100% travado (saiu o Vitest). A rota constrói o client com `createSqliteQuery(db)`. Funções puras: `buildCdiIndexSeries`, `buildIbovespaSeries`, `clampSeriesToWindow`, `brapiRangeForDays`, `bcbDateToIso`, `isoToBcbDate`. Fetches externos: `fetchCDIAccumulated`/`fetchIbovespaReturn` (GET /api/benchmarks, UM número) e `fetchCdiSeries`/`fetchIbovespaSeries` (GET /api/benchmarks/history, série). Tipos em `types.ts`.
 
 Rotas: `packages/rest-api/src/api/routes/benchmarks.ts`.
 Lógica pura do cliente: `packages/web/src/routes/benchmarkSeries.ts`.
@@ -81,12 +73,7 @@ tem tarefa própria (ver `docs/multi-agent/BACKLOG.md`).
 
 ## Convenções
 
-- Teste ao lado do código (`src/**/*.test.ts`), Vitest. Teste que toca banco
-  define `DATABASE_URL` **antes** do `await import('@vetor-wallet/db')` — o
-  client lê o env no top-level do módulo.
-- `src/benchmarks.ts` **não tem teste próprio** (é orquestração de dois fetches
-  externos + `buildPortfolioSummary`, que já é testado em `portfolio-core`);
-  a parte pura de séries está coberta em `benchmarkHistory.test.ts`.
+- Testes em `tests/unit/tests/` (Jest, cobertura 100%); `brapi-core`/`portfolio-core` são mockados e o `fetch` global é substituído por mock — nenhuma rede, nenhum banco (o `query` é o mock de `tests/unit/testQuery.ts`).
 
 Ver também `CLAUDE.md` da raiz, `docs/PACKAGES.md` (regras de dependência),
 `docs/MODULES.md` (módulo Insights), `packages/portfolio-core/CLAUDE.md` e
