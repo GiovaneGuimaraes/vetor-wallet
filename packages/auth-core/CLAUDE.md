@@ -101,16 +101,14 @@ Consumidores: `packages/rest-api/src/api/auth/{router,middleware}.ts`
   **não** é `UserConfirmed` (pool pode auto-confirmar sem verificar e-mail);
   **criar espelho novo continua liberado sem verificação** (não há conta de
   ninguém para assumir); e "vincular só o primeiro `sub`" **não** substitui o
-  gate — o ataque *é* a primeira vinculação, porque a vítima nunca logou lá.
+  gate — o ataque _é_ a primeira vinculação, porque a vítima nunca logou lá.
   A regra vale para **qualquer** provedor de identidade que venha depois: é o que
   separa "mesmo e-mail" de "mesma pessoa".
 - **`linkCognitoSub` sobrescreve um `sub` anterior de propósito**: com e-mail
   único no pool, "mesmo e-mail, outro `sub`" só acontece quando a conta foi
   apagada e recriada lá — mesma pessoa, identidade nova. Recusar trancaria o dono
   fora dos próprios dados sem saída pela UI.
-- **`createUser` cria a carteira padrão, e uma falha ali NÃO derruba o registro**
-  (T-050a): a chamada a `getOrCreateDefaultWallet` está em `try/catch` que só
-  loga — o lazy-create do `GET /api/wallets` segue como rede de segurança.
+- **Os creators (`createUser`, `createCognitoUser`) só inserem em `users`**: a carteira padrão nasce na rota, ver "Sem dependência de outro core (T-121)".
 - **A troca de senha exige sessão e NÃO a invalida** (T-094). `updateUserPassword`
   só faz hash + `UPDATE`; quem valida a senha atual (`verifyPassword`) e o
   tamanho da nova (>= 8, mesma regra do register) é o router.
@@ -126,20 +124,20 @@ Consumidores: `packages/rest-api/src/api/auth/{router,middleware}.ts`
 - **`findUserByEmail`/`findUserById` devolvem o `password_hash`** — são as únicas
   funções que o expõem. Nunca devolva esse objeto direto numa resposta HTTP.
 
-## Dependência de `@vetor-wallet/portfolio-core` (nota de arquitetura)
+## Sem dependência de outro core (T-121)
 
-`createUser` e `createCognitoUser` chamam `getOrCreateDefaultWallet({ query,
-userId })` de `@vetor-wallet/portfolio-core` — **core → core de outro módulo**,
-contra a regra 6 de `docs/PACKAGES.md`. É o acoplamento que já existia dentro do
-`server`, tornado explícito pela extração (T-099c); a saída natural seria a rota
-de registro orquestrar os dois, mas isso muda quem é responsável por criar a
-carteira e fica para tarefa futura. O mesmo `query` injetado é repassado.
+Até a T-121 `createUser` e `createCognitoUser` chamavam `getOrCreateDefaultWallet` do `portfolio-core` — **core → core de
+outro módulo**, contra a regra 6 de `docs/PACKAGES.md`. **A rota orquestra:** `establishSession`
+(`packages/rest-api/src/api/auth/router.ts`) chama `getOrCreateDefaultWallet` quando o desfecho é `created` (usuário recém-
+espelhado), logo depois do `findOrCreateUserByCognitoSub` — portanto depois do gate `EMAIL_NOT_VERIFIED`, que lança antes de
+qualquer escrita. Falha na carteira só é logada e não derruba o login (T-050a; o lazy-create do `GET /api/wallets` é a rede
+de segurança). Login de conta já conhecida/vinculada não cria carteira (carteira única, T-050). Os creators daqui só
+inserem em `users`; **quem chama um creator fora da rota (CLI, teste) é responsável pela carteira**.
 
 ## Testes
 
 Jest, cobertura 100% (meta do formato), em `tests/unit/tests/`, com o mock de
-`query` de `tests/unit/testQuery.ts` — sem banco. `portfolio-core` é mockado com
-factory. Rodar: `pnpm --filter @vetor-wallet/auth-core test`.
+`query` de `tests/unit/testQuery.ts` — sem banco. Rodar: `pnpm --filter @vetor-wallet/auth-core test`.
 
 **Prova contra SQLite real fora do package (T-116a):** o teste de banco que existia
 saiu daqui — o mock prova a ordem dos caminhos e o gate de `emailVerified`, mas
@@ -158,7 +156,6 @@ em `packages/rest-api/src/api/auth/` também `middleware.test.ts`,
 espelho por `cognito_sub`. O que **continua** TODO: recuperação de senha
 (`ForgotPassword`), MFA, login social, e o `DROP` de `users.password_hash`
 (migração destrutiva, precisa de confirmação do humano entre as etapas).
-
 
 ## Convenções
 

@@ -107,7 +107,7 @@ decidir o mapeamento para o `fixed-income-core`.
 - **Nunca imprime** nome de ativo, valor, instituição, código do papel nem id de
   investimento — a contagem vem de `summarizePluggyInvestments` (pluggy-core),
   com teste garantindo que nada disso sai. O `itemId` sai mascarado. Mesmo assim,
-  confira antes de colar a saída em `BACKLOG.md`, PR ou Discord: o repo é público.
+  confira antes de colar a saída em `BACKLOG.md`, PR ou issue: o repo é público.
 - **Nunca grava nada** (não existe escrita de investimento ainda). `--dry-run` é
   aceito só por consistência com os outros comandos e é só informativo.
 - Falha em um item não aborta os outros; saída não-zero se algum falhou ou se o

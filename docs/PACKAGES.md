@@ -85,13 +85,10 @@ negócio, veja [`MODULES.md`](./MODULES.md).
 6. **Core não depende de outro core de módulo diferente.** Transversais (`validation-core`,
    `db`, `shared`) são exceção.
 
-   > **Duas violações conhecidas, herdadas da extração (T-099c).**
-   > `auth-core → portfolio-core` (`createUser` chama `getOrCreateDefaultWallet`) e
-   > `insights-core → portfolio-core` (benchmarks usam `buildPositionMap`; o job horário usa
-   > os helpers de snapshot). Os dois acoplamentos já existiam **dentro** do `server` e a
-   > T-099c, sendo movimentação mecânica, só os tornou explícitos — não os introduziu nem os
-   > desfez. Desacoplar (a rota orquestrando os dois módulos) é tarefa futura; **não** use
-   > isso como precedente para um novo core → core.
+   > **Sem violações conhecidas (T-121).** `auth-core → portfolio-core` e `insights-core → portfolio-core`, herdadas da
+   > extração (T-099c), foram desfeitas: a rota de auth cria a carteira padrão e o retorno da carteira para
+   > `/api/benchmarks` passou para o `portfolio-core` (cotação injetada), com a rota costurando os dois cores.
+   > Core novo que precise de dado de outro módulo recebe-o por parâmetro ou deixa a rota orquestrar.
 
    > **Dois cores no MESMO módulo** (`portfolio-core` + `operations-core`, T-104) não caem
    > nesta regra, que fala de módulos diferentes — e mesmo assim nenhum dos dois importa o

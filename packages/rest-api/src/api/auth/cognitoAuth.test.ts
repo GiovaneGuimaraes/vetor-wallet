@@ -325,6 +325,30 @@ describe('registro no pool SEM confirmação de e-mail (T-106)', () => {
     expect(row.rows[0].password_hash).toBe('cognito-managed:no-local-password');
   });
 
+  it('a ROTA cria a carteira padrão no 1º login (T-121); login seguinte não duplica', async () => {
+    const countWallets = async (email: string) => {
+      const r = await dbModule.db.execute({
+        sql: 'SELECT COUNT(*) as n FROM wallets WHERE user_id = (SELECT id FROM users WHERE email = ?)',
+        args: [email],
+      });
+      return Number(r.rows[0].n);
+    };
+
+    const registered = await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'carteira@example.com', password: 'senha-forte-1' });
+    expect(registered.status).toBe(201);
+    expect(await countWallets('carteira@example.com')).toBe(1);
+
+    for (let i = 0; i < 2; i++) {
+      const login = await request(app)
+        .post('/api/auth/login')
+        .send({ email: 'carteira@example.com', password: 'senha-forte-1' });
+      expect(login.status).toBe(200);
+    }
+    expect(await countWallets('carteira@example.com')).toBe(1);
+  });
+
   it('e-mail já cadastrado no pool responde 409', async () => {
     await request(app)
       .post('/api/auth/register')
@@ -513,6 +537,14 @@ describe('takeover pelo vínculo por e-mail: pool auto-confirma SEM verificar e-
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('EMAIL_NOT_VERIFIED');
     expect(res.body.id).toBeUndefined();
+
+    // T-121: a recusa vem antes da orquestração — nenhuma carteira nasce (createUser
+    // do auth-core não cria mais carteira; e a rota nem chega ao getOrCreateDefaultWallet).
+    const wallets = await dbModule.db.execute({
+      sql: 'SELECT COUNT(*) as n FROM wallets WHERE user_id = ?',
+      args: [vitima.id],
+    });
+    expect(Number(wallets.rows[0].n)).toBe(0);
 
     // Nenhuma sessão foi criada — o auto-login do register não passa pelo gate.
     expect((await agent.get('/api/auth/me')).status).toBe(401);

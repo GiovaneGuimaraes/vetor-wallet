@@ -3,7 +3,7 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 /**
  * Executa `fn` até `maxAttempts` vezes, com backoff linear (`delayMs × tentativa`)
  * entre elas, e relança o ÚLTIMO erro se todas falharem. É por isso que
- * `fetchQuotesStrict` lança em vez de degradar.
+ * `fetchQuotesStrict` (brapi-core) lança em vez de degradar.
  */
 export async function withRetry<T>(
   fn: () => Promise<T>,

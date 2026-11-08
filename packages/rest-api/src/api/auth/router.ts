@@ -23,6 +23,7 @@ import {
   cognitoSignUp,
   type CognitoSession,
 } from '@vetor-wallet/cognito-core';
+import { getOrCreateDefaultWallet } from '@vetor-wallet/portfolio-core';
 import type { User } from '@vetor-wallet/shared';
 import {
   cognitoErrorResponse,
@@ -117,6 +118,14 @@ function respondCognitoError(res: Response, err: unknown): void {
  * que autoriza assumir uma linha de `users` que já existe. Se o vínculo for
  * recusado, o erro sobe **antes** de qualquer escrita na sessão — nenhuma sessão
  * é criada num vínculo negado.
+ *
+ * **A carteira padrão nasce aqui (T-121), não no auth-core**: o auth-core não pode
+ * importar o `portfolio-core` (regra 6 de `docs/PACKAGES.md`), então a rota
+ * orquestra os dois. Só no desfecho `created` (usuário recém-espelhado) — login de
+ * conta já conhecida ou vinculada não cria nada (carteira única, T-050). Falhar
+ * ali NÃO derruba o login (T-050a): o lazy-create do `GET /api/wallets` segue como
+ * rede de segurança. Roda depois do gate `emailVerified` (que mora dentro do
+ * `findOrCreateUserByCognitoSub` e lança antes de qualquer escrita).
  */
 async function establishSession(
   req: Request,
@@ -129,6 +138,14 @@ async function establishSession(
     email,
     emailVerified,
   });
+
+  if (outcome === 'created') {
+    try {
+      await getOrCreateDefaultWallet({ query, userId: user.id });
+    } catch (err) {
+      console.error('Falha ao criar a carteira padrao do usuario', user.id, err);
+    }
+  }
 
   req.session.userId = user.id;
   req.session.cognitoAccessToken = session.accessToken;

@@ -22,8 +22,6 @@ const config: Config = {
   moduleNameMapper: {
     '^@vetor-wallet/query$': '<rootDir>/../query/src/index.ts',
     '^@vetor-wallet/shared$': '<rootDir>/../shared/src/index.ts',
-    '^@vetor-wallet/brapi-core$': '<rootDir>/../brapi-core/src/index.ts',
-    '^@vetor-wallet/portfolio-core$': '<rootDir>/../portfolio-core/src/index.ts',
     '^src/(.*)$': '<rootDir>/src/$1',
     '^tests/(.*)$': '<rootDir>/tests/$1',
   },

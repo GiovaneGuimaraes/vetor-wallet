@@ -88,6 +88,39 @@ describe('buildIbovespaSeries', () => {
   it('histórico vazio devolve []', () => {
     expect(buildIbovespaSeries([])).toEqual([]);
   });
+
+  // T-119: a rota ancora a janela em BRT (UTC-3); datar em UTC jogava o candle
+  // das 21h+ BRT para "amanhã", fora da janela.
+  const epoch = (utcIso: string) => new Date(utcIso).getTime() / 1000;
+
+  it('data o candle em BRT: 00:30Z é 21:30 BRT do dia anterior', () => {
+    expect(buildIbovespaSeries([{ date: epoch('2026-03-10T00:30:00Z'), close: 1 }])).toEqual([
+      { date: '2026-03-09', value: 1 },
+    ]);
+  });
+
+  it('borda 21:00 BRT (00:00Z) ainda é o dia anterior; 02:59Z também', () => {
+    const series = buildIbovespaSeries([
+      { date: epoch('2026-03-10T02:59:59Z'), close: 1 },
+      { date: epoch('2026-03-10T03:00:00Z'), close: 2 },
+    ]);
+    expect(series).toEqual([
+      { date: '2026-03-09', value: 1 },
+      { date: '2026-03-10', value: 2 },
+    ]);
+  });
+
+  it('virada de mês e de ano em BRT', () => {
+    expect(
+      buildIbovespaSeries([
+        { date: epoch('2026-04-01T01:00:00Z'), close: 1 },
+        { date: epoch('2027-01-01T02:00:00Z'), close: 2 },
+      ])
+    ).toEqual([
+      { date: '2026-03-31', value: 1 },
+      { date: '2026-12-31', value: 2 },
+    ]);
+  });
 });
 
 describe('clampSeriesToWindow', () => {

@@ -1,10 +1,10 @@
-import { fetchQuotesStrict } from 'src/fetchQuotesStrict';
+import { fetchQuotesStrict } from '@vetor-wallet/brapi-core';
 import { runSnapshotJob } from 'src/runSnapshotJob';
 import { makeTestQuery } from 'tests/unit/testQuery';
 
 // A brapi e o backoff real ficam fora: o caminho com retry de verdade já é
 // exercido pelo teste "brapi indisponível" de `catchUpIfNeeded`.
-jest.mock('src/fetchQuotesStrict', () => ({ fetchQuotesStrict: jest.fn() }));
+jest.mock('@vetor-wallet/brapi-core', () => ({ fetchQuotesStrict: jest.fn() }));
 jest.mock('src/withRetry', () => ({
   withRetry: <T>(fn: () => Promise<T>) => fn(),
 }));

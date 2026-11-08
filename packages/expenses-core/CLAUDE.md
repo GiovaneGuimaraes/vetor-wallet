@@ -162,7 +162,7 @@ que o mock foi chamado. O que a injeção mudou é que o teste não precisa mais
 setar `DATABASE_URL` antes de um `await import()` dinâmico para controlar a
 ordem de avaliação do módulo: ele cria um client e passa.
 
-Rotas: `packages/rest-api/src/api/routes/{expenses,expenseEntries,recurringExpenses,budgets}.ts`.
+Rotas: `packages/rest-api/src/api/routes/{expenses,expenseEntries,recurringExpenses}.ts` (`budgets.ts` removido na T-118).
 Lógica pura do cliente: `packages/web/src/routes/{expenseMonth,recurrence,expensesGrouping,monthFetch,ofxImportReport}.ts`.
 
 ## Invariantes (não quebrar)
@@ -216,6 +216,8 @@ A seção "Últimos meses" em `/despesas` mostra os últimos `HISTORY_MONTHS` (6
 O ponto de atenção antes documentado aqui (janela ancorada no mês do **server** enquanto as linhas eram montadas com o mês do **browser**, causando a linha "atual" zerada por instantes na virada de mês em fusos divergentes) foi **corrigido na T-049**: `GET /api/expense-entries/summary` aceita `?endMonth=YYYY-MM` opcional (mesma validação de formato de `month`; `400` para inválido; default o `currentMonth()` do server, para não quebrar consumidores que não enviam o parâmetro) e o web (`getExpenseEntriesSummary`, chamado por `refreshHistory` em `DespesasPage`) sempre envia `currentMonthKey()` — a janela dos N meses passa a ser ancorada no MESMO fuso usado para montar as linhas. Como `endMonth` agora pode ser futuro (informado pelo cliente), o `/summary` deixou de valer a premissa "nunca gera mês futuro porque a janela termina no mês corrente": a materialização de recorrências aplica o mesmo teto `MATERIALIZATION_HORIZON_MONTHS` já usado em `GET /?month=` — meses da janela além do horizonte continuam sendo **agregados** (o SELECT não tem teto), apenas não disparam `materializeRecurringExpenses` para eles.
 
 ## Orçamento por categoria × mês exibido
+
+> **Removido na T-118 (2026-11-04):** a rota `/api/budgets`, o tipo `CategoryBudget` e os testes saíram do código (etapa 1). A tabela `category_budgets` segue no banco, sem uso, até o DROP (etapa 2). O texto abaixo é histórico.
 
 Decisão do humano (T-037, 2026-07-25): a seção "Orçamento do mês" (barras de progresso, form de criação/upsert e botão de remover) foi removida do render de `DespesasPage.tsx` — "não entendi a utilidade do orçamento do mês". O backend seguiu intacto: `packages/rest-api/src/api/routes/budgets.ts`, `packages/web/src/routes/budgetProgress.ts` e todos os testes de ambos continuaram ativos.
 

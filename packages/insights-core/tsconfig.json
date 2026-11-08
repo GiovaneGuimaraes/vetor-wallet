@@ -13,17 +13,10 @@
     "baseUrl": ".",
     "paths": {
       "@vetor-wallet/query": ["../query/src/index.ts"],
-      "@vetor-wallet/shared": ["../shared/src/index.ts"],
-      "@vetor-wallet/brapi-core": ["../brapi-core/src/index.ts"],
-      "@vetor-wallet/portfolio-core": ["../portfolio-core/src/index.ts"]
+      "@vetor-wallet/shared": ["../shared/src/index.ts"]
     }
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts", "src/**/__fixtures__/**"],
-  "references": [
-    { "path": "../query" },
-    { "path": "../shared" },
-    { "path": "../brapi-core" },
-    { "path": "../portfolio-core" }
-  ]
+  "references": [{ "path": "../query" }, { "path": "../shared" }]
 }

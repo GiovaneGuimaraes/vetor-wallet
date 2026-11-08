@@ -11,8 +11,9 @@ A tabela `hourly_quote_insights` continua no schema, **parada**: nada mais escre
 nada nunca leu (foi esse o argumento para remover). O fluxo volta como **Lambda + EventBridge**
 quando a infra da AWS existir.
 
-Lê operações para montar a posição da carteira por um `query: Query` injetado (`@vetor-wallet/query`; sem importar o singleton `db`); busca
-séries externas (BCB SGS 12 e brapi `^BVSP`) e por isso importa `@vetor-wallet/brapi-core`.
+Não lê tabela nenhuma e **não importa nenhum outro core** (T-121): busca séries externas (BCB SGS 12 e brapi `^BVSP`) por `fetch` próprio.
+O retorno da carteira e a data da 1ª operação — o lado "carteira" do `GET /api/benchmarks` — saíram daqui para o `portfolio-core`
+(`getPortfolioReturnAndEarliestDate`), e a rota é quem junta os dois lados.
 
 Este arquivo recebe a parte de Insights de `docs/decisions/snapshots-history.md`
 (hoje um stub) — a parte de Portfolio daquele documento foi para
@@ -20,7 +21,7 @@ Este arquivo recebe a parte de Insights de `docs/decisions/snapshots-history.md`
 
 ## Estrutura
 
-**T-116b (passo 5 da migração AWS)**: formato-alvo inteiro — uma função por arquivo em `src/`, `query` injetado (só `getPortfolioReturnAndEarliestDate({ query, userId })` toca banco, SQL com `$1`), Jest em `tests/unit/tests/` com 100% travado (saiu o Vitest). A rota constrói o client com `createSqliteQuery(db)`. Funções puras: `buildCdiIndexSeries`, `buildIbovespaSeries`, `clampSeriesToWindow`, `brapiRangeForDays`, `bcbDateToIso`, `isoToBcbDate`. Fetches externos: `fetchCDIAccumulated`/`fetchIbovespaReturn` (GET /api/benchmarks, UM número) e `fetchCdiSeries`/`fetchIbovespaSeries` (GET /api/benchmarks/history, série). Tipos em `types.ts`.
+**T-116b (passo 5 da migração AWS)**: formato-alvo inteiro — uma função por arquivo em `src/`, Jest em `tests/unit/tests/` com 100% travado (saiu o Vitest). Funções puras: `buildCdiIndexSeries`, `buildIbovespaSeries`, `clampSeriesToWindow`, `brapiRangeForDays`, `bcbDateToIso`, `isoToBcbDate`. Fetches externos: `fetchCDIAccumulated`/`fetchIbovespaReturn` (GET /api/benchmarks, UM número) e `fetchCdiSeries`/`fetchIbovespaSeries` (GET /api/benchmarks/history, série). Tipos em `types.ts`.
 
 Rotas: `packages/rest-api/src/api/routes/benchmarks.ts`.
 Lógica pura do cliente: `packages/web/src/routes/benchmarkSeries.ts`.
@@ -34,15 +35,14 @@ Lógica pura do cliente: `packages/web/src/routes/benchmarkSeries.ts`.
   `quotesUnavailable`).
 - **A normalização base-100 → reais é do CLIENTE**, não daqui.
 
-## Dependência de `@vetor-wallet/portfolio-core` (nota de arquitetura)
+## Sem dependência de outro core (T-121)
 
-`src/benchmarks.ts` usa `buildPositionMap`/`buildPortfolioSummary` do
-`portfolio-core`. Isso é **core → core de outro módulo**,
-contra a regra 6 de `docs/PACKAGES.md`. É o acoplamento que já existia dentro do
-`server` (`services/benchmarks.ts` importava `./portfolio`), apenas tornado
-explícito pela extração — a T-099c foi movimentação mecânica e **não** o
-desfez. Desacoplar (ex.: a rota passar o `PortfolioSummary` pronto, e os helpers
-de BRT/retry saírem para um transversal) é candidato a tarefa futura.
+Até a T-121 este package importava `buildPositionMap`/`buildPortfolioSummary` do `portfolio-core` (e `fetchQuotes` do
+`brapi-core`) para calcular o retorno da carteira — **core → core de outro módulo**, contra a regra 6 de `docs/PACKAGES.md`.
+**Decisão:** mover `getPortfolioReturnAndEarliestDate` para o `portfolio-core` (é dono de `operations` e da regra de preço
+médio; o SQL e o cálculo são dele), com a cotação **injetada** (`fetchQuotes`, mesmo molde do `query`) para ele não ganhar
+dependência de `brapi-core`. A rota `GET /api/benchmarks` chama os dois cores e monta o `BenchmarkData`. Corpo da resposta
+inalterado. Não há mais `portfolio-core`/`brapi-core` em `dependencies` daqui.
 
 ## Decisões: benchmarks e insights
 
@@ -63,6 +63,7 @@ Duas linhas OPCIONAIS no `HistoryChart`, respondendo "e se o mesmo dinheiro tive
 - **Fora de escopo (segue pendente)**: exportação do gráfico; comparação com outros benchmarks (IPCA, dólar); percentuais de rentabilidade lado a lado (as linhas comparam valor, não mostram "+X% vs +Y%").
 
 ### Por que o job de insights horários foi REMOVIDO (T-109a, 2026-09-20)
+
 Ele gravava em `hourly_quote_insights` de hora em hora e **nenhum `SELECT` no repo lia essa
 tabela** — escrita pura, sem leitor. Sem agendador de verdade, dependia de ser chamado à mão
 (CLI) ou por cron do SO, e a rota de admin existia só para disparar o job a partir do navegador.
@@ -73,8 +74,10 @@ tem tarefa própria (ver `docs/multi-agent/BACKLOG.md`).
 
 ## Convenções
 
-- Testes em `tests/unit/tests/` (Jest, cobertura 100%); `brapi-core`/`portfolio-core` são mockados e o `fetch` global é substituído por mock — nenhuma rede, nenhum banco (o `query` é o mock de `tests/unit/testQuery.ts`).
+- Testes em `tests/unit/tests/` (Jest, cobertura 100%); o `fetch` global é substituído por mock — nenhuma rede, nenhum banco.
 
 Ver também `CLAUDE.md` da raiz, `docs/PACKAGES.md` (regras de dependência),
 `docs/MODULES.md` (módulo Insights), `packages/portfolio-core/CLAUDE.md` e
 `packages/brapi-core/CLAUDE.md`.
+
+- **Candle do Ibovespa é datado em BRT (T-119, 2026-11-04).** `buildIbovespaSeries` subtrai 3h fixas antes de tirar a data — a mesma âncora da rota (`getBRTDate`); em UTC, um candle após 21h BRT era datado "amanhã" e cortado da janela. Premissa verificada na brapi (consulta sem token, `PETR4`, `interval=1d`): candle diário de ação vem às **03:00Z = 00:00 BRT** do dia do pregão, então nunca cruza a virada de dia. Candle de cripto vem às 00:00Z — se um dia entrar, a premissa muda. A constante é duplicada de propósito: core não importa o `portfolio-core` (regra 6).
