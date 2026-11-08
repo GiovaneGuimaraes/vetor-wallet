@@ -17,6 +17,18 @@ src/
                       # requirePluggyEnabled (T-089b; sempre libera desde 2026-11-08)
 ```
 
+**Log estruturado (T-122).** `logger.ts` (`log(level, event, fields)`) emite uma
+linha JSON por evento — em `LOG_FILE` (append, NDJSON) se definida, senão stdout.
+Todo campo passa por `sanitizeLogFields`, que DERRUBA chave de credencial/dado
+financeiro (valor, saldo, e-mail, senha, token, cookie, itemId, ticker, nome…) e
+qualquer valor não primitivo. `middleware/requestLogger` loga `http.request`
+(método, rota-template sem query/params, status, `durationMs`, `requestId` também
+em `X-Request-Id`, `userId`); as rotas logam eventos de domínio (`auth.login.ok/
+failed`, `operation.created`, `import.ofx.done`, `pluggy.sync.done/failed`) só com
+ids locais, contagens e códigos de erro. Quem loga é a rota — os `*-core` seguem
+devolvendo resultado tipado. Regra para campo novo: "isso prova que o efeito
+ocorreu SEM expor dado financeiro?" Se expõe, não loga.
+
 **Não há mais `src/api/services/`** — desde a T-099c toda a lógica de domínio
 vive em packages `*-core`. Este pacote é Express puro: entry, routers,
 middleware. Regra prática: se o arquivo novo não fala `req`/`res`/`next`, ele

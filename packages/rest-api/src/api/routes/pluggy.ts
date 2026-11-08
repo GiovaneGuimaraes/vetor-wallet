@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '@vetor-wallet/db';
 import { createSqliteQuery } from '@vetor-wallet/query';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { log } from '../logger';
 import { requireAuth } from '../auth/middleware';
 import { requireActiveSubscription } from '../middleware/requireActiveSubscription';
 import { requirePluggyEnabled } from '../middleware/requirePluggyEnabled';
@@ -321,6 +322,17 @@ router.post(
       transactions,
       ...(wiped ? { wiped } : {}),
     };
+    // T-122: só contagens — sem itemId, instituição, conta nem lançamento.
+    log('info', report.failures === 0 ? 'pluggy.sync.done' : 'pluggy.sync.failed', {
+      requestId: res.locals.requestId,
+      userId,
+      mode,
+      items: report.items.length,
+      imported: report.totals.imported,
+      duplicated: report.totals.duplicated,
+      rejected: report.totals.rejected,
+      failures: report.failures,
+    });
     // 200 mesmo com falhas parciais: a sincronização importou o que deu, e o
     // relatório diz o que não deu — mesma convenção do relatório do OFX (T-085).
     res.json(body);

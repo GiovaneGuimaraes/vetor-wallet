@@ -27,6 +27,7 @@ import billingSimulateRouter from './routes/billingSimulate';
 import webhooksRouter from './routes/webhooks';
 import pluggyRouter from './routes/pluggy';
 import { errorHandler } from './middleware/errorHandler';
+import { requestLogger } from './middleware/requestLogger';
 import { catchUpIfNeeded } from '@vetor-wallet/portfolio-core';
 import { createSqliteQuery } from '@vetor-wallet/query';
 
@@ -35,6 +36,8 @@ const app = express();
 const allowedOrigin = process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173';
 
 app.use(cors({ origin: allowedOrigin, credentials: true }));
+// T-122 — logo no começo: mede a request inteira (webhook incluso).
+app.use(requestLogger);
 // T-070 — ORDEM CRÍTICA: o webhook da AbacatePay verifica um HMAC sobre os
 // BYTES do corpo e por isso usa `express.raw`. Ele precisa vir ANTES do
 // `express.json()` global: o json consome o stream e marca `req._body`, o que
