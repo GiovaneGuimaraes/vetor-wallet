@@ -2,11 +2,14 @@ import type { RequestHandler } from 'express';
 import { isPluggyIntegrationEnabled } from '@vetor-wallet/pluggy-core';
 
 /**
- * Gate de ambiente da integração Pluggy (T-089b).
+ * Gate de ambiente da integração Pluggy (T-089b; sempre libera desde 2026-11-08).
  *
- * A regra (`ENVIRONMENT=Staging` libera, todo o resto bloqueia, fail closed)
- * vive em `@vetor-wallet/pluggy-core`; aqui fica só a tradução para HTTP —
- * mesmo arranjo de `isBillingEnabled()` × `requireActiveSubscription`.
+ * A regra vive em `@vetor-wallet/pluggy-core` (`isPluggyIntegrationEnabled`) —
+ * aqui fica só a tradução para HTTP, mesmo arranjo de `isBillingEnabled()` ×
+ * `requireActiveSubscription`. Hoje a função sempre devolve `true` (não há
+ * deploy de produção para proteger); o contrato pago com a Pluggy segue
+ * pendente em `docs/multi-agent/TODO-HUMANO.md` e bloqueia abrir isto para
+ * usuários reais em produção — ver `isPluggyIntegrationEnabled.ts`.
  *
  * **O gate vive na ROTA, não na UI.** Esconder o botão é UX; um botão escondido
  * não bloqueia ninguém que chame a API direto. O `GET /api/pluggy/status` é a

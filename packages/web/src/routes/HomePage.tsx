@@ -130,7 +130,7 @@ export function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // T-089c — o botão de importar só aparece quando o SERVER diz que a integração
-  // está ligada (gate `ENVIRONMENT`). O web nunca lê uma cópia da flag em
+  // está ligada. O web nunca lê uma cópia da flag em
   // `VITE_*`: duas cópias divergem e a do cliente é burlável.
   const [pluggyEnabled, setPluggyEnabled] = useState(false);
   const [pluggyItems, setPluggyItems] = useState<PluggyItemView[]>([]);

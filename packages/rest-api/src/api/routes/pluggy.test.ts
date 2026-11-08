@@ -122,7 +122,6 @@ describe('/api/pluggy (T-089b)', () => {
   });
 
   beforeEach(() => {
-    process.env.ENVIRONMENT = 'Staging';
     process.env.PLUGGY_CLIENT_ID = 'client-test';
     process.env.PLUGGY_CLIENT_SECRET = 'secret-test';
     stubPluggy();
@@ -130,7 +129,6 @@ describe('/api/pluggy (T-089b)', () => {
 
   afterEach(async () => {
     vi.unstubAllGlobals();
-    delete process.env.ENVIRONMENT;
     delete process.env.PLUGGY_CLIENT_ID;
     delete process.env.PLUGGY_CLIENT_SECRET;
     await db.execute('DELETE FROM pluggy_items');
@@ -139,40 +137,16 @@ describe('/api/pluggy (T-089b)', () => {
     await db.execute('DELETE FROM savings_entries');
   });
 
-  // ── Gate ENVIRONMENT ───────────────────────────────────────────────────────
-
   it('sem sessão responde 401', async () => {
     expect((await request(app).get('/api/pluggy/status')).status).toBe(401);
     expect((await request(app).post('/api/pluggy/connect-token').send({})).status).toBe(401);
   });
 
-  it('em Production o gate BLOQUEIA as rotas de ação (403)', async () => {
-    process.env.ENVIRONMENT = 'Production';
-
-    expect((await agentA.post('/api/pluggy/connect-token').send({})).status).toBe(403);
-    expect((await agentA.post('/api/pluggy/items').send({ itemId: ITEM_A })).status).toBe(403);
-    expect((await agentA.post('/api/pluggy/sync').send({})).status).toBe(403);
-    expect((await agentA.delete(`/api/pluggy/items/${ITEM_A}`)).status).toBe(403);
-  });
-
-  it('FAIL CLOSED: env ausente ou com typo também bloqueia', async () => {
-    for (const value of [undefined, '', 'Staginng']) {
-      if (value === undefined) delete process.env.ENVIRONMENT;
-      else process.env.ENVIRONMENT = value;
-      const res = await agentA.post('/api/pluggy/connect-token').send({});
-      expect(res.status, String(value)).toBe(403);
-      expect(res.body.code).toBe('PLUGGY_DISABLED');
-    }
-  });
-
-  it('GET /status responde MESMO bloqueado — é ele que conta ao web', async () => {
-    // Se esta rota fosse gateada, o cliente precisaria de uma cópia da flag em
-    // VITE_* para saber o que renderizar — a duplicação que a decisão proíbe.
-    process.env.ENVIRONMENT = 'Production';
+  it('GET /status responde 200 com a integração sempre liberada (sem deploy de produção a proteger)', async () => {
     const res = await agentA.get('/api/pluggy/status');
 
     expect(res.status).toBe(200);
-    expect(res.body as PluggyStatusResponse).toEqual({ enabled: false, items: [] });
+    expect(res.body as PluggyStatusResponse).toEqual({ enabled: true, items: [] });
   });
 
   // ── Items ──────────────────────────────────────────────────────────────────
@@ -417,23 +391,6 @@ describe('/api/pluggy (T-089b)', () => {
       vi.stubGlobal('fetch', fetchMock);
       return fetchMock;
     }
-
-    it('integração desligada: enabled false, sem chamar a Pluggy', async () => {
-      await agentA.post('/api/pluggy/items').send({ itemId: ITEM_A });
-      process.env.ENVIRONMENT = 'Production';
-      const fetchMock = stubAccountsForNetWorth();
-
-      const res = await agentA.get('/api/pluggy/net-worth');
-
-      expect(res.status).toBe(200);
-      expect(res.body as PluggyNetWorthResponse).toEqual({
-        enabled: false,
-        connections: 0,
-        failedConnections: 0,
-        totalBankBalance: 0,
-      });
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
 
     it('sem conexão: connections 0 e nenhuma chamada à Pluggy', async () => {
       const fetchMock = stubAccountsForNetWorth();

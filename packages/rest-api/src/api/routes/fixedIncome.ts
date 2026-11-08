@@ -180,10 +180,11 @@ router.get(
  *
  * ## Desfechos (sempre 200)
  *
- * - integração desligada (gate `ENVIRONMENT`) → `enabled: false`, sem consultar
- *   banco nem Pluggy. Mesmo gate das `/api/pluggy/*`: o que ele protege é o
- *   termo de uso do Meu Pluggy (gratuito só para uso pessoal), e **ler** dado de
- *   um item já conectado é tão "usar a integração" quanto conectar um novo;
+ * - integração desligada (gate `isPluggyIntegrationEnabled`, sempre `true`
+ *   desde 2026-11-08) → `enabled: false`, sem consultar banco nem Pluggy.
+ *   Mesmo gate das `/api/pluggy/*`: o contrato pago com a Pluggy segue
+ *   pendente em `TODO-HUMANO.md` e bloqueia abrir isto para usuários reais em
+ *   produção, não o código;
  * - sem conexão → `connections: 0`, sem chamar a Pluggy;
  * - item que falha (rede, 4xx/5xx, credencial ausente) → conta em
  *   `failedConnections` e os outros items seguem. Falha da Pluggy NUNCA vira
@@ -298,9 +299,9 @@ router.post(
  *
  * `supersededByPluggyInvestmentId` (fatia d3a) é o vínculo manual↔Pluggy:
  * ausente não mexe, `null` desfaz, string no formato de id seta. Só existe
- * aqui (o POST ignora o campo), e de propósito **sem** o gate `ENVIRONMENT`:
+ * aqui (o POST ignora o campo), e de propósito **sem** o gate da integração:
  * é uma anotação sobre a posição manual, não um request à Pluggy —
- * desvincular tem de funcionar com a integração desligada.
+ * desvincular tem de funcionar mesmo que a integração esteja desligada.
  */
 router.patch(
   '/:id',

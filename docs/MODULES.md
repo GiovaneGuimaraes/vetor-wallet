@@ -243,8 +243,9 @@ Packages:
   /connect_token` + `DELETE /items/:id` (T-089b, pro widget de conexão no app). Nunca toca o
   banco.
 - `packages/rest-api` — `POST /api/import/ofx` (`express.raw`, 1 MB); `/api/pluggy/*` (status,
-  connect-token, items, sync, net-worth — T-089b/T-089e), gate `ENVIRONMENT`/
-  `isPluggyIntegrationEnabled` (só `Staging` libera, fail closed) + `requireActiveSubscription`.
+  connect-token, items, sync, net-worth — T-089b/T-089e), gate `isPluggyIntegrationEnabled`
+  (sempre libera desde 2026-11-08 — sem deploy de produção; contrato pago com a Pluggy
+  pendente em `TODO-HUMANO.md`) + `requireActiveSubscription`.
 - `packages/web` — modal de conexão/import da Pluggy na Home (T-089c/d), botão de conectar banco
   liberado por `GET /api/pluggy/status`.
 - `packages/cli` — `pluggy:sync [YYYY-MM-DD] [--dry-run]`, `pluggy:link` (registra/remove um item

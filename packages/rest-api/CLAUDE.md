@@ -14,7 +14,7 @@ src/
     │                 # router (/api/auth/*) — o SERVICE saiu na T-099c
     ├── routes/       # 1 arquivo por recurso REST (ver tabela no CLAUDE.md raiz)
     └── middleware/   # asyncHandler, errorHandler, requireActiveSubscription,
-                      # requirePluggyEnabled (gate ENVIRONMENT, T-089b)
+                      # requirePluggyEnabled (T-089b; sempre libera desde 2026-11-08)
 ```
 
 **Não há mais `src/api/services/`** — desde a T-099c toda a lógica de domínio
@@ -191,11 +191,12 @@ Na T-091d (fatia d2) entrou `GET /api/fixed-income/pluggy`, no mesmo router: a
 RF da conexão bancária **lida ao vivo** (`listPluggyItems` → `fetchPluggyInvestments`
 por item → `toPluggyFixedIncomePosition`) e **nunca gravada** (decisão do humano,
 2026-10-21). Rota irmã de propósito — o `GET /` da RF manual não sabe que a
-Pluggy existe, então nenhuma falha dela chega perto. Sempre 200: gate
-`ENVIRONMENT` desligado → `enabled: false` sem consultar nada; item que falha
+Pluggy existe, então nenhuma falha dela chega perto. Sempre 200: gate da
+integração desligado → `enabled: false` sem consultar nada; item que falha
 → conta em `failedConnections` (nunca 500/502), os outros seguem. Sujeita ao
-gate `ENVIRONMENT` porque ler um item já conectado também é usar a integração
-(o termo do Meu Pluggy é o que o gate protege).
+mesmo gate porque ler um item já conectado também é usar a integração (o termo
+do Meu Pluggy é o que ele protegia; desde 2026-11-08 o gate sempre libera —
+ver `packages/pluggy-core/CLAUDE.md`).
 
 Entry compilado: `dist/api/index.js` (`pnpm --filter vetor-wallet-rest-api start`). Rodar `node dist/api/index.js` de fora de `packages/rest-api/` sem `DATABASE_URL` cria um banco novo no cwd errado.
 

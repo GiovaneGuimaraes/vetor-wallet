@@ -48,7 +48,10 @@ import type {
  * ## Gates, em ordem
  *
  * 1. `requireAuth` — toda rota de dados filtra por `user_id`.
- * 2. `requirePluggyEnabled` — o gate `ENVIRONMENT` (fail closed). **Exceto** em
+ * 2. `requirePluggyEnabled` — sempre libera desde 2026-11-08 (decisão do
+ *    humano: não há deploy de produção para proteger ainda). O contrato pago
+ *    com a Pluggy segue pendente em `TODO-HUMANO.md` e tem de ser resolvido
+ *    ANTES de abrir isto para usuários reais em produção. **Exceto** em
  *    `GET /status`, que precisa responder justamente para dizer ao web que a
  *    integração está desligada.
  * 3. `requireActiveSubscription` — gating binário: `plans` não tem coluna de

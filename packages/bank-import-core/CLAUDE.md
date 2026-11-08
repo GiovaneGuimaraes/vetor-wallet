@@ -296,8 +296,7 @@ Decisões travadas:
   A transação **sem `id`** continua `rejected` mesmo sendo interna: sem id não há
   linha identificável no relatório, e o defeito de dados vem primeiro.
 - **Categoria desconhecida ou ausente é lançamento normal — fail OPEN**, ao
-  contrário do gate de assinatura e do `ENVIRONMENT` da Pluggy, que falham
-  fechado. A assimetria é deliberada: errar para o lado fechado seria **não
+  contrário do gate de assinatura, que falha fechado. A assimetria é deliberada: errar para o lado fechado seria **não
   importar despesa real**, e ausência é invisível para quem confere. Errar para o
   lado aberto importa uma movimentação interna que aparece no relatório e pode
   ser apagada. Consequência aceita: se a Pluggy renomear um rótulo, o defeito

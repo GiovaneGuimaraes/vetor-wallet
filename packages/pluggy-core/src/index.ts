@@ -7,10 +7,7 @@ export { pluggySend } from './pluggySend';
 export { createPluggyConnectToken } from './createPluggyConnectToken';
 export type { CreatePluggyConnectTokenParams } from './createPluggyConnectToken';
 export { deletePluggyItem } from './deletePluggyItem';
-export {
-  isPluggyIntegrationEnabled,
-  PLUGGY_ENABLED_ENVIRONMENT,
-} from './isPluggyIntegrationEnabled';
+export { isPluggyIntegrationEnabled } from './isPluggyIntegrationEnabled';
 export { fetchPluggyAccounts } from './fetchPluggyAccounts';
 export { toPluggyAccount } from './toPluggyAccount';
 export type { PluggyAccount } from './toPluggyAccount';
