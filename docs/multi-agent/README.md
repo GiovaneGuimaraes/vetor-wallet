@@ -19,6 +19,7 @@ Este diretório define o fluxo de trabalho multi-agente em loop fechado do proje
 | [`ORQUESTRADOR.md`](./ORQUESTRADOR.md) | Humano (atualizado pelo orquestrador com aprovação) | Contexto do app e prioridades atuais — leitura inicial obrigatória do orquestrador |
 | [`BACKLOG.md`](./BACKLOG.md) | Orquestrador | **Só trabalho vivo.** Tarefa concluída sai do arquivo — não migra para outro lugar do repo. Teto de 8 KB, verificado por `pnpm backlog:check`. Modelo de tarefa e rationale da higiene: abaixo |
 | [`CALIBRAGEM.md`](./CALIBRAGEM.md) | Orquestrador | Placar dos modelos e as causas das reprovações — o dado que calibra o roteamento abaixo |
+| [`CONTA-DE-TESTE.md`](./CONTA-DE-TESTE.md) | Humano | Como o agente usa a conta de teste do Cognito de staging (sem o valor das credenciais — o repo é público) |
 | [`TODO-HUMANO.md`](./TODO-HUMANO.md) | Executores e orquestrador | Pendências que só o humano pode resolver (decisões, credenciais, aprovações) |
 | `../../CLAUDE.md` | Humano | Arquitetura, comandos, convenções e política de testes — leitura obrigatória de todos |
 
@@ -46,10 +47,31 @@ operacional das quatro regras; o motivo de cada uma fica aqui:
 ```markdown
 ### T-000 — Título curto e imperativo
 - **Status**: PENDENTE · **Complexidade**: baixa | média | alta · **Depende de**: —
-- **Objetivo**: por que existe e o que fazer.
+- **Objetivo**: o que fazer.
+- **Propósito**: o estado final que a tarefa serve e por quê (1 linha).
+- **Fora de escopo**: o que NÃO entra, mesmo parecendo vizinho.
 - **Arquivos-alvo**: caminhos prováveis.
 - **Critério de aceite**: verificável + comando de teste.
+- **Evidência de fechamento** (só se o risco não for coberto por teste): o que o executor roda
+  no app e cola no relatório — ver abaixo.
 ```
+
+**Por que `Propósito` e `Fora de escopo` existem** (2026-11-08, artigo do Addy Osmani + princípio
+9 do ttoss): critério de aceite sozinho é um proxy que o agente satisfaz ao pé da letra; o
+propósito é a regra de decisão que ele carrega para as escolhas que o brief não previu — sem ele
+preenche a lacuna com um palpite que parece resposta. T-053 foi a instrução do orquestrador
+errada, e T-091c2 um efeito colateral que o aceite não previa. Ambos eram problema de brief.
+
+### Evidência de fechamento: rodar o app, não só a suíte
+
+Para tarefa nas classes que nos reprovam (estado assíncrono, gates de render, consistência entre
+N arquivos) ou que muda algo que nenhum teste vê (processo de boot, job, scheduler), o brief diz
+em **Evidência de fechamento** o que rodar. O executor sobe o app com a conta de teste
+([`CONTA-DE-TESTE.md`](./CONTA-DE-TESTE.md)), exercita a mudança e cola no relatório o comando, o
+resultado real e as linhas de log do app que mostram o efeito (o logger estruturado — T-122). O
+revisor repete **uma** dessas chamadas por conta própria. Não é para toda tarefa: docs, estilo e
+refactor sem mudança de comportamento ficam de fora, e sem conta de teste disponível o relatório
+diz que a evidência de runtime não foi coletada.
 
 ## Estado e comunicação ficam no repo
 
@@ -166,7 +188,7 @@ Regras complementares:
 - **Escalonamento Haiku → Sonnet**: 1 veredito REPROVADA em tarefa executada por Haiku já re-delega o próximo ciclo em Sonnet (não espere as 2 reprovações da regra do Opus).
 
 - **Revisor é sempre Sonnet por decisão de custo do humano (2026-07-25)** — o Opus na revisão encareceu demais o loop. Exceções pontuais só com pedido explícito do humano. Se um revisor Sonnet se declarar inseguro num ponto de dinheiro/auth, o orquestrador pode verificar aquele ponto específico ele mesmo em vez de escalar o modelo.
-- **Escalonamento automático**: 2 vereditos REPROVADA seguidos na mesma tarefa → o orquestrador re-delega o próximo ciclo com executor `opus`, incluindo no prompt o histórico dos achados das reprovações.
+- **Escalonamento automático**: 2 vereditos REPROVADA seguidos na mesma tarefa → o orquestrador re-delega o próximo ciclo com executor `opus`, incluindo no prompt o histórico dos achados das reprovações — **os veredictos originais do revisor e o diff, não um resumo do orquestrador**: um resumo de resumo é como o terceiro agente acaba sem ter lido o que importava (artigo do Addy, 2026-11-08).
 - **Teto de 3 ciclos por tarefa** (2026-08-15). A 3ª REPROVADA **encerra a tentativa**: a tarefa vira `BLOQUEADA`, vai para o `TODO-HUMANO.md` com os achados das três revisões, e o orquestrador segue para a próxima da fila. Não existe 4ª delegação automática. Motivo: o par executor↔revisor era a única alça do loop **sem condição de parada** — 3 reprovações não são um modelo fraco, são a tarefa mal especificada ou uma decisão de produto disfarçada de bug (foi o caso da T-053, onde a instrução do orquestrador é que estava errada). Um modelo maior não conserta especificação ruim, só a executa mais caro.
 - **Spike de design (opcional, recomendado para alta)**: antes de delegar uma tarefa alta, o orquestrador pode spawnar o agente `Plan` com `model: "opus"` para produzir plano de implementação (arquivos-alvo, abordagem, riscos, casos de borda). O plano entra na íntegra no prompt do executor — reduz retrabalho e permite até executar em Sonnet com plano de Opus quando o desafio é de *design*, não de *execução*.
 - **Na dúvida entre média e alta, escolha alta.** O custo extra de Opus numa tarefa é menor que um ciclo executar→reprovar→corrigir→re-revisar.

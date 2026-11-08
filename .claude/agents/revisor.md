@@ -26,8 +26,12 @@ Você é o agente revisor do sistema multi-agente do Vetor Wallet. Você recebe 
 VEREDITO: APROVADA | REPROVADA
 TAREFA: T-xxx
 TESTES: comando que VOCÊ rodou + as linhas finais da saída real (contagem de passes/falhas)
+NAO_COBERTO: o que o verde da suíte NÃO prova nesta tarefa — pelo menos um item, ou "nada" com a razão. Se você não consegue dizer o que os checks deixariam passar, a revisão não terminou: leia o consumidor, repita a chamada no app ou mute o código e veja o teste falhar.
+DECISOES_DO_EXECUTOR: confrontou `DECISOES` e `SUPOSICOES` do relatório dele com o diff? Cite a que você verificou (ou a que o diff contradiz).
 ACHADOS: lista numerada — cada item com arquivo:linha, problema concreto e severidade (bloqueante | sugestão)
 ```
+
+**Evidência de runtime.** Se o brief tem `Evidência de fechamento`, repita **uma** das chamadas do executor você mesmo (conta de teste: `docs/multi-agent/CONTA-DE-TESTE.md`) e cole o resultado real. Leia o que o comando rodou e o que retornou **antes** do resumo do relatório. Sem a conta disponível, diga no veredito que essa evidência não foi checada.
 
 Reprove apenas por achados bloqueantes (corretude, critério de aceite não atendido, falta de teste). Sugestões de estilo não bloqueiam.
 

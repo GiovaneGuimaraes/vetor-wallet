@@ -28,6 +28,15 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 > sem Aurora/bastion/`packages/infra` por ora (custo fixo, só um usuário, produção incerta). Retomar
 > se for abrir para mais de um usuário ou se o staging precisar rodar em Lambda.
 
+### T-122 — Logger estruturado no rest-api (observabilidade para o agente)
+- **Status**: PENDENTE · **Complexidade**: média · **Depende de**: —
+- **Objetivo**: módulo de log JSON em `packages/rest-api/src/api/` (1 função por arquivo), middleware de request (método, rota, status, duração, `requestId`, `userId`) e eventos de domínio nas rotas que o agente mais valida (login, operations, import OFX, pluggy sync). `LOG_FILE` opcional (NDJSON, fora do repo); sem ela, stdout. `errorHandler` passa a usar o logger.
+- **Propósito**: o agente validar "o que ele queria fazer aconteceu?" pelos logs do app além dos testes (README § Evidência de fechamento).
+- **Fora de escopo**: log nos `*-core` (continuam devolvendo resultado tipado); dependência de lib de log; mexer em auth/Cognito.
+- **Arquivos-alvo**: `packages/rest-api/src/api/{logger,middleware/requestLogger,middleware/errorHandler,index}.ts` + rotas citadas + `.env.example`.
+- **Critério de aceite**: logger **nunca** emite valor, saldo, estabelecimento, e-mail, senha, token ou `itemId` (teste com lista de campos proibidos); `pnpm --filter vetor-wallet-rest-api test`, `build`, `lint` verdes.
+- **Evidência de fechamento**: subir a API com `LOG_FILE`, logar com a conta de teste, fazer 1 POST e colar as linhas NDJSON do request.
+
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 
 - **Fundir `operations-core` de volta no `portfolio-core`** (sugerido pelo executor da T-104/PR #209): o motivo de terem ficado separados (barrel do `portfolio-core` abria o banco no import) não existe mais desde que o formato-alvo chegou lá. Mudança de fronteira, não de formato — mexe em 7 funções + testes + imports de 3 rotas.
