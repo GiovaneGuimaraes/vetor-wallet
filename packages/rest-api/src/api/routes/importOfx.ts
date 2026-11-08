@@ -13,6 +13,7 @@ import {
   parseOfxAmount,
   parseOfxDate,
 } from '@vetor-wallet/bank-import-core';
+import { log } from '../logger';
 import type { OfxImportResult, OfxImportTransaction } from '@vetor-wallet/shared';
 
 /**
@@ -136,6 +137,13 @@ router.post(
     }
 
     const result: OfxImportResult = { imported, duplicated, rejected, transactions };
+    log('info', 'import.ofx.done', {
+      requestId: res.locals.requestId,
+      userId,
+      imported,
+      duplicated,
+      rejected,
+    });
     res.json(result);
   })
 );

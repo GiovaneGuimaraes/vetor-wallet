@@ -20,6 +20,7 @@ import {
   isValidMoneyAmount,
   moneyAmountError,
 } from '@vetor-wallet/validation-core';
+import { log } from '../logger';
 import type { NewOperation } from '@vetor-wallet/shared';
 
 const router = Router();
@@ -102,6 +103,14 @@ router.post(
       quantity,
       price,
       date,
+    });
+    // T-122: id local + tipo bastam para provar o efeito; ticker, quantidade e
+    // preço são dado financeiro e ficam fora.
+    log('info', 'operation.created', {
+      requestId: res.locals.requestId,
+      userId,
+      operationId: operation.id,
+      operationType: type,
     });
     res.status(201).json(operation);
   })
