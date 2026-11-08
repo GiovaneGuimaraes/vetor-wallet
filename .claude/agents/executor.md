@@ -37,6 +37,10 @@ STATUS: CONCLUIDA | BLOQUEADA
 TAREFA: T-xxx
 ARQUIVOS: lista de arquivos criados/alterados
 TESTES: comando executado + resultado real (passou/falhou, contagem)
+DECISOES: toda escolha que o brief não ditava — defaults adotados, o que deixou fora de escopo, qual requisito reinterpretou quando dois conflitavam. "Nenhuma" só se for verdade.
+SUPOSICOES: o que você assumiu sem verificar (comportamento de outro módulo, formato de dado, estado que não conferiu rodando). Cada item diz como o revisor pode checar.
 BLOQUEIO: motivo + item criado no TODO-HUMANO.md (se BLOQUEADA)
-OBSERVACOES: problemas fora de escopo encontrados, decisões técnicas tomadas
+OBSERVACOES: problemas fora de escopo encontrados
 ```
+
+`DECISOES` e `SUPOSICOES` são o que o resumo "tudo certo" esconde: o revisor não vê no diff aquilo que você decidiu por ele. Liste mesmo quando parecer óbvio.
