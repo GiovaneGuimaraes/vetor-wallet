@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { log } from '../logger';
 import { db } from '@vetor-wallet/db';
 import { createSqliteQuery } from '@vetor-wallet/query';
 import {
@@ -396,6 +397,10 @@ router.post(
     const { email, password } = req.body as { email?: string; password?: string };
 
     if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
+      log('warn', 'auth.login.failed', {
+        requestId: res.locals.requestId,
+        code: 'MISSING_FIELDS',
+      });
       res.status(400).json({ error: 'E-mail e senha obrigatorios' });
       return;
     }
@@ -403,8 +408,17 @@ router.post(
     try {
       const session = await cognitoInitiateAuth({ email, password });
       const { user } = await establishSession(req, session);
+      // T-122: só o id local do usuário — nunca e-mail, senha nem token.
+      log('info', 'auth.login.ok', { requestId: res.locals.requestId, userId: user.id });
       res.json(publicUser(user));
     } catch (err) {
+      // Só o CÓDIGO do erro (enum nosso/do cognito-core), nunca a mensagem.
+      const code = isCognitoApiError(err)
+        ? err.code
+        : err instanceof CognitoLinkRequiresVerifiedEmailError
+          ? 'emailNotVerified'
+          : 'unexpected';
+      log('warn', 'auth.login.failed', { requestId: res.locals.requestId, code });
       respondCognitoError(res, err);
     }
   })
