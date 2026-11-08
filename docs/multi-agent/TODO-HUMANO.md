@@ -122,14 +122,14 @@
 - **Recomendação**: opção 1. O motivo não é a moda da versão: é que **o CI só vale enquanto ele roda o mesmo que você roda**. Um CI num runtime que ninguém usa aprova código que quebra na máquina de quem trabalha, e reprova código que funciona — os dois erros já aconteceram aqui em um dia.
 - **Resposta do humano (2026-09-13)**: opção 1 — "podemos trocar o que está deprecated". **Versão escolhida: Node 24**, e não 22: o 22 entrou em manutenção em out/2025, o 24 é o LTS ativo e é o que roda na máquina dele — bumpar para o 22 seria sair do EOL para a próxima fila do EOL. Junto vai a **volta do `jsdom` para o 30**, porque o pin no 25 só existia para caber no Node 20; mantê-lo depois do bump seria guardar o sintoma sem a doença. Feito inline pelo orquestrador (higiene de repo).
 
-### [2026-09-10] Troque a senha da sua conta pela tela de Conta
+### [2026-09-10] ~~Troque a senha da sua conta pela tela de Conta~~ — FEITO em 2026-11-08
 - **Origem**: orquestrador (testes da T-106b, 2026-09-09)
 - **Bloqueia**: nada. É higiene de credencial.
 - **Pendência**: a senha da sua conta foi combinada e usada **dentro de uma sessão de chat**, para eu conseguir provar o cadastro e o login contra o pool real. Ela nunca entrou em arquivo versionado, log ou corpo de PR — mas está no histórico daquela conversa, que não é lugar de senha viva. A troca pela tela de Conta resolve, e o fluxo está testado de ponta a ponta (inclusive o caso de mais de uma hora depois do login, que estava quebrado até a #172).
 - **Por que não fiz por você**: qualquer senha que eu escolhesse voltaria a passar por aqui — o único jeito de ela ser só sua é você digitá-la.
 - **Pergunta do humano (2026-09-13)**: "a UI está lidando com troca de senha?" — **está**. A tela `/conta` tem a seção "Alterar senha" (senha atual + nova + confirmação), entregue na T-094 e ligada ao `ChangePassword` do Cognito na T-106; a T-092 (#172) consertou justamente o caso de trocar mais de uma hora depois do login. **Nada falta para esta pendência** — falta você digitar a senha nova.
 - **O que de fato falta no auth** (resposta à segunda parte, "faça as UIs que faltam"): **recuperação de senha**. Quem esquecer a senha não tem saída nenhuma pelo app — nem tela, nem rota, nem `ForgotPassword`/`ConfirmForgotPassword` no `cognito-core`. Virou a **T-108a/b** no backlog (2026-09-13).
-- **Resposta do humano**: _(segue aberta: é ação sua, não resposta)_
+- **Resposta do humano (2026-11-08)**: feito, senha trocada.
 
 ### [2026-08-20] ~~Roteiro AWS: os 6 passos até o user pool do Cognito funcionar~~ — CONCLUÍDO em 2026-09-09 (T-106)
 - **Origem**: orquestrador (conversa de 2026-08-20)
@@ -212,20 +212,11 @@
 - **O que isso trava, para não ser reaberto**: (1) nada de `goals` vira caixinha — não há migração de dado entre os dois conceitos; (2) o **saldo livre da poupança** (T-052) deixa de descontar "reservado em metas" e passa a ser o saldo inteiro, mantendo a aritmética em centavos inteiros; (3) o **par atômico** da transferência poupança → meta (T-041) morre junto com a rota `POST /api/savings/transfer-to-goal`, porque não sobra destino.
 - **A regra das duas etapas continua valendo** (foi decidida à parte, não pela escolha da opção): a **etapa 1** (T-091b1) tira Metas da **UI e da API** e não apaga uma linha sequer — `goals` e `savings_entries.goal_id` continuam no banco, intactos; a **etapa 2** (T-091b2) é o `DROP` do dado e **só roda com uma confirmação explícita sua**, depois de você ver o app sem Metas. Enquanto a etapa 2 não rodar, voltar atrás é reverter código, não recuperar backup.
 
-### [2026-08-13] A landing anuncia a Pluggy, mas `Production` bloqueia a integração (T-089g)
-- **Origem**: executor (T-089g), levantado ao publicar o bloco na página de login
-- **Bloqueia**: nada hoje — **vira problema no dia do primeiro deploy**
-- **Pendência**: a landing (e a página de Planos, desde antes) anuncia a importação bancária para **qualquer visitante**, inclusive quem ainda não tem conta. Só que o gate `ENVIRONMENT` bloqueia `/api/pluggy/*` fora de `Staging`. Enquanto não há deploy (ver `packages/rest-api/CLAUDE.md` § "Deploy: não existe"), ninguém além de você vê essa página e nada é prometido a terceiro. **No primeiro deploy em produção isso inverte**: a vitrine promete uma feature que a API recusa com 403, e o usuário que se cadastrar por causa dela não vai achar o botão — ele nem aparece, porque a Home lê `enabled` do server.
-- **Duas saídas, quando o dia chegar**: (a) expor o `enabled` num endpoint **público** (o `GET /api/pluggy/status` de hoje exige sessão, porque também lista os items do usuário) e a landing condicionar o bloco a ele — o texto some sozinho onde a integração está desligada; (b) tratar isto junto do contrato pago com a Pluggy, que é o que destrava `Production` de verdade (ver o item de 2026-08-12 sobre o contrato). A (b) resolve a causa; a (a) evita a promessa falsa enquanto a causa não é resolvida — e as duas podem coexistir.
-- **Por que não foi resolvido agora**: adicionar rota pública só para uma linha de marketing, num app sem deploy e sem visitante, seria construir para um problema que ainda não existe. O registro serve para que a decisão não seja tomada por esquecimento.
-- **Resposta do humano**: _(a decidir junto do deploy)_
+### [2026-08-13] ~~A landing anuncia a Pluggy, mas `Production` bloqueia a integração (T-089g)~~ — RESOLVIDO em 2026-11-08
+- **Resposta do humano (2026-11-08)**: manter a landing anunciando a integração nos dois ambientes — sem a validação de `ENVIRONMENT`. `isPluggyIntegrationEnabled()` passou a sempre devolver `true` (ver `packages/pluggy-core/CLAUDE.md`); não há deploy de produção hoje, então não há usuário real exposto. **O contrato pago com a Pluggy segue pendente** (item logo abaixo) e tem de ser resolvido antes do primeiro deploy com usuários de terceiros — nada no código barra mais isso.
 
-### [2026-08-12] O modo "substituir tudo" apaga mais do que repõe — leia antes de usar (T-089)
-- **Origem**: executor (T-089 fases (b)(c)(d))
-- **Bloqueia**: nada — o botão está pronto. É **aviso**, não pendência de decisão.
-- **Pendência**: você escolheu (via chat, 2026-08-12) a opção mais destrutiva de `replace`: apagar `income_entries`, `expense_entries` **e** `savings_entries` inteiras antes de importar. Implementado exatamente assim. Duas consequências que só ficaram claras ao construir, e que a tela agora diz antes de confirmar: (1) **a poupança não volta** — a importação da Pluggy grava renda e despesa e **nunca** poupança (movimentação interna nem é importada, T-088), então apagá-la é perda líquida, sem nada no lote de entrada que a recomponha; (2) a Pluggy devolve só a **janela sincronizada** (padrão 30 dias) e apenas das contas conectadas, então histórico mais antigo que isso some e não é reposto. Meta sobrevive, mas progresso derivado de aportes vinculados zera. **Não há desfazer.** Para reduzir o risco de clique acidental, o modal exige digitar `APAGAR` — foi decisão de implementação, não mudança do que você pediu.
-- **Se quiser mudar de ideia**: o modo mais estreito (apagar só as linhas `pluggy:*` da janela, preservando manuais) continua sendo uma troca de uma função — diga e eu ajusto.
-- **Resposta do humano**: _(nada a fazer; ciente)_
+### [2026-08-12] ~~O modo "substituir tudo" apaga mais do que repõe — leia antes de usar (T-089)~~ — RESOLVIDO em 2026-11-08
+- **Resposta do humano (2026-11-08)**: está funcionando como esperado; item encerrado (era só aviso, não pendência de decisão).
 
 ### [2026-08-12] Rodar `pluggy:link` uma vez para seguir sincronizando (T-089a)
 - **Origem**: executor (T-089 fase (a))
@@ -254,11 +245,12 @@
 - **`Investments` também não é importado**, apesar de a decisão ser mandá-lo para o layer de investimentos: esse layer ainda não existe, e importar como despesa até lá manteria o defeito de maior volume. Nada é gravado, então o `external_id` fica livre — quando o layer existir, resincronizar a mesma janela importa essas linhas.
 - **A proibição de rodar sem `--dry-run` CAI para a Pluggy** com esta entrega. Ela **segue valendo para o OFX** (T-085), que não tem campo de categoria e por isso não tem como distinguir movimentação interna.
 
-### [2026-08-09] Executar a T-021 (SELL retroativo aceito e descartado em silêncio)?
+### [2026-08-09] ~~Executar a T-021 (SELL retroativo aceito e descartado em silêncio)?~~ — ARQUIVADO em 2026-11-08
 - **Origem**: orquestrador (a tarefa estava parada no `BACKLOG.md` como "aguarda decisão", que não é lugar de backlog)
 - **Bloqueia**: nada — a fila segue com a T-104b
 - **Pergunta/pendência**: o bug é real e está **reproduzido com as funções reais do `portfolio-core`**: com 100 PETR4 compradas em 2026-08-01, uma venda de 100 datada em 2026-01-15 (antes da compra) é **aceita** e a posição continua 100 ações. Vende e continua com tudo; a operação aparece na lista e não faz nada. Causa: a rota valida contra a posição de **hoje** (`operations.ts:74-84`), e o recálculo cronológico trunca com `Math.max(0, …)` (`portfolio.ts:20-21`) — dois comportamentos corretos isolados que juntos abrem o buraco. Correção provável: validar a posição acumulada **até a data da venda**. O risco que antes exigia spike foi **medido e descartado** (banco local real: 6 operações, 0 vendas, 0 rejeições — não há dado legado a migrar). Complexidade caiu para **média**, executor Sonnet, sem spike. **Pergunta**: entra na fila depois da T-104b, ou fica parada?
 - **Resposta do humano**: (via chat, 2026-08-12) **fica parada** — sem decisão agora. O item segue aberto e o orquestrador **não replaneja em torno dela**; não entra na fila do ciclo 21. **Confirmado pela reação ❌** no `#todo-human`, colhida em 2026-08-15 pelo hook de passo 0: a decisão via chat e a reação dizem a mesma coisa. O bug continua real e reproduzido — a decisão é sobre prioridade, não sobre existir.
+- **Arquivado em 2026-11-08**: o bug **não foi corrigido** — segue real. Tirado da lista de abertos a pedido do humano para reduzir ruído; hoje a carteira tem compras ativas e **zero vendas**, então não há como disparar. Se uma venda retroativa vier a ser registrada, reabrir o registro.
 
 ### [2026-08-09] ~~Liberar os 4 canais do Discord~~ — RESOLVIDO no mesmo dia, com uma sobra
 - **Origem**: orquestrador (pedido do humano via chat)

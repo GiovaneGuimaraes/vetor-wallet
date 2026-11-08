@@ -31,7 +31,7 @@ src/
 ├── pluggySend.ts              # POST/DELETE autenticado; 204 → null (T-089b)
 ├── createPluggyConnectToken.ts# POST /connect_token p/ o widget (T-089b)
 ├── deletePluggyItem.ts        # DELETE /items/{id}; 404 = sucesso (T-089b)
-├── isPluggyIntegrationEnabled.ts # gate ENVIRONMENT, fail closed (T-089b)
+├── isPluggyIntegrationEnabled.ts # gate (T-089b; sempre true desde 2026-11-08)
 ├── fetchPluggyAccounts.ts     # GET /accounts?itemId=
 ├── toPluggyAccount.ts         # payload de conta → PluggyAccount (`balance`
                                # trazido desde a T-089e, p/ patrimônio da Home)
@@ -285,13 +285,15 @@ peças novas:
   está satisfeito, e virar erro deixaria a linha órfã no nosso banco sem saída
   pela UI. Mesma doutrina do dedupe da T-084 — o que importa é o estado final.
 
-**`isPluggyIntegrationEnabled`** é o gate `ENVIRONMENT` (decisão do humano,
-2026-08-12): só `Staging` libera, **fail closed** em ausente/vazia/desconhecida.
-É o oposto deliberado do fail *open* da T-088: lá errar fechado sumiria com
-despesa real, aqui errar aberto oferece a integração a terceiros sem contrato com
-a Pluggy — custo jurídico que não aparece em tela nenhuma. `ENVIRONMENT` é a
-**única autoridade** para este gate e pode divergir de `NODE_ENV`, de propósito
-(o staging do dono do app roda com `NODE_ENV=production`).
+**`isPluggyIntegrationEnabled`** era o gate `ENVIRONMENT` (decisão do humano,
+2026-08-12: só `Staging` liberava, fail closed em ausente/vazia/desconhecida) —
+revisto em 2026-11-08: **sempre devolve `true`**, porque não há deploy de
+produção (`packages/rest-api/CLAUDE.md`) e travar por env só atrapalhava o
+ambiente local, sem proteger usuário real nenhum. O contrato pago com a Pluggy
+**continua pendente** (`docs/multi-agent/TODO-HUMANO.md`) e bloqueia abrir isto
+para usuários de terceiros quando o deploy de verdade existir — nada no código
+impede mais isso, então essa decisão tem de ser tomada antes, não lembrada por
+aqui.
 
 Quem traduz isso em HTTP é `packages/rest-api/src/api/middleware/requirePluggyEnabled.ts`
 — mesmo arranjo de `isBillingEnabled()` × `requireActiveSubscription`.

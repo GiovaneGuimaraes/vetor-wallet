@@ -66,8 +66,7 @@ export const INTERNAL_MOVEMENT_CATEGORIES: Readonly<Record<string, InternalMovem
  *   normalização de exibição faria um ajuste de UI mudar, em silêncio, quanto o
  *   humano gastou no mês.
  * - **Categoria desconhecida ou ausente é lançamento normal** (fail OPEN), ao
- *   contrário do gate de assinatura ou do `ENVIRONMENT` da Pluggy, que falham
- *   fechado. Aqui a assimetria é deliberada: o desfecho de errar para o lado
+ *   contrário do gate de assinatura, que falha fechado. Aqui a assimetria é deliberada: o desfecho de errar para o lado
  *   fechado seria **não importar despesa real** — o mês ficaria menor que a
  *   verdade e o humano não teria como perceber a ausência. Errar para o lado
  *   aberto reimporta uma movimentação interna que ele VÊ no relatório e pode

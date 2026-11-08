@@ -117,7 +117,6 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
   });
 
   beforeEach(() => {
-    process.env.ENVIRONMENT = 'Staging';
     process.env.PLUGGY_CLIENT_ID = 'client-test';
     process.env.PLUGGY_CLIENT_SECRET = 'secret-test';
     resetApiKeyCache();
@@ -128,7 +127,6 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
   afterEach(async () => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
-    delete process.env.ENVIRONMENT;
     delete process.env.PLUGGY_CLIENT_ID;
     delete process.env.PLUGGY_CLIENT_SECRET;
     await db.execute('DELETE FROM pluggy_items');
@@ -142,24 +140,6 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
 
   it('responde 401 sem sessão', async () => {
     expect((await request(app).get('/api/fixed-income/pluggy')).status).toBe(401);
-  });
-
-  it('integração desligada (ENVIRONMENT ≠ Staging): enabled false, sem chamar a Pluggy', async () => {
-    process.env.ENVIRONMENT = 'Production';
-    await linkPluggyItem({ query, userId: userIdA, itemId: ITEM_OK });
-    const fetchMock = stubPluggy();
-
-    const res = await agentA.get('/api/fixed-income/pluggy');
-
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({
-      enabled: false,
-      connections: 0,
-      failedConnections: 0,
-      positions: [],
-      otherInvestments: 0,
-    } satisfies PluggyFixedIncomeResponse);
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('usuário sem conexão: connections 0 e nenhuma chamada à Pluggy', async () => {
@@ -207,7 +187,7 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
     expect(JSON.stringify(body)).not.toContain(ITEM_OK);
   });
 
-  it('vínculo (fatia d3a): PATCH e GET manuais não chamam a Pluggy, mesmo com a integração desligada', async () => {
+  it('vínculo (fatia d3a): PATCH e GET manuais não chamam a Pluggy', async () => {
     await linkPluggyItem({ query, userId: userIdA, itemId: ITEM_OK });
     const created = await agentA.post('/api/fixed-income').send({
       name: 'CDB manual',
@@ -218,9 +198,7 @@ describe('GET /api/fixed-income/pluggy (T-091d, fatia d2)', () => {
       rate: 10,
     });
     expect(created.status).toBe(201);
-    // Desligar o gate não pode impedir vincular/desvincular: é anotação da
-    // posição manual, não request à Pluggy.
-    process.env.ENVIRONMENT = 'Production';
+    // Vincular/desvincular é anotação da posição manual, nunca request à Pluggy.
     const fetchMock = vi.fn(async () => {
       throw new TypeError('fetch failed');
     });

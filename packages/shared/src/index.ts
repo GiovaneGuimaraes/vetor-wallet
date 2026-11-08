@@ -621,7 +621,7 @@ export interface PluggyFixedIncomePosition {
 
 /** Resposta de `GET /api/fixed-income/pluggy` (T-091d, fatia d2). Sempre 200. */
 export interface PluggyFixedIncomeResponse {
-  /** `false` = integração desligada neste ambiente (gate `ENVIRONMENT`); nada foi consultado. */
+  /** `false` = integração desligada; nada foi consultado. */
   enabled: boolean;
   /** Quantas conexões bancárias o usuário tem. 0 = a tela fica como sem Pluggy. */
   connections: number;
@@ -645,7 +645,7 @@ export interface PluggyFixedIncomeResponse {
  * é dívida, não patrimônio.
  */
 export interface PluggyNetWorthResponse {
-  /** `false` = integração desligada neste ambiente (gate `ENVIRONMENT`); nada foi consultado. */
+  /** `false` = integração desligada; nada foi consultado. */
   enabled: boolean;
   /** Quantas conexões bancárias o usuário tem. 0 = a tela fica como sem Pluggy. */
   connections: number;
@@ -747,7 +747,7 @@ export interface PluggyItemView {
 /**
  * Estado da integração para o usuário logado.
  *
- * `enabled` reflete o gate `ENVIRONMENT` do server (T-089b) e é a ÚNICA fonte
+ * `enabled` reflete o gate da integração no server (T-089b) e é a ÚNICA fonte
  * do estado no cliente: o web nunca lê uma cópia da flag em `VITE_*`. Flag
  * duplicada em dois `.env` diverge, e a cópia do cliente é trivialmente
  * burlável — quem bloqueia de verdade é a rota.

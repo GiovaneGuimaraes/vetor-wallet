@@ -83,7 +83,7 @@ export interface PatrimonioFixedIncome {
  * aviso (mesmo isolamento de falha de `getPluggyFixedIncome` no hub de
  * Investimentos: a Home nunca quebra por causa do banco conectado).
  *
- * `enabled: false` (gate `ENVIRONMENT` desligado) ou `connections === 0`
+ * `enabled: false` (gate da integração desligado) ou `connections === 0`
  * (usuário nunca conectou um banco) também não somam nada — não há saldo
  * bancário para incluir. Um item que falhou AGORA (`failedConnections`) já
  * está fora de `totalBankBalance` (o servidor isola por conexão); aqui ele só

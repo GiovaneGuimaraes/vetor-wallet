@@ -58,8 +58,8 @@ na Pluggy: só serve para o web casar com a leitura ao vivo. Por isso:
 
 - só o PATCH a escreve (string seta, `null` limpa, ausente não mexe); o POST
   ignora o campo. A rota valida o formato (`[A-Za-z0-9_-]{1,128}`) e **não**
-  confere o id contra a Pluggy nem faz chamada de rede — nem tem o gate
-  `ENVIRONMENT` (desvincular tem de funcionar com a integração desligada);
+  confere o id contra a Pluggy nem faz chamada de rede — nem tem o gate da
+  integração (desvincular tem de funcionar mesmo com ela desligada);
 - sem FK, sem UNIQUE, sem índice;
 - **vínculo órfão não é limpo** (o investimento sumiu da leitura por
   desconexão ou qualquer motivo): fica inativo e a posição manual volta a ser
