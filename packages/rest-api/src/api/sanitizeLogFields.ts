@@ -45,6 +45,10 @@ export const FORBIDDEN_LOG_KEY_PARTS = [
   'externalid',
   'ticker',
   'name',
+  'nome',
+  'mail',
+  'quantidade',
+  'custo',
 ];
 
 const MAX_STRING = 200;
