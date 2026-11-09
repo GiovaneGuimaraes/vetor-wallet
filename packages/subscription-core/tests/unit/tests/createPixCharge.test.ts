@@ -31,12 +31,14 @@ describe('createPixCharge', () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).method).toBe('PIX');
   });
 
-  test('manda valor em centavos, descrição e externalId', async () => {
+  test('manda valor em centavos, descrição SANITIZADA e externalId', async () => {
+    // O travessão do `input` é rejeitado pela API (400 "Disallowed character") —
+    // era isso que derrubava toda assinatura como "provedor indisponível".
     await createPixCharge(input);
 
     expect(bodyOf(fetchMock)).toMatchObject({
       amount: 2990,
-      description: 'Vetor Wallet — Pro Mensal',
+      description: 'Vetor Wallet - Pro Mensal',
       externalId: 'user:42:plan:1:1754049600000',
     });
   });

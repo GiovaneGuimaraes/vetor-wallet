@@ -86,6 +86,7 @@ src/
     ├── request.ts               # envelope, timeout, política de erro
     ├── isAbacatePayConfigured.ts
     ├── createPixCharge.ts
+    ├── sanitizeDescription.ts   # descrição no conjunto que a API aceita
     ├── checkPixCharge.ts
     └── simulatePixPayment.ts
 ```
@@ -186,6 +187,16 @@ sem nome); assinatura vencida comprando de novo é permitida.
 - **Campos opcionais ausentes são omitidos do JSON** (`undefined` não
   serializa), nunca enviados como `null` — a API rejeita `null` onde espera
   objeto.
+- **A `description` da cobrança passa por `sanitizeDescription`.** A API responde
+  400 `Disallowed character in description` para caractere fora de um conjunto
+  estreito: caem `—`/`–`, aspas tipográficas, `€`, `$` e NBSP; passam letras
+  (acentuadas inclusive), dígitos e `- . , : ; / # & ( ) @ % + = _` (medido
+  contra a v2 em 2026-11-08). O app punha um `—` em `Vetor Wallet — <plano>` e
+  **toda assinatura virava 502 "provedor indisponível"** — o 400 do provedor
+  ficava escondido atrás da mensagem genérica. Texto novo mandado ao provedor
+  (descrição, e qualquer campo livre futuro) precisa de teste contra esse conjunto.
+  A rota loga `billing.charge.failed` com o `providerStatus` justamente para esse
+  400 não ficar invisível de novo.
 - **Env é lido dentro da função**, não no top-level do módulo.
 - **`simulatePixPayment` não checa `NODE_ENV`** de propósito — a guarda de
   ambiente (404 em produção) pertence à rota.
