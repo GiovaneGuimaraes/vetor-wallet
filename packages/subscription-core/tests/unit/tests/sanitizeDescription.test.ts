@@ -1,5 +1,6 @@
 import {
   FALLBACK_DESCRIPTION,
+  MAX_DESCRIPTION_LENGTH,
   sanitizeDescription,
 } from 'src/providers/abacatepay/sanitizeDescription';
 
@@ -30,6 +31,17 @@ describe('sanitizeDescription', () => {
 
   test('colapsa espaços repetidos e apara as pontas', () => {
     expect(sanitizeDescription('  a   $$   b  ')).toBe('a b');
+  });
+
+  test('trunca em MAX_DESCRIPTION_LENGTH (a API recusa texto longo com 422)', () => {
+    const out = sanitizeDescription('x'.repeat(500));
+    expect(out).toHaveLength(MAX_DESCRIPTION_LENGTH);
+    expect(MAX_DESCRIPTION_LENGTH).toBe(80);
+  });
+
+  test('não deixa espaço pendurado no ponto do corte', () => {
+    const out = sanitizeDescription('x'.repeat(MAX_DESCRIPTION_LENGTH - 1) + ' yyy');
+    expect(out).toBe('x'.repeat(MAX_DESCRIPTION_LENGTH - 1));
   });
 
   test('cai no fallback quando nada sobra', () => {

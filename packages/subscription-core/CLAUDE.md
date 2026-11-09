@@ -191,7 +191,9 @@ sem nome); assinatura vencida comprando de novo é permitida.
   400 `Disallowed character in description` para caractere fora de um conjunto
   estreito: caem `—`/`–`, aspas tipográficas, `€`, `$` e NBSP; passam letras
   (acentuadas inclusive), dígitos e `- . , : ; / # & ( ) @ % + = _` (medido
-  contra a v2 em 2026-11-08). O app punha um `—` em `Vetor Wallet — <plano>` e
+  contra a v2 em 2026-11-08), e o tamanho é limitado: 80 caracteres passam, 200
+  dão 422 (por isso `MAX_DESCRIPTION_LENGTH = 80`, o maior valor comprovado).
+  O app punha um `—` em `Vetor Wallet — <plano>` e
   **toda assinatura virava 502 "provedor indisponível"** — o 400 do provedor
   ficava escondido atrás da mensagem genérica. Texto novo mandado ao provedor
   (descrição, e qualquer campo livre futuro) precisa de teste contra esse conjunto.

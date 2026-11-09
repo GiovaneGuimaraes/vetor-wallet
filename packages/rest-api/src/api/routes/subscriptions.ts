@@ -86,7 +86,7 @@ router.post(
     try {
       charge = await createPixCharge({
         amountCents: Number(plan.price_cents),
-        description: `Vetor Wallet — ${plan.name}`,
+        description: `Vetor Wallet - ${plan.name}`,
         externalId: `user:${userId}:plan:${plan.id}:${Date.now()}`,
         metadata: { userId, planId: plan.id },
       });
