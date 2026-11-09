@@ -209,7 +209,9 @@ describe('subscriptions routes — POST no cartão (T-124c)', () => {
     await db.execute('DELETE FROM billing_customers');
     await db.execute('DELETE FROM pix_charges');
     await db.execute('DELETE FROM subscriptions');
-    await db.execute('UPDATE plans SET abacate_product_id = NULL, abacate_product_price_cents = NULL');
+    await db.execute(
+      'UPDATE plans SET abacate_product_id = NULL, abacate_product_price_cents = NULL'
+    );
     await db.execute({ sql: 'UPDATE users SET name = NULL WHERE id = ?', args: [userA] });
 
     logs = [];
@@ -267,7 +269,10 @@ describe('subscriptions routes — POST no cartão (T-124c)', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.subscription).toMatchObject({ plan_id: monthlyPlanId, status: 'pending' });
-    expect(res.body.checkout).toEqual({ id: expect.any(Number), url: 'https://pay.example.com/c/1' });
+    expect(res.body.checkout).toEqual({
+      id: expect.any(Number),
+      url: 'https://pay.example.com/c/1',
+    });
     const text = JSON.stringify(res.body);
     for (const providerId of ['bill_', 'cust_', 'prod_', 'subs_']) {
       expect(text).not.toContain(providerId);
@@ -392,7 +397,10 @@ describe('subscriptions routes — POST no cartão (T-124c)', () => {
         abacate_subscription_id: 'subs_1',
       },
     ],
-    ['legacy Pix active in the period', { status: 'active', current_period_end: '2099-01-01 00:00:00' }],
+    [
+      'legacy Pix active in the period',
+      { status: 'active', current_period_end: '2099-01-01 00:00:00' },
+    ],
     [
       'canceled with a paid period ahead',
       {

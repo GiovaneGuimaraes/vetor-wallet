@@ -19,7 +19,10 @@ describe('assertCanStartCheckout', () => {
 
   test.each([
     ['pending', { status: 'pending' }],
-    ['active vencida (Pix legado)', { status: 'active', current_period_end: '2026-10-01 00:00:00' }],
+    [
+      'active vencida (Pix legado)',
+      { status: 'active', current_period_end: '2026-10-01 00:00:00' },
+    ],
     [
       'canceled vencida',
       {
@@ -45,7 +48,10 @@ describe('assertCanStartCheckout', () => {
         abacate_subscription_id: 'subs_1',
       },
     ],
-    ['Pix legado ativo no período', { status: 'active', current_period_end: '2026-12-01 00:00:00' }],
+    [
+      'Pix legado ativo no período',
+      { status: 'active', current_period_end: '2026-12-01 00:00:00' },
+    ],
     [
       'cancelada com período pago',
       {

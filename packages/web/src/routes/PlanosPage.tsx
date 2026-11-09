@@ -1,23 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { MySubscriptionResponse, Plan, PixCharge } from '@vetor-wallet/shared';
+import { useLocation, useNavigate } from 'react-router-dom';
+import type { MySubscriptionResponse, Plan } from '@vetor-wallet/shared';
 import {
   createSubscription,
   getMySubscription,
-  getPixCharge,
   getPlans,
-  simulatePixPayment,
+  openCustomerPortal,
+  syncSubscription,
 } from '../api';
+import { redirectTo } from '../navigation';
 import {
-  chargeUiState,
-  formatCountdown,
+  canSubscribe,
+  checkoutReturnParam,
+  CONFIRM_WINDOW_MS,
   formatPlanPrice,
+  hasPaidAccess,
   monthlyEquivalentCents,
   nextPollDelayMs,
-  planBadge,
   planPeriodLabel,
-  qrCodeDataUrl,
-  remainingSeconds,
-  shouldKeepPolling,
+  subscribeErrorMessage,
+  subscriptionUiState,
   yearlySavingsPercent,
 } from './planos';
 
@@ -30,7 +32,7 @@ import './planos.css';
 
 const dateFmt = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' });
 
-function formatPeriodEnd(iso: string | null): string | null {
+function formatPeriodEnd(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const normalized = iso.includes('T') ? iso : `${iso.replace(' ', 'T')}Z`;
   const d = new Date(normalized);
@@ -38,181 +40,214 @@ function formatPeriodEnd(iso: string | null): string | null {
   return dateFmt.format(d);
 }
 
+type ConfirmPhase = 'idle' | 'waiting' | 'done' | 'timeout';
+
 /**
- * Rota `/planos` (T-072): vitrine de planos + assinatura via Pix. Lógica
- * testável (formatação, estado de expiração, backoff de polling) vive em
- * `planos.ts` — este componente só orquestra fetch/estado/efeitos.
+ * Rota `/planos`: vitrine de planos + assinatura no CARTÃO pela página
+ * hospedada da AbacatePay (T-124c; o Pix de assinatura saiu).
+ *
+ * - "Assinar" → `POST /api/subscriptions` → redireciona para `checkout.url`.
+ * - Ao abrir, SEMPRE chama `sync` uma vez (o servidor faz o throttling) — é o
+ *   que conserta uma renovação/cancelamento que o app ainda não viu, inclusive
+ *   para quem chega pelo redirect global do 402.
+ * - Voltando com `?checkout=completed`, mostra "Confirmando pagamento…" e
+ *   repete o `sync` com backoff até ~2 min ou até o acesso aparecer; depois
+ *   tira o parâmetro da URL (replace, sem entrada nova no histórico).
+ *
+ * A lógica (estado da tela, mensagens, backoff) vive em `planos.ts`; aqui só
+ * fetch/estado/efeitos.
  */
 export function PlanosPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [sub, setSub] = useState<MySubscriptionResponse | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-
-  const [charge, setCharge] = useState<PixCharge | null>(null);
   const [subscribing, setSubscribing] = useState<number | null>(null);
-  const [subscribeError, setSubscribeError] = useState<string | null>(null);
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  const [paidJustNow, setPaidJustNow] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [portalBusy, setPortalBusy] = useState(false);
+  const [confirmPhase, setConfirmPhase] = useState<ConfirmPhase>('idle');
+  const [providerUnavailable, setProviderUnavailable] = useState(false);
+  // Instante da última leitura: o estado da tela compara o fim do período com
+  // ELE, não com `Date.now()` no render (render puro).
+  const [subReadAtMs, setSubReadAtMs] = useState(0);
 
-  const pollAttemptRef = useRef(0);
-  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Lido UMA vez: o parâmetro some da URL quando a confirmação termina.
+  const initialReturnRef = useRef(checkoutReturnParam(location.search));
 
-  const load = useCallback(async () => {
-    setLoadError(null);
-    const [subRes, plansRes] = await Promise.allSettled([getMySubscription(), getPlans()]);
-    if (subRes.status === 'fulfilled') {
-      setSub(subRes.value);
-      setCharge(subRes.value.pendingCharge);
-    } else {
-      setLoadError(
-        subRes.reason instanceof Error ? subRes.reason.message : 'Falha ao carregar assinatura'
-      );
+  const clearReturnParam = useCallback(() => {
+    if (!checkoutReturnParam(location.search)) return;
+    const params = new URLSearchParams(location.search);
+    params.delete('checkout');
+    const search = params.toString();
+    navigate(
+      { pathname: location.pathname, search: search ? `?${search}` : '' },
+      { replace: true }
+    );
+  }, [location.pathname, location.search, navigate]);
+
+  /**
+   * `sync` com fallback para o `/me`: um 5xx no `sync` não pode deixar a tela
+   * sem estado (o `/me` é só leitura e não depende do provedor).
+   */
+  const refresh = useCallback(async (): Promise<MySubscriptionResponse | null> => {
+    try {
+      const fresh = await syncSubscription();
+      if (!mountedRef.current) return null;
+      setProviderUnavailable(fresh.providerUnavailable === true);
+      setSub(fresh);
+      setSubReadAtMs(Date.now());
+      return fresh;
+    } catch {
+      try {
+        const me = await getMySubscription();
+        if (!mountedRef.current) return null;
+        setSub(me);
+        setSubReadAtMs(Date.now());
+        return me;
+      } catch (e) {
+        if (mountedRef.current) {
+          setLoadError(e instanceof Error ? e.message : 'Falha ao carregar assinatura');
+        }
+        return null;
+      }
     }
-    if (plansRes.status === 'fulfilled') {
-      setPlans(plansRes.value);
-    } else if (subRes.status === 'fulfilled') {
-      setLoadError(
-        plansRes.reason instanceof Error ? plansRes.reason.message : 'Falha ao carregar planos'
-      );
-    }
-    setLoading(false);
   }, []);
+
+  /** Repete o `sync` com backoff até o acesso aparecer ou a janela de ~2 min passar. */
+  const startConfirming = useCallback(
+    (initial: MySubscriptionResponse | null) => {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+      const startedAt = Date.now();
+      const finish = (phase: ConfirmPhase) => {
+        if (!mountedRef.current) return;
+        setConfirmPhase(phase);
+        clearReturnParam();
+      };
+      if (initial && hasPaidAccess(initial.subscription, Date.now()) && !initial.confirming) {
+        finish('done');
+        return;
+      }
+      setConfirmPhase('waiting');
+      let attempt = 0;
+      const tick = async () => {
+        const fresh = await refresh();
+        if (!mountedRef.current) return;
+        if (fresh && hasPaidAccess(fresh.subscription, Date.now()) && !fresh.confirming) {
+          finish('done');
+          return;
+        }
+        attempt += 1;
+        if (Date.now() - startedAt >= CONFIRM_WINDOW_MS) {
+          finish('timeout');
+          return;
+        }
+        confirmTimerRef.current = setTimeout(tick, nextPollDelayMs(attempt));
+      };
+      confirmTimerRef.current = setTimeout(tick, nextPollDelayMs(0));
+    },
+    [clearReturnParam, refresh]
+  );
 
   useEffect(() => {
     mountedRef.current = true;
-    load();
+    (async () => {
+      const [me, plansRes] = await Promise.all([
+        refresh(),
+        getPlans().then(
+          (value) => ({ ok: true as const, value }),
+          (reason: unknown) => ({ ok: false as const, reason })
+        ),
+      ]);
+      if (!mountedRef.current) return;
+      if (plansRes.ok) setPlans(plansRes.value);
+      else {
+        setLoadError(
+          plansRes.reason instanceof Error ? plansRes.reason.message : 'Falha ao carregar planos'
+        );
+      }
+      setLoading(false);
+
+      const ret = initialReturnRef.current;
+      if (ret === 'completed' || me?.confirming) startConfirming(me);
+      else if (ret === 'returned') clearReturnParam();
+    })();
     return () => {
       mountedRef.current = false;
-      if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
     };
-  }, [load]);
-
-  // Relógio do painel Pix (contagem regressiva) — 1x por segundo, só enquanto
-  // houver uma cobrança para mostrar.
-  useEffect(() => {
-    if (!charge) return;
-    const id = setInterval(() => setNowMs(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [charge]);
-
-  const state = chargeUiState(charge, nowMs);
-
-  // Polling recursivo com setTimeout (backoff via nextPollDelayMs), cancelado
-  // no unmount e assim que sai de 'awaiting'.
-  useEffect(() => {
-    if (!charge || !shouldKeepPolling(state)) return;
-
-    let cancelled = false;
-    pollAttemptRef.current = 0;
-
-    async function tick() {
-      if (cancelled || !charge) return;
-      try {
-        const fresh = await getPixCharge(charge.id);
-        if (cancelled || !mountedRef.current) return;
-        setCharge(fresh);
-        if (fresh.status === 'PAID') {
-          setPaidJustNow(true);
-          const meAfterPaid = await getMySubscription();
-          if (!cancelled && mountedRef.current) setSub(meAfterPaid);
-          return;
-        }
-        if (!shouldKeepPolling(chargeUiState(fresh, Date.now()))) return;
-      } catch {
-        /* blip de rede: tenta de novo no próximo tick */
-      }
-      pollAttemptRef.current += 1;
-      pollTimeoutRef.current = setTimeout(tick, nextPollDelayMs(pollAttemptRef.current));
-    }
-
-    pollTimeoutRef.current = setTimeout(tick, nextPollDelayMs(0));
-
-    return () => {
-      cancelled = true;
-      if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
-    };
+    // Carrega uma vez por montagem; `clearReturnParam` muda junto com a URL.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [charge?.id, state]);
+  }, []);
 
   async function handleSubscribe(plan: Plan) {
-    setSubscribeError(null);
+    setActionError(null);
     setSubscribing(plan.id);
-    setPaidJustNow(false);
     try {
       const res = await createSubscription(plan.id);
-      setCharge(res.charge);
-      setSub((prev) => (prev ? { ...prev, subscription: res.subscription } : prev));
+      redirectTo(res.checkout.url);
     } catch (e) {
       const err = e as Error & { code?: string };
-      if (err.code === 'ALREADY_SUBSCRIBED') {
-        setSubscribeError('Você já tem uma assinatura ativa.');
-      } else if (err.code === 'BILLING_NOT_CONFIGURED') {
-        setSubscribeError('Pagamento ainda não está configurado neste ambiente.');
-      } else if (err.code === 'PAYMENT_PROVIDER_ERROR') {
-        setSubscribeError(
-          'O provedor de pagamento está indisponível no momento. Tente novamente em instantes.'
-        );
+      if (err.code === 'ACTIVATION_PENDING') {
+        startConfirming(null);
       } else {
-        setSubscribeError(err.message ?? 'Falha ao assinar o plano');
+        setActionError(subscribeErrorMessage(err.code, err.message));
       }
-    } finally {
       setSubscribing(null);
     }
   }
 
-  async function handleCopy() {
-    if (!charge) return;
+  async function handlePortal() {
+    setActionError(null);
+    setPortalBusy(true);
     try {
-      await navigator.clipboard.writeText(charge.br_code);
-    } catch {
-      // Fallback: seleciona o texto para o usuário copiar manualmente.
-      const el = document.getElementById('vw-pix-brcode') as HTMLTextAreaElement | null;
-      el?.select();
+      const { url } = await openCustomerPortal();
+      redirectTo(url);
+    } catch (e) {
+      const err = e as Error & { code?: string };
+      setActionError(
+        err.code === 'PAYMENT_PROVIDER_ERROR'
+          ? 'O provedor de pagamento está indisponível no momento. Tente novamente em instantes.'
+          : (err.message ?? 'Falha ao abrir o portal da assinatura')
+      );
+      setPortalBusy(false);
     }
   }
 
-  async function handleSimulate() {
-    if (!charge) return;
-    try {
-      const fresh = await simulatePixPayment(charge.id);
-      setCharge(fresh);
-      if (fresh.status === 'PAID') {
-        setPaidJustNow(true);
-        setSub(await getMySubscription());
-      }
-    } catch {
-      /* dev-only: falha aqui não precisa de tratamento fino */
-    }
-  }
+  const header = (
+    <div className="vw-page-header">
+      <h1 className="vw-page-title">Planos</h1>
+      <p className="vw-page-subtitle">
+        O Vetor Wallet é gratuito para renda, despesas e poupança. Assine o Pro para desbloquear
+        Ações da B3, Criptomoedas e importação automática via Pluggy.
+      </p>
+    </div>
+  );
 
   if (loading) {
     return (
       <div>
-        <div className="vw-page-header">
-          <h1 className="vw-page-title">Planos</h1>
-          <p className="vw-page-subtitle">
-            O Vetor Wallet é gratuito. Assine o Pro para desbloquear recursos avançados.
-          </p>
-        </div>
+        {header}
         <div className="vw-state-box">Carregando planos…</div>
       </div>
     );
   }
 
-  const badge = sub ? planBadge(sub, nowMs) : 'none';
-  const seconds = remainingSeconds(charge?.expires_at ?? null, nowMs);
+  const nowMs = subReadAtMs;
+  const state = sub ? subscriptionUiState(sub, nowMs) : 'none';
+  const confirmingNow = confirmPhase === 'waiting' || state === 'confirming';
+  const periodEnd = formatPeriodEnd(sub?.subscription?.current_period_end);
+  const planName = sub?.plan?.name ?? 'Pro';
+  const pendingPlanName =
+    plans.find((p) => p.id === sub?.pendingCheckout?.plan_id)?.name ?? planName;
+  const offerSubscribe = canSubscribe(state) && !confirmingNow;
 
   return (
     <div className="vw-planos">
-      <div className="vw-page-header">
-        <h1 className="vw-page-title">Planos</h1>
-        <p className="vw-page-subtitle">
-          O Vetor Wallet é gratuito para renda, despesas e poupança. Assine o Pro para desbloquear
-          Ações da B3, Criptomoedas e importação automática via Pluggy.
-        </p>
-      </div>
+      {header}
 
       {sub && !sub.billingEnabled && (
         <div className="vw-planos-banner">
@@ -222,67 +257,107 @@ export function PlanosPage() {
 
       {loadError && <div className="vw-state-box vw-state-error">{loadError}</div>}
 
-      {sub?.subscription && sub.plan && (
-        <div className="vw-planos-current">
-          <span className={`vw-planos-badge vw-planos-badge--${badge}`}>
-            {badge === 'active' && 'Ativa'}
-            {badge === 'expired' && 'Vencida'}
-            {badge === 'pending' && 'Aguardando pagamento'}
-            {badge === 'staging' && 'Staging'}
-            {badge === 'none' && 'Sem assinatura'}
-          </span>
-          <span className="vw-planos-current-plan">{sub.plan.name}</span>
-          {sub.subscription.current_period_end && (
-            <span className="vw-planos-current-until">
-              válido até {formatPeriodEnd(sub.subscription.current_period_end)}
-            </span>
-          )}
+      {confirmingNow && (
+        <div className="vw-planos-status" role="status">
+          Confirmando pagamento…
         </div>
       )}
 
-      {paidJustNow && state === 'paid' && (
+      {confirmPhase === 'timeout' && !confirmingNow && !hasPaidAccess(sub?.subscription, nowMs) && (
+        <div className="vw-planos-status" role="status">
+          Ainda não recebemos a confirmação do pagamento. Atualize a página em alguns instantes.
+        </div>
+      )}
+
+      {confirmPhase === 'done' && state === 'active' && (
         <div className="vw-planos-success">Pagamento confirmado! Sua assinatura está ativa.</div>
       )}
 
-      {charge && state !== 'idle' && state !== 'paid' && (
-        <div className="vw-planos-pix">
-          <h2 className="vw-planos-pix-title">Pagamento via Pix</h2>
-          <img
-            src={qrCodeDataUrl(charge.br_code_base64)}
-            alt="QR Code Pix"
-            className="vw-planos-pix-qr"
-          />
-          <label htmlFor="vw-pix-brcode" className="vw-planos-pix-label">
-            Pix copia e cola
-          </label>
-          <div className="vw-planos-pix-copyrow">
-            <textarea
-              id="vw-pix-brcode"
-              readOnly
-              value={charge.br_code}
-              className="vw-planos-pix-code"
-            />
-            <button type="button" className="vw-btn-ghost" onClick={handleCopy}>
-              Copiar
-            </button>
-          </div>
-          {seconds !== null && (
-            <p className="vw-planos-pix-countdown">
-              {state === 'expired' ? 'Cobrança expirada' : `Expira em ${formatCountdown(seconds)}`}
-            </p>
-          )}
-          {state === 'expired' && (
-            <p className="vw-planos-pix-hint">Assine novamente para gerar um novo QR Code.</p>
-          )}
-          {import.meta.env.DEV && state === 'awaiting' && (
-            <button type="button" className="vw-btn-primary" onClick={handleSimulate}>
-              Simular pagamento
-            </button>
-          )}
+      {!confirmingNow && state === 'active' && (
+        <div className="vw-planos-status">
+          <p className="vw-planos-status-text">
+            <span className="vw-planos-badge vw-planos-badge--active">Ativa</span> {planName}
+            {periodEnd && <> · válido até {periodEnd}</>}. Renova automaticamente no cartão.
+          </p>
+          <button
+            type="button"
+            className="vw-btn-ghost"
+            disabled={portalBusy}
+            onClick={handlePortal}
+          >
+            Gerenciar assinatura
+          </button>
         </div>
       )}
 
-      {subscribeError && <div className="vw-state-box vw-state-error">{subscribeError}</div>}
+      {!confirmingNow && state === 'payment_failed' && (
+        <div className="vw-planos-status vw-planos-status--warn">
+          <p className="vw-planos-status-text">
+            Não conseguimos cobrar o seu cartão. Atualize o cartão para não perder o acesso
+            {periodEnd && <> (válido até {periodEnd})</>}.
+          </p>
+          <button
+            type="button"
+            className="vw-btn-primary"
+            disabled={portalBusy}
+            onClick={handlePortal}
+          >
+            Atualizar cartão
+          </button>
+        </div>
+      )}
+
+      {!confirmingNow && state === 'canceled_with_access' && (
+        <div className="vw-planos-status">
+          <p className="vw-planos-status-text">
+            Assinatura cancelada. Você tem acesso ao {planName}
+            {periodEnd ? <> até {periodEnd}</> : null}; ela não será renovada.
+          </p>
+        </div>
+      )}
+
+      {!confirmingNow && state === 'legacy_pix' && (
+        <div className="vw-planos-status">
+          <p className="vw-planos-status-text">
+            Sua assinatura via Pix vale{periodEnd && <> até {periodEnd}</>} e não renova. Depois
+            dessa data você poderá assinar no cartão de crédito.
+          </p>
+        </div>
+      )}
+
+      {!confirmingNow && state === 'expired' && (
+        <div className="vw-planos-status">
+          <p className="vw-planos-status-text">
+            <span className="vw-planos-badge vw-planos-badge--expired">Vencida</span> Sua assinatura{' '}
+            {periodEnd ? <>venceu em {periodEnd}</> : 'venceu'}. Assine de novo para voltar a usar
+            os recursos Pro.
+          </p>
+        </div>
+      )}
+
+      {!confirmingNow && state === 'pending_checkout' && sub?.pendingCheckout && (
+        <div className="vw-planos-status">
+          <p className="vw-planos-status-text">
+            <span className="vw-planos-badge vw-planos-badge--pending">Aguardando pagamento</span>{' '}
+            Você tem um pagamento em aberto do {pendingPlanName}.
+          </p>
+          <button
+            type="button"
+            className="vw-btn-primary"
+            onClick={() => redirectTo(sub.pendingCheckout!.url)}
+          >
+            Continuar pagamento
+          </button>
+        </div>
+      )}
+
+      {providerUnavailable && !confirmingNow && (
+        <p className="vw-planos-hint">
+          Não foi possível consultar o provedor de pagamento agora; o estado pode estar defasado.
+        </p>
+      )}
+
+      {actionError && <div className="vw-state-box vw-state-error">{actionError}</div>}
 
       <div className="vw-planos-grid">
         {plans.map((plan) => {
@@ -318,18 +393,26 @@ export function PlanosPage() {
                   </li>
                 ))}
               </ul>
-              <button
-                type="button"
-                className="vw-btn-primary vw-planos-card-btn"
-                disabled={subscribing === plan.id}
-                onClick={() => handleSubscribe(plan)}
-              >
-                {subscribing === plan.id ? 'Assinando…' : 'Assinar'}
-              </button>
+              {offerSubscribe && (
+                <button
+                  type="button"
+                  className="vw-btn-primary vw-planos-card-btn"
+                  disabled={subscribing !== null}
+                  onClick={() => handleSubscribe(plan)}
+                >
+                  {subscribing === plan.id ? 'Abrindo pagamento…' : 'Assinar'}
+                </button>
+              )}
             </div>
           );
         })}
       </div>
+      {offerSubscribe && (
+        <p className="vw-planos-hint">
+          Pagamento recorrente no cartão de crédito, em página segura da AbacatePay. Cancele quando
+          quiser pelo portal da assinatura: o acesso segue até o fim do período pago.
+        </p>
+      )}
     </div>
   );
 }

@@ -7,8 +7,16 @@ describe('appOrigin', () => {
     ['vazia', '', DEFAULT_APP_ORIGIN],
     ['uma origem', 'https://app.example.com', 'https://app.example.com'],
     ['com barra final', 'https://app.example.com/', 'https://app.example.com'],
-    ['com caminho e query (reduz à origem)', 'https://app.example.com/x?y=1#z', 'https://app.example.com'],
-    ['lista: usa a primeira', 'https://a.example.com, https://b.example.com', 'https://a.example.com'],
+    [
+      'com caminho e query (reduz à origem)',
+      'https://app.example.com/x?y=1#z',
+      'https://app.example.com',
+    ],
+    [
+      'lista: usa a primeira',
+      'https://a.example.com, https://b.example.com',
+      'https://a.example.com',
+    ],
     ['lista com lixo antes', 'nao-e-url, ,http://localhost:5174', 'http://localhost:5174'],
     ['protocolo não http(s)', 'javascript:alert(1)', DEFAULT_APP_ORIGIN],
     ['só lixo', 'nada,aqui', DEFAULT_APP_ORIGIN],

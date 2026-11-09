@@ -1,15 +1,20 @@
-import type { Plan, PlanInterval, PixCharge, Subscription } from '@vetor-wallet/shared';
+import type {
+  MySubscriptionResponse,
+  Plan,
+  PlanInterval,
+  Subscription,
+} from '@vetor-wallet/shared';
 
 /**
- * Página `/planos` (T-072): funções puras da vitrine de planos e do painel
- * Pix. Componentes só renderizam — toda a lógica testável vive aqui, ao lado
- * de `planos.test.ts`. Ver `docs/decisions/billing.md` para as regras do
- * backend que essas funções espelham no cliente.
+ * Página `/planos` (T-072; cartão recorrente desde a T-124c): funções puras da
+ * vitrine de planos e do estado da assinatura. Componentes só renderizam — toda
+ * a lógica testável vive aqui, ao lado de `planos.test.ts`. As regras do backend
+ * que estas funções espelham estão em `packages/subscription-core/CLAUDE.md`.
  */
 
 const fmtCurrency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
-/** Dinheiro deste domínio vem em CENTAVOS (ver billing.md) — formatar é papel da UI. */
+/** Dinheiro deste domínio vem em CENTAVOS — formatar é papel da UI. */
 export function formatPlanPrice(priceCents: number): string {
   return fmtCurrency.format(priceCents / 100);
 }
@@ -40,65 +45,14 @@ export function yearlySavingsPercent(
   return Math.round(savings * 100);
 }
 
-const PNG_DATA_URI_PREFIX = 'data:image/png;base64,';
-
-/** Aceita o base64 puro ou já prefixado com o data URI — a AbacatePay não garante qual dos dois manda. */
-export function qrCodeDataUrl(brCodeBase64: string): string {
-  if (brCodeBase64.startsWith('data:')) return brCodeBase64;
-  return `${PNG_DATA_URI_PREFIX}${brCodeBase64}`;
-}
-
 /**
  * Datas de billing chegam no formato SQLite UTC ('YYYY-MM-DD HH:MM:SS', sem
- * 'T'/'Z' — ver `docs/decisions/billing.md`): sem tratamento, o `Date` nativo
- * interpretaria essa string como HORA LOCAL, não UTC. Strings que já vierem
- * com 'T' (ISO) passam direto.
+ * 'T'/'Z'): sem tratamento, o `Date` nativo interpretaria essa string como HORA
+ * LOCAL, não UTC. Strings que já vierem com 'T' (ISO) passam direto.
  */
 function parseInstantMs(value: string): number {
   const iso = value.includes('T') ? value : `${value.replace(' ', 'T')}Z`;
   return new Date(iso).getTime();
-}
-
-/**
- * Segundos restantes até `expiresAt`, com `nowMs` injetado (nada de
- * `Date.now()` dentro de função pura). `null` para "sem expiração conhecida"
- * (mesma semântica de `expires_at: null` no backend); negativo é clampado a 0.
- */
-export function remainingSeconds(expiresAt: string | null, nowMs: number): number | null {
-  if (expiresAt == null) return null;
-  const expiresMs = parseInstantMs(expiresAt);
-  if (Number.isNaN(expiresMs)) return null;
-  return Math.max(0, Math.round((expiresMs - nowMs) / 1000));
-}
-
-export function formatCountdown(seconds: number): string {
-  const s = Math.max(0, Math.round(seconds));
-  const mm = Math.floor(s / 60);
-  const ss = s % 60;
-  return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
-}
-
-export type ChargeUiState = 'idle' | 'awaiting' | 'paid' | 'expired' | 'error';
-
-/**
- * Única autoridade sobre expiração no cliente: cruza `status` e `expires_at`.
- * PENDING com prazo vencido é tratado como expirado mesmo que o servidor
- * ainda não tenha persistido essa transição (o polling seguinte corrige).
- */
-export function chargeUiState(charge: PixCharge | null, nowMs: number): ChargeUiState {
-  if (!charge) return 'idle';
-  if (charge.status === 'PAID') return 'paid';
-  if (charge.status === 'PENDING') {
-    if (charge.expires_at != null && parseInstantMs(charge.expires_at) <= nowMs) return 'expired';
-    return 'awaiting';
-  }
-  if (charge.status === 'EXPIRED') return 'expired';
-  // CANCELLED / REFUNDED: estado final que não é sucesso nem "aguardando".
-  return 'error';
-}
-
-export function shouldKeepPolling(state: ChargeUiState): boolean {
-  return state === 'awaiting';
 }
 
 const POLL_DELAYS_MS = [3000, 3000, 5000, 8000];
@@ -111,26 +65,132 @@ export function nextPollDelayMs(attempt: number): number {
   return POLL_DELAY_CAP_MS;
 }
 
-export type PlanBadge = 'none' | 'active' | 'expired' | 'pending' | 'staging';
+/** Quanto tempo a tela insiste no `sync` depois de voltar do checkout pago. */
+export const CONFIRM_WINDOW_MS = 2 * 60 * 1000;
 
-interface MinimalSubResponse {
-  billingEnabled: boolean;
-  subscription: Subscription | null;
+export type CheckoutReturn = 'completed' | 'returned' | null;
+
+/**
+ * `?checkout=` com que a AbacatePay devolve o usuário (`completionUrl` =
+ * `completed`, `returnUrl` = `returned` — montadas pelo servidor). Qualquer
+ * outro valor é ignorado.
+ */
+export function checkoutReturnParam(search: string): CheckoutReturn {
+  const value = new URLSearchParams(search).get('checkout');
+  return value === 'completed' || value === 'returned' ? value : null;
 }
 
-/** `billingEnabled: false` (staging) some com qualquer bloqueio, independente da assinatura. */
-export function planBadge(sub: MinimalSubResponse, nowMs: number): PlanBadge {
-  if (!sub.billingEnabled) return 'staging';
-  const s = sub.subscription;
+/**
+ * Tem acesso agora? ESPELHA `isSubscriptionActive` do `subscription-core` (o
+ * gate do servidor): `active` ou `canceled` com período no FUTURO. Sem fim de
+ * período, não vale. Gate e tela precisam concordar — a T-124c corrigiu a
+ * `canceled` que a UI tratava como "sem assinatura" enquanto o gate liberava.
+ */
+export function hasPaidAccess(sub: Subscription | null | undefined, nowMs: number): boolean {
+  if (!sub || !sub.current_period_end) return false;
+  if (sub.status !== 'active' && sub.status !== 'canceled') return false;
+  return parseInstantMs(sub.current_period_end) > nowMs;
+}
+
+/** Pix legado: `provider` nulo (linhas de antes da T-124) ou `pix_legacy`. */
+export function isLegacyPix(sub: Subscription): boolean {
+  return sub.provider == null || sub.provider === 'pix_legacy';
+}
+
+export type SubscriptionUiState =
+  | 'none'
+  | 'pending_checkout'
+  | 'confirming'
+  | 'active'
+  | 'canceled_with_access'
+  | 'payment_failed'
+  | 'expired'
+  | 'legacy_pix'
+  | 'staging';
+
+type UiStateInput = Pick<
+  MySubscriptionResponse,
+  'billingEnabled' | 'subscription' | 'pendingCheckout' | 'confirming'
+>;
+
+/**
+ * O que a tela de planos mostra, por ordem de precedência:
+ *
+ * 1. `staging` — billing desligado (`BILLING_ENABLED` falso: o gate não
+ *    cobra) E nada de assinatura para mostrar. Com billing desligado mas
+ *    assinatura/checkout existentes, o estado real vale (o banner de staging é
+ *    da página, à parte) — é assim que se testa o cartão em staging sem a tela
+ *    ficar presa em "staging" depois de pagar.
+ * 2. `confirming` — pago, assinatura ainda não gravada (o `sync` resolve).
+ * 3. Com acesso pago (`hasPaidAccess`): `canceled_with_access` (acesso até o
+ *    fim do período, não renova), `legacy_pix` (Pix de antes da T-124, não
+ *    renova; só assina no cartão depois de vencer), `payment_failed` (cartão
+ *    recusado, acesso até o fim do período) ou `active`.
+ * 4. `pending_checkout` — checkout aberto: "Continuar pagamento".
+ * 5. `expired` — teve período e venceu (pode assinar de novo).
+ * 6. `none`.
+ */
+export function subscriptionUiState(me: UiStateInput, nowMs: number): SubscriptionUiState {
+  const sub = me.subscription;
+  if (!me.billingEnabled && !sub && !me.pendingCheckout && !me.confirming) return 'staging';
+  if (me.confirming) return 'confirming';
+  if (sub && hasPaidAccess(sub, nowMs)) {
+    if (sub.status === 'canceled') return 'canceled_with_access';
+    if (isLegacyPix(sub)) return 'legacy_pix';
+    if (sub.provider_status === 'PAYMENT_FAILED') return 'payment_failed';
+    return 'active';
+  }
+  if (me.pendingCheckout) return 'pending_checkout';
+  if (sub && (sub.status === 'expired' || sub.current_period_end != null)) return 'expired';
+  return 'none';
+}
+
+/**
+ * Estados em que a vitrine oferece "Assinar". Quem tem acesso pago (inclusive
+ * Pix legado e cancelada no período) só assina depois de vencer — o servidor
+ * responderia 409 `ALREADY_SUBSCRIBED`.
+ */
+export function canSubscribe(state: SubscriptionUiState): boolean {
+  return (
+    state === 'none' || state === 'expired' || state === 'pending_checkout' || state === 'staging'
+  );
+}
+
+export type PlanBadge = 'none' | 'active' | 'expired' | 'pending' | 'canceled';
+
+/**
+ * Selo/rótulo da assinatura (usado na `/conta`). `canceled` com período pago é
+ * `canceled` (acesso até o fim), não `none` — mesmo critério do gate
+ * (`hasPaidAccess`); `active`/`canceled` vencidas são `expired`. Staging não
+ * entra aqui: o banner de staging é da página (antes da T-124c, staging
+ * escondia o estado real).
+ */
+export function planBadge(s: Subscription | null, nowMs: number): PlanBadge {
   if (!s) return 'none';
   if (s.status === 'pending') return 'pending';
-  if (s.status === 'canceled') return 'none';
-  if (s.status === 'expired') return 'expired';
-  // active: mas espelha a mesma checagem de vencimento do server (T-070) —
-  // se `current_period_end` já passou, o cliente não deve continuar exibindo
-  // "active" só porque o GET /me anterior ainda não recalculou.
-  if (s.current_period_end != null && parseInstantMs(s.current_period_end) <= nowMs) {
-    return 'expired';
+  if (hasPaidAccess(s, nowMs)) return s.status === 'canceled' ? 'canceled' : 'active';
+  return 'expired';
+}
+
+/** Forma de pagamento da assinatura, para rótulo (`/conta`). */
+export function subscriptionProviderLabel(s: Subscription): string {
+  return isLegacyPix(s) ? 'Pix (não renova)' : 'Cartão de crédito (renovação automática)';
+}
+
+/** Mensagem de erro do `POST /api/subscriptions`, por código. */
+export function subscribeErrorMessage(code: string | undefined, fallback?: string): string {
+  switch (code) {
+    case 'ALREADY_SUBSCRIBED':
+      return 'Você já tem uma assinatura ativa.';
+    case 'CHECKOUT_IN_PROGRESS':
+      return 'Já existe um pagamento sendo iniciado. Aguarde alguns segundos e tente de novo.';
+    case 'ACTIVATION_PENDING':
+      return 'Pagamento recebido — confirmando a sua assinatura.';
+    case 'BILLING_NOT_CONFIGURED':
+      return 'Pagamento ainda não está configurado neste ambiente.';
+    case 'PAYMENT_PROVIDER_ERROR':
+      return 'O provedor de pagamento está indisponível no momento. Tente novamente em instantes.';
+    default:
+      return fallback ?? 'Falha ao assinar o plano';
   }
-  return 'active';
 }

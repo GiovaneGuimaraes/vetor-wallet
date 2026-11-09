@@ -1,28 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import type { Plan, PixCharge, Subscription } from '@vetor-wallet/shared';
+import type { MySubscriptionResponse, Plan, Subscription } from '@vetor-wallet/shared';
 import {
+  canSubscribe,
+  checkoutReturnParam,
   formatPlanPrice,
-  planPeriodLabel,
+  hasPaidAccess,
+  isLegacyPix,
   monthlyEquivalentCents,
-  yearlySavingsPercent,
-  qrCodeDataUrl,
-  remainingSeconds,
-  formatCountdown,
-  chargeUiState,
-  shouldKeepPolling,
   nextPollDelayMs,
   planBadge,
+  planPeriodLabel,
+  subscribeErrorMessage,
+  subscriptionProviderLabel,
+  subscriptionUiState,
+  yearlySavingsPercent,
 } from './planos';
 
 const norm = (s: string) => s.replace(/ /g, ' ');
 
-/** `expires_at`/`current_period_end` chegam no formato SQLite UTC ('YYYY-MM-DD HH:MM:SS'). */
-function sqliteUtc(ms: number): string {
-  return new Date(ms)
-    .toISOString()
-    .replace('T', ' ')
-    .replace(/\.\d+Z$/, '');
-}
+const NOW = Date.parse('2026-08-01T00:00:00Z');
+/** `current_period_end` chega no formato SQLite UTC ('YYYY-MM-DD HH:MM:SS'). */
+const FUTURE = '2026-09-01 00:00:00';
+const PAST = '2026-07-01 00:00:00';
 
 function makePlan(overrides: Partial<Plan> = {}): Plan {
   return {
@@ -37,27 +36,27 @@ function makePlan(overrides: Partial<Plan> = {}): Plan {
   };
 }
 
-function makeCharge(overrides: Partial<PixCharge> = {}): PixCharge {
-  return {
-    id: 1,
-    plan_id: 1,
-    amount_cents: 990,
-    status: 'PENDING',
-    br_code: 'brcode',
-    br_code_base64: 'AAAA',
-    expires_at: null,
-    created_at: '2026-08-01 00:00:00',
-    ...overrides,
-  };
-}
-
 function makeSub(overrides: Partial<Subscription> = {}): Subscription {
   return {
     id: 1,
     plan_id: 1,
     status: 'active',
-    current_period_end: null,
-    created_at: '2026-08-01 00:00:00',
+    current_period_end: FUTURE,
+    created_at: '2026-07-01 00:00:00',
+    provider: 'abacatepay_card',
+    provider_status: 'ACTIVE',
+    canceled_at: null,
+    ...overrides,
+  };
+}
+
+function makeMe(overrides: Partial<MySubscriptionResponse> = {}): MySubscriptionResponse {
+  return {
+    billingEnabled: true,
+    subscription: null,
+    plan: null,
+    pendingCheckout: null,
+    confirming: false,
     ...overrides,
   };
 }
@@ -116,123 +115,233 @@ describe('monthlyEquivalentCents', () => {
   });
 });
 
-describe('qrCodeDataUrl', () => {
-  it('aceita base64 sem prefixo', () => {
-    expect(qrCodeDataUrl('AAAA')).toBe('data:image/png;base64,AAAA');
-  });
-
-  it('aceita base64 já prefixado', () => {
-    expect(qrCodeDataUrl('data:image/png;base64,AAAA')).toBe('data:image/png;base64,AAAA');
-  });
-});
-
-describe('remainingSeconds', () => {
-  it('calcula segundos futuros', () => {
-    const now = Date.parse('2026-08-01T00:00:00Z');
-    const expires = new Date(now + 90_000).toISOString();
-    expect(remainingSeconds(expires, now)).toBe(90);
-  });
-
-  it('clampa para 0 quando já passou', () => {
-    const now = Date.parse('2026-08-01T00:00:00Z');
-    const expires = new Date(now - 90_000).toISOString();
-    expect(remainingSeconds(expires, now)).toBe(0);
-  });
-
-  it('retorna null quando expiresAt é null', () => {
-    expect(remainingSeconds(null, Date.now())).toBeNull();
-  });
-});
-
-describe('formatCountdown', () => {
-  it('formata mm:ss', () => {
-    expect(formatCountdown(0)).toBe('00:00');
-    expect(formatCountdown(75)).toBe('01:15');
-  });
-});
-
-describe('chargeUiState', () => {
-  const now = Date.parse('2026-08-01T00:00:00Z');
-
-  it('PAID', () => {
-    expect(chargeUiState(makeCharge({ status: 'PAID' }), now)).toBe('paid');
-  });
-
-  it('PENDING com prazo válido', () => {
-    const future = sqliteUtc(now + 60_000);
-    expect(chargeUiState(makeCharge({ status: 'PENDING', expires_at: future }), now)).toBe(
-      'awaiting'
-    );
-  });
-
-  it('PENDING com expires_at no passado', () => {
-    const past = sqliteUtc(now - 60_000);
-    expect(chargeUiState(makeCharge({ status: 'PENDING', expires_at: past }), now)).toBe('expired');
-  });
-
-  it('EXPIRED', () => {
-    expect(chargeUiState(makeCharge({ status: 'EXPIRED' }), now)).toBe('expired');
-  });
-
-  it('null (idle)', () => {
-    expect(chargeUiState(null, now)).toBe('idle');
-  });
-});
-
-describe('shouldKeepPolling', () => {
-  it('só continua em awaiting', () => {
-    expect(shouldKeepPolling('awaiting')).toBe(true);
-    expect(shouldKeepPolling('paid')).toBe(false);
-    expect(shouldKeepPolling('expired')).toBe(false);
-    expect(shouldKeepPolling('error')).toBe(false);
-    expect(shouldKeepPolling('idle')).toBe(false);
-  });
-});
-
 describe('nextPollDelayMs', () => {
   it('cresce com teto de 15s', () => {
+    expect(nextPollDelayMs(-1)).toBe(3000);
     expect(nextPollDelayMs(0)).toBe(3000);
     expect(nextPollDelayMs(1)).toBe(3000);
     expect(nextPollDelayMs(2)).toBe(5000);
     expect(nextPollDelayMs(3)).toBe(8000);
     expect(nextPollDelayMs(4)).toBe(15000);
-    expect(nextPollDelayMs(100)).toBe(15000);
+    expect(nextPollDelayMs(50)).toBe(15000);
+  });
+});
+
+describe('checkoutReturnParam', () => {
+  it.each([
+    ['?checkout=completed', 'completed'],
+    ['?checkout=returned', 'returned'],
+    ['?x=1&checkout=completed', 'completed'],
+    ['?checkout=outra', null],
+    ['', null],
+    ['?checkout=', null],
+  ])('%s → %s', (search, expected) => {
+    expect(checkoutReturnParam(search)).toBe(expected);
+  });
+});
+
+describe('hasPaidAccess (espelha isSubscriptionActive do gate)', () => {
+  it.each([
+    ['active no período', makeSub(), true],
+    ['active vencida', makeSub({ current_period_end: PAST }), false],
+    ['active sem fim de período', makeSub({ current_period_end: null }), false],
+    ['canceled com período no futuro', makeSub({ status: 'canceled' }), true],
+    ['canceled vencida', makeSub({ status: 'canceled', current_period_end: PAST }), false],
+    ['pending', makeSub({ status: 'pending' }), false],
+    ['expired', makeSub({ status: 'expired' }), false],
+    ['nula', null, false],
+  ])('%s → %s', (_l, sub, expected) => {
+    expect(hasPaidAccess(sub, NOW)).toBe(expected);
+  });
+
+  it('terminar exatamente agora já não vale (estrito, como o gate)', () => {
+    expect(hasPaidAccess(makeSub({ current_period_end: '2026-08-01 00:00:00' }), NOW)).toBe(false);
+  });
+
+  it('aceita ISO com T/Z', () => {
+    expect(hasPaidAccess(makeSub({ current_period_end: '2026-09-01T00:00:00Z' }), NOW)).toBe(true);
+  });
+});
+
+describe('isLegacyPix', () => {
+  it('provider nulo/ausente ou pix_legacy é Pix legado; cartão não', () => {
+    expect(isLegacyPix(makeSub({ provider: null }))).toBe(true);
+    expect(isLegacyPix(makeSub({ provider: undefined }))).toBe(true);
+    expect(isLegacyPix(makeSub({ provider: 'pix_legacy' }))).toBe(true);
+    expect(isLegacyPix(makeSub())).toBe(false);
+  });
+});
+
+describe('subscriptionUiState', () => {
+  it('staging: billing desligado e nada de assinatura', () => {
+    expect(subscriptionUiState(makeMe({ billingEnabled: false }), NOW)).toBe('staging');
+  });
+
+  it('billing desligado com assinatura: mostra o estado real (testar o cartão em staging)', () => {
+    expect(
+      subscriptionUiState(makeMe({ billingEnabled: false, subscription: makeSub() }), NOW)
+    ).toBe('active');
+  });
+
+  it('none sem assinatura', () => {
+    expect(subscriptionUiState(makeMe(), NOW)).toBe('none');
+  });
+
+  it('confirming vence o resto', () => {
+    expect(
+      subscriptionUiState(
+        makeMe({
+          confirming: true,
+          subscription: makeSub({ status: 'pending', current_period_end: null }),
+        }),
+        NOW
+      )
+    ).toBe('confirming');
+  });
+
+  it('active (cartão no período)', () => {
+    expect(subscriptionUiState(makeMe({ subscription: makeSub() }), NOW)).toBe('active');
+  });
+
+  it('payment_failed: cartão recusado, ainda no período', () => {
+    expect(
+      subscriptionUiState(
+        makeMe({ subscription: makeSub({ provider_status: 'PAYMENT_FAILED' }) }),
+        NOW
+      )
+    ).toBe('payment_failed');
+  });
+
+  it('canceled com período no FUTURO → canceled_with_access (o gate libera)', () => {
+    expect(
+      subscriptionUiState(makeMe({ subscription: makeSub({ status: 'canceled' }) }), NOW)
+    ).toBe('canceled_with_access');
+  });
+
+  it('canceled VENCIDA → expired (pode assinar de novo)', () => {
+    expect(
+      subscriptionUiState(
+        makeMe({ subscription: makeSub({ status: 'canceled', current_period_end: PAST }) }),
+        NOW
+      )
+    ).toBe('expired');
+  });
+
+  it('Pix legado no período → legacy_pix (não renova)', () => {
+    expect(
+      subscriptionUiState(
+        makeMe({ subscription: makeSub({ provider: null, provider_status: null }) }),
+        NOW
+      )
+    ).toBe('legacy_pix');
+  });
+
+  it('Pix legado vencido → expired', () => {
+    expect(
+      subscriptionUiState(
+        makeMe({
+          subscription: makeSub({ provider: null, status: 'expired', current_period_end: PAST }),
+        }),
+        NOW
+      )
+    ).toBe('expired');
+  });
+
+  it('pending com checkout aberto → pending_checkout', () => {
+    expect(
+      subscriptionUiState(
+        makeMe({
+          subscription: makeSub({ status: 'pending', current_period_end: null }),
+          pendingCheckout: { url: 'https://pay.example.com/c/1', plan_id: 1, created_at: PAST },
+        }),
+        NOW
+      )
+    ).toBe('pending_checkout');
+  });
+
+  it('pending sem checkout e sem período anterior → none', () => {
+    expect(
+      subscriptionUiState(
+        makeMe({ subscription: makeSub({ status: 'pending', current_period_end: null }) }),
+        NOW
+      )
+    ).toBe('none');
+  });
+
+  it('pending sem checkout com período anterior vencido → expired', () => {
+    expect(
+      subscriptionUiState(
+        makeMe({ subscription: makeSub({ status: 'pending', current_period_end: PAST }) }),
+        NOW
+      )
+    ).toBe('expired');
+  });
+});
+
+describe('canSubscribe', () => {
+  it('só sem acesso pago', () => {
+    expect(canSubscribe('none')).toBe(true);
+    expect(canSubscribe('expired')).toBe(true);
+    expect(canSubscribe('pending_checkout')).toBe(true);
+    expect(canSubscribe('staging')).toBe(true);
+    for (const s of [
+      'active',
+      'payment_failed',
+      'canceled_with_access',
+      'legacy_pix',
+      'confirming',
+    ] as const) {
+      expect(canSubscribe(s)).toBe(false);
+    }
   });
 });
 
 describe('planBadge', () => {
-  const now = Date.parse('2026-08-01T00:00:00Z');
-
-  it('staging quando billing desligado, independente da assinatura', () => {
-    expect(planBadge({ billingEnabled: false, subscription: makeSub() }, now)).toBe('staging');
-  });
-
   it('none sem assinatura', () => {
-    expect(planBadge({ billingEnabled: true, subscription: null }, now)).toBe('none');
+    expect(planBadge(null, NOW)).toBe('none');
   });
 
   it('pending', () => {
-    expect(
-      planBadge({ billingEnabled: true, subscription: makeSub({ status: 'pending' }) }, now)
-    ).toBe('pending');
+    expect(planBadge(makeSub({ status: 'pending' }), NOW)).toBe('pending');
+  });
+
+  it('active no período; vencida → expired', () => {
+    expect(planBadge(makeSub(), NOW)).toBe('active');
+    expect(planBadge(makeSub({ current_period_end: PAST }), NOW)).toBe('expired');
   });
 
   it('expired por status', () => {
-    expect(
-      planBadge({ billingEnabled: true, subscription: makeSub({ status: 'expired' }) }, now)
-    ).toBe('expired');
+    expect(planBadge(makeSub({ status: 'expired' }), NOW)).toBe('expired');
   });
 
-  it('active com período vigente', () => {
-    const future = new Date(now + 86_400_000).toISOString();
-    expect(
-      planBadge(
-        {
-          billingEnabled: true,
-          subscription: makeSub({ status: 'active', current_period_end: future }),
-        },
-        now
-      )
-    ).toBe('active');
+  it('canceled com período pago → canceled (não none); vencida → expired', () => {
+    expect(planBadge(makeSub({ status: 'canceled' }), NOW)).toBe('canceled');
+    expect(planBadge(makeSub({ status: 'canceled', current_period_end: PAST }), NOW)).toBe(
+      'expired'
+    );
+  });
+});
+
+describe('subscriptionProviderLabel', () => {
+  it('cartão renova; Pix legado não', () => {
+    expect(subscriptionProviderLabel(makeSub())).toMatch(/Cartão/);
+    expect(subscriptionProviderLabel(makeSub({ provider: null }))).toBe('Pix (não renova)');
+  });
+});
+
+describe('subscribeErrorMessage', () => {
+  it.each([
+    ['ALREADY_SUBSCRIBED', /já tem uma assinatura/],
+    ['CHECKOUT_IN_PROGRESS', /sendo iniciado/],
+    ['ACTIVATION_PENDING', /confirmando/],
+    ['BILLING_NOT_CONFIGURED', /não está configurado/],
+    ['PAYMENT_PROVIDER_ERROR', /indisponível/],
+  ])('%s', (code, re) => {
+    expect(subscribeErrorMessage(code)).toMatch(re);
+  });
+
+  it('código desconhecido usa a mensagem do servidor, ou um texto padrão', () => {
+    expect(subscribeErrorMessage('X', 'mensagem do servidor')).toBe('mensagem do servidor');
+    expect(subscribeErrorMessage(undefined)).toBe('Falha ao assinar o plano');
   });
 });
