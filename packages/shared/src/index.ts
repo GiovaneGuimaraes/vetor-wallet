@@ -694,6 +694,12 @@ export interface Subscription {
   /** SQLite UTC format `'YYYY-MM-DD HH:MM:SS'`, ou null enquanto nunca houve pagamento confirmado. */
   current_period_end: string | null;
   created_at: string;
+  /** T-124b2 (aditivos): `abacatepay_card`; NULL = Pix legado. */
+  provider?: string | null;
+  /** Status cru do provedor (cartão); NULL no Pix legado. */
+  provider_status?: string | null;
+  /** Quando foi cancelada (o acesso segue até `current_period_end`). */
+  canceled_at?: string | null;
 }
 
 export type PixChargeStatus = 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'REFUNDED';
@@ -725,6 +731,15 @@ export interface MySubscriptionResponse {
   plan: Plan | null;
   /** Cobrança PENDING mais recente, se houver — é o QR Code a exibir. */
   pendingCharge: PixCharge | null;
+  /** T-124b2: checkout de cartão aberto (só a URL hospedada; ids do provedor não saem). */
+  pendingCheckout?: { url: string; plan_id: number; created_at: string } | null;
+  /** T-124b2: pago, mas a assinatura ainda não foi gravada (o `sync` corrige). */
+  confirming?: boolean;
+}
+
+/** Resposta de `POST /api/subscriptions/sync`: o `/me` + falha do provedor. */
+export interface SyncSubscriptionResponse extends MySubscriptionResponse {
+  providerUnavailable?: boolean;
 }
 
 export interface CreateSubscriptionResponse {

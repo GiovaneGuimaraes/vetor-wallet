@@ -29,6 +29,16 @@ ids locais, contagens e códigos de erro. Quem loga é a rota — os `*-core` se
 devolvendo resultado tipado. Regra para campo novo: "isso prova que o efeito
 ocorreu SEM expor dado financeiro?" Se expõe, não loga.
 
+**Assinatura no cartão (T-124b2).** `routes/subscriptions.ts` ganhou `POST /sync`
+(reconcilia por consulta à AbacatePay via `reconcileCardSubscription` e devolve o
+corpo do `/me` + `providerUnavailable?`), `POST /portal` (`{ url }` do portal do
+cliente; 404 `NO_CARD_SUBSCRIPTION`) e o `/me` ampliado (`pendingCheckout` só com
+a URL hospedada, `confirming`, `provider`/`provider_status`/`canceled_at`). O
+`/me` segue SÓ LEITURA; quem grava é o `/sync`. Duplicada: a rota cancela, RELÊ
+para provar e loga `billing.subscription.duplicate` (o aviso ao humano é o log —
+sem escrita de arquivo em runtime). `billingErrors.ts` mapeia os erros tipados do
+core para HTTP (reusado pelo `POST /` de cartão na T-124c).
+
 **Não há mais `src/api/services/`** — desde a T-099c toda a lógica de domínio
 vive em packages `*-core`. Este pacote é Express puro: entry, routers,
 middleware. Regra prática: se o arquivo novo não fala `req`/`res`/`next`, ele

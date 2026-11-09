@@ -1,0 +1,8 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`getLatestCheckout filtra por user_id e devolve o bill_ 1`] = `
+"SELECT abacate_checkout_id FROM subscription_checkouts
+          WHERE user_id = $1 AND abacate_checkout_id IS NOT NULL
+          ORDER BY (status = 'COMPLETED') DESC, id DESC
+          LIMIT 1"
+`;

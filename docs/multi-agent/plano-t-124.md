@@ -16,7 +16,9 @@ Nenhum valor real (e-mail, key, saldo) entra aqui — o repo é público.
 5. **Pix legado** (quem já pagou por Pix) segue valendo até o fim do período, não renova, e só pode
    assinar no cartão **depois de vencer** (antes: 409 `ALREADY_SUBSCRIBED`).
 6. **Assinatura duplicada** (duas de cartão pagas por corrida): cancelar a mais nova pela API e registrar
-   no `TODO-HUMANO.md` o reembolso a fazer.
+   o reembolso a fazer. (Em runtime a API não escreve arquivo do repo: o aviso ao humano é o log
+   `billing.subscription.duplicate` — e `duplicate_cancel_unconfirmed` (error) se a releitura não
+   confirmar `CANCELLED`. O humano acompanha pelo log.)
 7. Remoção do Pix = **etapa 1** da migração destrutiva: sai da UI e da API, **sem dropar** `pix_charges`.
    O DROP é tarefa futura, com dump fora do repo e confirmação.
 
@@ -90,7 +92,8 @@ Nenhum valor real (e-mail, key, saldo) entra aqui — o repo é público.
   `cancel`; `ACTIVE` com fim do período dentro da janela → `renew` deduzida). Falha do provedor →
   `{providerUnavailable:true}`, **nunca lança**.
 - Duplicada (decisão 6): `activate` que achar outro `subs_` ativo do mesmo usuário loga
-  `billing.subscription.duplicate`, cancela a mais nova pela API e deixa nota no `TODO-HUMANO.md`.
+  `billing.subscription.duplicate`, cancela a mais nova pela API, relê `getSubscription` para provar o
+  cancelamento (a API pode devolver `data:null` no cancel) e loga; sem escrita em arquivo.
 
 ## D. Rotas (rest-api)
 

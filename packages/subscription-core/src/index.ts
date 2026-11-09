@@ -100,6 +100,9 @@ export {
   type CompletedCheckoutRow,
   getLatestCompletedCheckout,
 } from './getLatestCompletedCheckout';
+export { getBillingCustomer } from './getBillingCustomer';
+export { getLatestCheckout } from './getLatestCheckout';
+export { getOpenCheckout, type OpenCheckoutRow } from './getOpenCheckout';
 export { isActivationPending } from './isActivationPending';
 export { ProductArchivedError } from './ProductArchivedError';
 export { ProductPriceMismatchError } from './ProductPriceMismatchError';
