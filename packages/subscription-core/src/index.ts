@@ -73,3 +73,11 @@ export { getProductByExternalId } from './providers/abacatepay/getProductByExter
 export { getSubscription } from './providers/abacatepay/getSubscription';
 export { listSubscriptionsByCheckout } from './providers/abacatepay/listSubscriptionsByCheckout';
 export { type AbacateCycle, toAbacateCycle } from './providers/abacatepay/toAbacateCycle';
+
+// Assinatura do webhook (T-123).
+export {
+  verifyWebhookSignature,
+  type VerifyWebhookSignatureInput,
+  type WebhookSignatureScheme,
+} from './providers/abacatepay/verifyWebhookSignature';
+export { ABACATEPAY_WEBHOOK_PUBLIC_KEY } from './providers/abacatepay/webhookPublicKey';

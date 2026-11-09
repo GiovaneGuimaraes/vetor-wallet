@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import type { Express } from 'express';
 import express from 'express';
 import request from 'supertest';
 import { createHmac } from 'crypto';
+import { ABACATEPAY_WEBHOOK_PUBLIC_KEY } from '@vetor-wallet/subscription-core';
 import { tmpdir } from 'os';
 import path from 'path';
 
@@ -14,8 +15,31 @@ process.env.DATABASE_URL = `file:${testDbPath.replace(/\\/g, '/')}`;
 
 const SECRET = 'webhook-secret-1234';
 
+/** Esquema legado (até a T-123): nosso segredo, hex. */
 function sign(raw: string, secret = SECRET): string {
   return createHmac('sha256', secret).update(Buffer.from(raw, 'utf8')).digest('hex');
+}
+
+/** Esquema da doc oficial (T-123): chave pública fixa da AbacatePay, base64. */
+function signDoc(raw: string): string {
+  return createHmac('sha256', ABACATEPAY_WEBHOOK_PUBLIC_KEY)
+    .update(Buffer.from(raw, 'utf8'))
+    .digest('base64');
+}
+
+/** Linhas `webhook.signature` emitidas pelo logger (T-122) durante `fn`. */
+async function captureSignatureLogs(fn: () => Promise<unknown>) {
+  const lines: string[] = [];
+  // O logger manda `info` e `warn` para console.log (só `error` vai ao stderr).
+  const logSpy = vi.spyOn(console, 'log').mockImplementation((l) => void lines.push(String(l)));
+  try {
+    await fn();
+  } finally {
+    logSpy.mockRestore();
+  }
+  return lines
+    .filter((l) => l.includes('"webhook.signature"'))
+    .map((l) => ({ raw: l, parsed: JSON.parse(l) as Record<string, unknown> }));
 }
 
 describe('abacatepay webhook route', () => {
@@ -195,7 +219,7 @@ describe('abacatepay webhook route', () => {
     expect((await db.execute('SELECT * FROM subscriptions')).rows).toHaveLength(0);
   });
 
-  it('returns 401 when the signature is wrong', async () => {
+  it('returns 401 when the signature is wrong in both schemes', async () => {
     const abacateId = await seedCharge();
     const raw = JSON.stringify({
       id: 'evt_wrong_sig',
@@ -218,6 +242,138 @@ describe('abacatepay webhook route', () => {
     const res = await post(raw, { signature: `sha256=${sign(raw)}` });
     expect(res.status).toBe(200);
     expect(res.body.activated).toBe(true);
+  });
+
+  describe('assinatura conforme a doc da AbacatePay (T-123)', () => {
+    it('processa um evento assinado com a chave pública (base64) e loga o esquema', async () => {
+      const abacateId = await seedCharge();
+      const raw = JSON.stringify({
+        id: 'evt_doc_scheme',
+        event: 'transparent.completed',
+        data: { id: abacateId },
+      });
+
+      let res!: request.Response;
+      const logs = await captureSignatureLogs(async () => {
+        res = await post(raw, { signature: signDoc(raw) });
+      });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ ok: true, activated: true });
+      expect(logs).toHaveLength(1);
+      expect(logs[0].parsed).toMatchObject({
+        level: 'info',
+        event: 'webhook.signature',
+        scheme: 'abacatepay-public-key',
+        matched: true,
+        headerPresent: true,
+      });
+      // Nunca a assinatura, o corpo, o segredo ou a chave.
+      expect(logs[0].raw).not.toContain(signDoc(raw));
+      expect(logs[0].raw).not.toContain(SECRET);
+      expect(logs[0].raw).not.toContain(ABACATEPAY_WEBHOOK_PUBLIC_KEY.slice(0, 12));
+      expect(logs[0].raw).not.toContain(abacateId);
+      expect(logs[0].parsed).not.toHaveProperty('redacted');
+    });
+
+    it('processa pelo fallback legado e loga scheme legacy-secret', async () => {
+      const abacateId = await seedCharge();
+      const raw = JSON.stringify({
+        id: 'evt_legacy_scheme',
+        event: 'transparent.completed',
+        data: { id: abacateId },
+      });
+
+      let res!: request.Response;
+      const logs = await captureSignatureLogs(async () => {
+        res = await post(raw);
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.activated).toBe(true);
+      expect(logs.map((l) => l.parsed)).toEqual([
+        expect.objectContaining({ scheme: 'legacy-secret', matched: true }),
+      ]);
+      expect(logs[0].raw).not.toContain(sign(raw));
+    });
+
+    it('header ausente → 401 e loga scheme none sem header', async () => {
+      const raw = JSON.stringify({ id: 'evt_none', event: 'transparent.completed', data: {} });
+      let res!: request.Response;
+      const logs = await captureSignatureLogs(async () => {
+        res = await post(raw, { signature: null });
+      });
+      expect(res.status).toBe(401);
+      expect(logs.map((l) => l.parsed)).toEqual([
+        expect.objectContaining({
+          level: 'warn',
+          scheme: 'none',
+          matched: false,
+          headerPresent: false,
+        }),
+      ]);
+    });
+
+    it('corpo adulterado com a assinatura (doc) de outro corpo → 401 e nada muda', async () => {
+      const abacateId = await seedCharge();
+      const original = JSON.stringify({
+        id: 'evt_orig',
+        event: 'billing.paid',
+        data: { id: 'outra-cobranca' },
+      });
+      const tampered = JSON.stringify({
+        id: 'evt_tampered',
+        event: 'transparent.completed',
+        data: { id: abacateId },
+      });
+
+      let res!: request.Response;
+      const logs = await captureSignatureLogs(async () => {
+        res = await post(tampered, { signature: signDoc(original) });
+      });
+      expect(res.status).toBe(401);
+      expect(logs.map((l) => l.parsed)).toEqual([
+        expect.objectContaining({ scheme: 'none', matched: false, headerPresent: true }),
+      ]);
+      expect((await db.execute('SELECT * FROM subscriptions')).rows).toHaveLength(0);
+      expect((await db.execute('SELECT * FROM billing_webhook_events')).rows).toHaveLength(0);
+    });
+
+    it('corpo adulterado com a assinatura (legado) de outro corpo → 401', async () => {
+      const abacateId = await seedCharge();
+      const original = JSON.stringify({ id: 'evt_o', event: 'billing.paid', data: {} });
+      const tampered = JSON.stringify({
+        id: 'evt_t',
+        event: 'transparent.completed',
+        data: { id: abacateId },
+      });
+      const res = await post(tampered, { signature: sign(original) });
+      expect(res.status).toBe(401);
+      expect((await db.execute('SELECT * FROM subscriptions')).rows).toHaveLength(0);
+    });
+
+    it('assinatura da doc certa NÃO dispensa o ?webhookSecret= (prova de origem)', async () => {
+      const abacateId = await seedCharge();
+      const raw = JSON.stringify({
+        id: 'evt_doc_no_secret',
+        event: 'transparent.completed',
+        data: { id: abacateId },
+      });
+      const res = await post(raw, { secret: 'nope', signature: signDoc(raw) });
+      expect(res.status).toBe(401);
+      expect((await db.execute('SELECT * FROM subscriptions')).rows).toHaveLength(0);
+    });
+
+    it('fail-closed sem segredo no env vale também para a assinatura da doc', async () => {
+      delete process.env.ABACATEPAY_WEBHOOK_SECRET;
+      const abacateId = await seedCharge();
+      const raw = JSON.stringify({
+        id: 'evt_doc_no_env',
+        event: 'transparent.completed',
+        data: { id: abacateId },
+      });
+      const res = await post(raw, { signature: signDoc(raw) });
+      expect(res.status).toBe(401);
+      expect((await db.execute('SELECT * FROM subscriptions')).rows).toHaveLength(0);
+    });
   });
 
   it('returns 401 (fail-closed) when the secret is not configured in the env', async () => {

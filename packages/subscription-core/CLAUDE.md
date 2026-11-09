@@ -89,6 +89,8 @@ src/
     ├── sanitizeDescription.ts   # descrição no conjunto que a API aceita
     ├── checkPixCharge.ts
     ├── simulatePixPayment.ts
+    ├── webhookPublicKey.ts      # chave PÚBLICA fixa da doc (T-123)
+    ├── verifyWebhookSignature.ts # esquema da doc + fallback legado (T-123)
     │   # ── assinatura recorrente no cartão (T-124a: só o client) ──
     ├── toAbacateCycle.ts        # 'monthly'|'yearly' → 'MONTHLY'|'ANNUALLY'
     ├── AbacateProduct.ts        # tipos + toAbacateProduct (id obrigatório)
@@ -317,14 +319,48 @@ calculado sobre um corpo reserializado (quebra silenciosa: 401 em todo evento
 legítimo). Essa linha não pode descer.
 
 Ordem do handler: secret ausente no env → 401 (**fail-closed**); `?webhookSecret`
-via `safeEqual` → 401; HMAC-SHA256 hex do Buffer contra `x-webhook-signature`
-(aceita prefixo `sha256=`, header ausente é 401 — validação dupla obrigatória) →
+via `safeEqual` → 401; `verifyWebhookSignature` sobre o Buffer contra
+`x-webhook-signature` (header ausente é 401 — validação dupla obrigatória) →
 401; JSON inválido → 400; evento fora de `transparent.completed` /
 `checkout.completed` → **200 `ignored`** (4xx/5xx faria reentrega eterna);
 idempotência por `INSERT OR IGNORE` em `billing_webhook_events` (`event_id`, com
 fallback `` `${event}:${chargeId}` ``) → 200 `duplicate`; então
 `markChargePaidAndActivate`. Cobrança desconhecida → 200 `unknownCharge`. Erro
 de banco **não** é capturado: 500 faz o provedor reentregar, que é o desejável.
+
+### Assinatura: dois esquemas, e o que cada camada prova (T-123)
+
+A doc oficial (`docs.abacatepay.com/pages/webhooks/security`, lida em
+2026-11-08) diz que `X-Webhook-Signature` é HMAC-SHA256 do corpo cru com uma
+**chave PÚBLICA fixa da AbacatePay** (`ABACATEPAY_WEBHOOK_PUBLIC_KEY`, copiada
+literalmente da página para `webhookPublicKey.ts`), em **base64**. Até a T-123
+o app validava HMAC hex com o NOSSO segredo — se a doc estiver certa, todo
+webhook real levava 401 e nenhum Pix pago ativava assinatura pelo webhook (só
+pelo polling).
+
+`verifyWebhookSignature({ rawBody, signature, legacySecret })` devolve o esquema
+que casou ou `null`:
+
+1. `'abacatepay-public-key'` — o da doc (base64, sem prefixo);
+2. `'legacy-secret'` — o antigo (nosso segredo, hex, aceita `sha256=`), mantido
+   como **fallback** porque nunca recebemos uma entrega real (sem URL pública)
+   que prove qual dos dois a AbacatePay manda de fato.
+
+Comparação sempre por `safeEqual` (tempo constante, não lança com tamanho
+diferente). Assinatura vazia nunca casa; `legacySecret` vazio desliga o legado.
+
+**A chave pública prova só INTEGRIDADE, nunca ORIGEM.** Ela está publicada na
+doc: qualquer um assina um corpo forjado com ela. Por isso o `?webhookSecret=`
+da URL (comparado ao nosso `ABACATEPAY_WEBHOOK_SECRET`) **continua obrigatório e
+é a prova de origem** — e o fail-closed sem o env continua valendo para os dois
+esquemas. Afrouxar o `webhookSecret` "porque agora a assinatura é a da doc"
+transformaria o endpoint em ativação pública de assinatura.
+
+A rota loga `webhook.signature` com `scheme` (`abacatepay-public-key` |
+`legacy-secret` | `none`), `matched` e `headerPresent` — **nunca** a assinatura,
+o corpo, o segredo ou a chave. O log só sai depois de o `?webhookSecret=`
+passar. A primeira entrega real em produção diz qual esquema vale; quando
+houver essa prova, o outro pode sair (decisão a registrar então, não agora).
 
 ## Gating (T-071)
 
