@@ -341,7 +341,7 @@ describe('subscriptions card routes (T-124b2)', () => {
     expect(events('billing.subscription.duplicate_cancel_unconfirmed')).toHaveLength(1);
   });
 
-  it('GET /me never writes and keeps pendingCharge', async () => {
+  it('GET /me never writes and no longer exposes the legacy Pix charge (T-124c)', async () => {
     await seedSub(userA);
     await seedCheckout(userA);
     await seedCustomer(userA);
@@ -364,7 +364,8 @@ describe('subscriptions card routes (T-124b2)', () => {
     const res = await agentA.get('/api/subscriptions/me');
 
     expect(res.status).toBe(200);
-    expect(res.body.pendingCharge).toMatchObject({ amount_cents: 990, status: 'PENDING' });
+    expect('pendingCharge' in res.body).toBe(false);
+    expect(JSON.stringify(res.body)).not.toContain('br_code');
     expect(await snapshot()).toBe(before);
     expect(fetchMock).not.toHaveBeenCalled();
   });

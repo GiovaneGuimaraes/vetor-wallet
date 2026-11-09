@@ -4,18 +4,24 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
 import { log } from '../logger';
 import { createSqliteQuery } from '@vetor-wallet/query';
-import type { MySubscriptionResponse, SyncSubscriptionResponse } from '@vetor-wallet/shared';
+import { findUserById } from '@vetor-wallet/auth-core';
+import type {
+  CreateSubscriptionResponse,
+  MySubscriptionResponse,
+  SyncSubscriptionResponse,
+} from '@vetor-wallet/shared';
 import {
   AbacatePayError,
+  assertCanStartCheckout,
+  billingCustomerName,
   cancelSubscription,
   createCustomerPortal,
-  createPixCharge,
+  ensureBillingCustomer,
   getActivePlan,
   getBillingCustomer,
   getLatestCheckout,
   getLatestCompletedCheckout,
   getOpenCheckout,
-  getPendingCharge,
   getSubscription,
   getSubscriptionRow,
   isAbacatePayConfigured,
@@ -24,13 +30,13 @@ import {
   isSubscriptionActive,
   nowSqliteUtc,
   reconcileCardSubscription,
+  startCardCheckout,
   type ApplyResult,
-  toPixCharge,
   toPlan,
-  toSqliteUtcFromProvider,
   toSubscription,
-  type PixChargeRow,
 } from '@vetor-wallet/subscription-core';
+import { mapBillingError } from '../billingErrors';
+import { appOrigin, checkoutReturnUrls } from '../checkoutReturnUrls';
 
 const router = Router();
 
@@ -41,9 +47,16 @@ const query = createSqliteQuery(db);
 router.use(requireAuth);
 
 /**
- * Assina um plano: cria (ou reaproveita) a cobrança Pix e deixa a assinatura em
- * `pending` até o pagamento ser confirmado — quem ativa é sempre
- * `markChargePaidAndActivate` (webhook, polling ou simulação).
+ * Assina um plano NO CARTÃO (T-124c): abre (ou reaproveita) o checkout
+ * hospedado da AbacatePay e devolve a URL para o web redirecionar. A
+ * assinatura fica `pending` até o pagamento; quem ativa é a porta única
+ * (`applyProviderSubscriptionState`), pelo `/sync` (e pelo webhook, T-124d).
+ *
+ * A regra (quem pode assinar, reaproveitar/supersede, trava de corrida) é do
+ * `startCardCheckout`; esta rota cruza os módulos (e-mail/nome do auth-core →
+ * cliente da AbacatePay), monta as URLs de volta SÓ do env e traduz os erros.
+ * Corpo de resposta: só o id LOCAL e a URL hospedada — `bill_`/`subs_`/`cust_`
+ * ficam no banco.
  */
 router.post(
   '/',
@@ -65,26 +78,7 @@ router.post(
       return;
     }
 
-    const now = nowSqliteUtc();
-    const existingSub = await getSubscriptionRow({ query, userId });
-    if (isSubscriptionActive(existingSub, now)) {
-      res.status(409).json({ code: 'ALREADY_SUBSCRIBED', error: 'Já existe uma assinatura ativa' });
-      return;
-    }
-
-    // Reaproveita a cobrança PENDING não expirada do MESMO plano em vez de
-    // gerar outra: dois QR Codes válidos ao mesmo tempo é convite a pagar duas
-    // vezes. Nenhum fetch é feito aqui.
-    const reusable = await getPendingCharge({ query, userId, nowIso: now, planId: plan.id });
-    if (reusable) {
-      const sub = await getSubscriptionRow({ query, userId });
-      res.status(201).json({
-        subscription: sub ? toSubscription(sub) : null,
-        charge: toPixCharge(reusable),
-      });
-      return;
-    }
-
+    // Antes de QUALQUER escrita (local ou no provedor).
     if (!isAbacatePayConfigured()) {
       res
         .status(503)
@@ -92,20 +86,75 @@ router.post(
       return;
     }
 
-    let charge;
     try {
-      charge = await createPixCharge({
-        amountCents: Number(plan.price_cents),
-        description: `Vetor Wallet - ${plan.name}`,
-        externalId: `user:${userId}:plan:${plan.id}:${Date.now()}`,
-        metadata: { userId, planId: plan.id },
+      // Pergunta ANTES de criar o cliente: um assinante (Pix legado no
+      // período, cartão ativo, pago confirmando) leva 409 sem ganhar um `cust_`
+      // na AbacatePay. `startCardCheckout` repete a checagem (é a dele).
+      await assertCanStartCheckout({ query, userId, now: nowSqliteUtc() });
+
+      const user = await findUserById({ query, userId });
+      if (!user) throw new Error(`usuário ${userId} da sessão não existe em users`);
+
+      const customer = await ensureBillingCustomer({
+        query,
+        userId,
+        email: user.email,
+        name: billingCustomerName({ name: user.name, email: user.email }),
       });
+      log('info', customer.created ? 'billing.customer.created' : 'billing.customer.reused', {
+        userId,
+      });
+      if (customer.orphanCustomerId) {
+        // O id órfão é do provedor: não vai ao log. O humano acha pelo e-mail
+        // no painel da AbacatePay (dois clientes com o mesmo e-mail).
+        log('warn', 'billing.customer.orphan', { userId, reason: 'lost_insert_race' });
+      }
+
+      const checkout = await startCardCheckout({
+        query,
+        userId,
+        plan,
+        customerId: customer.customerId,
+        ...checkoutReturnUrls(appOrigin()),
+        nowIso: nowSqliteUtc(),
+      });
+      log('info', 'billing.checkout.created', {
+        userId,
+        planId: plan.id,
+        reused: checkout.reused,
+        superseded: checkout.supersededCheckoutId !== null,
+      });
+      if (checkout.supersededDeleteFailed) {
+        log('warn', 'billing.checkout.supersededDeleteFailed', { userId, planId: plan.id });
+      }
+
+      const sub = await getSubscriptionRow({ query, userId });
+      const body: CreateSubscriptionResponse = {
+        subscription: sub ? toSubscription(sub) : null,
+        checkout: { id: checkout.checkoutId, url: checkout.url },
+      };
+      res.status(201).json(body);
     } catch (err) {
+      const mapped = mapBillingError(err);
+      if (mapped) {
+        log('info', 'billing.checkout.refused', {
+          userId,
+          planId: plan.id,
+          reason: mapped.body.code,
+        });
+        res.status(mapped.status).json(mapped.body);
+        return;
+      }
       if (err instanceof AbacatePayError) {
         // O 502 esconde a causa do usuário (de propósito); o log guarda o status
         // do provedor (0 = rede/timeout, 400 = payload recusado…) para a
-        // investigação não depender de reproduzir a chamada na mão.
-        log('warn', 'billing.charge.failed', { planId: plan.id, providerStatus: err.status });
+        // investigação não depender de reproduzir a chamada na mão. Nunca o
+        // corpo nem ids do provedor.
+        log('warn', 'billing.checkout.failed', {
+          userId,
+          planId: plan.id,
+          providerStatus: err.status,
+        });
         res
           .status(502)
           .json({ code: 'PAYMENT_PROVIDER_ERROR', error: 'Provedor de pagamento indisponível' });
@@ -113,55 +162,6 @@ router.post(
       }
       throw err;
     }
-
-    // A cobrança é criada no provedor ANTES do INSERT porque só a resposta dele
-    // traz o `abacate_charge_id` (chave de reconciliação do webhook) — gravar
-    // antes exigiria uma linha sem id, e depois um UPDATE que pode falhar.
-    // RISCO ACEITO: se este INSERT falhar, fica uma cobrança órfã no provedor.
-    // É inofensiva: ninguém recebe o QR Code, e se por acaso for paga o webhook
-    // não acha a linha e responde 200 `unknownCharge`, sem ativar nada.
-    await db.execute({
-      sql: `INSERT INTO pix_charges
-              (user_id, plan_id, abacate_charge_id, amount_cents, status,
-               br_code, br_code_base64, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        userId,
-        plan.id,
-        charge.id,
-        charge.amount,
-        charge.status,
-        charge.brCode,
-        charge.brCodeBase64,
-        toSqliteUtcFromProvider(charge.expiresAt),
-      ],
-    });
-
-    // Garante a assinatura em `pending` sem tocar `current_period_end`: se o
-    // usuário já teve um período pago (assinatura vencida renovando), aquele
-    // valor é a base do próximo cálculo em `renewalBase` e não pode ser zerado.
-    await db.execute({
-      sql: `INSERT INTO subscriptions (user_id, plan_id, status)
-            VALUES (?, ?, 'pending')
-            ON CONFLICT(user_id) DO UPDATE SET
-              plan_id = excluded.plan_id,
-              status = 'pending',
-              updated_at = datetime('now')`,
-      args: [userId, plan.id],
-    });
-
-    const [subRow, chargeRow] = await Promise.all([
-      getSubscriptionRow({ query, userId }),
-      db.execute({
-        sql: 'SELECT * FROM pix_charges WHERE abacate_charge_id = ?',
-        args: [charge.id],
-      }),
-    ]);
-
-    res.status(201).json({
-      subscription: subRow ? toSubscription(subRow) : null,
-      charge: toPixCharge(chargeRow.rows[0] as unknown as PixChargeRow),
-    });
   })
 );
 
@@ -197,7 +197,6 @@ async function buildMe(userId: number): Promise<MySubscriptionResponse> {
   const planRow = subscription
     ? await getActivePlan({ query, planId: subscription.plan_id })
     : null;
-  const pending = await getPendingCharge({ query, userId, nowIso: now });
   const openCheckout = await getOpenCheckout({ query, userId });
   const completed = await getLatestCompletedCheckout({ query, userId });
 
@@ -206,7 +205,6 @@ async function buildMe(userId: number): Promise<MySubscriptionResponse> {
     subscription,
     // Plano resolvido mesmo se desativado (ver `getActivePlan`).
     plan: planRow ? toPlan(planRow) : null,
-    pendingCharge: pending ? toPixCharge(pending) : null,
     // Só a URL hospedada: `abacate_checkout_id` e demais ids do provedor ficam no banco.
     pendingCheckout: openCheckout
       ? {
