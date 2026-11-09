@@ -29,20 +29,10 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 > se for abrir para mais de um usuário ou se o staging precisar rodar em Lambda.
 
 
-### T-123 — Assinatura do webhook da AbacatePay conforme a doc
-- **Status**: PENDENTE · **Complexidade**: alta · **Depende de**: —
-- **Objetivo**: a doc diz `X-Webhook-Signature` = HMAC-SHA256 do corpo cru com a chave PÚBLICA fixa da AbacatePay, em base64; `webhooks.ts` usa o nosso segredo e hex. Aceitar o esquema da doc; manter o antigo como fallback até uma entrega real provar qual vale; logar `webhook.signature` com o esquema que casou.
-- **Propósito**: webhook real não levar 401 (hoje só o polling ativa assinatura). `?webhookSecret=` continua sendo a prova de origem; fail closed.
-- **Fora de escopo**: eventos de assinatura (T-124).
-- **Arquivos-alvo**: `rest-api/src/api/routes/webhooks.ts` + teste; `subscription-core/CLAUDE.md`.
-- **Aceite**: assinatura inválida/ausente → 401; testes dos dois esquemas; `pnpm test`/`build`/`lint`.
-
-### T-124 — Assinatura recorrente no cartão + cliente na AbacatePay
-- **Status**: PENDENTE (spike antes) · **Complexidade**: alta · **Depende de**: T-123
-- **Objetivo**: decisões do humano (2026-11-09): só cartão recorrente (sai o Pix de assinatura; Pix não tem Automático na loja); cliente (e-mail+nome, sem CPF) criado só na assinatura; sem deploy público → reconciliar consultando a API (`subscriptions/get`), webhook `subscription.*` depois. Produto `cycle` por plano, checkout hospedado, `completionUrl` no web.
-- **Propósito**: renovação automática e cliente/produto visíveis no painel da AbacatePay.
-- **Fora de escopo**: DROP de `pix_charges` (migração destrutiva em 2 etapas, com confirmação).
-- **Evidência de fechamento**: assinar com cartão de teste 4242 e colar o log; renovação NÃO é simulável em dev.
+### T-124 — Assinatura recorrente no cartão + cliente (AbacatePay) — plano em [`plano-t-124.md`](./plano-t-124.md)
+- **Decisões do humano (2026-11-09)**: só cartão recorrente; cliente (e-mail+nome) só na assinatura; reconciliar consultando a API (sem deploy público); cancelar = acesso até o fim do período; Pix legado só migra depois de vencer; assinatura duplicada → cancela a mais nova e avisa; Pix sai da UI/API sem DROP.
+- **Fatias** (1 PR cada, nesta ordem): **124a** schema+provider (alta, Opus — EM ANDAMENTO) → **124b1** regra no core, uma porta idempotente por `rowCount` (alta, Opus) → **124b2** rotas `/sync`, `/portal`, `/me` (média) → **124c** `POST /api/subscriptions` em cartão + web + remoção do Pix (alta, Opus) → **124d** webhook `subscription.*` (média, após b1).
+- **Fora de escopo**: DROP de `pix_charges` (2 etapas, dump + confirmação). Renovação não é simulável em dev: fakes nos testes; o resto só a produção prova (`TODO-HUMANO.md`).
 
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)
 
