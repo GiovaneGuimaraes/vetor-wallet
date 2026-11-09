@@ -1,0 +1,8 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ensureBillingCustomer o SQL (contrato com o banco) 1`] = `
+[
+  "SELECT abacate_customer_id FROM billing_customers WHERE user_id = $1",
+  "INSERT INTO billing_customers (user_id, abacate_customer_id) VALUES ($1, $2) ON CONFLICT(user_id) DO NOTHING",
+]
+`;

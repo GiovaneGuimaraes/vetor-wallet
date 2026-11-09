@@ -51,6 +51,31 @@ export const errorEnvelope = (error: unknown, status = 400) => {
   };
 };
 
+/**
+ * Provedor de mentira roteado por CAMINHO (sem a base) — para as funções da
+ * regra, que fazem várias chamadas ao provedor numa mesma execução. O handler
+ * recebe o caminho com query string e o corpo parseado; rota sem resposta
+ * lança, para chamada inesperada não passar em silêncio. Cede o event loop
+ * antes de responder, como uma rede de verdade (é o que intercala corridas).
+ */
+export const routeFetch = (
+  fetchMock: jest.Mock,
+  handler: (path: string, body: any) => unknown
+): void => {
+  fetchMock.mockImplementation(async (url: string, init: { body?: string }) => {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const path = String(url).replace(/^https?:\/\/[^/]+\/v2/, '');
+    const res = handler(path, init.body === undefined ? undefined : JSON.parse(init.body));
+    if (res === undefined) throw new Error(`routeFetch: chamada inesperada a ${path}`);
+    return res;
+  });
+};
+
+/** Caminhos chamados, na ordem (sem a base). */
+export const calledPaths = (fetchMock: jest.Mock): string[] => {
+  return fetchMock.mock.calls.map(([url]) => String(url).replace(/^https?:\/\/[^/]+\/v2/, ''));
+};
+
 export const rawCharge = {
   id: 'pix_char_abc',
   amount: 2990,

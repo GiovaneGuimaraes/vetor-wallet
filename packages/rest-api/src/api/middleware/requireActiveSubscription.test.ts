@@ -157,9 +157,18 @@ describe('requireActiveSubscription', () => {
     expect(res.status).toBe(402);
   });
 
-  it('bloqueia assinatura canceled', async () => {
+  // T-124b1 (decisão 4 do humano): cancelar = acesso até o fim do período já
+  // pago. O middleware não mudou — herda a nova `isSubscriptionActive`.
+  it('libera assinatura canceled com período pago no futuro', async () => {
     setFlag('true');
     await setSubscription('canceled', toSqliteUtc(new Date(Date.now() + 86_400_000)));
+    const res = await agent.post('/api/toy').send({});
+    expect(res.status).toBe(201);
+  });
+
+  it('bloqueia assinatura canceled com período vencido', async () => {
+    setFlag('true');
+    await setSubscription('canceled', toSqliteUtc(new Date(Date.now() - 86_400_000)));
     const res = await agent.post('/api/toy').send({});
     expect(res.status).toBe(402);
   });

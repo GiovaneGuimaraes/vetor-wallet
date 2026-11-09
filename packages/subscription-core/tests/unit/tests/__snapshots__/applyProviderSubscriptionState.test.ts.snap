@@ -1,0 +1,69 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`applyProviderSubscriptionState — activate o SQL da ativação (contrato com o banco) 1`] = `
+[
+  "UPDATE subscription_checkouts SET status = 'COMPLETED', abacate_subscription_id = $1, completed_at = $2 WHERE abacate_checkout_id = $3 AND status <> 'COMPLETED'",
+  "SELECT user_id, plan_id FROM subscription_checkouts WHERE abacate_checkout_id = $1",
+  "SELECT * FROM plans WHERE id = $1",
+  "SELECT status, current_period_end, abacate_subscription_id FROM subscriptions WHERE user_id = $1",
+  "INSERT INTO subscriptions (user_id, plan_id, status, current_period_end, provider, abacate_subscription_id, provider_status, canceled_at, created_at, updated_at) VALUES ($1, $2, 'active', $3, 'abacatepay_card', $4, $5, NULL, $6, $7) ON CONFLICT(user_id) DO UPDATE SET plan_id = excluded.plan_id, status = 'active', current_period_end = excluded.current_period_end, provider = excluded.provider, abacate_subscription_id = excluded.abacate_subscription_id, provider_status = excluded.provider_status, canceled_at = NULL, updated_at = excluded.updated_at WHERE subscriptions.status = $8 AND COALESCE(subscriptions.current_period_end, '') = $9 AND COALESCE(subscriptions.abacate_subscription_id, '') = $10",
+]
+`;
+
+exports[`applyProviderSubscriptionState — activate o SQL da ativação (contrato com o banco) 2`] = `
+[
+  [
+    "subs_new",
+    "2026-11-08 12:00:00",
+    "bill_1",
+  ],
+  [
+    "bill_1",
+  ],
+  [
+    1,
+  ],
+  [
+    7,
+  ],
+  [
+    7,
+    1,
+    "2026-12-08 12:00:00",
+    "subs_new",
+    "ACTIVE",
+    "2026-11-08 12:00:00",
+    "2026-11-08 12:00:00",
+    "pending",
+    "",
+    "",
+  ],
+]
+`;
+
+exports[`applyProviderSubscriptionState — renew o SQL da renovação (contrato com o banco) 1`] = `
+[
+  "SELECT user_id, plan_id, status, current_period_end FROM subscriptions WHERE abacate_subscription_id = $1",
+  "SELECT * FROM plans WHERE id = $1",
+  "UPDATE subscriptions SET current_period_end = $1, provider_status = $2, updated_at = $3 WHERE abacate_subscription_id = $4 AND status = 'active' AND current_period_end = $5 AND current_period_end <= $6",
+]
+`;
+
+exports[`applyProviderSubscriptionState — renew o SQL da renovação (contrato com o banco) 2`] = `
+[
+  [
+    "subs_1",
+  ],
+  [
+    1,
+  ],
+  [
+    "2026-12-10 12:00:00",
+    "ACTIVE",
+    "2026-11-08 12:00:00",
+    "subs_1",
+    "2026-11-10 12:00:00",
+    "2026-11-11 12:00:00",
+  ],
+]
+`;

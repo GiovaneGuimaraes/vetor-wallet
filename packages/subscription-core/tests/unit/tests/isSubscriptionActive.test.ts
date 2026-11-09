@@ -19,7 +19,27 @@ describe('isSubscriptionActive', () => {
     expect(isSubscriptionActive({ status: 'active', current_period_end: now }, now)).toBe(false);
   });
 
-  test.each(['pending', 'canceled', 'expired'])(
+  test('canceled com período no FUTURO vale (acesso até o fim do período pago — T-124b1)', () => {
+    expect(
+      isSubscriptionActive({ status: 'canceled', current_period_end: '2026-09-01 00:00:00' }, now)
+    ).toBe(true);
+  });
+
+  test('canceled com período vencido NÃO vale', () => {
+    expect(
+      isSubscriptionActive({ status: 'canceled', current_period_end: '2026-07-31 23:59:59' }, now)
+    ).toBe(false);
+  });
+
+  test('canceled terminando exatamente agora NÃO vale', () => {
+    expect(isSubscriptionActive({ status: 'canceled', current_period_end: now }, now)).toBe(false);
+  });
+
+  test('canceled sem current_period_end não vale', () => {
+    expect(isSubscriptionActive({ status: 'canceled', current_period_end: null }, now)).toBe(false);
+  });
+
+  test.each(['pending', 'expired', 'ACTIVE', 'cancelled'])(
     '%s nunca é ativa, mesmo dentro do período',
     (status) => {
       expect(isSubscriptionActive({ status, current_period_end: '2026-09-01 00:00:00' }, now)).toBe(

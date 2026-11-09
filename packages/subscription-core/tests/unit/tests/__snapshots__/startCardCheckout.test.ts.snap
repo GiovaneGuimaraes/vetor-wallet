@@ -1,0 +1,51 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`startCardCheckout o SQL (contrato com o banco) 1`] = `
+[
+  "SELECT status, current_period_end, abacate_subscription_id FROM subscriptions WHERE user_id = $1",
+  "UPDATE subscription_checkouts SET status = 'FAILED' WHERE user_id = $1 AND status = 'CREATING' AND created_at < $2",
+  "SELECT id, plan_id, abacate_checkout_id, checkout_url FROM subscription_checkouts WHERE user_id = $1 AND status = 'OPEN'",
+  "INSERT INTO subscription_checkouts (user_id, plan_id, status, created_at) VALUES ($1, $2, 'CREATING', $3) ON CONFLICT DO NOTHING RETURNING id",
+  "INSERT INTO subscriptions (user_id, plan_id, status, created_at, updated_at) VALUES ($1, $2, 'pending', $3, $4) ON CONFLICT(user_id) DO UPDATE SET plan_id = excluded.plan_id, status = 'pending', updated_at = excluded.updated_at WHERE COALESCE(subscriptions.current_period_end, '') <= $5 AND (subscriptions.abacate_subscription_id IS NULL OR subscriptions.status = 'canceled')",
+  "UPDATE plans SET abacate_product_id = $1, abacate_product_price_cents = $2 WHERE id = $3 AND price_cents = $4",
+  "UPDATE subscription_checkouts SET status = 'OPEN', abacate_checkout_id = $1, checkout_url = $2 WHERE id = $3 AND status = 'CREATING'",
+]
+`;
+
+exports[`startCardCheckout o SQL (contrato com o banco) 2`] = `
+[
+  [
+    7,
+  ],
+  [
+    7,
+    "2026-11-08 11:58:00",
+  ],
+  [
+    7,
+  ],
+  [
+    7,
+    1,
+    "2026-11-08 12:00:00",
+  ],
+  [
+    7,
+    1,
+    "2026-11-08 12:00:00",
+    "2026-11-08 12:00:00",
+    "2026-11-08 12:00:00",
+  ],
+  [
+    "prod_1",
+    1990,
+    1,
+    1990,
+  ],
+  [
+    "bill_new_1",
+    "https://pay.example.com/new_1",
+    1,
+  ],
+]
+`;
