@@ -74,6 +74,41 @@ export { getSubscription } from './providers/abacatepay/getSubscription';
 export { listSubscriptionsByCheckout } from './providers/abacatepay/listSubscriptionsByCheckout';
 export { type AbacateCycle, toAbacateCycle } from './providers/abacatepay/toAbacateCycle';
 
+export { deleteSubscriptionCheckout } from './providers/abacatepay/deleteSubscriptionCheckout';
+export { isEmptySuccess } from './providers/abacatepay/isEmptySuccess';
+
+// Assinatura recorrente no cartão (T-124b1): a REGRA. A porta única é
+// `applyProviderSubscriptionState`; ninguém mais grava ativação/renovação/
+// cancelamento de cartão.
+export { AlreadySubscribedError } from './AlreadySubscribedError';
+export {
+  type ApplyReason,
+  type ApplyResult,
+  applyProviderSubscriptionState,
+  MAX_ACTIVATION_ATTEMPTS,
+  RENEWAL_WINDOW_DAYS,
+  type SubscriptionRef,
+  type SubscriptionSnapshot,
+  type SubscriptionTransition,
+} from './applyProviderSubscriptionState';
+export { CheckoutInProgressError } from './CheckoutInProgressError';
+export {
+  ensureBillingCustomer,
+  type EnsureBillingCustomerResult,
+} from './ensureBillingCustomer';
+export { type CardPlanRow, ensurePlanProduct } from './ensurePlanProduct';
+export {
+  reconcileCardSubscription,
+  type ReconcileResult,
+  SYNC_INTERVAL_IDLE_SECONDS,
+  SYNC_INTERVAL_OPEN_SECONDS,
+} from './reconcileCardSubscription';
+export {
+  STALE_CREATING_MS,
+  startCardCheckout,
+  type StartCardCheckoutResult,
+} from './startCardCheckout';
+
 // Assinatura do webhook (T-123).
 export {
   verifyWebhookSignature,
