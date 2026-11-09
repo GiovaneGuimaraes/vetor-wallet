@@ -1,13 +1,8 @@
 import type { Query } from '@vetor-wallet/query';
 
-import { ActivationPendingError } from './ActivationPendingError';
-import { AlreadySubscribedError } from './AlreadySubscribedError';
-import { selectUserSubscriptionText } from './applyProviderSubscriptionState';
+import { assertCanStartCheckout } from './assertCanStartCheckout';
 import { CheckoutInProgressError } from './CheckoutInProgressError';
 import { type CardPlanRow, ensurePlanProduct } from './ensurePlanProduct';
-import { getLatestCompletedCheckout } from './getLatestCompletedCheckout';
-import { isActivationPending } from './isActivationPending';
-import { isSubscriptionActive } from './isSubscriptionActive';
 import { parseInstant } from './parseInstant';
 import { createSubscriptionCheckout } from './providers/abacatepay/createSubscriptionCheckout';
 import { deleteSubscriptionCheckout } from './providers/abacatepay/deleteSubscriptionCheckout';
@@ -32,13 +27,6 @@ export interface StartCardCheckoutResult {
   supersededDeleteFailed: boolean;
 }
 
-interface SubRow {
-  status: string;
-  current_period_end: string | null;
-  abacate_subscription_id: string | null;
-  updated_at: string | null;
-}
-
 interface OpenRow {
   id: number;
   plan_id: number;
@@ -51,7 +39,8 @@ interface OpenRow {
  *
  * Ordem, e por quê:
  *
- * 1. **Já assinante → `AlreadySubscribedError`.** Vale para: qualquer
+ * 1. **Já assinante → `AlreadySubscribedError`** (`assertCanStartCheckout`,
+ *    que a rota também chama antes de criar o cliente). Vale para: qualquer
  *    assinatura dentro do período (`isSubscriptionActive` — inclui Pix legado e
  *    `canceled` com período pago: só assina no cartão DEPOIS de vencer); e
  *    assinatura de cartão `active` mesmo VENCIDA localmente — o `subs_` dela
@@ -97,16 +86,7 @@ export const startCardCheckout = async (args: {
   const nowDate = parseInstant(args.nowIso);
   const now = toSqliteUtc(nowDate);
 
-  const subRes = await query<SubRow>({ text: selectUserSubscriptionText, values: [userId] });
-  const sub = subRes.rows[0];
-  if (isSubscriptionActive(sub, now) || (sub?.abacate_subscription_id && sub.status === 'active')) {
-    throw new AlreadySubscribedError();
-  }
-  // Pagou um checkout cuja assinatura ainda não foi gravada (crash/corrida):
-  // abrir outro seria cobrar duas vezes. A saída é o `sync`, que recupera.
-  if (isActivationPending(await getLatestCompletedCheckout({ query, userId }), sub)) {
-    throw new ActivationPendingError();
-  }
+  await assertCanStartCheckout({ query, userId, now });
 
   await query({
     text: `UPDATE subscription_checkouts SET status = 'FAILED'

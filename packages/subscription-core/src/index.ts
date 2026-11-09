@@ -1,13 +1,11 @@
 export { addInterval } from './addInterval';
 export { getActivePlan, getActivePlanText } from './getActivePlan';
-export { getPendingCharge } from './getPendingCharge';
 export { getSubscriptionRow, getSubscriptionRowText } from './getSubscriptionRow';
 export { isBillingEnabled } from './isBillingEnabled';
 export { isSubscriptionActive } from './isSubscriptionActive';
 export { type ActivationResult, markChargePaidAndActivate } from './markChargePaidAndActivate';
 export { nowSqliteUtc } from './nowSqliteUtc';
 export { parseInstant } from './parseInstant';
-export { type PixChargeRow, toPixCharge } from './PixCharge';
 export { type PlanRow, toPlan } from './Plan';
 export { renewalBase } from './renewalBase';
 export { safeEqual } from './safeEqual';
@@ -15,36 +13,18 @@ export { type SubscriptionRow, toSubscription } from './Subscription';
 export { toSqliteUtc } from './toSqliteUtc';
 export { toSqliteUtcFromProvider } from './toSqliteUtcFromProvider';
 
-// Provider AbacatePay — o Pix é um detalhe de implementação da assinatura, não
-// um módulo à parte. Ver `src/providers/abacatepay/` e o CLAUDE.md do package.
+// Provider AbacatePay — detalhe de implementação da assinatura, não um módulo à
+// parte. Ver `src/providers/abacatepay/` e o CLAUDE.md do package. O client do
+// Pix de assinatura saiu na T-124c (só cartão recorrente).
 export { AbacatePayError } from './providers/abacatepay/AbacatePayError';
-export {
-  type AbacatePixCharge,
-  type AbacatePixChargeStatus,
-  type RawAbacateCharge,
-  toAbacatePixCharge,
-} from './providers/abacatepay/AbacatePixCharge';
-export { checkPixCharge } from './providers/abacatepay/checkPixCharge';
-export {
-  createPixCharge,
-  type CreatePixChargeInput,
-  DEFAULT_EXPIRES_IN_SECONDS,
-} from './providers/abacatepay/createPixCharge';
 export { isAbacatePayConfigured } from './providers/abacatepay/isAbacatePayConfigured';
 export {
   ABACATEPAY_DEFAULT_URL,
   ABACATEPAY_TIMEOUT_MS,
   abacatePayRequest,
 } from './providers/abacatepay/request';
-export {
-  FALLBACK_DESCRIPTION,
-  MAX_DESCRIPTION_LENGTH,
-  sanitizeDescription,
-} from './providers/abacatepay/sanitizeDescription';
-export { simulatePixPayment } from './providers/abacatepay/simulatePixPayment';
 
-// Assinatura recorrente no cartão (T-124a): só o client. A regra que o usa é a
-// T-124b1; nada aqui é chamado pelo app ainda.
+// Assinatura recorrente no cartão (T-124a): o client do provedor.
 export {
   type AbacateProduct,
   type RawAbacateProduct,
@@ -93,6 +73,12 @@ export {
   type SubscriptionSnapshot,
   type SubscriptionTransition,
 } from './applyProviderSubscriptionState';
+export { assertCanStartCheckout } from './assertCanStartCheckout';
+export {
+  billingCustomerName,
+  FALLBACK_CUSTOMER_NAME,
+  MAX_CUSTOMER_NAME_LENGTH,
+} from './billingCustomerName';
 export { CheckoutInProgressError } from './CheckoutInProgressError';
 export { ensureBillingCustomer, type EnsureBillingCustomerResult } from './ensureBillingCustomer';
 export { type CardPlanRow, ensurePlanProduct } from './ensurePlanProduct';
