@@ -12,12 +12,21 @@ import {
   fakeCheckout,
   fakeSubscription,
 } from 'tests/unit/fakeBillingDb';
-import { calledPaths, errorEnvelope, mockFetch, okEnvelope, routeFetch } from 'tests/unit/mockFetch';
+import {
+  calledPaths,
+  errorEnvelope,
+  mockFetch,
+  okEnvelope,
+  routeFetch,
+} from 'tests/unit/mockFetch';
 
 const NOW = '2026-11-08 12:00:00';
 const USER = 7;
 
-const reconcile = (db: FakeBillingDb, over: { nowIso?: string; minIntervalSeconds?: number } = {}) => {
+const reconcile = (
+  db: FakeBillingDb,
+  over: { nowIso?: string; minIntervalSeconds?: number } = {}
+) => {
   return reconcileCardSubscription({ query: db.query, userId: USER, nowIso: NOW, ...over });
 };
 
@@ -64,9 +73,17 @@ describe('reconcileCardSubscription', () => {
   });
 
   test('nada a reconciliar (sem checkout aberto nem cartão vivo): não grava nem consulta', async () => {
-    const db = createFakeBillingDb({ subscriptions: [fakeSubscription({ status: 'active', current_period_end: '2026-12-01 00:00:00' })] });
+    const db = createFakeBillingDb({
+      subscriptions: [
+        fakeSubscription({ status: 'active', current_period_end: '2026-12-01 00:00:00' }),
+      ],
+    });
 
-    expect(await reconcile(db)).toEqual({ throttled: false, providerUnavailable: false, results: [] });
+    expect(await reconcile(db)).toEqual({
+      throttled: false,
+      providerUnavailable: false,
+      results: [],
+    });
     expect(fetchMock).not.toHaveBeenCalled();
     expect(db.state.subscriptions[0].last_synced_at).toBeNull();
   });
@@ -74,7 +91,11 @@ describe('reconcileCardSubscription', () => {
   test('sem linha nenhuma também não faz nada', async () => {
     const db = createFakeBillingDb();
 
-    expect(await reconcile(db)).toEqual({ throttled: false, providerUnavailable: false, results: [] });
+    expect(await reconcile(db)).toEqual({
+      throttled: false,
+      providerUnavailable: false,
+      results: [],
+    });
   });
 
   test.each([
@@ -91,7 +112,11 @@ describe('reconcileCardSubscription', () => {
   test('checkout aberto ainda não pago (lista vazia): só carimba last_synced_at', async () => {
     const db = openDb();
 
-    expect(await reconcile(db)).toEqual({ throttled: false, providerUnavailable: false, results: [] });
+    expect(await reconcile(db)).toEqual({
+      throttled: false,
+      providerUnavailable: false,
+      results: [],
+    });
     expect(calledPaths(fetchMock)).toEqual(['/subscriptions/list?checkoutId=bill_1']);
     expect(db.state.subscriptions[0]).toMatchObject({ status: 'pending', last_synced_at: NOW });
   });
@@ -103,9 +128,17 @@ describe('reconcileCardSubscription', () => {
     const res = await reconcile(db);
 
     expect(res.results).toEqual([
-      { applied: true, transition: 'activate', userId: USER, currentPeriodEnd: '2026-12-08 12:00:00' },
+      {
+        applied: true,
+        transition: 'activate',
+        userId: USER,
+        currentPeriodEnd: '2026-12-08 12:00:00',
+      },
     ]);
-    expect(db.state.subscriptions[0]).toMatchObject({ status: 'active', abacate_subscription_id: 'subs_9' });
+    expect(db.state.subscriptions[0]).toMatchObject({
+      status: 'active',
+      abacate_subscription_id: 'subs_9',
+    });
     expect(db.state.checkouts[0].status).toBe('COMPLETED');
   });
 
@@ -124,7 +157,11 @@ describe('reconcileCardSubscription', () => {
     listResponse = errorEnvelope('boom', 503);
     const db = openDb();
 
-    expect(await reconcile(db)).toEqual({ throttled: false, providerUnavailable: true, results: [] });
+    expect(await reconcile(db)).toEqual({
+      throttled: false,
+      providerUnavailable: true,
+      results: [],
+    });
     expect(db.state.subscriptions[0].status).toBe('pending');
   });
 
@@ -160,7 +197,11 @@ describe('reconcileCardSubscription', () => {
     const res = await reconcile(db);
 
     expect(res.results).toEqual([{ applied: true, transition: 'cancel', userId: USER }]);
-    expect(db.state.subscriptions[0]).toMatchObject({ status: 'canceled', canceled_at: NOW, current_period_end: '2026-11-20 00:00:00' });
+    expect(db.state.subscriptions[0]).toMatchObject({
+      status: 'canceled',
+      canceled_at: NOW,
+      current_period_end: '2026-11-20 00:00:00',
+    });
   });
 
   test('cartão ACTIVE com fim dentro da janela → renovação DEDUZIDA', async () => {
@@ -176,7 +217,11 @@ describe('reconcileCardSubscription', () => {
   test('cartão ACTIVE com fim longe → não tenta renovar', async () => {
     const db = cardDb('2026-11-30 12:00:00');
 
-    expect(await reconcile(db)).toEqual({ throttled: false, providerUnavailable: false, results: [] });
+    expect(await reconcile(db)).toEqual({
+      throttled: false,
+      providerUnavailable: false,
+      results: [],
+    });
     expect(db.state.subscriptions[0].current_period_end).toBe('2026-11-30 12:00:00');
     expect(calledPaths(fetchMock)).toEqual(['/subscriptions/get?id=subs_1']);
   });
@@ -189,18 +234,25 @@ describe('reconcileCardSubscription', () => {
     ]);
   });
 
-  test.each(['PENDING', 'FAILED', 'WHATEVER'])('cartão %s no provedor: nada muda', async (status) => {
-    getResponse = okEnvelope({ id: 'subs_1', status });
-    const db = cardDb('2026-11-09 12:00:00');
+  test.each(['PENDING', 'FAILED', 'WHATEVER'])(
+    'cartão %s no provedor: nada muda',
+    async (status) => {
+      getResponse = okEnvelope({ id: 'subs_1', status });
+      const db = cardDb('2026-11-09 12:00:00');
 
-    expect((await reconcile(db)).results).toEqual([]);
-  });
+      expect((await reconcile(db)).results).toEqual([]);
+    }
+  );
 
   test('provedor fora do ar na leitura da assinatura → providerUnavailable', async () => {
     getResponse = errorEnvelope('Subscription not found', 400);
     const db = cardDb('2026-11-09 12:00:00');
 
-    expect(await reconcile(db)).toEqual({ throttled: false, providerUnavailable: true, results: [] });
+    expect(await reconcile(db)).toEqual({
+      throttled: false,
+      providerUnavailable: true,
+      results: [],
+    });
   });
 
   describe('throttling', () => {
@@ -211,9 +263,13 @@ describe('reconcileCardSubscription', () => {
     });
 
     test(`sem checkout aberto: ${SYNC_INTERVAL_IDLE_SECONDS} s`, async () => {
-      expect((await reconcile(cardDb('2026-11-30 00:00:00', '2026-11-08 11:55:01'))).throttled).toBe(true);
+      expect(
+        (await reconcile(cardDb('2026-11-30 00:00:00', '2026-11-08 11:55:01'))).throttled
+      ).toBe(true);
       expect(fetchMock).not.toHaveBeenCalled();
-      expect((await reconcile(cardDb('2026-11-30 00:00:00', '2026-11-08 11:55:00'))).throttled).toBe(false);
+      expect(
+        (await reconcile(cardDb('2026-11-30 00:00:00', '2026-11-08 11:55:00'))).throttled
+      ).toBe(false);
     });
 
     test('minIntervalSeconds explícito vence o default', async () => {
@@ -225,7 +281,11 @@ describe('reconcileCardSubscription', () => {
     test('throttled devolve o estado local sem chamar o provedor nem gravar', async () => {
       const db = openDb('2026-11-08 11:59:58');
 
-      expect(await reconcile(db)).toEqual({ throttled: true, providerUnavailable: false, results: [] });
+      expect(await reconcile(db)).toEqual({
+        throttled: true,
+        providerUnavailable: false,
+        results: [],
+      });
       expect(db.state.subscriptions[0].last_synced_at).toBe('2026-11-08 11:59:58');
     });
 

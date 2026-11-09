@@ -80,6 +80,14 @@ src/
 ├── getSubscriptionRow.ts
 ├── getPendingCharge.ts
 ├── markChargePaidAndActivate.ts # ativação (query injetado, T-114)
+│   # ── assinatura recorrente no cartão: a REGRA (T-124b1) ──
+├── AlreadySubscribedError.ts    # → 409 ALREADY_SUBSCRIBED na rota
+├── CheckoutInProgressError.ts   # → 409 CHECKOUT_IN_PROGRESS na rota
+├── ensureBillingCustomer.ts     # cust_ por usuário (billing_customers)
+├── ensurePlanProduct.ts         # prod_ por (plano, preço) (plans.abacate_product_*)
+├── startCardCheckout.ts         # CREATING → OPEN; reaproveita/supersede
+├── applyProviderSubscriptionState.ts # A PORTA ÚNICA (activate/renew/…)
+├── reconcileCardSubscription.ts # consulta à API + throttling
 └── providers/abacatepay/
     ├── AbacatePayError.ts
     ├── AbacatePixCharge.ts      # tipos + toAbacatePixCharge
@@ -103,19 +111,24 @@ src/
     ├── listSubscriptionsByCheckout.ts # [] antes do pagamento é válido
     ├── cancelSubscription.ts    # cancela IMEDIATAMENTE
     ├── createCustomerPortal.ts
-    └── archiveProduct.ts        # limpeza
+    ├── archiveProduct.ts        # limpeza
+    ├── deleteSubscriptionCheckout.ts # apaga bill_ aberto (T-124b1)
+    ├── isEmptySuccess.ts        # 2xx sem data = sucesso das ações void (T-124b1)
+    └── abacatePayErrorText.ts   # texto do `error` do envelope
 ```
 
-**Cartão (T-124a).** O schema (`billing_customers`, `subscription_checkouts`,
-colunas novas em `plans`/`subscriptions` — ver `docs/decisions/db-schema.md`) e
-o client acima existem, mas **nada no app os usa ainda**: a regra é a T-124b1 e
-as rotas a T-124b2. Contratos medidos na API real (2026-11-08): `externalId`
-de produto repetido → 400 "already exists"; assinatura inexistente → 400
-"Subscription not found"; `/subscriptions/list` responde `data: []` antes do
-pagamento; o checkout volta como `bill_…` e o `subs_…` só nasce pago. Não
-medidos (a confirmar na T-124b1): o corpo de sucesso de `/subscriptions/cancel`
-(se vier `data: null`, o `abacatePayRequest` lança) e o formato exato de
-"produto não encontrado" em `/products/get`.
+**Cartão (T-124a/T-124b1).** O schema (`billing_customers`,
+`subscription_checkouts`, colunas novas em `plans`/`subscriptions` — ver
+`docs/decisions/db-schema.md`), o client acima e a regra (seção "Cartão: a
+porta única", abaixo) existem, mas **nenhuma rota os chama ainda**: as rotas
+são a T-124b2/c e o webhook `subscription.*` a T-124d. Contratos medidos na API
+real (2026-11-08): `externalId` de produto repetido → 400 "already exists";
+assinatura inexistente → 400 "Subscription not found"; `/subscriptions/list`
+responde `data: []` antes do pagamento; o checkout volta como `bill_…` e o
+`subs_…` só nasce pago. Ainda não medidos: o corpo de sucesso de
+`/subscriptions/cancel` (tratado na T-124b1: `data: null` com 2xx e sem `error`
+conta como sucesso — `isEmptySuccess`) e o formato exato de "produto não
+encontrado" em `/products/get`.
 
 **Um arquivo por função exportada, nome do arquivo = nome da função.** Tipos de
 linha ficam junto do mapper que os projeta (`Plan.ts`, `PixCharge.ts`). Nada de
@@ -168,7 +181,106 @@ trocou esse piloto de `db` para `query`, mesmo molde de `savings-core` e
   28/02, não 03/03 por overflow do `setUTCMonth`; 29/02 + 1 ano → 28/02).
 - `renewalBase(agora, fim vigente)` = o maior dos dois: renovar antes de vencer
   soma ao que resta; renovar depois conta de agora.
-- `isSubscriptionActive`: `active` com período **vencido** não vale.
+- `isSubscriptionActive`: `active` com período **vencido** não vale. Desde a
+  T-124b1, `canceled` com período **no futuro vale** (decisão 4 do humano:
+  cancelar = acesso até o fim do período pago); vencido, não. O gate
+  `requireActiveSubscription` herda isso sem mudar.
+
+### Cartão: a porta única (T-124b1)
+
+Plano completo em `docs/multi-agent/plano-t-124.md` (§A e §C).
+`applyProviderSubscriptionState({ query, ref, transition, snapshot, nowIso, plan? })`
+é a **única** função que grava ativação, renovação, falha de pagamento,
+cancelamento ou troca de plano de assinatura de cartão. Webhook (T-124d) e
+consulta (`reconcileCardSubscription`) chamam ela.
+
+- **Decide pelo `rowCount` do UPDATE condicional, nunca por SELECT antes.** Os
+  SELECTs só acham dono e plano; "esta chamada aplicou" é sempre o `rowCount`
+  de uma escrita com a condição no `WHERE`:
+  - `activate`: `UPDATE subscription_checkouts … WHERE abacate_checkout_id=$ AND
+    status <> 'COMPLETED'` — só quem tem `rowCount = 1` calcula período. Depois,
+    o UPSERT de `subscriptions` é **otimista** (`ON CONFLICT … DO UPDATE …
+    WHERE status/current_period_end/abacate_subscription_id` ainda são os
+    lidos); perdeu → relê e tenta de novo, até `MAX_ACTIVATION_ATTEMPTS` (3),
+    depois lança. É o que pega dois checkouts DIFERENTES pagos ao mesmo tempo:
+    o segundo relê, vê o `subs_` do primeiro e vira duplicada em vez de
+    sobrescrevê-lo (o `subs_` sobrescrito continuaria cobrando sem ninguém ver).
+  - `renew`: `UPDATE … WHERE current_period_end = $antigo AND
+    current_period_end <= agora + RENEWAL_WINDOW_DAYS (3) AND status='active'` —
+    webhook e consulta não estendem duas vezes; `ACTIVE` lido no meio do
+    período não estende antes da hora. Novo fim =
+    `addInterval(renewalBase(agora, fim antigo))`, ou a data de próxima
+    cobrança do provedor quando válida e futura; se ela não passa do fim que já
+    temos, **nega** (`provider_not_renewed`): o provedor ainda não renovou.
+  - `payment_failed` (só `provider_status`), `cancel` (`WHERE status <>
+    'canceled'`, `canceled_at` não é reescrito), `plan_changed` (plano por
+    `plans.abacate_product_id`; desconhecido → no-op com motivo).
+- **Dono sempre do nosso banco**: `subscription_checkouts.user_id` na ativação,
+  `subscriptions.user_id` (por `abacate_subscription_id`) no resto. Ativação só
+  por `{ checkoutId }` — por `subs_` não há dono conhecido. O plano ativado é o
+  da LINHA do checkout (checkout antigo pago depois da troca de plano ativa o
+  plano dele).
+- **Só `id`, `status`, `providerStatus` e `nextBillingAt` do snapshot** são
+  lidos; os demais campos de `AbacateSubscription` nunca foram vistos num
+  pagamento real. `activate`/`renew` exigem `status === 'ACTIVE'` e `id`.
+- **Em dúvida, nega** e devolve `{ applied: false, reason }` — a rota loga. Core
+  não loga.
+- **Duplicada** (decisão 6): ativação de um `subs_` quando a linha já tem
+  OUTRO `subs_` com `status = 'active'` (mesmo vencida localmente — pode estar
+  cobrando) → `{ duplicate: true, subscriptionIdToCancel: <o novo> }`, período
+  intocado, checkout fica `COMPLETED` com o `subs_` novo como registro. **Quem
+  cancela no provedor e registra o reembolso no TODO-HUMANO é a rota**
+  (`cancelSubscription`; para PROVA do cancelamento, reler com
+  `getSubscription` e conferir `CANCELLED`). O mesmo `subs_` chegando por outro
+  checkout, ou a reentrega de uma ativação já aplicada, é no-op
+  (`already_applied`) — nem estende nem pede um 2º cancelamento.
+- **Janela sem rede** (mesma da porta do Pix): se o processo morrer entre o
+  UPDATE do checkout e o UPSERT da assinatura, o checkout fica `COMPLETED` sem a
+  assinatura gravada, e a reconciliação não corrige sozinha (ela parte da linha
+  `OPEN` ou do `subs_` já gravado). Reconciliação manual.
+
+`startCardCheckout`: `AlreadySubscribedError` para qualquer assinatura dentro do
+período (`isSubscriptionActive` — inclui Pix legado e `canceled` com período
+pago) **e para cartão `active` com `subs_` mesmo vencido localmente** (pode estar
+cobrando; o caminho é `sync` ou cancelar pelo portal). `CREATING` >2 min →
+`FAILED`; `OPEN` do mesmo plano é devolvido sem chamar o provedor; de outro plano
+vira `SUPERSEDED` (e é apagado no provedor, melhor esforço). A linha `CREATING`
+nasce ANTES do provedor com `ON CONFLICT DO NOTHING RETURNING id` — sem linha de
+volta, o índice único parcial recusou → `CheckoutInProgressError`. O UPSERT
+`pending` vem antes do provedor (todo `OPEN` tem linha em `subscriptions`, onde
+mora o throttling) e não rebaixa período pago nem cartão não cancelado. Falha do
+provedor → `FAILED` + relança. O `customerId` chega pronto de
+`ensureBillingCustomer` (a rota cruza o auth-core para e-mail/nome).
+
+`ensurePlanProduct`: `externalId` do produto = **`<code>:<price_cents>`**, não só
+o `code` (decisão da T-124b1): a AbacatePay não muda preço de produto nem aceita
+`externalId` repetido, então com a chave só no código um preço novo acharia o
+produto do preço velho. Com o preço na chave, preço novo = produto novo, e as
+assinaturas antigas seguem no produto delas (plano §G). Produto achado com preço
+declarado diferente do plano → lança (nunca cobra valor errado). Corrida →
+400 "already exists" → relê por `externalId`.
+
+`ensureBillingCustomer`: `INSERT … ON CONFLICT(user_id) DO NOTHING`; `rowCount`
+0 = perdeu a corrida → relê o vencedor e devolve o próprio `cust_` como
+`orphanCustomerId` (a rota loga para limpeza).
+
+`reconcileCardSubscription`: throttling por UPDATE condicional em
+`subscriptions.last_synced_at` (10 s com checkout `OPEN`, 300 s nos demais, ou
+`minIntervalSeconds`). `OPEN` → `listSubscriptionsByCheckout` (`ACTIVE` com id
+→ `activate`); cartão `active` com `subs_` → `getSubscription` (`CANCELLED` →
+`cancel`; `ACTIVE` com fim dentro da janela → `renew` **deduzida**). **O custo da
+dedução**: o provedor não diz "a cobrança deste ciclo passou"; se `ACTIVE`
+continuar `ACTIVE` durante as retentativas de um cartão recusado, o usuário ganha
+até ~um período sem ter pago (aceito no plano §H). A data de próxima cobrança,
+quando vier, vence a dedução. `AbacatePayError` → `providerUnavailable: true`,
+nunca lança; erro de banco (ou bug) sobe.
+
+Evidência contra SQLite real (`initDb` + `createSqliteQuery`, script fora do
+repo): `ON CONFLICT DO NOTHING RETURNING id` devolve linha vazia no conflito, e
+o UPSERT com `DO UPDATE … WHERE` falso dá `rowCount` 0 — as duas semânticas de
+que a porta depende. Os testes usam `tests/unit/fakeBillingDb.ts`, um banco de
+mentira COM estado que reproduz essas semânticas e intercala instruções em
+`Promise.all`.
 
 ### Ativação: uma porta só
 
@@ -254,6 +366,7 @@ tests/
     ├── jest.stryker.config.ts
     ├── setupTests.ts       # limpa env de billing entre casos
     ├── testQuery.ts        # Query de mentira (T-114; substituiu createMockDb.ts)
+    ├── fakeBillingDb.ts    # Query COM estado p/ a regra do cartão (corridas, T-124b1)
     ├── mockFetch.ts        # fetch global de mentira
     └── tests/*.test.ts     # UM por arquivo de src/
 ```

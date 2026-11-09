@@ -2,12 +2,23 @@ import type { QueryConfig } from '@vetor-wallet/query';
 
 import { ensureBillingCustomer } from 'src/ensureBillingCustomer';
 import { createFakeBillingDb, type FakeBillingDb } from 'tests/unit/fakeBillingDb';
-import { calledPaths, errorEnvelope, mockFetch, okEnvelope, routeFetch } from 'tests/unit/mockFetch';
+import {
+  calledPaths,
+  errorEnvelope,
+  mockFetch,
+  okEnvelope,
+  routeFetch,
+} from 'tests/unit/mockFetch';
 
 const USER = 7;
 
 const ensure = (db: FakeBillingDb) => {
-  return ensureBillingCustomer({ query: db.query, userId: USER, email: 'ana@example.com', name: 'Ana' });
+  return ensureBillingCustomer({
+    query: db.query,
+    userId: USER,
+    email: 'ana@example.com',
+    name: 'Ana',
+  });
 };
 
 describe('ensureBillingCustomer', () => {
@@ -28,7 +39,9 @@ describe('ensureBillingCustomer', () => {
   });
 
   test('já existe: devolve sem chamar o provedor', async () => {
-    const db = createFakeBillingDb({ customers: [{ user_id: USER, abacate_customer_id: 'cust_old' }] });
+    const db = createFakeBillingDb({
+      customers: [{ user_id: USER, abacate_customer_id: 'cust_old' }],
+    });
 
     expect(await ensure(db)).toEqual({ customerId: 'cust_old', created: false });
     expect(fetchMock).not.toHaveBeenCalled();
@@ -38,7 +51,10 @@ describe('ensureBillingCustomer', () => {
     const db = createFakeBillingDb();
 
     expect(await ensure(db)).toEqual({ customerId: 'cust_1', created: true });
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ email: 'ana@example.com', name: 'Ana' });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      email: 'ana@example.com',
+      name: 'Ana',
+    });
     expect(db.state.customers).toEqual([{ user_id: USER, abacate_customer_id: 'cust_1' }]);
   });
 

@@ -160,14 +160,16 @@ export const createFakeBillingDb = (initial: Partial<FakeState> = {}): FakeBilli
     }
   };
 
-  // eslint-disable-next-line complexity
   const exec = (sql: string, v: unknown[]): QueryResult<Record<string, unknown>> => {
     // ── billing_customers ──
     if (sql.startsWith('SELECT abacate_customer_id FROM billing_customers WHERE user_id = $1')) {
       const c = state.customers.find((x) => x.user_id === v[0]);
       return ok(c ? [{ abacate_customer_id: c.abacate_customer_id }] : []);
     }
-    if (sql.startsWith('INSERT INTO billing_customers') && sql.includes('ON CONFLICT(user_id) DO NOTHING')) {
+    if (
+      sql.startsWith('INSERT INTO billing_customers') &&
+      sql.includes('ON CONFLICT(user_id) DO NOTHING')
+    ) {
       if (state.customers.some((x) => x.user_id === v[0])) return ok([], 0);
       if (state.customers.some((x) => x.abacate_customer_id === v[1])) {
         throw uniqueError('billing_customers.abacate_customer_id');
@@ -185,7 +187,11 @@ export const createFakeBillingDb = (initial: Partial<FakeState> = {}): FakeBilli
       const p = state.plans.find((x) => x.abacate_product_id === v[0]);
       return ok(p ? [{ id: p.id }] : []);
     }
-    if (sql.startsWith('UPDATE plans SET abacate_product_id = $1, abacate_product_price_cents = $2 WHERE id = $3 AND price_cents = $4')) {
+    if (
+      sql.startsWith(
+        'UPDATE plans SET abacate_product_id = $1, abacate_product_price_cents = $2 WHERE id = $3 AND price_cents = $4'
+      )
+    ) {
       const p = state.plans.find((x) => x.id === v[2] && x.price_cents === v[3]);
       if (!p) return ok([], 0);
       p.abacate_product_id = v[0] as string;
@@ -194,25 +200,60 @@ export const createFakeBillingDb = (initial: Partial<FakeState> = {}): FakeBilli
     }
 
     // ── subscriptions: leituras ──
-    if (sql === 'SELECT status, current_period_end, abacate_subscription_id FROM subscriptions WHERE user_id = $1') {
+    if (
+      sql ===
+      'SELECT status, current_period_end, abacate_subscription_id FROM subscriptions WHERE user_id = $1'
+    ) {
       const s = subByUser(v[0]);
       return ok(
         s
-          ? [{ status: s.status, current_period_end: s.current_period_end, abacate_subscription_id: s.abacate_subscription_id }]
+          ? [
+              {
+                status: s.status,
+                current_period_end: s.current_period_end,
+                abacate_subscription_id: s.abacate_subscription_id,
+              },
+            ]
           : []
       );
     }
-    if (sql === 'SELECT user_id, plan_id, status, current_period_end FROM subscriptions WHERE abacate_subscription_id = $1') {
+    if (
+      sql ===
+      'SELECT user_id, plan_id, status, current_period_end FROM subscriptions WHERE abacate_subscription_id = $1'
+    ) {
       const s = subBySubsId(v[0]);
-      return ok(s ? [{ user_id: s.user_id, plan_id: s.plan_id, status: s.status, current_period_end: s.current_period_end }] : []);
+      return ok(
+        s
+          ? [
+              {
+                user_id: s.user_id,
+                plan_id: s.plan_id,
+                status: s.status,
+                current_period_end: s.current_period_end,
+              },
+            ]
+          : []
+      );
     }
 
     // ── subscriptions: UPSERT pending (startCardCheckout) ──
-    if (sql.startsWith('INSERT INTO subscriptions (user_id, plan_id, status, created_at, updated_at)') && sql.includes("'pending'")) {
+    if (
+      sql.startsWith(
+        'INSERT INTO subscriptions (user_id, plan_id, status, created_at, updated_at)'
+      ) &&
+      sql.includes("'pending'")
+    ) {
       const [userId, planId, , updatedAt, now] = v as [number, number, string, string, string];
       const s = subByUser(userId);
       if (!s) {
-        state.subscriptions.push(fakeSubscription({ user_id: userId, plan_id: planId, status: 'pending', updated_at: updatedAt }));
+        state.subscriptions.push(
+          fakeSubscription({
+            user_id: userId,
+            plan_id: planId,
+            status: 'pending',
+            updated_at: updatedAt,
+          })
+        );
         return ok([], 1);
       }
       const periodOver = (s.current_period_end ?? '') <= now;
@@ -226,9 +267,19 @@ export const createFakeBillingDb = (initial: Partial<FakeState> = {}): FakeBilli
 
     // ── subscriptions: UPSERT otimista da ativação ──
     if (sql.startsWith('INSERT INTO subscriptions') && sql.includes("'abacatepay_card'")) {
-      const [userId, planId, end, subsId, providerStatus, , updatedAt, expStatus, expEnd, expSubs] = v as [
-        number, number, string, string, string | null, string, string, string, string, string,
-      ];
+      const [userId, planId, end, subsId, providerStatus, , updatedAt, expStatus, expEnd, expSubs] =
+        v as [
+          number,
+          number,
+          string,
+          string,
+          string | null,
+          string,
+          string,
+          string,
+          string,
+          string,
+        ];
       const s = subByUser(userId);
       if (!s) {
         const row = fakeSubscription({
@@ -267,7 +318,11 @@ export const createFakeBillingDb = (initial: Partial<FakeState> = {}): FakeBilli
     }
 
     // ── subscriptions: UPDATEs da porta e do throttling ──
-    if (sql.startsWith('UPDATE subscriptions SET current_period_end = $1, provider_status = $2, updated_at = $3')) {
+    if (
+      sql.startsWith(
+        'UPDATE subscriptions SET current_period_end = $1, provider_status = $2, updated_at = $3'
+      )
+    ) {
       const [end, ps, now, subsId, oldEnd, limit] = v as string[];
       const s = subBySubsId(subsId);
       if (!s || s.status !== 'active' || s.current_period_end === null) return ok([], 0);
@@ -284,7 +339,12 @@ export const createFakeBillingDb = (initial: Partial<FakeState> = {}): FakeBilli
     if (sql.startsWith("UPDATE subscriptions SET status = 'canceled'")) {
       const s = subBySubsId(v[3]);
       if (!s || s.status === 'canceled') return ok([], 0);
-      Object.assign(s, { status: 'canceled', canceled_at: v[0], provider_status: v[1], updated_at: v[2] });
+      Object.assign(s, {
+        status: 'canceled',
+        canceled_at: v[0],
+        provider_status: v[1],
+        updated_at: v[2],
+      });
       return ok([], 1);
     }
     if (sql.startsWith('UPDATE subscriptions SET plan_id = $1, updated_at = $2')) {
@@ -295,43 +355,90 @@ export const createFakeBillingDb = (initial: Partial<FakeState> = {}): FakeBilli
     }
     if (sql.startsWith('UPDATE subscriptions SET last_synced_at = $1')) {
       const s = subByUser(v[1]);
-      if (!s || (s.last_synced_at !== null && s.last_synced_at > (v[2] as string))) return ok([], 0);
+      if (!s || (s.last_synced_at !== null && s.last_synced_at > (v[2] as string)))
+        return ok([], 0);
       s.last_synced_at = v[0] as string;
       return ok([], 1);
     }
 
     // ── subscription_checkouts ──
-    if (sql.startsWith("UPDATE subscription_checkouts SET status = 'FAILED' WHERE user_id = $1 AND status = 'CREATING' AND created_at < $2")) {
-      const hit = state.checkouts.filter((c) => c.user_id === v[0] && c.status === 'CREATING' && c.created_at < (v[1] as string));
+    if (
+      sql.startsWith(
+        "UPDATE subscription_checkouts SET status = 'FAILED' WHERE user_id = $1 AND status = 'CREATING' AND created_at < $2"
+      )
+    ) {
+      const hit = state.checkouts.filter(
+        (c) => c.user_id === v[0] && c.status === 'CREATING' && c.created_at < (v[1] as string)
+      );
       hit.forEach((c) => (c.status = 'FAILED'));
       return ok([], hit.length);
     }
-    if (sql === "SELECT id, plan_id, abacate_checkout_id, checkout_url FROM subscription_checkouts WHERE user_id = $1 AND status = 'OPEN'") {
+    if (
+      sql ===
+      "SELECT id, plan_id, abacate_checkout_id, checkout_url FROM subscription_checkouts WHERE user_id = $1 AND status = 'OPEN'"
+    ) {
       const c = state.checkouts.find((x) => x.user_id === v[0] && x.status === 'OPEN');
-      return ok(c ? [{ id: c.id, plan_id: c.plan_id, abacate_checkout_id: c.abacate_checkout_id, checkout_url: c.checkout_url }] : []);
+      return ok(
+        c
+          ? [
+              {
+                id: c.id,
+                plan_id: c.plan_id,
+                abacate_checkout_id: c.abacate_checkout_id,
+                checkout_url: c.checkout_url,
+              },
+            ]
+          : []
+      );
     }
-    if (sql === "SELECT abacate_checkout_id FROM subscription_checkouts WHERE user_id = $1 AND status = 'OPEN'") {
+    if (
+      sql ===
+      "SELECT abacate_checkout_id FROM subscription_checkouts WHERE user_id = $1 AND status = 'OPEN'"
+    ) {
       const c = state.checkouts.find((x) => x.user_id === v[0] && x.status === 'OPEN');
       return ok(c ? [{ abacate_checkout_id: c.abacate_checkout_id }] : []);
     }
-    if (sql.startsWith("UPDATE subscription_checkouts SET status = 'SUPERSEDED' WHERE id = $1 AND status = 'OPEN'")) {
+    if (
+      sql.startsWith(
+        "UPDATE subscription_checkouts SET status = 'SUPERSEDED' WHERE id = $1 AND status = 'OPEN'"
+      )
+    ) {
       const c = state.checkouts.find((x) => x.id === v[0] && x.status === 'OPEN');
       if (!c) return ok([], 0);
       c.status = 'SUPERSEDED';
       return ok([], 1);
     }
-    if (sql.startsWith('INSERT INTO subscription_checkouts') && sql.includes('ON CONFLICT DO NOTHING RETURNING id')) {
+    if (
+      sql.startsWith('INSERT INTO subscription_checkouts') &&
+      sql.includes('ON CONFLICT DO NOTHING RETURNING id')
+    ) {
       const [userId, planId, createdAt] = v as [number, number, string];
-      if (state.checkouts.some((c) => c.user_id === userId && (c.status === 'CREATING' || c.status === 'OPEN'))) {
+      if (
+        state.checkouts.some(
+          (c) => c.user_id === userId && (c.status === 'CREATING' || c.status === 'OPEN')
+        )
+      ) {
         return ok([], 0);
       }
       const id = nextCheckoutId++;
       state.checkouts.push(
-        fakeCheckout({ id, user_id: userId, plan_id: planId, abacate_checkout_id: null, checkout_url: null, status: 'CREATING', created_at: createdAt })
+        fakeCheckout({
+          id,
+          user_id: userId,
+          plan_id: planId,
+          abacate_checkout_id: null,
+          checkout_url: null,
+          status: 'CREATING',
+          created_at: createdAt,
+        })
       );
       return ok([{ id }], 1);
     }
-    if (sql.startsWith("UPDATE subscription_checkouts SET status = 'FAILED' WHERE id = $1 AND status = 'CREATING'")) {
+    if (
+      sql.startsWith(
+        "UPDATE subscription_checkouts SET status = 'FAILED' WHERE id = $1 AND status = 'CREATING'"
+      )
+    ) {
       const c = state.checkouts.find((x) => x.id === v[0] && x.status === 'CREATING');
       if (!c) return ok([], 0);
       c.status = 'FAILED';
@@ -352,11 +459,16 @@ export const createFakeBillingDb = (initial: Partial<FakeState> = {}): FakeBilli
       Object.assign(c, { status: 'COMPLETED', abacate_subscription_id: v[0], completed_at: v[1] });
       return ok([], 1);
     }
-    if (sql === 'SELECT user_id, plan_id FROM subscription_checkouts WHERE abacate_checkout_id = $1') {
+    if (
+      sql === 'SELECT user_id, plan_id FROM subscription_checkouts WHERE abacate_checkout_id = $1'
+    ) {
       const c = checkoutByBill(v[0]);
       return ok(c ? [{ user_id: c.user_id, plan_id: c.plan_id }] : []);
     }
-    if (sql === 'SELECT abacate_subscription_id FROM subscription_checkouts WHERE abacate_checkout_id = $1') {
+    if (
+      sql ===
+      'SELECT abacate_subscription_id FROM subscription_checkouts WHERE abacate_checkout_id = $1'
+    ) {
       const c = checkoutByBill(v[0]);
       return ok(c ? [{ abacate_subscription_id: c.abacate_subscription_id }] : []);
     }

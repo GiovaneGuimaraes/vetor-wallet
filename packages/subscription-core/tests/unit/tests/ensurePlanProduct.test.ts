@@ -69,17 +69,25 @@ describe('ensurePlanProduct', () => {
       currency: 'BRL',
       cycle: 'MONTHLY',
     });
-    expect(db.state.plans[0]).toMatchObject({ abacate_product_id: 'prod_1', abacate_product_price_cents: 1990 });
+    expect(db.state.plans[0]).toMatchObject({
+      abacate_product_id: 'prod_1',
+      abacate_product_price_cents: 1990,
+    });
   });
 
   test('plano anual cria com ciclo ANNUALLY', async () => {
     catalogProvider(fetchMock);
-    const db = createFakeBillingDb({ plans: [fakePlan({ code: 'pro_yearly', interval: 'yearly', price_cents: 19900 })] });
+    const db = createFakeBillingDb({
+      plans: [fakePlan({ code: 'pro_yearly', interval: 'yearly', price_cents: 19900 })],
+    });
 
     await ensure(db);
 
     const create = fetchMock.mock.calls.find(([u]) => String(u).endsWith('/products/create'))!;
-    expect(JSON.parse(create[1].body)).toMatchObject({ cycle: 'ANNUALLY', externalId: 'pro_yearly:19900' });
+    expect(JSON.parse(create[1].body)).toMatchObject({
+      cycle: 'ANNUALLY',
+      externalId: 'pro_yearly:19900',
+    });
   });
 
   test('produto já existe no provedor (banco perdeu o vínculo): reaproveita, não cria', async () => {
@@ -92,14 +100,25 @@ describe('ensurePlanProduct', () => {
   });
 
   test('PREÇO MUDOU: não reaproveita o produto do preço velho — cria outro, com outra chave', async () => {
-    const catalog = catalogProvider(fetchMock, [{ id: 'prod_old', externalId: 'pro_monthly:1990', price: 1990 }]);
+    const catalog = catalogProvider(fetchMock, [
+      { id: 'prod_old', externalId: 'pro_monthly:1990', price: 1990 },
+    ]);
     const db = createFakeBillingDb({
-      plans: [fakePlan({ price_cents: 2490, abacate_product_id: 'prod_old', abacate_product_price_cents: 1990 })],
+      plans: [
+        fakePlan({
+          price_cents: 2490,
+          abacate_product_id: 'prod_old',
+          abacate_product_price_cents: 1990,
+        }),
+      ],
     });
 
     expect(await ensure(db)).toEqual({ productId: 'prod_1', created: true });
     expect(catalog.map((p) => p.externalId)).toEqual(['pro_monthly:1990', 'pro_monthly:2490']);
-    expect(db.state.plans[0]).toMatchObject({ abacate_product_id: 'prod_1', abacate_product_price_cents: 2490 });
+    expect(db.state.plans[0]).toMatchObject({
+      abacate_product_id: 'prod_1',
+      abacate_product_price_cents: 2490,
+    });
   });
 
   test('CORRIDA: dois ao mesmo tempo → um cria, o outro leva 400 "already exists" e relê o mesmo produto', async () => {
@@ -117,7 +136,8 @@ describe('ensurePlanProduct', () => {
   test('400 "already exists" mas a releitura não acha: relança o erro original', async () => {
     routeFetch(fetchMock, (path) => {
       if (path.startsWith('/products/get')) return errorEnvelope('Product not found', 404);
-      if (path === '/products/create') return errorEnvelope('Product with externalId already exists', 400);
+      if (path === '/products/create')
+        return errorEnvelope('Product with externalId already exists', 400);
       return undefined;
     });
     const db = createFakeBillingDb();
@@ -153,7 +173,9 @@ describe('ensurePlanProduct', () => {
     catalogProvider(fetchMock, [{ id: 'prod_x', externalId: 'pro_monthly:1990', price: 999 }]);
     const db = createFakeBillingDb();
 
-    await expect(ensure(db)).rejects.toThrow('Produto prod_x tem preço 999 no provedor, plano cobra 1990');
+    await expect(ensure(db)).rejects.toThrow(
+      'Produto prod_x tem preço 999 no provedor, plano cobra 1990'
+    );
     expect(db.state.plans[0].abacate_product_id).toBeNull();
   });
 

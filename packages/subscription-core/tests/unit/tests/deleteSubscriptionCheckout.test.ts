@@ -1,5 +1,11 @@
 import { deleteSubscriptionCheckout } from 'src/providers/abacatepay/deleteSubscriptionCheckout';
-import { errorEnvelope, mockFetch, okEnvelope, rawResponse, sentRequest } from 'tests/unit/mockFetch';
+import {
+  errorEnvelope,
+  mockFetch,
+  okEnvelope,
+  rawResponse,
+  sentRequest,
+} from 'tests/unit/mockFetch';
 
 describe('deleteSubscriptionCheckout', () => {
   let fetchMock: jest.Mock;

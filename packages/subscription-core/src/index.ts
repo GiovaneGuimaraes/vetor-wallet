@@ -92,10 +92,7 @@ export {
   type SubscriptionTransition,
 } from './applyProviderSubscriptionState';
 export { CheckoutInProgressError } from './CheckoutInProgressError';
-export {
-  ensureBillingCustomer,
-  type EnsureBillingCustomerResult,
-} from './ensureBillingCustomer';
+export { ensureBillingCustomer, type EnsureBillingCustomerResult } from './ensureBillingCustomer';
 export { type CardPlanRow, ensurePlanProduct } from './ensurePlanProduct';
 export {
   reconcileCardSubscription,

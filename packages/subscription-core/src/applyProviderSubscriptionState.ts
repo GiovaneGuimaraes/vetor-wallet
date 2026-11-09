@@ -14,11 +14,7 @@ export const RENEWAL_WINDOW_DAYS = 3;
 export const MAX_ACTIVATION_ATTEMPTS = 3;
 
 export type SubscriptionTransition =
-  | 'activate'
-  | 'renew'
-  | 'payment_failed'
-  | 'cancel'
-  | 'plan_changed';
+  'activate' | 'renew' | 'payment_failed' | 'cancel' | 'plan_changed';
 
 /**
  * O que a porta usa do provedor. SÓ `id`, `status`, `providerStatus` e a data
@@ -155,15 +151,17 @@ const activate = async (ctx: Ctx): Promise<ApplyResult> => {
     });
     const sub = subRes.rows[0];
 
+    // Esta mesma assinatura já está gravada (chegou por OUTRO checkout — só um
+    // payload torto faria isso): nem estende de novo, nem manda cancelar a
+    // assinatura que está valendo. No-op.
+    if (sub && sub.abacate_subscription_id === subscriptionId) {
+      return result(ctx, false, userId, { reason: 'already_applied' });
+    }
+
     // Duplicada: o usuário já tem OUTRA assinatura de cartão viva (não
     // cancelada) — cobrando. Não estende nada; a mais nova (esta) é a que a
     // rota cancela no provedor, e o reembolso vai para o TODO-HUMANO.
-    if (
-      sub &&
-      sub.abacate_subscription_id &&
-      sub.abacate_subscription_id !== subscriptionId &&
-      sub.status === 'active'
-    ) {
+    if (sub && sub.abacate_subscription_id && sub.status === 'active') {
       return result(ctx, false, userId, {
         reason: 'duplicate',
         duplicate: true,

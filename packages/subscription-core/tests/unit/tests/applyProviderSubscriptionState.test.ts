@@ -18,7 +18,13 @@ const NOW = '2026-11-08 12:00:00';
 const USER = 7;
 
 const active = (over: Partial<SubscriptionSnapshot> = {}): SubscriptionSnapshot => {
-  return { id: 'subs_new', status: 'ACTIVE', providerStatus: 'ACTIVE', nextBillingAt: null, ...over };
+  return {
+    id: 'subs_new',
+    status: 'ACTIVE',
+    providerStatus: 'ACTIVE',
+    nextBillingAt: null,
+    ...over,
+  };
 };
 
 /** Usuário com um checkout aberto e a linha `pending` que o `startCardCheckout` deixa. */
@@ -33,7 +39,10 @@ const openCheckoutDb = (over: Parameters<typeof createFakeBillingDb>[0] = {}) =>
 /** Usuário com assinatura de cartão ativa `subs_1` terminando em `end`. */
 const cardDb = (end: string | null, over: Partial<ReturnType<typeof fakeSubscription>> = {}) => {
   return createFakeBillingDb({
-    plans: [fakePlan(), fakePlan({ id: 2, code: 'pro_yearly', interval: 'yearly', abacate_product_id: 'prod_y' })],
+    plans: [
+      fakePlan(),
+      fakePlan({ id: 2, code: 'pro_yearly', interval: 'yearly', abacate_product_id: 'prod_y' }),
+    ],
     checkouts: [fakeCheckout({ status: 'COMPLETED', abacate_subscription_id: 'subs_1' })],
     subscriptions: [
       fakeSubscription({
@@ -121,7 +130,10 @@ describe('applyProviderSubscriptionState — activate', () => {
 
     expect(res.applied).toBe(true);
     expect(db.state.subscriptions).toHaveLength(1);
-    expect(db.state.subscriptions[0]).toMatchObject({ status: 'active', abacate_subscription_id: 'subs_new' });
+    expect(db.state.subscriptions[0]).toMatchObject({
+      status: 'active',
+      abacate_subscription_id: 'subs_new',
+    });
   });
 
   test('DUAS ativações concorrentes do mesmo checkout: só uma aplica e o período soma UMA vez', async () => {
@@ -141,7 +153,9 @@ describe('applyProviderSubscriptionState — activate', () => {
 
   test('ativação concorrente com assinatura ainda valendo (Pix legado) também soma uma vez só', async () => {
     const db = openCheckoutDb({
-      subscriptions: [fakeSubscription({ status: 'active', current_period_end: '2026-11-20 12:00:00' })],
+      subscriptions: [
+        fakeSubscription({ status: 'active', current_period_end: '2026-11-20 12:00:00' }),
+      ],
     });
 
     const results = await Promise.all([activate(db), activate(db), activate(db)]);
@@ -158,7 +172,12 @@ describe('applyProviderSubscriptionState — activate', () => {
 
     const again = await activate(db, 'bill_1', active(), '2026-11-09 12:00:00');
 
-    expect(again).toEqual({ applied: false, transition: 'activate', userId: USER, reason: 'already_applied' });
+    expect(again).toEqual({
+      applied: false,
+      transition: 'activate',
+      userId: USER,
+      reason: 'already_applied',
+    });
     expect(JSON.stringify(db.state)).toBe(before);
   });
 
@@ -167,7 +186,12 @@ describe('applyProviderSubscriptionState — activate', () => {
 
     const res = await activate(db, 'bill_forjado');
 
-    expect(res).toEqual({ applied: false, transition: 'activate', userId: null, reason: 'unknown_checkout' });
+    expect(res).toEqual({
+      applied: false,
+      transition: 'activate',
+      userId: null,
+      reason: 'unknown_checkout',
+    });
     expect(db.state.subscriptions[0].status).toBe('pending');
   });
 
@@ -194,7 +218,10 @@ describe('applyProviderSubscriptionState — activate', () => {
     const res = await activate(db);
 
     expect(res.applied).toBe(true);
-    expect(db.state.subscriptions[0]).toMatchObject({ plan_id: 2, current_period_end: '2027-11-08 12:00:00' });
+    expect(db.state.subscriptions[0]).toMatchObject({
+      plan_id: 2,
+      current_period_end: '2027-11-08 12:00:00',
+    });
   });
 
   test('ref por subscriptionId não ativa (o dono só existe pelo checkout) e não toca o banco', async () => {
@@ -208,7 +235,12 @@ describe('applyProviderSubscriptionState — activate', () => {
       nowIso: NOW,
     });
 
-    expect(res).toEqual({ applied: false, transition: 'activate', userId: null, reason: 'requires_checkout' });
+    expect(res).toEqual({
+      applied: false,
+      transition: 'activate',
+      userId: null,
+      reason: 'requires_checkout',
+    });
     expect(db.query).not.toHaveBeenCalled();
   });
 
@@ -236,7 +268,9 @@ describe('applyProviderSubscriptionState — activate', () => {
 
   test('assinatura que já venceu conta o período a partir de AGORA', async () => {
     const db = openCheckoutDb({
-      subscriptions: [fakeSubscription({ status: 'expired', current_period_end: '2026-10-01 00:00:00' })],
+      subscriptions: [
+        fakeSubscription({ status: 'expired', current_period_end: '2026-10-01 00:00:00' }),
+      ],
     });
 
     await activate(db);
@@ -292,13 +326,64 @@ describe('applyProviderSubscriptionState — activate', () => {
       abacate_subscription_id: 'subs_old',
     });
     // O checkout fica COMPLETED com o subs_ novo: é o registro do que foi pago.
-    expect(db.state.checkouts[0]).toMatchObject({ status: 'COMPLETED', abacate_subscription_id: 'subs_new' });
+    expect(db.state.checkouts[0]).toMatchObject({
+      status: 'COMPLETED',
+      abacate_subscription_id: 'subs_new',
+    });
+  });
+
+  test('ativação da duplicada REENTREGUE: no-op (o checkout já é COMPLETED) — não pede um 2º cancelamento/reembolso', async () => {
+    const db = openCheckoutDb({
+      subscriptions: [
+        fakeSubscription({
+          status: 'active',
+          current_period_end: '2026-12-01 00:00:00',
+          abacate_subscription_id: 'subs_old',
+        }),
+      ],
+    });
+    expect((await activate(db)).duplicate).toBe(true);
+
+    const again = await activate(db);
+
+    expect(again).toEqual({
+      applied: false,
+      transition: 'activate',
+      userId: USER,
+      reason: 'already_applied',
+    });
+  });
+
+  test('ativação velha reentregue depois de a assinatura ter sido trocada: no-op, não acusa duplicada', async () => {
+    // subs_new foi ativada (checkout bill_1), cancelada, venceu, e o usuário
+    // assinou de novo (subs_next). A reentrega do evento antigo não muda nada.
+    const db = openCheckoutDb({
+      checkouts: [fakeCheckout({ status: 'COMPLETED', abacate_subscription_id: 'subs_new' })],
+      subscriptions: [
+        fakeSubscription({
+          status: 'active',
+          current_period_end: '2026-12-01 00:00:00',
+          abacate_subscription_id: 'subs_next',
+        }),
+      ],
+    });
+
+    expect(await activate(db)).toEqual({
+      applied: false,
+      transition: 'activate',
+      userId: USER,
+      reason: 'already_applied',
+    });
   });
 
   test('duplicada também quando a outra está active mas VENCIDA localmente (pode estar cobrando)', async () => {
     const db = openCheckoutDb({
       subscriptions: [
-        fakeSubscription({ status: 'active', current_period_end: '2026-10-01 00:00:00', abacate_subscription_id: 'subs_old' }),
+        fakeSubscription({
+          status: 'active',
+          current_period_end: '2026-10-01 00:00:00',
+          abacate_subscription_id: 'subs_old',
+        }),
       ],
     });
 
@@ -329,6 +414,43 @@ describe('applyProviderSubscriptionState — activate', () => {
       canceled_at: null,
     });
   });
+
+  test.each(['active', 'canceled'])(
+    'a MESMA assinatura (%s) chegando por outro checkout: no-op — nem estende, nem manda cancelar',
+    async (status) => {
+      const db = openCheckoutDb({
+        checkouts: [
+          fakeCheckout({
+            id: 1,
+            abacate_checkout_id: 'bill_a',
+            status: 'COMPLETED',
+            abacate_subscription_id: 'subs_new',
+          }),
+          fakeCheckout({ id: 2, abacate_checkout_id: 'bill_b', status: 'SUPERSEDED' }),
+        ],
+        subscriptions: [
+          fakeSubscription({
+            status,
+            current_period_end: '2026-12-08 12:00:00',
+            abacate_subscription_id: 'subs_new',
+          }),
+        ],
+      });
+
+      const res = await activate(db, 'bill_b');
+
+      expect(res).toEqual({
+        applied: false,
+        transition: 'activate',
+        userId: USER,
+        reason: 'already_applied',
+      });
+      expect(db.state.subscriptions[0]).toMatchObject({
+        status,
+        current_period_end: '2026-12-08 12:00:00',
+      });
+    }
+  );
 
   test('cancelada antiga em pending (checkout novo aberto) não é duplicada', async () => {
     const db = openCheckoutDb({
@@ -441,7 +563,11 @@ describe('applyProviderSubscriptionState — renew', () => {
   test('renovação por DUAS vias ao mesmo tempo (webhook + consulta) estende uma vez', async () => {
     const db = cardDb('2026-11-10 12:00:00');
 
-    const results = await Promise.all([bySubs(db, 'renew'), bySubs(db, 'renew'), bySubs(db, 'renew')]);
+    const results = await Promise.all([
+      bySubs(db, 'renew'),
+      bySubs(db, 'renew'),
+      bySubs(db, 'renew'),
+    ]);
 
     expect(results.filter((r) => r.applied)).toHaveLength(1);
     expect(db.state.subscriptions[0].current_period_end).toBe('2026-12-10 12:00:00');
@@ -475,7 +601,11 @@ describe('applyProviderSubscriptionState — renew', () => {
   test('data de próxima cobrança do provedor depois do fim atual vence o cálculo', async () => {
     const db = cardDb('2026-11-10 12:00:00');
 
-    const res = await bySubs(db, 'renew', active({ id: 'subs_1', nextBillingAt: '2026-12-11T00:00:00Z' }));
+    const res = await bySubs(
+      db,
+      'renew',
+      active({ id: 'subs_1', nextBillingAt: '2026-12-11T00:00:00Z' })
+    );
 
     expect(res.currentPeriodEnd).toBe('2026-12-11 00:00:00');
   });
@@ -513,7 +643,9 @@ describe('applyProviderSubscriptionState — renew', () => {
   test('sem fim de período gravado não renova (nada em que ancorar)', async () => {
     const db = cardDb(null);
 
-    expect(await bySubs(db, 'renew', active({ id: 'subs_1', nextBillingAt: '2026-12-11T00:00:00Z' }))).toMatchObject({
+    expect(
+      await bySubs(db, 'renew', active({ id: 'subs_1', nextBillingAt: '2026-12-11T00:00:00Z' }))
+    ).toMatchObject({
       applied: false,
       reason: 'not_due',
     });
@@ -530,7 +662,12 @@ describe('applyProviderSubscriptionState — renew', () => {
       nowIso: NOW,
     });
 
-    expect(res).toEqual({ applied: false, transition: 'renew', userId: null, reason: 'unknown_subscription' });
+    expect(res).toEqual({
+      applied: false,
+      transition: 'renew',
+      userId: null,
+      reason: 'unknown_subscription',
+    });
   });
 
   test('ref por checkoutId acha a assinatura pelo checkout', async () => {
@@ -563,6 +700,10 @@ describe('applyProviderSubscriptionState — renew', () => {
     });
 
     expect(res).toMatchObject({ applied: false, userId: null, reason: 'unknown_subscription' });
+    // Sem subs_ não há o que procurar: nenhuma busca com id nulo.
+    expect(db.statements().some((s) => s.includes('WHERE abacate_subscription_id = $1'))).toBe(
+      false
+    );
   });
 
   test('o SQL da renovação (contrato com o banco)', async () => {
@@ -579,11 +720,19 @@ describe('applyProviderSubscriptionState — payment_failed', () => {
   test('marca PAYMENT_FAILED e mantém o acesso até o fim do período', async () => {
     const db = cardDb('2026-11-20 12:00:00');
 
-    const res = await bySubs(db, 'payment_failed', active({ id: 'subs_1', providerStatus: 'ACTIVE' }));
+    const res = await bySubs(
+      db,
+      'payment_failed',
+      active({ id: 'subs_1', providerStatus: 'ACTIVE' })
+    );
 
     expect(res).toEqual({ applied: true, transition: 'payment_failed', userId: USER });
     const sub = db.state.subscriptions[0];
-    expect(sub).toMatchObject({ status: 'active', provider_status: 'PAYMENT_FAILED', updated_at: NOW });
+    expect(sub).toMatchObject({
+      status: 'active',
+      provider_status: 'PAYMENT_FAILED',
+      updated_at: NOW,
+    });
     expect(isSubscriptionActive(sub, NOW)).toBe(true);
     // ...e expira sozinha no fim do período.
     expect(isSubscriptionActive(sub, '2026-11-20 12:00:01')).toBe(false);
@@ -606,7 +755,11 @@ describe('applyProviderSubscriptionState — cancel', () => {
   test('cancela guardando o período pago (acesso até o fim)', async () => {
     const db = cardDb('2026-11-20 12:00:00');
 
-    const res = await bySubs(db, 'cancel', active({ id: 'subs_1', status: 'CANCELLED', providerStatus: 'CANCELLED' }));
+    const res = await bySubs(
+      db,
+      'cancel',
+      active({ id: 'subs_1', status: 'CANCELLED', providerStatus: 'CANCELLED' })
+    );
 
     expect(res).toEqual({ applied: true, transition: 'cancel', userId: USER });
     const sub = db.state.subscriptions[0];
@@ -650,17 +803,24 @@ describe('applyProviderSubscriptionState — plan_changed', () => {
   test('troca o plano pelo produto do provedor, sem mexer no período', async () => {
     const db = cardDb('2026-11-20 12:00:00');
 
-    const res = await bySubs(db, 'plan_changed', active({ id: 'subs_1' }), NOW, { productId: 'prod_y' });
+    const res = await bySubs(db, 'plan_changed', active({ id: 'subs_1' }), NOW, {
+      productId: 'prod_y',
+    });
 
     expect(res).toEqual({ applied: true, transition: 'plan_changed', userId: USER });
-    expect(db.state.subscriptions[0]).toMatchObject({ plan_id: 2, current_period_end: '2026-11-20 12:00:00' });
+    expect(db.state.subscriptions[0]).toMatchObject({
+      plan_id: 2,
+      current_period_end: '2026-11-20 12:00:00',
+    });
   });
 
   test('mesmo plano → no-op', async () => {
     const db = cardDb('2026-11-20 12:00:00');
     db.state.subscriptions[0].plan_id = 2;
 
-    expect(await bySubs(db, 'plan_changed', active({ id: 'subs_1' }), NOW, { productId: 'prod_y' })).toMatchObject({
+    expect(
+      await bySubs(db, 'plan_changed', active({ id: 'subs_1' }), NOW, { productId: 'prod_y' })
+    ).toMatchObject({
       applied: false,
       reason: 'already_applied',
     });
@@ -669,7 +829,9 @@ describe('applyProviderSubscriptionState — plan_changed', () => {
   test('produto desconhecido → no-op com motivo', async () => {
     const db = cardDb('2026-11-20 12:00:00');
 
-    expect(await bySubs(db, 'plan_changed', active({ id: 'subs_1' }), NOW, { productId: 'prod_nope' })).toEqual({
+    expect(
+      await bySubs(db, 'plan_changed', active({ id: 'subs_1' }), NOW, { productId: 'prod_nope' })
+    ).toEqual({
       applied: false,
       transition: 'plan_changed',
       userId: USER,

@@ -25,7 +25,7 @@ export type CardPlanRow = PlanRow & {
  * chave, cada preço tem o seu produto, a busca por `externalId` só acha produto
  * do preço certo, e as assinaturas antigas continuam no produto delas.
  */
-const productExternalId =(plan: Pick<PlanRow, 'code' | 'price_cents'>): string => {
+const productExternalId = (plan: Pick<PlanRow, 'code' | 'price_cents'>): string => {
   return `${plan.code}:${Number(plan.price_cents)}`;
 };
 
