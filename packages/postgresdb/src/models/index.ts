@@ -16,5 +16,7 @@ export { Plan } from './Plan';
 export { Subscription } from './Subscription';
 export { PixCharge } from './PixCharge';
 export { BillingWebhookEvent } from './BillingWebhookEvent';
+export { BillingCustomer } from './BillingCustomer';
+export { SubscriptionCheckout } from './SubscriptionCheckout';
 export { PluggyItem } from './PluggyItem';
 export { Session } from './Session';

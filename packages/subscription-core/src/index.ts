@@ -42,6 +42,39 @@ export {
   sanitizeDescription,
 } from './providers/abacatepay/sanitizeDescription';
 export { simulatePixPayment } from './providers/abacatepay/simulatePixPayment';
+
+// Assinatura recorrente no cartão (T-124a): só o client. A regra que o usa é a
+// T-124b1; nada aqui é chamado pelo app ainda.
+export {
+  type AbacateProduct,
+  type RawAbacateProduct,
+  toAbacateProduct,
+} from './providers/abacatepay/AbacateProduct';
+export {
+  type AbacateSubscription,
+  type AbacateSubscriptionStatus,
+  type RawAbacateSubscription,
+  toAbacateSubscription,
+} from './providers/abacatepay/AbacateSubscription';
+export { archiveProduct } from './providers/abacatepay/archiveProduct';
+export { cancelSubscription } from './providers/abacatepay/cancelSubscription';
+export { createCustomer, type CreateCustomerInput } from './providers/abacatepay/createCustomer';
+export {
+  createCustomerPortal,
+  type CreateCustomerPortalInput,
+} from './providers/abacatepay/createCustomerPortal';
+export { createProduct, type CreateProductInput } from './providers/abacatepay/createProduct';
+export {
+  type AbacateSubscriptionCheckout,
+  createSubscriptionCheckout,
+  type CreateSubscriptionCheckoutInput,
+} from './providers/abacatepay/createSubscriptionCheckout';
+export { getProductByExternalId } from './providers/abacatepay/getProductByExternalId';
+export { getSubscription } from './providers/abacatepay/getSubscription';
+export { listSubscriptionsByCheckout } from './providers/abacatepay/listSubscriptionsByCheckout';
+export { type AbacateCycle, toAbacateCycle } from './providers/abacatepay/toAbacateCycle';
+
+// Assinatura do webhook (T-123).
 export {
   verifyWebhookSignature,
   type VerifyWebhookSignatureInput,

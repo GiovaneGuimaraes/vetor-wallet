@@ -1,0 +1,12 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`createCustomer POST /customers/create só com e-mail e nome — sem CPF nem celular 1`] = `
+{
+  "body": {
+    "email": "ana@example.com",
+    "name": "Ana Teste",
+  },
+  "method": "POST",
+  "url": "https://api.abacatepay.com/v2/customers/create",
+}
+`;

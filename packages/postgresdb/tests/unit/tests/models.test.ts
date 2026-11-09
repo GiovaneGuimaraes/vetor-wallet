@@ -26,8 +26,8 @@ function attrs(model: { getAttributes(): unknown }): Attrs {
 }
 
 describe('schema do Postgres', () => {
-  it('modela as 20 tabelas vivas', () => {
-    expect(Object.keys(models)).toHaveLength(20);
+  it('modela as 22 tabelas vivas', () => {
+    expect(Object.keys(models)).toHaveLength(22);
   });
 
   it('cada modelo aponta para a tabela com o nome que o SQLite já usa', () => {
@@ -50,6 +50,8 @@ describe('schema do Postgres', () => {
       Subscription: 'subscriptions',
       PixCharge: 'pix_charges',
       BillingWebhookEvent: 'billing_webhook_events',
+      BillingCustomer: 'billing_customers',
+      SubscriptionCheckout: 'subscription_checkouts',
       PluggyItem: 'pluggy_items',
       Session: 'sessions',
     };

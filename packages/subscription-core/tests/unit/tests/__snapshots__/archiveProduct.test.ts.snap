@@ -1,0 +1,9 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`archiveProduct POST /products/delete com o id escapado na query e sem corpo 1`] = `
+{
+  "body": undefined,
+  "method": "POST",
+  "url": "https://api.abacatepay.com/v2/products/delete?id=prod_a%20b%26c",
+}
+`;

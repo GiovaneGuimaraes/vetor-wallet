@@ -1,0 +1,11 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`cancelSubscription POST /subscriptions/cancel com o id no CORPO 1`] = `
+{
+  "body": {
+    "id": "subs_abc",
+  },
+  "method": "POST",
+  "url": "https://api.abacatepay.com/v2/subscriptions/cancel",
+}
+`;

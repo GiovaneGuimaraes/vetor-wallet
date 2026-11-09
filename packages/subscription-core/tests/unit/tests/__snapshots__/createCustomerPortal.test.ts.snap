@@ -1,0 +1,12 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`createCustomerPortal POST /customer-portal/create com cliente e checkout 1`] = `
+{
+  "body": {
+    "checkoutId": "bill_abc",
+    "customerId": "cust_abc",
+  },
+  "method": "POST",
+  "url": "https://api.abacatepay.com/v2/customer-portal/create",
+}
+`;

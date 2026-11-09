@@ -1,0 +1,9 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`getProductByExternalId GET /products/get com o externalId escapado na query 1`] = `
+{
+  "body": undefined,
+  "method": "GET",
+  "url": "https://api.abacatepay.com/v2/products/get?externalId=plan%3Apro%20monthly%26x%3D1",
+}
+`;

@@ -97,6 +97,16 @@ No Postgres, `UNIQUE` comum já ignora `NULL`, então o índice parcial é
 otimização (não indexa linha manual), não correção — **menos** no caso do
 `quote_snapshots`, que é expressão e é correção.
 
+**Exceção que o `sync` gera (T-124a):** índice parcial por **valor de coluna**
+declarado em `@Table({ indexes: [{ ..., where: {...} }] })` sai no `sync` —
+`addIndexQuery` emite o `WHERE` (provado em `ddl.test.ts`). É o caso de
+`idx_subscription_checkouts_user_open` (`UNIQUE (user_id) WHERE status IN
+('CREATING','OPEN')`), que é **correção**: sem o `WHERE` o histórico de
+checkouts concluídos colidiria. Os parciais `IS NOT NULL` da T-124a
+(`billing_customers`, `subscription_checkouts.abacate_checkout_id`,
+`subscriptions.abacate_subscription_id`) viraram `@Unique` comum, como o
+`cognito_sub`.
+
 ## Convenções
 
 Jest, como o resto dos cores. **Exceção ao formato**: a cobertura não é 100% por

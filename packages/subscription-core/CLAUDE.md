@@ -90,8 +90,32 @@ src/
     ├── checkPixCharge.ts
     ├── simulatePixPayment.ts
     ├── webhookPublicKey.ts      # chave PÚBLICA fixa da doc (T-123)
-    └── verifyWebhookSignature.ts # esquema da doc + fallback legado (T-123)
+    ├── verifyWebhookSignature.ts # esquema da doc + fallback legado (T-123)
+    │   # ── assinatura recorrente no cartão (T-124a: só o client) ──
+    ├── toAbacateCycle.ts        # 'monthly'|'yearly' → 'MONTHLY'|'ANNUALLY'
+    ├── AbacateProduct.ts        # tipos + toAbacateProduct (id obrigatório)
+    ├── AbacateSubscription.ts   # tipos + toAbacateSubscription (DEFENSIVO)
+    ├── createCustomer.ts        # só e-mail + nome, sem CPF
+    ├── createProduct.ts         # nome vai intacto (sem sanitizeDescription)
+    ├── getProductByExternalId.ts # null SÓ para "não existe"; resto relança
+    ├── createSubscriptionCheckout.ts # → { id: 'bill_…', url }
+    ├── getSubscription.ts
+    ├── listSubscriptionsByCheckout.ts # [] antes do pagamento é válido
+    ├── cancelSubscription.ts    # cancela IMEDIATAMENTE
+    ├── createCustomerPortal.ts
+    └── archiveProduct.ts        # limpeza
 ```
+
+**Cartão (T-124a).** O schema (`billing_customers`, `subscription_checkouts`,
+colunas novas em `plans`/`subscriptions` — ver `docs/decisions/db-schema.md`) e
+o client acima existem, mas **nada no app os usa ainda**: a regra é a T-124b1 e
+as rotas a T-124b2. Contratos medidos na API real (2026-11-08): `externalId`
+de produto repetido → 400 "already exists"; assinatura inexistente → 400
+"Subscription not found"; `/subscriptions/list` responde `data: []` antes do
+pagamento; o checkout volta como `bill_…` e o `subs_…` só nasce pago. Não
+medidos (a confirmar na T-124b1): o corpo de sucesso de `/subscriptions/cancel`
+(se vier `data: null`, o `abacatePayRequest` lança) e o formato exato de
+"produto não encontrado" em `/products/get`.
 
 **Um arquivo por função exportada, nome do arquivo = nome da função.** Tipos de
 linha ficam junto do mapper que os projeta (`Plan.ts`, `PixCharge.ts`). Nada de

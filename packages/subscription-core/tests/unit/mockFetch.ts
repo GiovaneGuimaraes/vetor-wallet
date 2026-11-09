@@ -28,6 +28,29 @@ export const rawResponse = (body: unknown, status = 200) => {
   };
 };
 
+/**
+ * O que a função mandou ao provedor na chamada `n` — URL, método e corpo
+ * parseado. É o alvo dos snapshots do provider: o contrato com a API é o que
+ * uma review deixa passar.
+ */
+export const sentRequest = (fetchMock: jest.Mock, n = 0) => {
+  const [url, init] = fetchMock.mock.calls[n];
+  return {
+    url,
+    method: init.method,
+    body: init.body === undefined ? undefined : JSON.parse(init.body),
+  };
+};
+
+/** Recusa no formato do envelope: HTTP `status` com `error` preenchido. */
+export const errorEnvelope = (error: unknown, status = 400) => {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => ({ data: null, error, success: false }),
+  };
+};
+
 export const rawCharge = {
   id: 'pix_char_abc',
   amount: 2990,

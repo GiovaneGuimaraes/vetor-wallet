@@ -31,7 +31,7 @@ Só **trabalho vivo** entra. Rationale completo e modelo de tarefa: [`README.md`
 
 ### T-124 — Assinatura recorrente no cartão + cliente (AbacatePay) — plano em [`plano-t-124.md`](./plano-t-124.md)
 - **Decisões do humano (2026-11-09)**: só cartão recorrente; cliente (e-mail+nome) só na assinatura; reconciliar consultando a API (sem deploy público); cancelar = acesso até o fim do período; Pix legado só migra depois de vencer; assinatura duplicada → cancela a mais nova e avisa; Pix sai da UI/API sem DROP.
-- **Fatias** (1 PR cada, nesta ordem): **124a** schema+provider (alta, Opus — EM ANDAMENTO) → **124b1** regra no core, uma porta idempotente por `rowCount` (alta, Opus) → **124b2** rotas `/sync`, `/portal`, `/me` (média) → **124c** `POST /api/subscriptions` em cartão + web + remoção do Pix (alta, Opus) → **124d** webhook `subscription.*` (média, após b1).
+- **Fatias** (1 PR cada, nesta ordem): **124a** schema+provider (**concluída**) → **124b1** regra no core, uma porta idempotente por `rowCount` (alta, Opus) → **124b2** rotas `/sync`, `/portal`, `/me` (média) → **124c** `POST /api/subscriptions` em cartão + web + remoção do Pix (alta, Opus) → **124d** webhook `subscription.*` (média, após b1).
 - **Fora de escopo**: DROP de `pix_charges` (2 etapas, dump + confirmação). Renovação não é simulável em dev: fakes nos testes; o resto só a produção prova (`TODO-HUMANO.md`).
 
 ## Candidatas (débito latente — não urgente, o orquestrador puxa daqui)

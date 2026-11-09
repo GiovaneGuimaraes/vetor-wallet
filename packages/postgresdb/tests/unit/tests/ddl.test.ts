@@ -130,6 +130,76 @@ describe('DDL gerado', () => {
     expect(sql).not.toContain('userId');
   });
 
+  describe('assinatura no cartão (T-124a)', () => {
+    const addIndex = (table: string, index: unknown): string => {
+      const qi = sequelize.getQueryInterface() as unknown as {
+        queryGenerator: { addIndexQuery(table: string, options: unknown): string };
+      };
+      return qi.queryGenerator.addIndexQuery(table, index);
+    };
+    const unique = (model: { getAttributes(): unknown }, attr: string): unknown => {
+      // `@Unique('nome')` registra o nome do constraint como `unique: 'nome'`.
+      const attrs = model.getAttributes() as Record<string, { unique?: unknown }>;
+      return attrs[attr].unique;
+    };
+
+    it('plans ganha o produto da AbacatePay, anulável, com o preço em centavos inteiros', () => {
+      const sql = ddl(models.Plan);
+      expect(sql).toMatch(/"abacate_product_id" TEXT(,| |\))/);
+      expect(sql).not.toContain('"abacate_product_id" TEXT NOT NULL');
+      expect(sql).toMatch(/"abacate_product_price_cents" INTEGER(,| |\))/);
+      expect(sql).not.toContain('"abacate_product_price_cents" INTEGER NOT NULL');
+    });
+
+    it('subscriptions ganha as colunas do provedor, anuláveis, e status continua o ENUM de sempre', () => {
+      const sql = ddl(models.Subscription);
+      for (const col of ['provider', 'abacate_subscription_id', 'provider_status']) {
+        expect(sql).toMatch(new RegExp(`"${col}" TEXT(,| |\\))`));
+        expect(sql).not.toContain(`"${col}" TEXT NOT NULL`);
+      }
+      expect(sql).toMatch(/"canceled_at" TIMESTAMP WITH TIME ZONE(,| |\))/);
+      expect(sql).toMatch(/"last_synced_at" TIMESTAMP WITH TIME ZONE(,| |\))/);
+      expect(sql).toContain('enum_subscriptions_status');
+      // UNIQUE nomeado sai como constraint de tabela, fora deste CREATE mínimo:
+      // afirmado no atributo. No Postgres vários NULL não colidem.
+      expect(unique(models.Subscription, 'abacateSubscriptionId')).toBe(
+        'idx_subscriptions_abacate_id'
+      );
+    });
+
+    it('billing_customers: um cliente por usuário e um usuário por cliente', () => {
+      const sql = ddl(models.BillingCustomer);
+      expect(sql).toContain('"user_id" INTEGER NOT NULL');
+      expect(sql).toContain('"abacate_customer_id" TEXT NOT NULL');
+      expect(unique(models.BillingCustomer, 'userId')).toBe('idx_billing_customers_user');
+      expect(unique(models.BillingCustomer, 'abacateCustomerId')).toBe(
+        'idx_billing_customers_abacate_id'
+      );
+      expect(sql).toContain('"created_at"');
+    });
+
+    it('subscription_checkouts: ids do provedor anuláveis, status ENUM com default CREATING', () => {
+      const sql = ddl(models.SubscriptionCheckout);
+      expect(sql).toMatch(/"abacate_checkout_id" TEXT(,| |\))/);
+      expect(unique(models.SubscriptionCheckout, 'abacateCheckoutId')).toBe(
+        'idx_subscription_checkouts_abacate_id'
+      );
+      expect(sql).not.toContain('"abacate_checkout_id" TEXT NOT NULL');
+      expect(sql).toMatch(/"checkout_url" TEXT(,| |\))/);
+      expect(sql).toMatch(/"abacate_subscription_id" TEXT(,| |\))/);
+      expect(sql).toContain('enum_subscription_checkouts_status');
+      expect(sql).toContain("DEFAULT 'CREATING'");
+      expect(sql).toMatch(/"completed_at" TIMESTAMP WITH TIME ZONE(,| |\))/);
+    });
+
+    it('a trava de um checkout aberto por usuário sai como índice PARCIAL', () => {
+      const [index] = models.SubscriptionCheckout.options.indexes ?? [];
+      expect(addIndex('subscription_checkouts', index)).toBe(
+        'CREATE UNIQUE INDEX "idx_subscription_checkouts_user_open" ON "subscription_checkouts" ("user_id") WHERE "status" IN (\'CREATING\', \'OPEN\')'
+      );
+    });
+  });
+
   afterAll(async () => {
     await sequelize.close().catch(() => undefined);
   });
