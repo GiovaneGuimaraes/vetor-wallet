@@ -42,3 +42,9 @@ export {
   sanitizeDescription,
 } from './providers/abacatepay/sanitizeDescription';
 export { simulatePixPayment } from './providers/abacatepay/simulatePixPayment';
+export {
+  verifyWebhookSignature,
+  type VerifyWebhookSignatureInput,
+  type WebhookSignatureScheme,
+} from './providers/abacatepay/verifyWebhookSignature';
+export { ABACATEPAY_WEBHOOK_PUBLIC_KEY } from './providers/abacatepay/webhookPublicKey';
