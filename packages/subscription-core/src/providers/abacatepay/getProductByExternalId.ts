@@ -1,18 +1,7 @@
 import { type AbacateProduct, type RawAbacateProduct, toAbacateProduct } from './AbacateProduct';
+import { abacatePayErrorText } from './abacatePayErrorText';
 import { AbacatePayError } from './AbacatePayError';
 import { abacatePayRequest } from './request';
-
-/** Texto do `error` do envelope, venha como string ou como `{ message }`. */
-const errorText = (body: unknown): string => {
-  if (body == null || typeof body !== 'object') return '';
-  const error = (body as { error?: unknown }).error;
-  if (typeof error === 'string') return error;
-  if (error != null && typeof error === 'object') {
-    const message = (error as { message?: unknown }).message;
-    return typeof message === 'string' ? message : '';
-  }
-  return '';
-};
 
 /**
  * "O provedor respondeu que o produto não existe" — e SÓ isso. Rede/timeout
@@ -27,7 +16,7 @@ const isNotFound = (err: unknown): boolean => {
   // que não há nada (o `abacatePayRequest` lança porque `data == null`).
   const body = err.body as { data?: unknown; error?: unknown } | null | undefined;
   if (err.status === 200 && body != null && body.data == null && body.error == null) return true;
-  return /not\s*found|n[ãa]o\s+encontrad/i.test(errorText(err.body));
+  return /not\s*found|n[ãa]o\s+encontrad/i.test(abacatePayErrorText(err.body));
 };
 
 /**

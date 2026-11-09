@@ -1,0 +1,7 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`getLatestCompletedCheckout o COMPLETED com subs_ mais recente do usuário 1`] = `
+[
+  "SELECT abacate_checkout_id, abacate_subscription_id, completed_at FROM subscription_checkouts WHERE user_id = $1 AND status = 'COMPLETED' AND abacate_subscription_id IS NOT NULL ORDER BY completed_at DESC, id DESC LIMIT 1",
+]
+`;

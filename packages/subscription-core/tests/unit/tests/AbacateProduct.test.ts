@@ -11,6 +11,7 @@ describe('toAbacateProduct', () => {
         price: 2990,
         currency: 'BRL',
         cycle: 'MONTHLY',
+        status: 'ARCHIVED',
         extra: 'ignorado',
       })
     ).toEqual({
@@ -20,6 +21,7 @@ describe('toAbacateProduct', () => {
       price: 2990,
       currency: 'BRL',
       cycle: 'MONTHLY',
+      status: 'ARCHIVED',
     });
   });
 
@@ -31,6 +33,7 @@ describe('toAbacateProduct', () => {
       price: null,
       currency: null,
       cycle: null,
+      status: null,
     });
   });
 

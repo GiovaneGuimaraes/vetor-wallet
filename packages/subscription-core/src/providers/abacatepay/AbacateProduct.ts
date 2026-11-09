@@ -9,6 +9,12 @@ export interface AbacateProduct {
   price: number | null;
   currency: string | null;
   cycle: string | null;
+  /**
+   * Status cru (ex.: `ACTIVE`, `ARCHIVED`). NÃO medido na API real — o
+   * "delete" de produto arquiva, e é por aqui que a regra (T-124b1) recusa
+   * cobrar com produto arquivado. Ausente → `null` (nada se conclui).
+   */
+  status: string | null;
 }
 
 /** Produto como o provedor devolve — nada garantido além do que se checa. */
@@ -34,5 +40,6 @@ export const toAbacateProduct = (raw: RawAbacateProduct): AbacateProduct => {
     price: typeof raw.price === 'number' && Number.isFinite(raw.price) ? raw.price : null,
     currency: str(raw.currency),
     cycle: str(raw.cycle),
+    status: str(raw.status),
   };
 };

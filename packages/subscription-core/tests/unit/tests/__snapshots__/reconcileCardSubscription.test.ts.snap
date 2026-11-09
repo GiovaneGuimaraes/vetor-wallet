@@ -1,0 +1,29 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`reconcileCardSubscription o SQL (contrato com o banco) 1`] = `
+[
+  "SELECT status, current_period_end, abacate_subscription_id, updated_at FROM subscriptions WHERE user_id = $1",
+  "SELECT abacate_checkout_id FROM subscription_checkouts WHERE user_id = $1 AND status = 'OPEN'",
+  "SELECT abacate_checkout_id, abacate_subscription_id, completed_at FROM subscription_checkouts WHERE user_id = $1 AND status = 'COMPLETED' AND abacate_subscription_id IS NOT NULL ORDER BY completed_at DESC, id DESC LIMIT 1",
+  "UPDATE subscriptions SET last_synced_at = $1 WHERE user_id = $2 AND (last_synced_at IS NULL OR last_synced_at <= $3)",
+]
+`;
+
+exports[`reconcileCardSubscription o SQL (contrato com o banco) 2`] = `
+[
+  [
+    7,
+  ],
+  [
+    7,
+  ],
+  [
+    7,
+  ],
+  [
+    "2026-11-08 12:00:00",
+    7,
+    "2026-11-08 11:59:50",
+  ],
+]
+`;

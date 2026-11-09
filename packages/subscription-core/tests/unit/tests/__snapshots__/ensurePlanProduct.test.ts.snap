@@ -1,0 +1,7 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ensurePlanProduct o SQL (contrato com o banco) 1`] = `
+[
+  "UPDATE plans SET abacate_product_id = $1, abacate_product_price_cents = $2 WHERE id = $3 AND price_cents = $4",
+]
+`;
