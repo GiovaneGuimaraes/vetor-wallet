@@ -88,6 +88,9 @@ src/
 ├── ProductArchivedError.ts      # → 502 BILLING_NOT_CONFIGURED na rota
 ├── isActivationPending.ts       # "pago sem assinatura gravada" (recuperação)
 ├── getLatestCompletedCheckout.ts
+├── getOpenCheckout.ts           # checkout OPEN (url/plano/data) para o /me (T-124b2)
+├── getLatestCheckout.ts         # bill_ do portal (COMPLETED de preferência)
+├── getBillingCustomer.ts        # cust_ do usuário, só leitura
 ├── ensureBillingCustomer.ts     # cust_ por usuário (billing_customers)
 ├── ensurePlanProduct.ts         # prod_ por (plano, preço) (plans.abacate_product_*)
 ├── startCardCheckout.ts         # CREATING → OPEN; reaproveita/supersede

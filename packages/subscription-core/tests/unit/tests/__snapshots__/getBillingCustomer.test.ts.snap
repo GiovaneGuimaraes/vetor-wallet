@@ -1,0 +1,3 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`getBillingCustomer filtra por user_id e devolve o cust_ 1`] = `"SELECT abacate_customer_id FROM billing_customers WHERE user_id = $1"`;

@@ -1,0 +1,8 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`getOpenCheckout filtra por user_id e devolve só url, plano e data 1`] = `
+"SELECT checkout_url, plan_id, created_at FROM subscription_checkouts
+          WHERE user_id = $1 AND status = 'OPEN' AND checkout_url IS NOT NULL
+          ORDER BY id DESC
+          LIMIT 1"
+`;
