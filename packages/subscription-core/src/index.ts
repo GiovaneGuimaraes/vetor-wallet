@@ -36,4 +36,9 @@ export {
   ABACATEPAY_TIMEOUT_MS,
   abacatePayRequest,
 } from './providers/abacatepay/request';
+export {
+  FALLBACK_DESCRIPTION,
+  MAX_DESCRIPTION_LENGTH,
+  sanitizeDescription,
+} from './providers/abacatepay/sanitizeDescription';
 export { simulatePixPayment } from './providers/abacatepay/simulatePixPayment';

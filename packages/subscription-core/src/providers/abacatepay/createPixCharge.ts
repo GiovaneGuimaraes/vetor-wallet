@@ -4,6 +4,7 @@ import {
   toAbacatePixCharge,
 } from './AbacatePixCharge';
 import { abacatePayRequest } from './request';
+import { sanitizeDescription } from './sanitizeDescription';
 
 /** Expiração default da cobrança Pix: 1 hora. */
 export const DEFAULT_EXPIRES_IN_SECONDS = 3600;
@@ -30,7 +31,8 @@ export const createPixCharge = async (input: CreatePixChargeInput): Promise<Abac
       method: 'PIX',
       data: {
         amount: input.amountCents,
-        description: input.description,
+        // A API rejeita (400) caractere fora de um conjunto estreito — ver a função.
+        description: sanitizeDescription(input.description),
         expiresIn: input.expiresInSeconds ?? DEFAULT_EXPIRES_IN_SECONDS,
         externalId: input.externalId,
         metadata: input.metadata,

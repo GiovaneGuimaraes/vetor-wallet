@@ -210,10 +210,20 @@ describe('subscriptions routes', () => {
       vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: 'boom' }) })
     );
 
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const res = await agentA.post('/api/subscriptions').send({ planId: monthlyPlanId });
     expect(res.status).toBe(502);
     expect(res.body.code).toBe('PAYMENT_PROVIDER_ERROR');
     expect((await db.execute('SELECT * FROM pix_charges')).rows).toHaveLength(0);
+
+    // O 502 não conta a causa ao usuário; o log conta ao operador (status do provedor).
+    const events = logSpy.mock.calls
+      .map((c) => String(c[0]))
+      .filter((l) => l.includes('"billing.charge.failed"'))
+      .map((l) => JSON.parse(l));
+    logSpy.mockRestore();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ level: 'warn', planId: monthlyPlanId, providerStatus: 500 });
   });
 
   it('GET /me returns 200 with nulls when there is no subscription', async () => {

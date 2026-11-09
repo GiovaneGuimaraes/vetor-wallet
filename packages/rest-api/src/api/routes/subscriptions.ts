@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { requireAuth } from '../auth/middleware';
+import { log } from '../logger';
 import { createSqliteQuery } from '@vetor-wallet/query';
 import type { MySubscriptionResponse } from '@vetor-wallet/shared';
 import {
@@ -85,12 +86,16 @@ router.post(
     try {
       charge = await createPixCharge({
         amountCents: Number(plan.price_cents),
-        description: `Vetor Wallet — ${plan.name}`,
+        description: `Vetor Wallet - ${plan.name}`,
         externalId: `user:${userId}:plan:${plan.id}:${Date.now()}`,
         metadata: { userId, planId: plan.id },
       });
     } catch (err) {
       if (err instanceof AbacatePayError) {
+        // O 502 esconde a causa do usuário (de propósito); o log guarda o status
+        // do provedor (0 = rede/timeout, 400 = payload recusado…) para a
+        // investigação não depender de reproduzir a chamada na mão.
+        log('warn', 'billing.charge.failed', { planId: plan.id, providerStatus: err.status });
         res
           .status(502)
           .json({ code: 'PAYMENT_PROVIDER_ERROR', error: 'Provedor de pagamento indisponível' });
