@@ -1,10 +1,14 @@
 import { Router, Request, Response } from 'express';
 import express from 'express';
-import { createHmac } from 'crypto';
 import { db } from '@vetor-wallet/db';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { log } from '../logger';
 import { createSqliteQuery } from '@vetor-wallet/query';
-import { markChargePaidAndActivate, safeEqual } from '@vetor-wallet/subscription-core';
+import {
+  markChargePaidAndActivate,
+  safeEqual,
+  verifyWebhookSignature,
+} from '@vetor-wallet/subscription-core';
 
 const router = Router();
 
@@ -29,9 +33,11 @@ interface WebhookPayload {
 /**
  * Webhook da AbacatePay (T-070). **Sem sessão e sem `requireAuth`** — quem
  * chama é o provedor, não um browser logado. A autenticação é dupla: o
- * `?webhookSecret=` da querystring (padrão da AbacatePay) E o HMAC-SHA256 do
- * corpo. Uma só das duas não bastaria: o segredo na URL vaza em log de proxy, e
- * a assinatura sem segredo não amarra a chamada à nossa integração.
+ * `?webhookSecret=` da querystring (padrão da AbacatePay; prova de ORIGEM) E o
+ * HMAC-SHA256 do corpo (`verifyWebhookSignature`, prova de INTEGRIDADE — com a
+ * chave pública da doc ou, no fallback legado, com o nosso segredo). Uma só das
+ * duas não bastaria: o segredo na URL vaza em log de proxy, e a assinatura com
+ * chave pública qualquer um calcula.
  *
  * `express.raw` é obrigatório: o HMAC é sobre os BYTES recebidos. Reserializar
  * (`JSON.stringify(req.body)`) reordena/reformata e a assinatura deixa de bater.
@@ -65,11 +71,23 @@ async function handler(req: Request, res: Response): Promise<void> {
   // falta de assinatura como "ok, o segredo da URL basta" desfaria a segunda
   // camada justamente para quem não a implementa (um atacante com o segredo
   // vazado em log).
-  const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
-  const provided = headerSignature.startsWith('sha256=')
-    ? headerSignature.slice('sha256='.length)
-    : headerSignature;
-  if (!safeEqual(provided, expected)) {
+  //
+  // T-123: dois esquemas aceitos — o da doc (chave pública fixa, base64) e o
+  // legado (nosso segredo, hex) como fallback. A chave pública prova só
+  // integridade; a prova de origem é o `?webhookSecret=` conferido acima.
+  const scheme = verifyWebhookSignature({
+    rawBody,
+    signature: headerSignature,
+    legacySecret: secret,
+  });
+  // Só o esquema e o desfecho — NUNCA a assinatura, o corpo, o segredo ou a chave.
+  // É o que diz, na primeira entrega real, qual dos dois a AbacatePay usa.
+  log(scheme ? 'info' : 'warn', 'webhook.signature', {
+    scheme: scheme ?? 'none',
+    matched: scheme !== null,
+    headerPresent: headerSignature !== '',
+  });
+  if (!scheme) {
     res.status(401).json({ error: 'Assinatura inválida' });
     return;
   }
