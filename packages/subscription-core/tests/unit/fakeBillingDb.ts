@@ -202,7 +202,7 @@ export const createFakeBillingDb = (initial: Partial<FakeState> = {}): FakeBilli
     // ── subscriptions: leituras ──
     if (
       sql ===
-      'SELECT status, current_period_end, abacate_subscription_id FROM subscriptions WHERE user_id = $1'
+      'SELECT status, current_period_end, abacate_subscription_id, updated_at FROM subscriptions WHERE user_id = $1'
     ) {
       const s = subByUser(v[0]);
       return ok(
@@ -212,6 +212,7 @@ export const createFakeBillingDb = (initial: Partial<FakeState> = {}): FakeBilli
                 status: s.status,
                 current_period_end: s.current_period_end,
                 abacate_subscription_id: s.abacate_subscription_id,
+                updated_at: s.updated_at,
               },
             ]
           : []
@@ -328,6 +329,12 @@ export const createFakeBillingDb = (initial: Partial<FakeState> = {}): FakeBilli
       if (!s || s.status !== 'active' || s.current_period_end === null) return ok([], 0);
       if (s.current_period_end !== oldEnd || s.current_period_end > limit) return ok([], 0);
       Object.assign(s, { current_period_end: end, provider_status: ps, updated_at: now });
+      return ok([], 1);
+    }
+    if (sql.startsWith('UPDATE subscriptions SET provider_status = $1, updated_at = $2')) {
+      const s = subBySubsId(v[2]);
+      if (!s || (s.provider_status ?? '') === v[3]) return ok([], 0);
+      Object.assign(s, { provider_status: v[0], updated_at: v[1] });
       return ok([], 1);
     }
     if (sql.startsWith("UPDATE subscriptions SET provider_status = 'PAYMENT_FAILED'")) {
@@ -460,10 +467,44 @@ export const createFakeBillingDb = (initial: Partial<FakeState> = {}): FakeBilli
       return ok([], 1);
     }
     if (
-      sql === 'SELECT user_id, plan_id FROM subscription_checkouts WHERE abacate_checkout_id = $1'
+      sql ===
+      'SELECT user_id, plan_id, abacate_subscription_id, completed_at FROM subscription_checkouts WHERE abacate_checkout_id = $1'
     ) {
       const c = checkoutByBill(v[0]);
-      return ok(c ? [{ user_id: c.user_id, plan_id: c.plan_id }] : []);
+      return ok(
+        c
+          ? [
+              {
+                user_id: c.user_id,
+                plan_id: c.plan_id,
+                abacate_subscription_id: c.abacate_subscription_id,
+                completed_at: c.completed_at,
+              },
+            ]
+          : []
+      );
+    }
+    if (
+      sql ===
+      "SELECT abacate_checkout_id, abacate_subscription_id, completed_at FROM subscription_checkouts WHERE user_id = $1 AND status = 'COMPLETED' AND abacate_subscription_id IS NOT NULL ORDER BY completed_at DESC, id DESC LIMIT 1"
+    ) {
+      // ORDER BY completed_at DESC, id DESC: no SQLite NULL vem por último em DESC.
+      const c = state.checkouts
+        .filter((x) => x.user_id === v[0] && x.status === 'COMPLETED' && x.abacate_subscription_id)
+        .sort(
+          (a, b) => (b.completed_at ?? '').localeCompare(a.completed_at ?? '') || b.id - a.id
+        )[0];
+      return ok(
+        c
+          ? [
+              {
+                abacate_checkout_id: c.abacate_checkout_id,
+                abacate_subscription_id: c.abacate_subscription_id,
+                completed_at: c.completed_at,
+              },
+            ]
+          : []
+      );
     }
     if (
       sql ===

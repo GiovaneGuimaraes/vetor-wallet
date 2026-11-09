@@ -1,6 +1,8 @@
 import type { Query } from '@vetor-wallet/query';
 
 import type { PlanRow } from './Plan';
+import { ProductArchivedError } from './ProductArchivedError';
+import { ProductPriceMismatchError } from './ProductPriceMismatchError';
 import { abacatePayErrorText } from './providers/abacatepay/abacatePayErrorText';
 import { AbacatePayError } from './providers/abacatepay/AbacatePayError';
 import type { AbacateProduct } from './providers/abacatepay/AbacateProduct';
@@ -37,14 +39,21 @@ const isAlreadyExists = (err: unknown): boolean => {
   );
 };
 
-/** Nunca usa um produto do provedor cujo preço declarado não bate com o nosso. */
-const assertPrice = (product: AbacateProduct, priceCents: number): AbacateProduct => {
-  if (product.price !== null && product.price !== priceCents) {
-    throw new Error(
-      `Produto ${product.id} tem preço ${product.price} no provedor, plano cobra ${priceCents}`
-    );
+/** Arquivado/inativo no provedor (o "delete" de produto só arquiva). */
+const ARCHIVED_STATUSES = new Set(['ARCHIVED', 'INACTIVE']);
+
+/**
+ * Nunca usa um produto que não pode cobrar: arquivado → `ProductArchivedError`;
+ * preço declarado diferente do plano → `ProductPriceMismatchError`. Os dois
+ * são erro de configuração (a rota responde 502, não 500).
+ */
+const assertUsable = (product: AbacateProduct, priceCents: number, externalId: string): void => {
+  if (product.status !== null && ARCHIVED_STATUSES.has(product.status.toUpperCase())) {
+    throw new ProductArchivedError(product.id, externalId);
   }
-  return product;
+  if (product.price !== null && product.price !== priceCents) {
+    throw new ProductPriceMismatchError(product.id, product.price, priceCents);
+  }
 };
 
 /**
@@ -60,7 +69,11 @@ const assertPrice = (product: AbacateProduct, priceCents: number): AbacateProduc
  *    produto foi criado — um chamador com o plano lido antes de uma troca de
  *    preço não grava o produto do preço velho por cima.
  *
- * Erro do provedor sobe (`AbacatePayError`).
+ * Erro do provedor sobe (`AbacatePayError`). Produto arquivado ou com preço
+ * divergente → `ProductArchivedError`/`ProductPriceMismatchError` (nada é
+ * gravado; não reativa nem recria com a mesma chave, que a API recusaria).
+ * O caminho rápido (1) não consulta o provedor, então não percebe um produto
+ * arquivado DEPOIS de gravado — o checkout falha no provedor e a rota dá 502.
  */
 export const ensurePlanProduct = async (args: {
   query: Query;
@@ -93,7 +106,7 @@ export const ensurePlanProduct = async (args: {
     }
   }
 
-  assertPrice(product, priceCents);
+  assertUsable(product, priceCents, externalId);
 
   await args.query({
     text: `UPDATE plans SET abacate_product_id = $1, abacate_product_price_cents = $2

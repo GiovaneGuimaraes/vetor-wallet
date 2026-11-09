@@ -2,7 +2,8 @@
 
 exports[`startCardCheckout o SQL (contrato com o banco) 1`] = `
 [
-  "SELECT status, current_period_end, abacate_subscription_id FROM subscriptions WHERE user_id = $1",
+  "SELECT status, current_period_end, abacate_subscription_id, updated_at FROM subscriptions WHERE user_id = $1",
+  "SELECT abacate_checkout_id, abacate_subscription_id, completed_at FROM subscription_checkouts WHERE user_id = $1 AND status = 'COMPLETED' AND abacate_subscription_id IS NOT NULL ORDER BY completed_at DESC, id DESC LIMIT 1",
   "UPDATE subscription_checkouts SET status = 'FAILED' WHERE user_id = $1 AND status = 'CREATING' AND created_at < $2",
   "SELECT id, plan_id, abacate_checkout_id, checkout_url FROM subscription_checkouts WHERE user_id = $1 AND status = 'OPEN'",
   "INSERT INTO subscription_checkouts (user_id, plan_id, status, created_at) VALUES ($1, $2, 'CREATING', $3) ON CONFLICT DO NOTHING RETURNING id",
@@ -14,6 +15,9 @@ exports[`startCardCheckout o SQL (contrato com o banco) 1`] = `
 
 exports[`startCardCheckout o SQL (contrato com o banco) 2`] = `
 [
+  [
+    7,
+  ],
   [
     7,
   ],

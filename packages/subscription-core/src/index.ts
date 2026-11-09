@@ -80,6 +80,7 @@ export { isEmptySuccess } from './providers/abacatepay/isEmptySuccess';
 // Assinatura recorrente no cartão (T-124b1): a REGRA. A porta única é
 // `applyProviderSubscriptionState`; ninguém mais grava ativação/renovação/
 // cancelamento de cartão.
+export { ActivationPendingError } from './ActivationPendingError';
 export { AlreadySubscribedError } from './AlreadySubscribedError';
 export {
   type ApplyReason,
@@ -87,6 +88,7 @@ export {
   applyProviderSubscriptionState,
   MAX_ACTIVATION_ATTEMPTS,
   RENEWAL_WINDOW_DAYS,
+  selectUserSubscriptionText,
   type SubscriptionRef,
   type SubscriptionSnapshot,
   type SubscriptionTransition,
@@ -94,6 +96,13 @@ export {
 export { CheckoutInProgressError } from './CheckoutInProgressError';
 export { ensureBillingCustomer, type EnsureBillingCustomerResult } from './ensureBillingCustomer';
 export { type CardPlanRow, ensurePlanProduct } from './ensurePlanProduct';
+export {
+  type CompletedCheckoutRow,
+  getLatestCompletedCheckout,
+} from './getLatestCompletedCheckout';
+export { isActivationPending } from './isActivationPending';
+export { ProductArchivedError } from './ProductArchivedError';
+export { ProductPriceMismatchError } from './ProductPriceMismatchError';
 export {
   reconcileCardSubscription,
   type ReconcileResult,

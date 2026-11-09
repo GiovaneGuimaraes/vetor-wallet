@@ -69,7 +69,7 @@ const activate = (db: { query: any }, checkoutId = 'bill_1', snapshot = active()
 
 const bySubs = (
   db: { query: any },
-  transition: 'renew' | 'payment_failed' | 'cancel' | 'plan_changed',
+  transition: 'renew' | 'payment_failed' | 'cancel' | 'plan_changed' | 'provider_status',
   snapshot = active({ id: 'subs_1' }),
   nowIso = NOW,
   plan?: { productId: string | null }
@@ -516,6 +516,108 @@ describe('applyProviderSubscriptionState — activate', () => {
     expect((await activate(db)).applied).toBe(true);
   });
 
+  describe('RECUPERAÇÃO: checkout COMPLETED cuja assinatura não foi gravada', () => {
+    const crashed = (over: Partial<ReturnType<typeof fakeSubscription>> = {}) => {
+      return openCheckoutDb({
+        checkouts: [
+          fakeCheckout({
+            status: 'COMPLETED',
+            abacate_subscription_id: 'subs_new',
+            completed_at: '2026-11-08 11:30:00',
+          }),
+        ],
+        subscriptions: [
+          fakeSubscription({ status: 'pending', updated_at: '2026-11-08 11:00:00', ...over }),
+        ],
+      });
+    };
+
+    test('reentrega do activate recupera: ativa, período soma uma vez', async () => {
+      const db = crashed();
+
+      const res = await activate(db);
+
+      expect(res).toEqual({
+        applied: true,
+        transition: 'activate',
+        userId: USER,
+        currentPeriodEnd: '2026-12-08 12:00:00',
+      });
+      expect(db.state.subscriptions[0]).toMatchObject({
+        status: 'active',
+        abacate_subscription_id: 'subs_new',
+      });
+      // O checkout não é reescrito (completed_at fica o do pagamento).
+      expect(db.state.checkouts[0].completed_at).toBe('2026-11-08 11:30:00');
+    });
+
+    test('recuperação repetida é no-op', async () => {
+      const db = crashed();
+      await activate(db);
+
+      expect(await activate(db)).toMatchObject({ applied: false, reason: 'already_applied' });
+      expect(db.state.subscriptions[0].current_period_end).toBe('2026-12-08 12:00:00');
+    });
+
+    test('recuperações CONCORRENTES aplicam uma vez', async () => {
+      const db = crashed();
+
+      const results = await Promise.all([activate(db), activate(db), activate(db)]);
+
+      expect(results.filter((r) => r.applied)).toHaveLength(1);
+      expect(db.state.subscriptions[0].current_period_end).toBe('2026-12-08 12:00:00');
+    });
+
+    test('snapshot com OUTRO subs_ que o gravado no checkout: não recupera (payload não decide)', async () => {
+      const db = crashed();
+
+      expect(await activate(db, 'bill_1', active({ id: 'subs_forjado' }))).toMatchObject({
+        applied: false,
+        reason: 'already_applied',
+      });
+      expect(db.state.subscriptions[0].status).toBe('pending');
+    });
+
+    test('snapshot não ACTIVE: não recupera', async () => {
+      const db = crashed();
+
+      expect(await activate(db, 'bill_1', active({ status: 'CANCELLED' }))).toMatchObject({
+        reason: 'not_active',
+      });
+      expect(db.state.subscriptions[0].status).toBe('pending');
+    });
+
+    test('checkout ANTERIOR ao pending atual (histórico) não recupera', async () => {
+      const db = crashed({ updated_at: '2026-11-08 11:45:00' });
+
+      expect(await activate(db)).toMatchObject({ applied: false, reason: 'already_applied' });
+      expect(db.state.subscriptions[0].status).toBe('pending');
+    });
+
+    test('linha já active com outro subs_: não recupera nem acusa duplicada', async () => {
+      const db = crashed({
+        status: 'active',
+        abacate_subscription_id: 'subs_other',
+        current_period_end: '2026-12-01 00:00:00',
+      });
+
+      expect(await activate(db)).toEqual({
+        applied: false,
+        transition: 'activate',
+        userId: USER,
+        reason: 'already_applied',
+      });
+    });
+
+    test('sem linha em subscriptions: não recupera (a linha sempre nasce no startCardCheckout)', async () => {
+      const db = crashed();
+      db.state.subscriptions.length = 0;
+
+      expect(await activate(db)).toMatchObject({ applied: false, reason: 'already_applied' });
+      expect(db.state.subscriptions).toHaveLength(0);
+    });
+  });
+
   test('o SQL da ativação (contrato com o banco)', async () => {
     const db = openCheckoutDb();
 
@@ -796,6 +898,44 @@ describe('applyProviderSubscriptionState — cancel', () => {
     const results = await Promise.all([bySubs(db, 'cancel'), bySubs(db, 'cancel')]);
 
     expect(results.filter((r) => r.applied)).toHaveLength(1);
+  });
+});
+
+describe('applyProviderSubscriptionState — provider_status', () => {
+  test('grava só o status cru; status/período intactos; reason remote_not_actionable', async () => {
+    const db = cardDb('2026-11-20 12:00:00');
+
+    const res = await bySubs(
+      db,
+      'provider_status',
+      active({ id: 'subs_1', status: 'PENDING', providerStatus: 'PENDING' })
+    );
+
+    expect(res).toEqual({
+      applied: true,
+      transition: 'provider_status',
+      userId: USER,
+      reason: 'remote_not_actionable',
+      providerStatus: 'PENDING',
+    });
+    expect(db.state.subscriptions[0]).toMatchObject({
+      status: 'active',
+      current_period_end: '2026-11-20 12:00:00',
+      provider_status: 'PENDING',
+      updated_at: NOW,
+    });
+  });
+
+  test('sem status cru grava UNKNOWN; repetido não regrava', async () => {
+    const db = cardDb('2026-11-20 12:00:00');
+    const snap = active({ id: 'subs_1', status: 'UNKNOWN', providerStatus: null });
+
+    expect((await bySubs(db, 'provider_status', snap)).providerStatus).toBe('UNKNOWN');
+    expect(await bySubs(db, 'provider_status', snap)).toMatchObject({
+      applied: false,
+      reason: 'remote_not_actionable',
+      providerStatus: 'UNKNOWN',
+    });
   });
 });
 

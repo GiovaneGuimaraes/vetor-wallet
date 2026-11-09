@@ -1,5 +1,6 @@
 import type { QueryConfig } from '@vetor-wallet/query';
 
+import { ActivationPendingError } from 'src/ActivationPendingError';
 import { AlreadySubscribedError } from 'src/AlreadySubscribedError';
 import { CheckoutInProgressError } from 'src/CheckoutInProgressError';
 import { STALE_CREATING_MS, startCardCheckout } from 'src/startCardCheckout';
@@ -214,6 +215,48 @@ describe('startCardCheckout', () => {
     await expect(start(db)).rejects.toBeInstanceOf(AlreadySubscribedError);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(JSON.stringify(db.state)).toBe(before);
+  });
+
+  test('checkout PAGO sem assinatura gravada → ActivationPendingError (é AlreadySubscribed); não abre outro', async () => {
+    const db = createFakeBillingDb({
+      checkouts: [
+        fakeCheckout({
+          status: 'COMPLETED',
+          abacate_subscription_id: 'subs_9',
+          completed_at: '2026-11-08 11:30:00',
+        }),
+      ],
+      subscriptions: [fakeSubscription({ status: 'pending', updated_at: '2026-11-08 11:00:00' })],
+    });
+
+    const err = await start(db).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(ActivationPendingError);
+    expect(err).toBeInstanceOf(AlreadySubscribedError);
+    expect((err as Error).name).toBe('ActivationPendingError');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(db.state.checkouts).toHaveLength(1);
+  });
+
+  test('COMPLETED antigo (histórico, antes do pending atual) NÃO bloqueia', async () => {
+    const db = createFakeBillingDb({
+      checkouts: [
+        fakeCheckout({
+          status: 'COMPLETED',
+          abacate_subscription_id: 'subs_old_dup',
+          completed_at: '2026-10-01 00:00:00',
+        }),
+      ],
+      subscriptions: [
+        fakeSubscription({
+          status: 'pending',
+          abacate_subscription_id: 'subs_old',
+          updated_at: '2026-11-01 00:00:00',
+        }),
+      ],
+    });
+
+    expect((await start(db)).reused).toBe(false);
   });
 
   test('reaproveita o OPEN do MESMO plano sem chamar o provedor', async () => {

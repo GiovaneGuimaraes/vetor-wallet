@@ -4,14 +4,17 @@ import {
   type ApplyResult,
   applyProviderSubscriptionState,
   RENEWAL_WINDOW_DAYS,
+  selectUserSubscriptionText,
 } from './applyProviderSubscriptionState';
+import { getLatestCompletedCheckout } from './getLatestCompletedCheckout';
+import { isActivationPending } from './isActivationPending';
 import { parseInstant } from './parseInstant';
 import { AbacatePayError } from './providers/abacatepay/AbacatePayError';
 import { getSubscription } from './providers/abacatepay/getSubscription';
 import { listSubscriptionsByCheckout } from './providers/abacatepay/listSubscriptionsByCheckout';
 import { toSqliteUtc } from './toSqliteUtc';
 
-/** Intervalo mínimo entre consultas com checkout aberto (o usuário está pagando agora). */
+/** Intervalo mínimo entre consultas com pagamento em andamento (checkout aberto ou pago sem assinatura). */
 export const SYNC_INTERVAL_OPEN_SECONDS = 10;
 /** Intervalo mínimo nos demais casos (renovação/cancelamento não têm pressa). */
 export const SYNC_INTERVAL_IDLE_SECONDS = 300;
@@ -32,19 +35,27 @@ export interface ReconcileResult {
  * - **Throttling por UPDATE condicional em `subscriptions.last_synced_at`**:
  *   só quem consegue mover o carimbo (`rowCount` 1) consulta o provedor; o
  *   resto devolve o estado local. Intervalo: `minIntervalSeconds`, ou 10 s com
- *   checkout `OPEN` / 300 s nos demais.
+ *   pagamento em andamento / 300 s nos demais.
  * - Checkout `OPEN` → `listSubscriptionsByCheckout` (lista vazia = ainda não
  *   pagou); assinatura `ACTIVE` com id → `activate`.
+ * - **Checkout pago sem assinatura** (`isActivationPending`: crash entre as
+ *   duas escritas da ativação, ou UPSERT que perdeu as corridas) →
+ *   `getSubscription` do `subs_` gravado NO CHECKOUT; `ACTIVE` → `activate`,
+ *   que entra no ramo de recuperação da porta. Outro status → resultado
+ *   `remote_not_actionable` (a rota mostra; resolver é humano).
  * - Assinatura de cartão `active` com `subs_` → `getSubscription`:
- *   `CANCELLED` → `cancel`; `ACTIVE` com o fim do período dentro da janela de
- *   renovação → `renew` **deduzida**. Custo da dedução: o provedor não diz "a
- *   cobrança deste ciclo passou"; se `ACTIVE` continuar `ACTIVE` durante as
- *   retentativas de um cartão recusado, o usuário ganha até um período sem ter
- *   pago (perda máxima ~ um ciclo, aceita no plano §H). A data de próxima
- *   cobrança do provedor, quando vier válida, vence a dedução (e nega quando
- *   ela não passou do fim que já temos).
+ *   - `CANCELLED` ou `FAILED` (o provedor desistiu de cobrar) → `cancel`: o
+ *     acesso segue até o fim do período pago; vencido, o usuário pode assinar
+ *     de novo.
+ *   - `ACTIVE` com o fim dentro da janela → `renew` **deduzida**. Custo: o
+ *     provedor não diz "a cobrança deste ciclo passou"; se `ACTIVE` continuar
+ *     `ACTIVE` durante as retentativas de um cartão recusado, o usuário ganha
+ *     até ~um período sem ter pago (aceito no plano §H). A data de próxima
+ *     cobrança, quando vier, vence a dedução.
+ *   - `PENDING`/desconhecido → `provider_status` (só registra o status cru;
+ *     `status` local intacto), resultado `remote_not_actionable`.
  * - **Nunca lança por erro do provedor** (`AbacatePayError` →
- *   `providerUnavailable: true`). Erro de banco sobe.
+ *   `providerUnavailable: true`). Erro de banco (ou bug) sobe.
  */
 export const reconcileCardSubscription = async (args: {
   query: Query;
@@ -61,11 +72,8 @@ export const reconcileCardSubscription = async (args: {
     status: string;
     current_period_end: string | null;
     abacate_subscription_id: string | null;
-  }>({
-    text: `SELECT status, current_period_end, abacate_subscription_id
-          FROM subscriptions WHERE user_id = $1`,
-    values: [userId],
-  });
+    updated_at: string | null;
+  }>({ text: selectUserSubscriptionText, values: [userId] });
   const sub = subRes.rows[0];
   const openRes = await query<{ abacate_checkout_id: string | null }>({
     text: `SELECT abacate_checkout_id FROM subscription_checkouts
@@ -73,6 +81,8 @@ export const reconcileCardSubscription = async (args: {
     values: [userId],
   });
   const openCheckoutId = openRes.rows[0]?.abacate_checkout_id ?? null;
+  const completed = await getLatestCompletedCheckout({ query, userId });
+  const stranded = completed && isActivationPending(completed, sub) ? completed : null;
   // Só assinatura de cartão VIVA consulta o provedor: `canceled` é terminal, e
   // `pending` com `subs_` é a cancelada antiga de quem abriu checkout novo.
   const live =
@@ -80,11 +90,11 @@ export const reconcileCardSubscription = async (args: {
       ? { id: sub.abacate_subscription_id, end: sub.current_period_end }
       : null;
 
-  if (!openCheckoutId && !live) return out;
+  if (!openCheckoutId && !live && !stranded) return out;
 
   const interval =
     args.minIntervalSeconds ??
-    (openCheckoutId ? SYNC_INTERVAL_OPEN_SECONDS : SYNC_INTERVAL_IDLE_SECONDS);
+    (openCheckoutId || stranded ? SYNC_INTERVAL_OPEN_SECONDS : SYNC_INTERVAL_IDLE_SECONDS);
   const throttle = await query({
     text: `UPDATE subscriptions SET last_synced_at = $1
           WHERE user_id = $2 AND (last_synced_at IS NULL OR last_synced_at <= $3)`,
@@ -118,32 +128,51 @@ export const reconcileCardSubscription = async (args: {
     }
   }
 
+  if (stranded) {
+    const remote = await providerCall(() => getSubscription(stranded.abacate_subscription_id));
+    if (remote?.status === 'ACTIVE') {
+      out.results.push(
+        await applyProviderSubscriptionState({
+          query,
+          ref: { checkoutId: stranded.abacate_checkout_id },
+          transition: 'activate',
+          snapshot: remote,
+          nowIso: now,
+        })
+      );
+    } else if (remote) {
+      out.results.push({
+        applied: false,
+        transition: 'activate',
+        userId,
+        reason: 'remote_not_actionable',
+        providerStatus: remote.providerStatus,
+      });
+    }
+  }
+
   if (live) {
     const remote = await providerCall(() => getSubscription(live.id));
-    const windowLimit = new Date(nowDate.getTime() + RENEWAL_WINDOW_DAYS * 86_400_000);
-    if (remote?.status === 'CANCELLED') {
-      out.results.push(
-        await applyProviderSubscriptionState({
+    if (remote) {
+      const windowLimit = new Date(nowDate.getTime() + RENEWAL_WINDOW_DAYS * 86_400_000);
+      const apply = (transition: 'cancel' | 'renew' | 'provider_status') => {
+        return applyProviderSubscriptionState({
           query,
           ref: { subscriptionId: live.id },
-          transition: 'cancel',
+          transition,
           snapshot: remote,
           nowIso: now,
-        })
-      );
-    } else if (
-      remote?.status === 'ACTIVE' &&
-      (!live.end || parseInstant(live.end) <= windowLimit)
-    ) {
-      out.results.push(
-        await applyProviderSubscriptionState({
-          query,
-          ref: { subscriptionId: live.id },
-          transition: 'renew',
-          snapshot: remote,
-          nowIso: now,
-        })
-      );
+        });
+      };
+      if (remote.status === 'CANCELLED' || remote.status === 'FAILED') {
+        out.results.push(await apply('cancel'));
+      } else if (remote.status === 'ACTIVE') {
+        if (!live.end || parseInstant(live.end) <= windowLimit) {
+          out.results.push(await apply('renew'));
+        }
+      } else {
+        out.results.push(await apply('provider_status'));
+      }
     }
   }
 

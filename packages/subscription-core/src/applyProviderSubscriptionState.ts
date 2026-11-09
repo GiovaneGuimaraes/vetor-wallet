@@ -2,6 +2,7 @@ import type { Query } from '@vetor-wallet/query';
 
 import { addInterval } from './addInterval';
 import { getActivePlan } from './getActivePlan';
+import { isActivationPending } from './isActivationPending';
 import { parseInstant } from './parseInstant';
 import type { AbacateSubscription } from './providers/abacatepay/AbacateSubscription';
 import { renewalBase } from './renewalBase';
@@ -14,7 +15,7 @@ export const RENEWAL_WINDOW_DAYS = 3;
 export const MAX_ACTIVATION_ATTEMPTS = 3;
 
 export type SubscriptionTransition =
-  'activate' | 'renew' | 'payment_failed' | 'cancel' | 'plan_changed';
+  'activate' | 'renew' | 'payment_failed' | 'cancel' | 'plan_changed' | 'provider_status';
 
 /**
  * O que a porta usa do provedor. SÓ `id`, `status`, `providerStatus` e a data
@@ -40,7 +41,8 @@ export type ApplyReason =
   | 'provider_not_renewed'
   | 'not_due'
   | 'missing_product'
-  | 'unknown_product';
+  | 'unknown_product'
+  | 'remote_not_actionable';
 
 export interface ApplyResult {
   /** true só quando ESTA chamada mudou o estado. */
@@ -55,7 +57,13 @@ export interface ApplyResult {
   subscriptionIdToCancel?: string;
   /** Fim do período gravado (activate/renew aplicados). */
   currentPeriodEnd?: string;
+  /** Status cru do provedor quando ele não permite ação (`remote_not_actionable`). */
+  providerStatus?: string | null;
 }
+
+/** Leitura da linha do usuário usada pela ativação, pelo checkout e pela reconciliação. */
+export const selectUserSubscriptionText = `SELECT status, current_period_end, abacate_subscription_id, updated_at
+            FROM subscriptions WHERE user_id = $1`;
 
 interface Ctx {
   query: Query;
@@ -126,14 +134,32 @@ const activate = async (ctx: Ctx): Promise<ApplyResult> => {
     values: [subscriptionId, ctx.now, checkoutId],
   });
 
-  const ownerRes = await ctx.query<{ user_id: number; plan_id: number }>({
-    text: 'SELECT user_id, plan_id FROM subscription_checkouts WHERE abacate_checkout_id = $1',
+  const ownerRes = await ctx.query<{
+    user_id: number;
+    plan_id: number;
+    abacate_subscription_id: string | null;
+    completed_at: string | null;
+  }>({
+    text: `SELECT user_id, plan_id, abacate_subscription_id, completed_at
+          FROM subscription_checkouts WHERE abacate_checkout_id = $1`,
     values: [checkoutId],
   });
   const owner = ownerRes.rows[0];
   if (!owner) return result(ctx, false, null, { reason: 'unknown_checkout' });
   const userId = Number(owner.user_id);
-  if (won.rowCount !== 1) return result(ctx, false, userId, { reason: 'already_applied' });
+
+  // RECUPERAÇÃO (achado do revisor da T-124b1): `rowCount` 0 com a linha
+  // existindo = o checkout JÁ estava COMPLETED. Normalmente é reentrega
+  // (no-op), mas pode ser o checkout pago cuja assinatura nunca foi gravada
+  // (crash entre as duas escritas, ou UPSERT que perdeu as corridas). Só segue
+  // se o checkout — do NOSSO banco — tem exatamente este `subs_`, o snapshot
+  // confirmou `ACTIVE` (checado acima) e, já dentro do laço,
+  // `isActivationPending` diz que a linha ainda não reflete este pagamento.
+  // As condições otimistas do UPSERT continuam garantindo período UMA vez.
+  const recovering = won.rowCount !== 1;
+  if (recovering && owner.abacate_subscription_id !== subscriptionId) {
+    return result(ctx, false, userId, { reason: 'already_applied' });
+  }
 
   const planId = Number(owner.plan_id);
   const interval = await planInterval(ctx.query, planId);
@@ -144,17 +170,23 @@ const activate = async (ctx: Ctx): Promise<ApplyResult> => {
       status: string;
       current_period_end: string | null;
       abacate_subscription_id: string | null;
+      updated_at: string | null;
     }>({
-      text: `SELECT status, current_period_end, abacate_subscription_id
-            FROM subscriptions WHERE user_id = $1`,
+      text: selectUserSubscriptionText,
       values: [userId],
     });
     const sub = subRes.rows[0];
 
-    // Esta mesma assinatura já está gravada (chegou por OUTRO checkout — só um
-    // payload torto faria isso): nem estende de novo, nem manda cancelar a
-    // assinatura que está valendo. No-op.
+    // Esta mesma assinatura já está gravada (reentrega, recuperação que outro
+    // processo já fez, ou o mesmo subs_ por outro checkout): nem estende de
+    // novo, nem manda cancelar a assinatura que está valendo. No-op.
     if (sub && sub.abacate_subscription_id === subscriptionId) {
+      return result(ctx, false, userId, { reason: 'already_applied' });
+    }
+    // Recuperando, mas a linha não está no estado "pago sem assinatura": é
+    // histórico (duplicada antiga, assinatura já substituída). No-op — sem
+    // estender e sem acusar duplicada de novo.
+    if (recovering && !isActivationPending(owner, sub)) {
       return result(ctx, false, userId, { reason: 'already_applied' });
     }
 
@@ -210,7 +242,8 @@ const activate = async (ctx: Ctx): Promise<ApplyResult> => {
   }
 
   // Três trocas concorrentes seguidas na mesma linha: não chuta. O checkout já
-  // está COMPLETED — reconciliação manual (mesma janela documentada no Pix).
+  // está COMPLETED; se a linha seguir `pending`, `isActivationPending` marca o
+  // estado e a próxima reconciliação (ou reentrega) recupera.
   throw new Error(
     `Ativação de ${subscriptionId} (usuário ${userId}) perdeu ${MAX_ACTIVATION_ATTEMPTS} corridas seguidas`
   );
@@ -359,6 +392,23 @@ export const applyProviderSubscriptionState = async (args: {
         WHERE abacate_subscription_id = $4 AND status <> 'canceled'`,
         [ctx.now, ctx.snapshot.providerStatus ?? 'CANCELLED', ctx.now, subscriptionId]
       );
+
+    case 'provider_status': {
+      // Status remoto que não permite ação (PENDING/UNKNOWN): o `status` local
+      // NÃO muda; só registra o que o provedor disse, para a rota mostrar.
+      // `applied` segue o `rowCount` como nas outras transições (true = gravou
+      // um provider_status novo); o acesso nunca muda aqui.
+      const providerStatus = ctx.snapshot.providerStatus ?? 'UNKNOWN';
+      const res = await ctx.query({
+        text: `UPDATE subscriptions SET provider_status = $1, updated_at = $2
+              WHERE abacate_subscription_id = $3 AND COALESCE(provider_status, '') <> $4`,
+        values: [providerStatus, ctx.now, subscriptionId, providerStatus],
+      });
+      return result(ctx, res.rowCount === 1, userId, {
+        reason: 'remote_not_actionable',
+        providerStatus,
+      });
+    }
 
     default: {
       // plan_changed

@@ -1,8 +1,12 @@
 import type { Query } from '@vetor-wallet/query';
 
+import { ActivationPendingError } from './ActivationPendingError';
 import { AlreadySubscribedError } from './AlreadySubscribedError';
+import { selectUserSubscriptionText } from './applyProviderSubscriptionState';
 import { CheckoutInProgressError } from './CheckoutInProgressError';
 import { type CardPlanRow, ensurePlanProduct } from './ensurePlanProduct';
+import { getLatestCompletedCheckout } from './getLatestCompletedCheckout';
+import { isActivationPending } from './isActivationPending';
 import { isSubscriptionActive } from './isSubscriptionActive';
 import { parseInstant } from './parseInstant';
 import { createSubscriptionCheckout } from './providers/abacatepay/createSubscriptionCheckout';
@@ -32,6 +36,7 @@ interface SubRow {
   status: string;
   current_period_end: string | null;
   abacate_subscription_id: string | null;
+  updated_at: string | null;
 }
 
 interface OpenRow {
@@ -53,6 +58,9 @@ interface OpenRow {
  *    pode estar cobrando (renovação ainda não reconciliada, ou cartão em
  *    retentativa). Abrir outra criaria uma segunda cobrança recorrente; o
  *    caminho é reconciliar (`sync`) ou cancelar pelo portal antes.
+ *    E **`ActivationPendingError`** (filho de `AlreadySubscribedError`) quando o
+ *    último checkout `COMPLETED` foi pago e a assinatura ainda não foi gravada
+ *    (`isActivationPending`) — o caminho é o `sync`, não outro pagamento.
  * 2. `CREATING` com mais de 2 min → `FAILED` (processo morreu no meio).
  * 3. `OPEN` do MESMO plano → devolve sem chamar o provedor (dois checkouts
  *    válidos = convite a pagar duas vezes). `OPEN` de OUTRO plano →
@@ -89,14 +97,15 @@ export const startCardCheckout = async (args: {
   const nowDate = parseInstant(args.nowIso);
   const now = toSqliteUtc(nowDate);
 
-  const subRes = await query<SubRow>({
-    text: `SELECT status, current_period_end, abacate_subscription_id
-          FROM subscriptions WHERE user_id = $1`,
-    values: [userId],
-  });
+  const subRes = await query<SubRow>({ text: selectUserSubscriptionText, values: [userId] });
   const sub = subRes.rows[0];
   if (isSubscriptionActive(sub, now) || (sub?.abacate_subscription_id && sub.status === 'active')) {
     throw new AlreadySubscribedError();
+  }
+  // Pagou um checkout cuja assinatura ainda não foi gravada (crash/corrida):
+  // abrir outro seria cobrar duas vezes. A saída é o `sync`, que recupera.
+  if (isActivationPending(await getLatestCompletedCheckout({ query, userId }), sub)) {
+    throw new ActivationPendingError();
   }
 
   await query({

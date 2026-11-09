@@ -1,6 +1,7 @@
 import type { QueryConfig } from '@vetor-wallet/query';
 
 import { applyProviderSubscriptionState } from 'src/applyProviderSubscriptionState';
+import { isSubscriptionActive } from 'src/isSubscriptionActive';
 import {
   reconcileCardSubscription,
   SYNC_INTERVAL_IDLE_SECONDS,
@@ -234,15 +235,238 @@ describe('reconcileCardSubscription', () => {
     ]);
   });
 
-  test.each(['PENDING', 'FAILED', 'WHATEVER'])(
-    'cartão %s no provedor: nada muda',
-    async (status) => {
-      getResponse = okEnvelope({ id: 'subs_1', status });
+  test('cartão FAILED no provedor (desistiu de cobrar) → cancel: acesso até o fim, depois pode recomeçar', async () => {
+    getResponse = okEnvelope({ id: 'subs_1', status: 'FAILED' });
+    const db = cardDb('2026-11-20 12:00:00');
+
+    expect((await reconcile(db)).results).toEqual([
+      { applied: true, transition: 'cancel', userId: USER },
+    ]);
+    const sub = db.state.subscriptions[0];
+    expect(sub).toMatchObject({
+      status: 'canceled',
+      canceled_at: NOW,
+      provider_status: 'FAILED',
+      current_period_end: '2026-11-20 12:00:00',
+    });
+    expect(isSubscriptionActive(sub, NOW)).toBe(true);
+    expect(isSubscriptionActive(sub, '2026-11-20 12:00:01')).toBe(false);
+  });
+
+  test.each([
+    ['PENDING', { id: 'subs_1', status: 'PENDING' }, 'PENDING'],
+    ['desconhecido', { id: 'subs_1', status: 'WHATEVER' }, 'WHATEVER'],
+    ['sem status', { id: 'subs_1' }, 'UNKNOWN'],
+  ])(
+    'cartão %s no provedor: status local intacto, só provider_status + remote_not_actionable',
+    async (_l, raw, providerStatus) => {
+      getResponse = okEnvelope(raw);
       const db = cardDb('2026-11-09 12:00:00');
 
-      expect((await reconcile(db)).results).toEqual([]);
+      expect((await reconcile(db)).results).toEqual([
+        {
+          applied: true,
+          transition: 'provider_status',
+          userId: USER,
+          reason: 'remote_not_actionable',
+          providerStatus,
+        },
+      ]);
+      expect(db.state.subscriptions[0]).toMatchObject({
+        status: 'active',
+        current_period_end: '2026-11-09 12:00:00',
+        provider_status: providerStatus,
+      });
     }
   );
+
+  test('provider_status repetido não regrava (applied:false) e segue avisando', async () => {
+    getResponse = okEnvelope({ id: 'subs_1', status: 'PENDING' });
+    const db = cardDb('2026-11-09 12:00:00');
+    await reconcile(db);
+
+    const again = await reconcile(db, { nowIso: '2026-11-08 12:10:00' });
+
+    expect(again.results).toEqual([
+      {
+        applied: false,
+        transition: 'provider_status',
+        userId: USER,
+        reason: 'remote_not_actionable',
+        providerStatus: 'PENDING',
+      },
+    ]);
+  });
+
+  describe('checkout PAGO sem assinatura gravada (crash entre as duas escritas)', () => {
+    /** Estado do crash: checkout COMPLETED com subs_9, linha ainda pending de antes. */
+    const crashedDb = (over: Partial<ReturnType<typeof fakeSubscription>> = {}) => {
+      return createFakeBillingDb({
+        checkouts: [
+          fakeCheckout({
+            status: 'COMPLETED',
+            abacate_subscription_id: 'subs_9',
+            completed_at: '2026-11-08 11:30:00',
+          }),
+        ],
+        subscriptions: [
+          fakeSubscription({ status: 'pending', updated_at: '2026-11-08 11:00:00', ...over }),
+        ],
+      });
+    };
+
+    beforeEach(() => {
+      getResponse = okEnvelope({ id: 'subs_9', status: 'ACTIVE' });
+    });
+
+    test('reconcile RECUPERA: assinatura ativa, período soma uma vez', async () => {
+      const db = crashedDb();
+
+      const res = await reconcile(db);
+
+      expect(calledPaths(fetchMock)).toEqual(['/subscriptions/get?id=subs_9']);
+      expect(res.results).toEqual([
+        {
+          applied: true,
+          transition: 'activate',
+          userId: USER,
+          currentPeriodEnd: '2026-12-08 12:00:00',
+        },
+      ]);
+      expect(db.state.subscriptions[0]).toMatchObject({
+        status: 'active',
+        abacate_subscription_id: 'subs_9',
+        current_period_end: '2026-12-08 12:00:00',
+      });
+    });
+
+    test('recuperação repetida (depois do throttle) é no-op: período não soma de novo', async () => {
+      const db = crashedDb();
+      await reconcile(db);
+
+      const again = await reconcile(db, { nowIso: '2026-11-08 13:00:00' });
+
+      // Recuperado: nada mais a fazer (o subs_9 agora é cartão vivo, longe do fim).
+      expect(again.results).toEqual([]);
+      expect(db.state.subscriptions[0].current_period_end).toBe('2026-12-08 12:00:00');
+    });
+
+    test('COMPLETED com UPSERT já feito → nada a recuperar', async () => {
+      const db = crashedDb({
+        status: 'active',
+        abacate_subscription_id: 'subs_9',
+        current_period_end: '2026-12-08 11:30:00',
+      });
+
+      expect((await reconcile(db)).results).toEqual([]);
+      expect(db.state.subscriptions[0].current_period_end).toBe('2026-12-08 11:30:00');
+    });
+
+    test('recuperação CONCORRENTE (reconcile + reentrega do activate) aplica uma vez', async () => {
+      const db = crashedDb();
+
+      const [rec, hook] = await Promise.all([
+        reconcile(db),
+        applyProviderSubscriptionState({
+          query: db.query,
+          ref: { checkoutId: 'bill_1' },
+          transition: 'activate',
+          snapshot: {
+            id: 'subs_9',
+            status: 'ACTIVE',
+            providerStatus: 'ACTIVE',
+            nextBillingAt: null,
+          },
+          nowIso: NOW,
+        }),
+      ]);
+
+      expect([...rec.results, hook].filter((r) => r.applied)).toHaveLength(1);
+      expect(db.state.subscriptions[0].current_period_end).toBe('2026-12-08 12:00:00');
+    });
+
+    test('provedor diz que não está ACTIVE: não ativa, avisa remote_not_actionable', async () => {
+      getResponse = okEnvelope({ id: 'subs_9', status: 'CANCELLED' });
+      const db = crashedDb();
+
+      expect((await reconcile(db)).results).toEqual([
+        {
+          applied: false,
+          transition: 'activate',
+          userId: USER,
+          reason: 'remote_not_actionable',
+          providerStatus: 'CANCELLED',
+        },
+      ]);
+      expect(db.state.subscriptions[0].status).toBe('pending');
+    });
+
+    test('provedor fora do ar: providerUnavailable, nada muda', async () => {
+      getResponse = errorEnvelope('boom', 503);
+      const db = crashedDb();
+
+      expect(await reconcile(db)).toEqual({
+        throttled: false,
+        providerUnavailable: true,
+        results: [],
+      });
+    });
+
+    test(`usa o intervalo curto (${SYNC_INTERVAL_OPEN_SECONDS} s): o usuário acabou de pagar`, async () => {
+      expect(
+        (await reconcile(crashedDb({ last_synced_at: '2026-11-08 11:59:50' }))).throttled
+      ).toBe(false);
+    });
+
+    test('duplicada ANTIGA (COMPLETED antes do pending atual) não ressuscita', async () => {
+      const db = crashedDb({ updated_at: '2026-11-08 11:45:00' });
+
+      expect(await reconcile(db)).toEqual({
+        throttled: false,
+        providerUnavailable: false,
+        results: [],
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    test('UPSERT que perdeu as 3 corridas deixa estado RECUPERÁVEL pelo reconcile', async () => {
+      const db = openDb();
+      const inner = db.query.getMockImplementation()!;
+      let sabotage = true;
+      db.query.mockImplementation(async (config: QueryConfig) => {
+        if (sabotage && config.text.includes("'abacatepay_card'")) return { rows: [], rowCount: 0 };
+        return inner(config);
+      });
+      await expect(
+        applyProviderSubscriptionState({
+          query: db.query,
+          ref: { checkoutId: 'bill_1' },
+          transition: 'activate',
+          snapshot: {
+            id: 'subs_9',
+            status: 'ACTIVE',
+            providerStatus: 'ACTIVE',
+            nextBillingAt: null,
+          },
+          nowIso: NOW,
+        })
+      ).rejects.toThrow('perdeu 3 corridas');
+      expect(db.state.checkouts[0].status).toBe('COMPLETED');
+      expect(db.state.subscriptions[0].status).toBe('pending');
+      sabotage = false;
+
+      const res = await reconcile(db);
+
+      expect(res.results).toEqual([
+        {
+          applied: true,
+          transition: 'activate',
+          userId: USER,
+          currentPeriodEnd: '2026-12-08 12:00:00',
+        },
+      ]);
+    });
+  });
 
   test('provedor fora do ar na leitura da assinatura → providerUnavailable', async () => {
     getResponse = errorEnvelope('Subscription not found', 400);

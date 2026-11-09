@@ -1,4 +1,6 @@
 import { ensurePlanProduct } from 'src/ensurePlanProduct';
+import { ProductArchivedError } from 'src/ProductArchivedError';
+import { ProductPriceMismatchError } from 'src/ProductPriceMismatchError';
 import { createFakeBillingDb, type FakeBillingDb, fakePlan } from 'tests/unit/fakeBillingDb';
 import {
   calledPaths,
@@ -173,10 +175,66 @@ describe('ensurePlanProduct', () => {
     catalogProvider(fetchMock, [{ id: 'prod_x', externalId: 'pro_monthly:1990', price: 999 }]);
     const db = createFakeBillingDb();
 
-    await expect(ensure(db)).rejects.toThrow(
-      'Produto prod_x tem preço 999 no provedor, plano cobra 1990'
-    );
+    const err = await ensure(db).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(ProductPriceMismatchError);
+    expect(err).toMatchObject({
+      name: 'ProductPriceMismatchError',
+      message: 'Produto prod_x tem preço 999 no provedor, plano cobra 1990',
+      productId: 'prod_x',
+      providerPriceCents: 999,
+      planPriceCents: 1990,
+    });
     expect(db.state.plans[0].abacate_product_id).toBeNull();
+  });
+
+  test.each(['ARCHIVED', 'inactive'])(
+    'produto %s no provedor (o delete só arquiva): ProductArchivedError, sem recriar nem gravar',
+    async (status) => {
+      const catalog = catalogProvider(fetchMock, [
+        { id: 'prod_arq', externalId: 'pro_monthly:1990', price: 1990, status },
+      ]);
+      const db = createFakeBillingDb();
+
+      const err = await ensure(db).catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(ProductArchivedError);
+      expect(err).toMatchObject({
+        name: 'ProductArchivedError',
+        productId: 'prod_arq',
+        externalId: 'pro_monthly:1990',
+        message: 'Produto prod_arq (pro_monthly:1990) está arquivado na AbacatePay',
+      });
+      expect(calledPaths(fetchMock).some((p) => p === '/products/create')).toBe(false);
+      expect(catalog).toHaveLength(1);
+      expect(db.state.plans[0].abacate_product_id).toBeNull();
+    }
+  );
+
+  test('arquivado achado na RELEITURA da corrida também é ProductArchivedError', async () => {
+    routeFetch(fetchMock, (path) => {
+      if (path.startsWith('/products/get')) {
+        return fetchMock.mock.calls.length === 1
+          ? errorEnvelope('Product not found', 404)
+          : okEnvelope({ id: 'prod_arq', externalId: 'pro_monthly:1990', status: 'ARCHIVED' });
+      }
+      if (path === '/products/create') {
+        return errorEnvelope('Product with externalId already exists', 400);
+      }
+      return undefined;
+    });
+    const db = createFakeBillingDb();
+
+    await expect(ensure(db)).rejects.toBeInstanceOf(ProductArchivedError);
+  });
+
+  test('status ACTIVE é usável', async () => {
+    catalogProvider(fetchMock, [
+      { id: 'prod_ok', externalId: 'pro_monthly:1990', price: 1990, status: 'ACTIVE' },
+    ]);
+    const db = createFakeBillingDb();
+
+    expect((await ensure(db)).productId).toBe('prod_ok');
   });
 
   test('produto do provedor sem preço declarado é aceito (o externalId já fixa o preço)', async () => {

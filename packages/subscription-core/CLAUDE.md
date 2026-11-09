@@ -82,7 +82,12 @@ src/
 ├── markChargePaidAndActivate.ts # ativação (query injetado, T-114)
 │   # ── assinatura recorrente no cartão: a REGRA (T-124b1) ──
 ├── AlreadySubscribedError.ts    # → 409 ALREADY_SUBSCRIBED na rota
+├── ActivationPendingError.ts    # filho do anterior: pago, assinatura ainda não gravada
 ├── CheckoutInProgressError.ts   # → 409 CHECKOUT_IN_PROGRESS na rota
+├── ProductPriceMismatchError.ts # → 502 BILLING_NOT_CONFIGURED na rota
+├── ProductArchivedError.ts      # → 502 BILLING_NOT_CONFIGURED na rota
+├── isActivationPending.ts       # "pago sem assinatura gravada" (recuperação)
+├── getLatestCompletedCheckout.ts
 ├── ensureBillingCustomer.ts     # cust_ por usuário (billing_customers)
 ├── ensurePlanProduct.ts         # prod_ por (plano, preço) (plans.abacate_product_*)
 ├── startCardCheckout.ts         # CREATING → OPEN; reaproveita/supersede
@@ -214,7 +219,11 @@ consulta (`reconcileCardSubscription`) chamam ela.
     temos, **nega** (`provider_not_renewed`): o provedor ainda não renovou.
   - `payment_failed` (só `provider_status`), `cancel` (`WHERE status <>
     'canceled'`, `canceled_at` não é reescrito), `plan_changed` (plano por
-    `plans.abacate_product_id`; desconhecido → no-op com motivo).
+    `plans.abacate_product_id`; desconhecido → no-op com motivo),
+    `provider_status` (status remoto sem ação — PENDING/desconhecido: grava só
+    `provider_status`, `status` intacto, sempre `reason:
+    'remote_not_actionable'` + `providerStatus`; `applied` segue o `rowCount`
+    como nas outras: true = gravou um status novo).
 - **Dono sempre do nosso banco**: `subscription_checkouts.user_id` na ativação,
   `subscriptions.user_id` (por `abacate_subscription_id`) no resto. Ativação só
   por `{ checkoutId }` — por `subs_` não há dono conhecido. O plano ativado é o
@@ -234,10 +243,28 @@ consulta (`reconcileCardSubscription`) chamam ela.
   `getSubscription` e conferir `CANCELLED`). O mesmo `subs_` chegando por outro
   checkout, ou a reentrega de uma ativação já aplicada, é no-op
   (`already_applied`) — nem estende nem pede um 2º cancelamento.
-- **Janela sem rede** (mesma da porta do Pix): se o processo morrer entre o
-  UPDATE do checkout e o UPSERT da assinatura, o checkout fica `COMPLETED` sem a
-  assinatura gravada, e a reconciliação não corrige sozinha (ela parte da linha
-  `OPEN` ou do `subs_` já gravado). Reconciliação manual.
+- **Pago sem assinatura gravada se AUTOCORRIGE** (achado do revisor da
+  T-124b1; ao contrário da porta do Pix). Se o processo morrer entre o UPDATE
+  do checkout e o UPSERT da assinatura — ou o UPSERT perder as 3 corridas — o
+  checkout fica `COMPLETED` e a linha segue `pending`. `isActivationPending`
+  reconhece esse estado: último checkout `COMPLETED` (com `subs_`) do usuário,
+  linha `pending` sem aquele `subs_`, e `completed_at >= updated_at` da linha
+  (é isso que separa o crash de histórico: uma duplicada antiga ou assinatura
+  substituída tem `completed_at` anterior ao `pending` gravado pelo checkout
+  seguinte). Três efeitos:
+  1. `activate` com `rowCount` 0 entra em **recuperação** se o checkout (do
+     nosso banco) tem EXATAMENTE o `subs_` do snapshot, o snapshot é `ACTIVE`
+     e a linha está pendente — senão `already_applied`. O UPSERT otimista
+     garante período UMA vez entre recuperações concorrentes.
+  2. `reconcileCardSubscription` acha o checkout pendente, lê o `subs_` DELE
+     no provedor e, se `ACTIVE`, chama `activate` (recuperação); outro status →
+     `remote_not_actionable`. Intervalo curto (10 s): o usuário acabou de pagar.
+  3. `startCardCheckout` recusa com **`ActivationPendingError`** (filho de
+     `AlreadySubscribedError`) — não deixa pagar de novo.
+  Fora do alcance: linha de `subscriptions` AUSENTE (só por intervenção manual;
+  ela nasce no `startCardCheckout` antes do provedor), e crash concorrente com
+  um SEGUNDO checkout pago (a linha deixa de estar `pending` e a duplicada não é
+  detectada) — os dois exigem reconciliação manual.
 
 `startCardCheckout`: `AlreadySubscribedError` para qualquer assinatura dentro do
 período (`isSubscriptionActive` — inclui Pix legado e `canceled` com período
@@ -260,6 +287,17 @@ assinaturas antigas seguem no produto delas (plano §G). Produto achado com pre�
 declarado diferente do plano → lança (nunca cobra valor errado). Corrida →
 400 "already exists" → relê por `externalId`.
 
+Erros de configuração do produto são **tipados** (a rota mapeia para
+502/`BILLING_NOT_CONFIGURED`, nunca 500): `ProductPriceMismatchError` (preço
+declarado ≠ plano) e `ProductArchivedError` (`status` do produto
+`ARCHIVED`/`INACTIVE` — o "delete" de produto só arquiva). Arquivado NÃO é
+reativado nem recriado com a mesma chave (a API recusa `externalId` repetido):
+resolver é humano — desarquivar no painel, ou mudar preço/código do plano (chave
+nova). O `status` do produto não foi medido na API real; ausente, nada se
+conclui. O caminho rápido (produto já gravado com o preço certo) não consulta o
+provedor e não percebe arquivamento posterior — o checkout falha lá e a rota dá
+502.
+
 `ensureBillingCustomer`: `INSERT … ON CONFLICT(user_id) DO NOTHING`; `rowCount`
 0 = perdeu a corrida → relê o vencedor e devolve o próprio `cust_` como
 `orphanCustomerId` (a rota loga para limpeza).
@@ -267,13 +305,26 @@ declarado diferente do plano → lança (nunca cobra valor errado). Corrida →
 `reconcileCardSubscription`: throttling por UPDATE condicional em
 `subscriptions.last_synced_at` (10 s com checkout `OPEN`, 300 s nos demais, ou
 `minIntervalSeconds`). `OPEN` → `listSubscriptionsByCheckout` (`ACTIVE` com id
-→ `activate`); cartão `active` com `subs_` → `getSubscription` (`CANCELLED` →
-`cancel`; `ACTIVE` com fim dentro da janela → `renew` **deduzida**). **O custo da
+→ `activate`); checkout pago sem assinatura → recuperação (acima); cartão
+`active` com `subs_` → `getSubscription` (`CANCELLED` **ou `FAILED`** → `cancel`;
+`ACTIVE` com fim dentro da janela → `renew` **deduzida**; `PENDING`/desconhecido
+→ `provider_status`). **O custo da
 dedução**: o provedor não diz "a cobrança deste ciclo passou"; se `ACTIVE`
 continuar `ACTIVE` durante as retentativas de um cartão recusado, o usuário ganha
 até ~um período sem ter pago (aceito no plano §H). A data de próxima cobrança,
 quando vier, vence a dedução. `AbacatePayError` → `providerUnavailable: true`,
 nunca lança; erro de banco (ou bug) sobe.
+
+**Caminho de saída do usuário em cada estado** (o que a rota/UI oferece):
+
+| Estado local (e remoto) | Acesso | Saída |
+|---|---|---|
+| `pending` + checkout `OPEN` | não | "Continuar pagamento" (mesma url); trocar de plano supersede |
+| checkout pago, assinatura não gravada (`ActivationPendingError`) | não, até o `sync` | `sync` (recupera sozinho); remoto não-`ACTIVE` → humano (reembolso) |
+| `active`, `provider_status='PAYMENT_FAILED'` | até o fim do período | portal (atualizar cartão); vencido sem renovar → `AlreadySubscribed` até `sync`/portal resolver |
+| `active` + remoto `PENDING`/desconhecido | até o fim do período | `sync` de novo depois; o `provider_status` mostra o que o provedor disse |
+| remoto `CANCELLED` ou `FAILED` → `canceled` | até o fim do período | vencido, **recomeçar** (`startCardCheckout` libera `canceled` vencido) |
+| Pix legado `active` no período | até o fim | só assina no cartão depois de vencer |
 
 Evidência contra SQLite real (`initDb` + `createSqliteQuery`, script fora do
 repo): `ON CONFLICT DO NOTHING RETURNING id` devolve linha vazia no conflito, e
