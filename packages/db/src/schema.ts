@@ -365,6 +365,71 @@ export async function initDb() {
      ON billing_webhook_events(event_id)`
   );
 
+  // ── Assinatura recorrente no cartão (T-124a) ──────────────────────────────
+  //
+  // Só o chão: tabelas e colunas sobre as quais a regra (T-124b1) e as rotas
+  // (T-124b2) vão ser escritas. Nada aqui é lido nem escrito pelo app ainda.
+  // Dono: `@vetor-wallet/subscription-core`.
+
+  // Cliente na AbacatePay, um por usuário, criado só na assinatura (e-mail +
+  // nome, sem CPF/celular — decisão do humano). Fica FORA de `users` porque
+  // `users` pertence ao `auth-core` e um core não escreve em tabela de outro.
+  // UNIQUE nos dois lados: um usuário tem um cliente, e um cliente do provedor
+  // pertence a um usuário só (senão o portal de um mostraria o cartão do outro).
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS billing_customers (
+      id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id             INTEGER NOT NULL REFERENCES users(id),
+      abacate_customer_id TEXT    NOT NULL,
+      created_at          TEXT    NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_customers_user
+     ON billing_customers(user_id)`
+  );
+
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_customers_abacate_id
+     ON billing_customers(abacate_customer_id)`
+  );
+
+  // Checkout de assinatura no provedor: faz para o cartão o papel que
+  // `pix_charges` faz para o Pix — o DONO vem desta linha, nunca do payload
+  // do provedor. `abacate_checkout_id` (o `bill_…`) é NULL enquanto
+  // `CREATING`: a linha nasce antes da chamada ao provedor, para que a trava
+  // de checkout simultâneo abaixo valha já durante a criação.
+  // `abacate_subscription_id` (o `subs_…`) só existe depois do pagamento.
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS subscription_checkouts (
+      id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id                 INTEGER NOT NULL REFERENCES users(id),
+      plan_id                 INTEGER NOT NULL REFERENCES plans(id),
+      abacate_checkout_id     TEXT,
+      checkout_url            TEXT,
+      status                  TEXT    NOT NULL DEFAULT 'CREATING'
+                                      CHECK(status IN ('CREATING', 'OPEN', 'COMPLETED', 'SUPERSEDED', 'FAILED')),
+      abacate_subscription_id TEXT,
+      created_at              TEXT    NOT NULL DEFAULT (datetime('now')),
+      completed_at            TEXT
+    )
+  `);
+
+  // Único quando presente: vários checkouts em CREATING têm NULL e não colidem.
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_subscription_checkouts_abacate_id
+     ON subscription_checkouts(abacate_checkout_id) WHERE abacate_checkout_id IS NOT NULL`
+  );
+
+  // A trava contra dois checkouts simultâneos do mesmo usuário: no máximo UM
+  // em CREATING/OPEN. Os terminais (COMPLETED/SUPERSEDED/FAILED) ficam fora do
+  // índice e se acumulam como histórico. Mesmo molde de `idx_users_cognito_sub`.
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_subscription_checkouts_user_open
+     ON subscription_checkouts(user_id) WHERE status IN ('CREATING', 'OPEN')`
+  );
+
   // ── Open Finance / Pluggy (T-089a) ────────────────────────────────────────
   //
   // Uma linha por CONEXÃO do usuário com uma instituição financeira (o "item"
@@ -466,6 +531,23 @@ export async function initDb() {
     // órfão (o investimento sumiu da leitura) NÃO é limpo — fica inativo e a
     // posição manual volta a contar (lógica do web, fatia d3b).
     'ALTER TABLE fixed_income_positions ADD COLUMN superseded_by_pluggy_investment_id TEXT',
+    // T-124a: produto da AbacatePay que cobra este plano no cartão, e o preço
+    // (CENTAVOS) com que ele foi criado lá. Guardar o preço é o que permite
+    // perceber que `price_cents` mudou e o produto precisa ser recriado — o
+    // provedor não edita preço de produto. NULL = produto ainda não criado.
+    'ALTER TABLE plans ADD COLUMN abacate_product_id TEXT',
+    'ALTER TABLE plans ADD COLUMN abacate_product_price_cents INTEGER',
+    // T-124a: assinatura recorrente no cartão. `provider` NULL = Pix legado
+    // (toda linha anterior); os valores futuros são 'pix_legacy' e
+    // 'abacatepay_card' — sem CHECK, porque CHECK novo em tabela existente
+    // exigiria rebuild no SQLite. O CHECK de `status` também NÃO muda, pelo
+    // mesmo motivo: `provider_status` guarda o status cru do provedor
+    // (ACTIVE/CANCELLED/…), e `status` segue no vocabulário de sempre.
+    'ALTER TABLE subscriptions ADD COLUMN provider TEXT',
+    'ALTER TABLE subscriptions ADD COLUMN abacate_subscription_id TEXT',
+    'ALTER TABLE subscriptions ADD COLUMN provider_status TEXT',
+    'ALTER TABLE subscriptions ADD COLUMN canceled_at TEXT',
+    'ALTER TABLE subscriptions ADD COLUMN last_synced_at TEXT',
   ]) {
     try {
       await db.execute(sql);
@@ -501,6 +583,14 @@ export async function initDb() {
   await db.execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_cognito_sub
      ON users(cognito_sub) WHERE cognito_sub IS NOT NULL`
+  );
+
+  // T-124a — um `subs_…` da AbacatePay pertence a UMA assinatura nossa.
+  // Parcial porque toda assinatura Pix legada tem NULL aqui. Depois do loop de
+  // ALTER, que é quem garante a coluna num banco antigo.
+  await db.execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_abacate_id
+     ON subscriptions(abacate_subscription_id) WHERE abacate_subscription_id IS NOT NULL`
   );
 
   // Sessões do express-session (T-034): persistidas no mesmo banco em vez do
