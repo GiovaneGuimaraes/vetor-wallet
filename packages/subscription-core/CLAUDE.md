@@ -75,11 +75,9 @@ src/
 ├── safeEqual.ts                 # HMAC do webhook
 ├── Plan.ts                      # PlanRow + toPlan
 ├── Subscription.ts              # SubscriptionRow + toSubscription
-├── PixCharge.ts                 # PixChargeRow + toPixCharge
 ├── getActivePlan.ts             # leitura (query injetado, T-114)
 ├── getSubscriptionRow.ts
-├── getPendingCharge.ts
-├── markChargePaidAndActivate.ts # ativação (query injetado, T-114)
+├── markChargePaidAndActivate.ts # ativação do Pix LEGADO (só o webhook; sai na etapa 2)
 │   # ── assinatura recorrente no cartão: a REGRA (T-124b1) ──
 ├── AlreadySubscribedError.ts    # → 409 ALREADY_SUBSCRIBED na rota
 ├── ActivationPendingError.ts    # filho do anterior: pago, assinatura ainda não gravada
@@ -93,18 +91,17 @@ src/
 ├── getBillingCustomer.ts        # cust_ do usuário, só leitura
 ├── ensureBillingCustomer.ts     # cust_ por usuário (billing_customers)
 ├── ensurePlanProduct.ts         # prod_ por (plano, preço) (plans.abacate_product_*)
+├── assertCanStartCheckout.ts    # 409s ANTES de criar cliente (T-124c; startCardCheckout usa)
+├── billingCustomerName.ts       # nome do cliente: perfil ou e-mail antes do @ (T-124c)
 ├── startCardCheckout.ts         # CREATING → OPEN; reaproveita/supersede
 ├── applyProviderSubscriptionState.ts # A PORTA ÚNICA (activate/renew/…)
 ├── reconcileCardSubscription.ts # consulta à API + throttling
 └── providers/abacatepay/
     ├── AbacatePayError.ts
-    ├── AbacatePixCharge.ts      # tipos + toAbacatePixCharge
     ├── request.ts               # envelope, timeout, política de erro
     ├── isAbacatePayConfigured.ts
-    ├── createPixCharge.ts
-    ├── sanitizeDescription.ts   # descrição no conjunto que a API aceita
-    ├── checkPixCharge.ts
-    ├── simulatePixPayment.ts
+    │   # (createPixCharge, checkPixCharge, simulatePixPayment, AbacatePixCharge,
+    │   #  sanitizeDescription, getPendingCharge e PixCharge saíram na T-124c)
     ├── webhookPublicKey.ts      # chave PÚBLICA fixa da doc (T-123)
     ├── verifyWebhookSignature.ts # esquema da doc + fallback legado (T-123)
     │   # ── assinatura recorrente no cartão (T-124a: só o client) ──
@@ -125,11 +122,16 @@ src/
     └── abacatePayErrorText.ts   # texto do `error` do envelope
 ```
 
-**Cartão (T-124a/T-124b1).** O schema (`billing_customers`,
+**Cartão (T-124a/T-124b1/T-124c).** O schema (`billing_customers`,
 `subscription_checkouts`, colunas novas em `plans`/`subscriptions` — ver
 `docs/decisions/db-schema.md`), o client acima e a regra (seção "Cartão: a
-porta única", abaixo) existem, mas **nenhuma rota os chama ainda**: as rotas
-são a T-124b2/c e o webhook `subscription.*` a T-124d. Contratos medidos na API
+porta única", abaixo) são chamados pelas rotas `POST /api/subscriptions`
+(T-124c), `/sync` e `/portal` (T-124b2); o webhook `subscription.*` é a T-124d.
+**Desde a T-124c o Pix de assinatura saiu** (a loja não tem Pix Automático):
+nenhuma rota cria cobrança Pix; `markChargePaidAndActivate` e o caminho
+`transparent.completed`/`checkout.completed` do webhook FICAM para um QR
+emitido antes do deploy ainda ativar — saem na etapa 2, com o DROP de
+`pix_charges` (migração destrutiva em duas etapas). Contratos medidos na API
 real (2026-11-08): `externalId` de produto repetido → 400 "already exists";
 assinatura inexistente → 400 "Subscription not found"; `/subscriptions/list`
 responde `data: []` antes do pagamento; o checkout volta como `bill_…` e o
@@ -139,7 +141,7 @@ conta como sucesso — `isEmptySuccess`) e o formato exato de "produto não
 encontrado" em `/products/get`.
 
 **Um arquivo por função exportada, nome do arquivo = nome da função.** Tipos de
-linha ficam junto do mapper que os projeta (`Plan.ts`, `PixCharge.ts`). Nada de
+linha ficam junto do mapper que os projeta (`Plan.ts`, `Subscription.ts`). Nada de
 arquivo-balaio: o antigo `billing.ts` tinha 322 linhas e 15 responsabilidades, e
 era impossível abrir o teste de uma delas sem carregar as outras catorze.
 
@@ -269,6 +271,14 @@ consulta (`reconcileCardSubscription`) chamam ela.
   um SEGUNDO checkout pago (a linha deixa de estar `pending` e a duplicada não é
   detectada) — os dois exigem reconciliação manual.
 
+`assertCanStartCheckout` (T-124c) é a primeira etapa de `startCardCheckout`,
+extraída para a ROTA perguntar ANTES de `ensureBillingCustomer` — sem isso um
+assinante (Pix legado no período, cartão ativo, pago confirmando) ganharia um
+`cust_` na AbacatePay só para levar 409. Só lê. `billingCustomerName` decide o
+nome mandado ao provedor: o do perfil; vazio, a parte do e-mail antes do `@`
+com pontuação virando espaço; nada aproveitável, `Cliente Vetor Wallet`; teto
+de 100 caracteres.
+
 `startCardCheckout`: `AlreadySubscribedError` para qualquer assinatura dentro do
 período (`isSubscriptionActive` — inclui Pix legado e `canceled` com período
 pago) **e para cartão `active` com `subs_` mesmo vencido localmente** (pode estar
@@ -336,11 +346,14 @@ que a porta depende. Os testes usam `tests/unit/fakeBillingDb.ts`, um banco de
 mentira COM estado que reproduz essas semânticas e intercala instruções em
 `Promise.all`.
 
-### Ativação: uma porta só
+### Ativação do Pix legado: uma porta só
 
 `markChargePaidAndActivate({ query, abacateChargeId })` é a **única** função
-que ativa assinatura. Webhook, polling (`GET /api/pix-charges/:id`) e a rota de
-simulação chamam ela. É idempotente por dois mecanismos combinados:
+que ativa assinatura **Pix** (legado). Desde a T-124c só o webhook
+(`transparent.completed`/`checkout.completed`) a chama — o polling
+(`GET /api/pix-charges/:id`) e a simulação (`/api/billing/simulate`) saíram com
+o Pix de assinatura; ela fica até a etapa 2 para um QR emitido antes do deploy
+ainda ativar. É idempotente por dois mecanismos combinados:
 
 1. `UPDATE pix_charges ... WHERE abacate_charge_id = $1 AND status <> 'PAID'`;
 2. `INSERT ... ON CONFLICT(user_id) DO UPDATE` da assinatura.
@@ -369,7 +382,7 @@ sem nome); assinatura vencida comprando de novo é permitida.
   como erro sempre que `!res.ok || body == null || body.error != null ||
   body.data == null`.
 - **Timeout de 10s**, não 5s como o `brapi-core`. Cobrança não tem fallback nem
-  cache: se o POST de criação estourar, o usuário fica sem QR Code.
+  cache: se o POST de criação estourar, o usuário fica sem checkout.
 - **Nunca degrada em silêncio.** Ao contrário de `fetchQuotes`, qualquer falha
   vira `AbacatePayError` lançado — nunca `null`/valor vazio. Engolir a falha de
   uma cobrança criaria assinatura sem pagamento (ou o inverso).
@@ -379,34 +392,30 @@ sem nome); assinatura vencida comprando de novo é permitida.
 - **Campos opcionais ausentes são omitidos do JSON** (`undefined` não
   serializa), nunca enviados como `null` — a API rejeita `null` onde espera
   objeto.
-- **A `description` da cobrança passa por `sanitizeDescription`.** A API responde
-  400 `Disallowed character in description` para caractere fora de um conjunto
-  estreito: caem `—`/`–`, aspas tipográficas, `€`, `$` e NBSP; passam letras
-  (acentuadas inclusive), dígitos e `- . , : ; / # & ( ) @ % + = _` (medido
-  contra a v2 em 2026-11-08), e o tamanho é limitado: 80 caracteres passam, 200
-  dão 422 (por isso `MAX_DESCRIPTION_LENGTH = 80`, o maior valor comprovado).
-  O app punha um `—` em `Vetor Wallet — <plano>` e
+- **`description` de cobrança Pix: conjunto estreito de caracteres** (o
+  `sanitizeDescription` que aplicava isto saiu com o Pix na T-124c; o
+  conhecimento fica). A API responde 400 `Disallowed character in description`
+  para caractere fora do conjunto: caem `—`/`–`, aspas tipográficas, `€`, `$` e
+  NBSP; passam letras (acentuadas inclusive), dígitos e
+  `- . , : ; / # & ( ) @ % + = _` (medido contra a v2 em 2026-11-08). Tamanho:
+  80 caracteres passam, 200 dão 422 (a doc diz máx. 140; o corte usado era 80, o
+  maior valor comprovado). O app punha um `—` em `Vetor Wallet — <plano>` e
   **toda assinatura virava 502 "provedor indisponível"** — o 400 do provedor
-  ficava escondido atrás da mensagem genérica. Texto novo mandado ao provedor
-  (descrição, e qualquer campo livre futuro) precisa de teste contra esse conjunto.
-  A rota loga `billing.charge.failed` com o `providerStatus` justamente para esse
-  400 não ficar invisível de novo.
+  ficava escondido atrás da mensagem genérica. O nome de PRODUTO e de CLIENTE
+  não tem essa restrição (medido: acento, travessão e 130+ chars passam), mas
+  campo livre novo mandado ao provedor precisa ser medido antes. As rotas logam
+  `billing.checkout.failed` com o `providerStatus` para um 400 desses não ficar
+  invisível.
 - **Env é lido dentro da função**, não no top-level do módulo.
-- **`simulatePixPayment` não checa `NODE_ENV`** de propósito — a guarda de
-  ambiente (404 em produção) pertence à rota.
 - O provider **não toca o banco**: traduz o mundo externo em tipos nossos e
   devolve. Quem persiste é o resto do core. A fronteira da regra 2 do
   `PACKAGES.md` continua valendo, agora como fronteira de *pasta*.
 
 ### Outros
 
-- `getPendingCharge` inclui `expires_at IS NULL` ("sem expiração conhecida") de
-  propósito: o provedor é a fonte da verdade sobre o prazo, e descartar uma
-  cobrança que talvez esteja válida faria o usuário pagar duas vezes.
 - `safeEqual` **não lança**: `timingSafeEqual` exige buffers do mesmo tamanho
   (`RangeError` caso contrário), que é justamente o caso mais comum de secret
   errado. Comprimento diferente já é "não confere" — vaza só o tamanho.
-- `toPixCharge` omite `user_id` e `abacate_charge_id` de propósito.
 - **Não importa `express`** nem nada de `server`/`web` (regra 1 de
   `docs/PACKAGES.md`).
 
@@ -460,22 +469,32 @@ Stryker roda subconjuntos da suíte, então cobertura parcial é esperada).
 
 - `GET /api/plans` — só `active = 1`, mais barato primeiro. **Única rota de dados
   sem filtro por `user_id`**: `plans` é catálogo global, sem coluna de dono.
-- `POST /api/subscriptions` — 400 planId inválido; 404 plano inexistente **ou
-  inativo** (indistinguíveis de propósito); 409 `ALREADY_SUBSCRIBED`; 503
-  `BILLING_NOT_CONFIGURED` sem `ABACATEPAY_API_KEY`; 502
-  `PAYMENT_PROVIDER_ERROR`. Reaproveita cobrança PENDING não expirada do mesmo
-  plano em vez de gerar um segundo QR Code (convite a pagar duas vezes). A
-  cobrança é criada no provedor **antes** do INSERT porque só a resposta traz o
-  `abacate_charge_id`; risco aceito abaixo.
+- `POST /api/subscriptions` (cartão, T-124c) → **201** `{ subscription,
+  checkout: { id, url } }` (id LOCAL; `bill_`/`cust_`/`subs_` nunca saem). 400
+  planId inválido; 404 plano inexistente **ou inativo** (indistinguíveis de
+  propósito); 503 `BILLING_NOT_CONFIGURED` sem `ABACATEPAY_API_KEY` (antes de
+  qualquer escrita); `assertCanStartCheckout` ANTES do cliente; e-mail/nome do
+  auth-core (`findUserById` + `billingCustomerName`); `ensureBillingCustomer` →
+  `startCardCheckout` com `completionUrl`/`returnUrl` =
+  `<origem>/planos?checkout=completed|returned`, a origem vinda SÓ de
+  `ALLOWED_ORIGIN` (1ª origem http(s) válida de uma lista; default
+  `http://localhost:5173`) — nunca da request (redirect aberto). Erros por
+  `mapBillingError`: 409 `ALREADY_SUBSCRIBED`/`CHECKOUT_IN_PROGRESS`/
+  `ACTIVATION_PENDING`, 502 `BILLING_NOT_CONFIGURED` (produto com preço errado/
+  arquivado), 502 `PAYMENT_PROVIDER_ERROR` (`AbacatePayError`, log
+  `billing.checkout.failed` com `providerStatus`). Logs: `billing.customer.
+  created|reused|orphan`, `billing.checkout.created` (`planId`, `reused`,
+  `superseded`), `billing.checkout.supersededDeleteFailed`,
+  `billing.checkout.refused` (`reason` = código) — sem e-mail, valor nem id do
+  provedor. Sem simulação em dev: cartão de teste `4242 4242 4242 4242` na página
+  hospedada.
 - `GET /api/subscriptions/me` — sempre 200. `active` com período vencido é
   reportado como `expired` **computado na leitura, sem gravar** (um GET que
-  escreve viraria corrida com a ativação).
-- `GET /api/pix-charges/:id` — id LOCAL. PAID local não consulta o provedor.
-  Falha do provedor → **200** com estado local + `providerUnavailable: true`
-  (mesmo espírito do `quotesUnavailable`: polling não pode explodir por blip).
-- `POST /api/billing/simulate/:chargeId` — atalho de dev. Em
-  `NODE_ENV=production` responde **404, não 403**: 403 confirmaria que existe um
-  endpoint capaz de ativar assinatura sem pagamento.
+  escreve viraria corrida com a ativação). `pendingCharge` saiu na T-124c.
+- `POST /api/subscriptions/sync` e `/portal` — ver `packages/rest-api/CLAUDE.md`
+  (T-124b2).
+- `GET /api/pix-charges/:id` e `POST /api/billing/simulate/:chargeId` **saíram
+  na T-124c** (404). `pix_charges` fica no banco até a etapa 2.
 
 ## Webhook
 
@@ -547,31 +566,45 @@ um único `router.use(...)` logo depois do `router.use(requireAuth)`.
   liberação "por precaução".
 - **Onde está**: operations, import, income, income-entries, expenses,
   expense-entries, recurring-expenses, savings (budgets saiu na T-118).
-- **Onde NÃO está** (de propósito): auth, plans, subscriptions, pix-charges,
-  billing/simulate, webhooks (senão o usuário não conseguiria comprar), leitura
+- **Onde NÃO está** (de propósito): auth, plans, subscriptions (inclusive
+  `/sync` e `/portal`), webhooks (senão o usuário não conseguiria comprar), leitura
   (portfolio, benchmarks, snapshots, tickers), admin e **wallets** — o `POST`
   de wallets é o lazy-create do onboarding e bloquear ele travaria o usuário
   antes de ele conseguir pagar.
 
-## UI (T-072, no `web`)
+## UI (T-072; cartão desde a T-124c, no `web`)
 
-Rota `/planos`: vitrine com preço em BRL (`Intl.NumberFormat`), painel Pix (QR
-`brCodeBase64` + copia-e-cola `br_code`) com contagem regressiva, polling de
-`GET /api/pix-charges/:id` a cada ~2s com backoff até 30s, redirect global em
-402 `SUBSCRIPTION_REQUIRED`, banner de staging quando `billingEnabled: false` e
-botão "Simular pagamento" só em `import.meta.env.DEV`.
+Rota `/planos`: vitrine com preço em BRL (`Intl.NumberFormat`); "Assinar" →
+`POST /api/subscriptions` → redirect para a página hospedada do checkout. Ao
+abrir, a tela SEMPRE chama `/sync` uma vez (o servidor faz o throttling; é o
+que conserta renovação/cancelamento não visto, inclusive para quem chega pelo
+redirect global do 402 `SUBSCRIPTION_REQUIRED`). Voltando com
+`?checkout=completed`, mostra "Confirmando pagamento…" e repete o `sync` com
+backoff (`nextPollDelayMs`) até ~2 min ou até o acesso aparecer, depois tira o
+parâmetro da URL (replace). Estados (`subscriptionUiState`): pending_checkout
+("Continuar pagamento"), confirming, active ("Gerenciar assinatura" → portal),
+payment_failed ("Atualizar cartão" → portal), canceled_with_access ("acesso
+até X"), legacy_pix ("não renova"; assina no cartão só depois de vencer),
+card_lapsed (cartão `active` vencido localmente: sem "Assinar", que daria 409 —
+"Verificar de novo" faz `sync`, e há o portal; um 409 `ALREADY_SUBSCRIBED` no
+POST também dispara `sync` e re-renderiza), expired, none, staging (banner).
+**`hasPaidAccess` espelha `isSubscriptionActive`** (canceled com período no
+futuro tem acesso) — gate e tela concordam. **Pix legado = `provider`
+nulo/`pix_legacy` E já pago** (status ≠ `pending`, com fim de período): o
+`pending` de um checkout de cartão também tem `provider` nulo até a ativação.
+A `/conta` usa o MESMO `subscriptionUiState` (`subscriptionStatusLabel`) e omite
+a forma de pagamento enquanto não houve pagamento. Saíram o
+painel Pix (QR, copia-e-cola, contagem), o polling de cobrança e o "Simular
+pagamento". Não há botão de cancelar no app: cancelar é pelo portal.
 
 Lógica pura vive em `web/src/routes/planos.ts` com testes ao lado; componentes
-só renderizam.
+só renderizam (costura em `PlanosPage.test.tsx`).
 
-## Risco aceito: cobrança órfã
+## Risco aceito: cobrança órfã (Pix legado — histórico)
 
-Se o `INSERT` em `pix_charges` falhar depois de a cobrança ter sido criada no
-provedor, ela fica órfã. Aceito porque (a) é raro, (b) não causa prejuízo — o
-cliente nunca recebeu o QR, (c) se alguém pagar, o webhook responde
-`200 unknownCharge` sem ativar nada, (d) os logs da AbacatePay permitem
-reconciliação manual. A alternativa (gravar antes) é igualmente riscada: só a
-resposta do provedor traz o `abacate_charge_id`.
+Valia para a criação de cobrança Pix, que saiu na T-124c. No cartão o risco não
+existe: a linha local de `subscription_checkouts` nasce ANTES do provedor
+(`externalId = checkout:<id local>`).
 
 ## Env
 

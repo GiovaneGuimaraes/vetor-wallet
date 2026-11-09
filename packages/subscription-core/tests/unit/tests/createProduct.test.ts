@@ -25,7 +25,7 @@ describe('createProduct', () => {
     expect(sentRequest(fetchMock)).toMatchSnapshot();
   });
 
-  test('o nome vai INTACTO — sem sanitizeDescription (travessão é aceito aqui)', async () => {
+  test('o nome vai INTACTO — sem sanitização (travessão é aceito aqui)', async () => {
     await createProduct(input);
 
     expect(sentRequest(fetchMock).body.name).toBe(input.name);

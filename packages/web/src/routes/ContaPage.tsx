@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { MySubscriptionResponse, SubscriptionStatus } from '@vetor-wallet/shared';
+import type { MySubscriptionResponse } from '@vetor-wallet/shared';
 import { getMySubscription, updateMe, changePassword } from '../api';
 import { useShellContext } from '../layout/ShellContext';
 import { BackToHomeLink } from '../components/BackToHomeLink';
@@ -11,7 +11,13 @@ import {
   isValidNewPassword,
   passwordsMatch,
 } from './conta';
-import { formatPlanPrice, planPeriodLabel } from './planos';
+import {
+  formatPlanPrice,
+  planPeriodLabel,
+  subscriptionProviderLabel,
+  subscriptionStatusLabel,
+  subscriptionUiState,
+} from './planos';
 import './layers-savings.css';
 import './planos.css';
 import './conta.css';
@@ -25,13 +31,6 @@ function formatPeriodEnd(iso: string | null): string | null {
   if (Number.isNaN(d.getTime())) return null;
   return periodEndFmt.format(d);
 }
-
-const STATUS_LABELS: Record<SubscriptionStatus, string> = {
-  active: 'Ativa',
-  expired: 'Vencida',
-  pending: 'Pendente',
-  canceled: 'Cancelada',
-};
 
 /**
  * Rota `/conta` (T-093): dois cards — "Meus dados" (editar name/phone via
@@ -59,11 +58,14 @@ export function ContaPage() {
   const [sub, setSub] = useState<MySubscriptionResponse | null>(null);
   const [subLoading, setSubLoading] = useState(true);
   const [subError, setSubError] = useState<string | null>(null);
+  // Instante da leitura: o rótulo compara o fim do período com ELE (render puro).
+  const [subReadAtMs, setSubReadAtMs] = useState(0);
 
   const loadSubscription = useCallback(async () => {
     setSubError(null);
     try {
       setSub(await getMySubscription());
+      setSubReadAtMs(Date.now());
     } catch (e) {
       setSubError(e instanceof Error ? e.message : 'Falha ao carregar assinatura');
     } finally {
@@ -124,6 +126,10 @@ export function ContaPage() {
       setPasswordSaving(false);
     }
   }
+
+  // Mesmo estado da `/planos` (T-124c): as duas telas não podem discordar.
+  const state = sub ? subscriptionUiState(sub, subReadAtMs) : 'none';
+  const providerLabel = sub?.subscription ? subscriptionProviderLabel(sub.subscription) : null;
 
   return (
     <div className="vw-conta">
@@ -241,11 +247,19 @@ export function ContaPage() {
                   <span>{planPeriodLabel(sub.plan.interval)}</span>
                 </p>
                 <p className="vw-conta-subscription-status">
-                  Status: {STATUS_LABELS[sub.subscription.status]}
+                  Status: {subscriptionStatusLabel(state)}
                 </p>
+                {providerLabel && (
+                  <p className="vw-conta-subscription-period">Pagamento: {providerLabel}</p>
+                )}
                 {sub.subscription.current_period_end && (
                   <p className="vw-conta-subscription-period">
-                    válido até {formatPeriodEnd(sub.subscription.current_period_end)}
+                    {state === 'expired' || state === 'card_lapsed'
+                      ? 'venceu em'
+                      : state === 'canceled_with_access'
+                        ? 'acesso até'
+                        : 'válido até'}{' '}
+                    {formatPeriodEnd(sub.subscription.current_period_end)}
                   </p>
                 )}
               </div>

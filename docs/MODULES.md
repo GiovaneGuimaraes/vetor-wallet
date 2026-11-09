@@ -197,11 +197,12 @@ Packages:
   AbacatePay em `src/providers/abacatepay/`: envelope `{ data, error, success }` (pode vir HTTP
   200 **com** `error`), timeout de 10s, nunca degrada em silêncio. Fusão de `billing-core` +
   `abacatepay-core` — Pix é forma de cobrar uma assinatura, não domínio próprio.
-- `packages/rest-api` — `/api/plans`, `/api/subscriptions`, `/api/pix-charges/:id`,
-  `/api/webhooks/abacatepay` (HMAC, montado **antes** do `express.json()`),
-  `/api/billing/simulate/:chargeId` (404 em produção) e o middleware
-  `requireActiveSubscription` (T-071).
-- `packages/web/src/routes` — seleção de plano, QR Code e polling do pagamento.
+- `packages/rest-api` — `/api/plans`, `/api/subscriptions` (+ `/sync`, `/portal`),
+  `/api/webhooks/abacatepay` (HMAC, montado **antes** do `express.json()`) e o middleware
+  `requireActiveSubscription` (T-071). `/api/pix-charges` e `/api/billing/simulate` saíram
+  na T-124c (só cartão recorrente).
+- `packages/web/src/routes` — seleção de plano, redirect para o checkout hospedado do cartão
+  e confirmação por `sync` ao voltar (T-124c).
 
 Nota: `/api/plans` é a **única** rota de dados sem filtro por `user_id` (catálogo global).
 

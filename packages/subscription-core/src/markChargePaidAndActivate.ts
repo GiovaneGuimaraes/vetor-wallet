@@ -16,9 +16,11 @@ export interface ActivationResult {
 /**
  * Marca a cobrança como paga e ativa a assinatura do dono dela.
  *
- * **É a única porta de ativação do módulo.** Webhook, polling do front
- * (`GET /api/pix-charges/:id`) e a rota de simulação chamam esta mesma função —
- * assim a idempotência (não somar período duas vezes) mora num lugar só.
+ * **É a única porta de ativação do Pix LEGADO.** Desde a T-124c quem chama é
+ * só o webhook (`transparent.completed`/`checkout.completed`), para um QR Pix
+ * emitido antes do deploy ainda ativar — o polling (`/api/pix-charges`) e a
+ * simulação saíram; esta função sai na etapa 2, com o DROP de `pix_charges`.
+ * A idempotência (não somar período duas vezes) mora num lugar só.
  * Chamada duas vezes, a segunda responde `activated: false`.
  *
  * A ativação vale mesmo para cobrança expirada localmente ou de plano depois

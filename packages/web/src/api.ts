@@ -40,7 +40,7 @@ import type {
   Plan,
   MySubscriptionResponse,
   CreateSubscriptionResponse,
-  PixCharge,
+  SyncSubscriptionResponse,
   OfxImportResult,
   PluggyStatusResponse,
   PluggyItemView,
@@ -751,7 +751,7 @@ export async function getPluggyFixedIncome(): Promise<PluggyFixedIncomeResponse>
   return res.json();
 }
 
-// ── Billing / assinatura Pix (T-072) ─────────────────────────────────────────
+// ── Billing / assinatura (T-072; cartão recorrente desde a T-124c) ───────────
 
 export async function getPlans(): Promise<Plan[]> {
   const res = await apiFetch('/api/plans');
@@ -765,11 +765,20 @@ export async function getMySubscription(): Promise<MySubscriptionResponse> {
   return res.json();
 }
 
+/** Erro de billing com o `code` do backend (o chamador escolhe a mensagem por ele). */
+async function billingError(res: Response, fallback: string): Promise<Error & { code?: string }> {
+  const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
+  const e = new Error(err.error ?? fallback) as Error & { code?: string };
+  e.code = err.code;
+  return e;
+}
+
 /**
- * Cria (ou reaproveita) a assinatura/cobrança do plano. O chamador precisa
- * inspecionar o `code` do erro para os casos especiais do backend
- * (`ALREADY_SUBSCRIBED` 409, `BILLING_NOT_CONFIGURED` 503,
- * `PAYMENT_PROVIDER_ERROR` 502) — ver `docs/decisions/billing.md`.
+ * Abre (ou reaproveita) o checkout de assinatura no CARTÃO (T-124c) e devolve a
+ * URL hospedada da AbacatePay para redirecionar. O chamador inspeciona o `code`
+ * do erro: 409 `ALREADY_SUBSCRIBED` / `CHECKOUT_IN_PROGRESS` /
+ * `ACTIVATION_PENDING`, 502 `PAYMENT_PROVIDER_ERROR` / `BILLING_NOT_CONFIGURED`,
+ * 503 `BILLING_NOT_CONFIGURED`.
  */
 export async function createSubscription(planId: number): Promise<CreateSubscriptionResponse> {
   const res = await apiFetch('/api/subscriptions', {
@@ -777,31 +786,24 @@ export async function createSubscription(planId: number): Promise<CreateSubscrip
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ planId }),
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
-    const e = new Error(err.error ?? 'Falha ao assinar o plano') as Error & { code?: string };
-    e.code = err.code;
-    throw e;
-  }
+  if (!res.ok) throw await billingError(res, 'Falha ao assinar o plano');
   return res.json();
 }
 
-/** Polling do pagamento; `providerUnavailable` sinaliza blip do provedor (ver billing.md). */
-export async function getPixCharge(
-  id: number
-): Promise<PixCharge & { providerUnavailable?: boolean }> {
-  const res = await apiFetch(`/api/pix-charges/${id}`);
-  if (!res.ok) throw new Error('Falha ao consultar a cobrança');
+/**
+ * Reconcilia com a AbacatePay (o servidor faz o throttling) e devolve o `/me`.
+ * `providerUnavailable` = o provedor não respondeu; o estado local vem mesmo assim.
+ */
+export async function syncSubscription(): Promise<SyncSubscriptionResponse> {
+  const res = await apiFetch('/api/subscriptions/sync', { method: 'POST' });
+  if (!res.ok) throw await billingError(res, 'Falha ao atualizar a assinatura');
   return res.json();
 }
 
-/** Atalho de dev — a rota nem existe em produção (404). */
-export async function simulatePixPayment(chargeId: number): Promise<PixCharge> {
-  const res = await apiFetch(`/api/billing/simulate/${chargeId}`, { method: 'POST' });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
-    throw new Error(err.error ?? 'Falha ao simular pagamento');
-  }
+/** URL do portal do cliente na AbacatePay (trocar cartão, cancelar no fim do ciclo). */
+export async function openCustomerPortal(): Promise<{ url: string }> {
+  const res = await apiFetch('/api/subscriptions/portal', { method: 'POST' });
+  if (!res.ok) throw await billingError(res, 'Falha ao abrir o portal da assinatura');
   return res.json();
 }
 

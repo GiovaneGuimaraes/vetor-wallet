@@ -297,8 +297,9 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id);
 
 -- Cobrança Pix gerada para uma assinatura. Provém da API da AbacatePay via
--- external_id = id local; webhook e polling (`GET /api/pix-charges/:id`)
--- consultam status aqui.
+-- external_id = id local; o webhook consulta status aqui. LEGADO desde a T-124c
+-- (só cartão): nenhuma rota cria cobrança nova; a tabela fica até a etapa 2
+-- (DROP com dump, tarefa futura) para QR emitido antes ainda ativar.
 CREATE TABLE IF NOT EXISTS pix_charges (
   id                INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id           INTEGER NOT NULL REFERENCES users(id),

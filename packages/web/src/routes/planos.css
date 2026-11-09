@@ -1,5 +1,5 @@
 /* ------------------------------------------------------------------ */
-/* Planos / assinatura Pix (/planos) — T-072                          */
+/* Planos / assinatura (/planos) — T-072; cartão desde a T-124c       */
 /*                                                                      */
 /* Reaproveita tokens/classes base de App.css/index.css (.vw-page-header,*/
 /* .vw-btn-primary, .vw-btn-ghost, .vw-state-box) sem alterá-las. Este   */
@@ -16,12 +16,35 @@
   color: var(--color-dim);
 }
 
-.vw-planos-current {
+/* Estado da assinatura (cartão, T-124c): uma faixa por estado. */
+.vw-planos-status {
+  border-radius: var(--radius-card, 16px);
+  border: 1px solid var(--color-edge);
+  background: var(--color-card-1);
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  font-size: 14px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+}
+
+.vw-planos-status--warn {
+  border-color: rgba(var(--down-rgb), 0.35);
+}
+
+.vw-planos-status-text {
+  margin: 0;
+  flex: 1 1 260px;
+}
+
+.vw-planos-hint {
+  font-size: 13px;
+  color: var(--color-dim);
+  margin: 0 0 18px;
+  text-align: center;
 }
 
 .vw-planos-badge {
@@ -39,7 +62,7 @@
 }
 
 .vw-planos-badge--pending,
-.vw-planos-badge--staging {
+.vw-planos-badge--canceled {
   background: rgba(var(--accent-rgb, 120, 120, 120), 0.14);
   color: var(--color-dim);
 }
@@ -50,15 +73,6 @@
   color: var(--color-down);
 }
 
-.vw-planos-current-plan {
-  font-weight: 600;
-}
-
-.vw-planos-current-until {
-  font-size: 13px;
-  color: var(--color-dim);
-}
-
 .vw-planos-success {
   border-radius: var(--radius-card, 16px);
   border: 1px solid rgba(var(--up-rgb), 0.35);
@@ -67,70 +81,6 @@
   padding: 14px 18px;
   margin-bottom: 18px;
   font-size: 14px;
-}
-
-.vw-planos-pix {
-  border-radius: var(--radius-card, 16px);
-  border: 1px solid var(--color-edge);
-  background: var(--color-card-1);
-  padding: 22px;
-  margin-bottom: 22px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  text-align: center;
-}
-
-.vw-planos-pix-title {
-  font-size: 16px;
-  margin: 0;
-}
-
-.vw-planos-pix-qr {
-  width: 200px;
-  height: 200px;
-  max-width: 100%;
-  border-radius: 8px;
-  background: #fff;
-  padding: 8px;
-}
-
-.vw-planos-pix-label {
-  font-size: 13px;
-  color: var(--color-dim);
-}
-
-.vw-planos-pix-copyrow {
-  display: flex;
-  gap: 8px;
-  width: 100%;
-  max-width: 420px;
-}
-
-.vw-planos-pix-code {
-  flex: 1;
-  resize: none;
-  height: 44px;
-  border-radius: 10px;
-  border: 1px solid var(--color-edge);
-  background: var(--color-canvas);
-  color: var(--color-text);
-  padding: 8px 10px;
-  font-size: 12px;
-  font-family: monospace;
-}
-
-.vw-planos-pix-countdown {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 4px 0 0;
-}
-
-.vw-planos-pix-hint {
-  font-size: 13px;
-  color: var(--color-dim);
-  margin: 0;
 }
 
 .vw-planos-grid {

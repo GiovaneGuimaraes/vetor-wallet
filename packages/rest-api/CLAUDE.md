@@ -39,6 +39,16 @@ para provar e loga `billing.subscription.duplicate` (o aviso ao humano é o log 
 sem escrita de arquivo em runtime). `billingErrors.ts` mapeia os erros tipados do
 core para HTTP (reusado pelo `POST /` de cartão na T-124c).
 
+**`POST /api/subscriptions` no cartão + remoção do Pix (T-124c).** O POST abre o
+checkout hospedado (`startCardCheckout`) e devolve `{ subscription, checkout: {
+id, url } }`; é a rota que cruza auth-core (e-mail/nome por `findUserById`) e
+subscription-core (`assertCanStartCheckout` ANTES de `ensureBillingCustomer`,
+para um 409 não criar cliente na AbacatePay). `checkoutReturnUrls.ts` monta
+`completionUrl`/`returnUrl` SÓ de `ALLOWED_ORIGIN` (1ª origem http(s) válida;
+default `http://localhost:5173`) — nunca da request, senão é redirect aberto.
+`routes/pixCharges.ts` e `routes/billingSimulate.ts` saíram (404); o webhook
+`transparent.completed` continua ativando QR Pix emitido antes (etapa 2 tira).
+
 **Não há mais `src/api/services/`** — desde a T-099c toda a lógica de domínio
 vive em packages `*-core`. Este pacote é Express puro: entry, routers,
 middleware. Regra prática: se o arquivo novo não fala `req`/`res`/`next`, ele

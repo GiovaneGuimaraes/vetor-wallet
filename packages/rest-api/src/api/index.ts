@@ -22,8 +22,6 @@ import savingsRouter from './routes/savings';
 import fixedIncomeRouter from './routes/fixedIncome';
 import plansRouter from './routes/plans';
 import subscriptionsRouter from './routes/subscriptions';
-import pixChargesRouter from './routes/pixCharges';
-import billingSimulateRouter from './routes/billingSimulate';
 import webhooksRouter from './routes/webhooks';
 import pluggyRouter from './routes/pluggy';
 import { errorHandler } from './middleware/errorHandler';
@@ -87,8 +85,6 @@ app.use('/api/savings', savingsRouter);
 app.use('/api/fixed-income', fixedIncomeRouter);
 app.use('/api/plans', plansRouter);
 app.use('/api/subscriptions', subscriptionsRouter);
-app.use('/api/pix-charges', pixChargesRouter);
-app.use('/api/billing', billingSimulateRouter);
 app.use('/api/pluggy', pluggyRouter);
 
 app.use(errorHandler);

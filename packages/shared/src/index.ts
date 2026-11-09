@@ -656,7 +656,7 @@ export interface PluggyNetWorthResponse {
 }
 
 /**
- * Billing / assinatura Pix (T-069).
+ * Billing / assinatura (T-069; cartão recorrente desde a T-124, Pix só legado).
  *
  * ATENÇÃO — neste domínio (e SÓ neste) o dinheiro trafega em **centavos**
  * (`price_cents`, `amount_cents`), inteiro, e não em reais como o resto do app.
@@ -679,10 +679,10 @@ export interface Plan {
 }
 
 /**
- * - `pending`: assinatura criada, aguardando pagamento da cobrança Pix.
+ * - `pending`: assinatura criada, aguardando o pagamento do checkout.
  * - `active`: paga e dentro do período (`current_period_end` no futuro).
  * - `expired`: período venceu sem renovação.
- * - `canceled`: cancelada pelo usuário.
+ * - `canceled`: cancelada (o acesso segue até `current_period_end`, se no futuro).
  */
 export type SubscriptionStatus = 'pending' | 'active' | 'expired' | 'canceled';
 
@@ -702,37 +702,26 @@ export interface Subscription {
   canceled_at?: string | null;
 }
 
-export type PixChargeStatus = 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'REFUNDED';
-
-export interface PixCharge {
-  id: number;
+/** Checkout de cartão aberto: só a URL hospedada (ids do provedor não saem). */
+export interface PendingCheckout {
+  url: string;
   plan_id: number;
-  /** Em CENTAVOS. */
-  amount_cents: number;
-  status: PixChargeStatus;
-  /** Payload Pix copia-e-cola. */
-  br_code: string;
-  /** QR Code em base64 (data URI). */
-  br_code_base64: string;
-  /** SQLite UTC format `'YYYY-MM-DD HH:MM:SS'`, ou null se sem expiração conhecida. */
-  expires_at: string | null;
   created_at: string;
 }
 
 /**
  * Estado de billing do usuário logado. `billingEnabled` reflete a flag do
  * server (`BILLING_ENABLED`): quando false a UI não deve oferecer assinatura,
- * mesmo que existam planos cadastrados.
+ * mesmo que existam planos cadastrados. O `pendingCharge` (QR Pix) saiu na
+ * T-124c: só cartão recorrente.
  */
 export interface MySubscriptionResponse {
   billingEnabled: boolean;
   subscription: Subscription | null;
   /** O plano da assinatura acima, já resolvido. */
   plan: Plan | null;
-  /** Cobrança PENDING mais recente, se houver — é o QR Code a exibir. */
-  pendingCharge: PixCharge | null;
-  /** T-124b2: checkout de cartão aberto (só a URL hospedada; ids do provedor não saem). */
-  pendingCheckout?: { url: string; plan_id: number; created_at: string } | null;
+  /** T-124b2: checkout de cartão aberto. */
+  pendingCheckout?: PendingCheckout | null;
   /** T-124b2: pago, mas a assinatura ainda não foi gravada (o `sync` corrige). */
   confirming?: boolean;
 }
@@ -742,9 +731,13 @@ export interface SyncSubscriptionResponse extends MySubscriptionResponse {
   providerUnavailable?: boolean;
 }
 
+/**
+ * Resposta de `POST /api/subscriptions` (T-124c): o cliente redireciona para
+ * `checkout.url` (página hospedada da AbacatePay). `checkout.id` é o id LOCAL.
+ */
 export interface CreateSubscriptionResponse {
-  subscription: Subscription;
-  charge: PixCharge;
+  subscription: Subscription | null;
+  checkout: { id: number; url: string };
 }
 
 // ── Integração Pluggy no app (T-089b/c) ──────────────────────────────────────

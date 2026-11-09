@@ -75,12 +75,3 @@ export const routeFetch = (
 export const calledPaths = (fetchMock: jest.Mock): string[] => {
   return fetchMock.mock.calls.map(([url]) => String(url).replace(/^https?:\/\/[^/]+\/v2/, ''));
 };
-
-export const rawCharge = {
-  id: 'pix_char_abc',
-  amount: 2990,
-  status: 'PENDING' as const,
-  brCode: '00020126...',
-  brCodeBase64: 'data:image/png;base64,AAA',
-  expiresAt: '2026-08-01T13:00:00.000Z',
-};

@@ -7,8 +7,8 @@ export interface CreateProductInput {
   externalId: string;
   /**
    * Vai como veio: o nome do produto aceita acento, travessão e 130+
-   * caracteres (medido na API real). `sanitizeDescription` é da descrição da
-   * cobrança Pix, não daqui.
+   * caracteres (medido na API real). O conjunto estreito de caracteres
+   * (ver CLAUDE.md do package) era da `description` da cobrança Pix, não daqui.
    */
   name: string;
   /** CENTAVOS. */
