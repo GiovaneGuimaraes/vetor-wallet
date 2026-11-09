@@ -13,10 +13,10 @@ import {
 } from './conta';
 import {
   formatPlanPrice,
-  planBadge,
-  type PlanBadge,
   planPeriodLabel,
   subscriptionProviderLabel,
+  subscriptionStatusLabel,
+  subscriptionUiState,
 } from './planos';
 import './layers-savings.css';
 import './planos.css';
@@ -31,18 +31,6 @@ function formatPeriodEnd(iso: string | null): string | null {
   if (Number.isNaN(d.getTime())) return null;
   return periodEndFmt.format(d);
 }
-
-/**
- * Rótulo pelo `planBadge` (mesmo critério do gate), não pelo `status` cru:
- * `canceled` com período pago ainda dá acesso; vencida, não (T-124c).
- */
-const BADGE_LABELS: Record<PlanBadge, string> = {
-  active: 'Ativa',
-  expired: 'Vencida',
-  pending: 'Pendente',
-  canceled: 'Cancelada (não renova)',
-  none: 'Sem assinatura',
-};
 
 /**
  * Rota `/conta` (T-093): dois cards — "Meus dados" (editar name/phone via
@@ -138,6 +126,10 @@ export function ContaPage() {
       setPasswordSaving(false);
     }
   }
+
+  // Mesmo estado da `/planos` (T-124c): as duas telas não podem discordar.
+  const state = sub ? subscriptionUiState(sub, subReadAtMs) : 'none';
+  const providerLabel = sub?.subscription ? subscriptionProviderLabel(sub.subscription) : null;
 
   return (
     <div className="vw-conta">
@@ -255,14 +247,18 @@ export function ContaPage() {
                   <span>{planPeriodLabel(sub.plan.interval)}</span>
                 </p>
                 <p className="vw-conta-subscription-status">
-                  Status: {BADGE_LABELS[planBadge(sub.subscription, subReadAtMs)]}
+                  Status: {subscriptionStatusLabel(state)}
                 </p>
-                <p className="vw-conta-subscription-period">
-                  Pagamento: {subscriptionProviderLabel(sub.subscription)}
-                </p>
+                {providerLabel && (
+                  <p className="vw-conta-subscription-period">Pagamento: {providerLabel}</p>
+                )}
                 {sub.subscription.current_period_end && (
                   <p className="vw-conta-subscription-period">
-                    {sub.subscription.status === 'canceled' ? 'acesso até' : 'válido até'}{' '}
+                    {state === 'expired' || state === 'card_lapsed'
+                      ? 'venceu em'
+                      : state === 'canceled_with_access'
+                        ? 'acesso até'
+                        : 'válido até'}{' '}
                     {formatPeriodEnd(sub.subscription.current_period_end)}
                   </p>
                 )}

@@ -72,6 +72,8 @@ export function PlanosPage() {
   // Instante da última leitura: o estado da tela compara o fim do período com
   // ELE, não com `Date.now()` no render (render puro).
   const [subReadAtMs, setSubReadAtMs] = useState(0);
+  // `sync` em andamento depois de um 409 ALREADY_SUBSCRIBED.
+  const [verifying, setVerifying] = useState(false);
 
   const mountedRef = useRef(true);
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -115,6 +117,11 @@ export function PlanosPage() {
         return null;
       }
     }
+  }, []);
+
+  /** Depois de reler: a tela ainda ofereceria "Assinar"? (sem leitura = sim, por segurança da mensagem) */
+  const stillOffersSubscribe = useCallback((fresh: MySubscriptionResponse | null): boolean => {
+    return !fresh || canSubscribe(subscriptionUiState(fresh, Date.now()));
   }, []);
 
   /** Repete o `sync` com backoff até o acesso aparecer ou a janela de ~2 min passar. */
@@ -193,11 +200,31 @@ export function PlanosPage() {
       const err = e as Error & { code?: string };
       if (err.code === 'ACTIVATION_PENDING') {
         startConfirming(null);
+      } else if (err.code === 'ALREADY_SUBSCRIBED') {
+        // A tela achava que dava para assinar e o servidor discorda: o estado
+        // local está velho (renovação/ativação não vista). Reconcilia e deixa o
+        // estado novo explicar; a mensagem só fica se a tela AINDA oferecer
+        // "Assinar" depois do sync.
+        setVerifying(true);
+        const fresh = await refresh();
+        if (!mountedRef.current) return;
+        setVerifying(false);
+        if (stillOffersSubscribe(fresh)) {
+          setActionError(subscribeErrorMessage(err.code, err.message));
+        }
       } else {
         setActionError(subscribeErrorMessage(err.code, err.message));
       }
       setSubscribing(null);
     }
+  }
+
+  /** `sync` sob demanda (cartão vencido localmente); o servidor faz o throttling. */
+  async function handleVerify() {
+    setActionError(null);
+    setVerifying(true);
+    await refresh();
+    if (mountedRef.current) setVerifying(false);
   }
 
   async function handlePortal() {
@@ -243,7 +270,7 @@ export function PlanosPage() {
   const planName = sub?.plan?.name ?? 'Pro';
   const pendingPlanName =
     plans.find((p) => p.id === sub?.pendingCheckout?.plan_id)?.name ?? planName;
-  const offerSubscribe = canSubscribe(state) && !confirmingNow;
+  const offerSubscribe = canSubscribe(state) && !confirmingNow && !verifying;
 
   return (
     <div className="vw-planos">
@@ -322,6 +349,33 @@ export function PlanosPage() {
             Sua assinatura via Pix vale{periodEnd && <> até {periodEnd}</>} e não renova. Depois
             dessa data você poderá assinar no cartão de crédito.
           </p>
+        </div>
+      )}
+
+      {verifying && (
+        <div className="vw-planos-status" role="status">
+          Verificando sua assinatura…
+        </div>
+      )}
+
+      {!confirmingNow && !verifying && state === 'card_lapsed' && (
+        <div className="vw-planos-status vw-planos-status--warn">
+          <p className="vw-planos-status-text">
+            Ainda não confirmamos a renovação da sua assinatura no cartão
+            {periodEnd && <> (o período venceu em {periodEnd})</>}. Se a cobrança passou, ela
+            aparece aqui em instantes; se o cartão foi recusado, atualize-o no portal.
+          </p>
+          <button type="button" className="vw-btn-ghost" onClick={handleVerify}>
+            Verificar de novo
+          </button>
+          <button
+            type="button"
+            className="vw-btn-primary"
+            disabled={portalBusy}
+            onClick={handlePortal}
+          >
+            Gerenciar assinatura
+          </button>
         </div>
       )}
 

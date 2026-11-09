@@ -92,9 +92,29 @@ export function hasPaidAccess(sub: Subscription | null | undefined, nowMs: numbe
   return parseInstantMs(sub.current_period_end) > nowMs;
 }
 
-/** Pix legado: `provider` nulo (linhas de antes da T-124) ou `pix_legacy`. */
+/**
+ * Pix legado = `provider` nulo (linhas de antes da T-124) ou `pix_legacy`, **e
+ * já houve pagamento**: status diferente de `pending` e com fim de período.
+ *
+ * `provider` nulo SOZINHO não prova Pix: toda assinatura `pending` aberta por um
+ * checkout de cartão também nasce com `provider` nulo — ele só é gravado na
+ * ativação (`applyProviderSubscriptionState`). Achado do revisor da T-124c: a
+ * `/conta` dizia "Pix (não renova)" para quem só clicou "Assinar" no cartão.
+ */
 export function isLegacyPix(sub: Subscription): boolean {
+  if (sub.status === 'pending' || !sub.current_period_end) return false;
   return sub.provider == null || sub.provider === 'pix_legacy';
+}
+
+/**
+ * Cartão `active` VENCIDO localmente (no `/me`, `expired` é sempre `active`
+ * com período vencido — nada grava `expired`; e `provider` de cartão só existe
+ * junto com o `subs_`). O servidor recusa assinar de novo (409
+ * `ALREADY_SUBSCRIBED`, `assertCanStartCheckout`): o `subs_` pode estar
+ * cobrando. A saída é o `sync` (renovação não vista) ou o portal.
+ */
+export function isLapsedCard(sub: Subscription): boolean {
+  return sub.status === 'expired' && sub.provider === 'abacatepay_card';
 }
 
 export type SubscriptionUiState =
@@ -104,6 +124,7 @@ export type SubscriptionUiState =
   | 'active'
   | 'canceled_with_access'
   | 'payment_failed'
+  | 'card_lapsed'
   | 'expired'
   | 'legacy_pix'
   | 'staging';
@@ -127,8 +148,10 @@ type UiStateInput = Pick<
  *    renova; só assina no cartão depois de vencer), `payment_failed` (cartão
  *    recusado, acesso até o fim do período) ou `active`.
  * 4. `pending_checkout` — checkout aberto: "Continuar pagamento".
- * 5. `expired` — teve período e venceu (pode assinar de novo).
- * 6. `none`.
+ * 5. `card_lapsed` — cartão `active` vencido localmente (`isLapsedCard`): não
+ *    oferece "Assinar" (o servidor daria 409); verifica por `sync`/portal.
+ * 6. `expired` — teve período e venceu (pode assinar de novo).
+ * 7. `none`.
  */
 export function subscriptionUiState(me: UiStateInput, nowMs: number): SubscriptionUiState {
   const sub = me.subscription;
@@ -141,6 +164,7 @@ export function subscriptionUiState(me: UiStateInput, nowMs: number): Subscripti
     return 'active';
   }
   if (me.pendingCheckout) return 'pending_checkout';
+  if (sub && isLapsedCard(sub)) return 'card_lapsed';
   if (sub && (sub.status === 'expired' || sub.current_period_end != null)) return 'expired';
   return 'none';
 }
@@ -156,25 +180,39 @@ export function canSubscribe(state: SubscriptionUiState): boolean {
   );
 }
 
-export type PlanBadge = 'none' | 'active' | 'expired' | 'pending' | 'canceled';
+const STATUS_LABELS: Record<SubscriptionUiState, string> = {
+  none: 'Sem assinatura ativa',
+  pending_checkout: 'Aguardando pagamento',
+  confirming: 'Confirmando pagamento',
+  active: 'Ativa',
+  canceled_with_access: 'Cancelada (acesso até o fim do período)',
+  payment_failed: 'Ativa, com pagamento recusado',
+  card_lapsed: 'Verificando a renovação',
+  expired: 'Vencida',
+  legacy_pix: 'Ativa',
+  staging: 'Sem assinatura ativa',
+};
 
 /**
- * Selo/rótulo da assinatura (usado na `/conta`). `canceled` com período pago é
- * `canceled` (acesso até o fim), não `none` — mesmo critério do gate
- * (`hasPaidAccess`); `active`/`canceled` vencidas são `expired`. Staging não
- * entra aqui: o banner de staging é da página (antes da T-124c, staging
- * escondia o estado real).
+ * Rótulo do status da assinatura na `/conta`, A PARTIR do mesmo
+ * `subscriptionUiState` da `/planos` — as duas telas não podem discordar
+ * (substitui o `planBadge`, que via `pending` com período antigo como
+ * "Pendente" enquanto a `/planos` mostrava "Vencida").
  */
-export function planBadge(s: Subscription | null, nowMs: number): PlanBadge {
-  if (!s) return 'none';
-  if (s.status === 'pending') return 'pending';
-  if (hasPaidAccess(s, nowMs)) return s.status === 'canceled' ? 'canceled' : 'active';
-  return 'expired';
+export function subscriptionStatusLabel(state: SubscriptionUiState): string {
+  return STATUS_LABELS[state];
 }
 
-/** Forma de pagamento da assinatura, para rótulo (`/conta`). */
-export function subscriptionProviderLabel(s: Subscription): string {
-  return isLegacyPix(s) ? 'Pix (não renova)' : 'Cartão de crédito (renovação automática)';
+/**
+ * Forma de pagamento, para rótulo (`/conta`). `null` = não rotular: ainda não
+ * houve pagamento (`pending`), ou não há como saber — a tela OMITE a linha em
+ * vez de chutar um meio de pagamento.
+ */
+export function subscriptionProviderLabel(s: Subscription): string | null {
+  if (s.status === 'pending') return null;
+  if (isLegacyPix(s)) return 'Pix (não renova)';
+  if (s.provider === 'abacatepay_card') return 'Cartão de crédito (renovação automática)';
+  return null;
 }
 
 /** Mensagem de erro do `POST /api/subscriptions`, por código. */

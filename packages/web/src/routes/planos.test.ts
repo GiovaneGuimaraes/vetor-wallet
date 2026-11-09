@@ -5,13 +5,14 @@ import {
   checkoutReturnParam,
   formatPlanPrice,
   hasPaidAccess,
+  isLapsedCard,
   isLegacyPix,
   monthlyEquivalentCents,
   nextPollDelayMs,
-  planBadge,
   planPeriodLabel,
   subscribeErrorMessage,
   subscriptionProviderLabel,
+  subscriptionStatusLabel,
   subscriptionUiState,
   yearlySavingsPercent,
 } from './planos';
@@ -164,11 +165,43 @@ describe('hasPaidAccess (espelha isSubscriptionActive do gate)', () => {
 });
 
 describe('isLegacyPix', () => {
-  it('provider nulo/ausente ou pix_legacy é Pix legado; cartão não', () => {
+  it('provider nulo/ausente ou pix_legacy, já pago, é Pix legado; cartão não', () => {
     expect(isLegacyPix(makeSub({ provider: null }))).toBe(true);
     expect(isLegacyPix(makeSub({ provider: undefined }))).toBe(true);
     expect(isLegacyPix(makeSub({ provider: 'pix_legacy' }))).toBe(true);
     expect(isLegacyPix(makeSub())).toBe(false);
+  });
+
+  it('vencido ou cancelado que um dia foi pago continua sendo Pix legado', () => {
+    expect(
+      isLegacyPix(makeSub({ provider: null, status: 'expired', current_period_end: PAST }))
+    ).toBe(true);
+    expect(isLegacyPix(makeSub({ provider: null, status: 'canceled' }))).toBe(true);
+  });
+
+  it('pending NUNCA é Pix legado (checkout de cartão nasce com provider nulo)', () => {
+    expect(
+      isLegacyPix(makeSub({ provider: null, status: 'pending', current_period_end: null }))
+    ).toBe(false);
+    // pending com período antigo (ex.: Pix vencido assinando no cartão) também não
+    expect(
+      isLegacyPix(makeSub({ provider: null, status: 'pending', current_period_end: PAST }))
+    ).toBe(false);
+  });
+
+  it('sem fim de período (nunca pago) não é Pix legado', () => {
+    expect(isLegacyPix(makeSub({ provider: null, current_period_end: null }))).toBe(false);
+  });
+});
+
+describe('isLapsedCard', () => {
+  it('só cartão com status expired (no /me = active vencido localmente)', () => {
+    expect(isLapsedCard(makeSub({ status: 'expired', current_period_end: PAST }))).toBe(true);
+    expect(
+      isLapsedCard(makeSub({ status: 'expired', provider: null, current_period_end: PAST }))
+    ).toBe(false);
+    expect(isLapsedCard(makeSub({ status: 'canceled', current_period_end: PAST }))).toBe(false);
+    expect(isLapsedCard(makeSub())).toBe(false);
   });
 });
 
@@ -276,6 +309,27 @@ describe('subscriptionUiState', () => {
       )
     ).toBe('expired');
   });
+
+  it('cartão active vencido localmente → card_lapsed (o servidor daria 409)', () => {
+    expect(
+      subscriptionUiState(
+        makeMe({ subscription: makeSub({ status: 'expired', current_period_end: PAST }) }),
+        NOW
+      )
+    ).toBe('card_lapsed');
+  });
+
+  it('precedência: checkout aberto vem antes de card_lapsed', () => {
+    expect(
+      subscriptionUiState(
+        makeMe({
+          subscription: makeSub({ status: 'expired', current_period_end: PAST }),
+          pendingCheckout: { url: 'https://pay.example.com/c/1', plan_id: 1, created_at: PAST },
+        }),
+        NOW
+      )
+    ).toBe('pending_checkout');
+  });
 });
 
 describe('canSubscribe', () => {
@@ -290,42 +344,77 @@ describe('canSubscribe', () => {
       'canceled_with_access',
       'legacy_pix',
       'confirming',
+      'card_lapsed',
     ] as const) {
       expect(canSubscribe(s)).toBe(false);
     }
   });
 });
 
-describe('planBadge', () => {
-  it('none sem assinatura', () => {
-    expect(planBadge(null, NOW)).toBe('none');
-  });
-
-  it('pending', () => {
-    expect(planBadge(makeSub({ status: 'pending' }), NOW)).toBe('pending');
-  });
-
-  it('active no período; vencida → expired', () => {
-    expect(planBadge(makeSub(), NOW)).toBe('active');
-    expect(planBadge(makeSub({ current_period_end: PAST }), NOW)).toBe('expired');
-  });
-
-  it('expired por status', () => {
-    expect(planBadge(makeSub({ status: 'expired' }), NOW)).toBe('expired');
-  });
-
-  it('canceled com período pago → canceled (não none); vencida → expired', () => {
-    expect(planBadge(makeSub({ status: 'canceled' }), NOW)).toBe('canceled');
-    expect(planBadge(makeSub({ status: 'canceled', current_period_end: PAST }), NOW)).toBe(
-      'expired'
+describe('subscriptionStatusLabel (a /conta usa o MESMO estado da /planos)', () => {
+  it('pending sem checkout com período antigo: "Vencida" nas duas telas', () => {
+    const state = subscriptionUiState(
+      makeMe({ subscription: makeSub({ status: 'pending', current_period_end: PAST }) }),
+      NOW
     );
+    expect(subscriptionStatusLabel(state)).toBe('Vencida');
+  });
+
+  it.each([
+    ['active', 'Ativa'],
+    ['legacy_pix', 'Ativa'],
+    ['canceled_with_access', 'Cancelada (acesso até o fim do período)'],
+    ['pending_checkout', 'Aguardando pagamento'],
+    ['expired', 'Vencida'],
+    ['card_lapsed', 'Verificando a renovação'],
+    ['payment_failed', 'Ativa, com pagamento recusado'],
+    ['confirming', 'Confirmando pagamento'],
+    ['none', 'Sem assinatura ativa'],
+    ['staging', 'Sem assinatura ativa'],
+  ] as const)('%s → %s', (state, label) => {
+    expect(subscriptionStatusLabel(state)).toBe(label);
   });
 });
 
 describe('subscriptionProviderLabel', () => {
-  it('cartão renova; Pix legado não', () => {
-    expect(subscriptionProviderLabel(makeSub())).toMatch(/Cartão/);
+  it('cartão ativo → Cartão (renovação automática)', () => {
+    expect(subscriptionProviderLabel(makeSub())).toBe('Cartão de crédito (renovação automática)');
+  });
+
+  it('Pix legado ativo no período → Pix (não renova)', () => {
     expect(subscriptionProviderLabel(makeSub({ provider: null }))).toBe('Pix (não renova)');
+  });
+
+  it('canceled com período futuro e expired mantêm o meio de pagamento', () => {
+    expect(subscriptionProviderLabel(makeSub({ status: 'canceled' }))).toMatch(/Cartão/);
+    expect(
+      subscriptionProviderLabel(
+        makeSub({ provider: null, status: 'expired', current_period_end: PAST })
+      )
+    ).toBe('Pix (não renova)');
+  });
+
+  it('pending com provider nulo (checkout de cartão não pago) → null, NUNCA "Pix"', () => {
+    expect(
+      subscriptionProviderLabel(
+        makeSub({ status: 'pending', provider: null, current_period_end: null })
+      )
+    ).toBeNull();
+    expect(
+      subscriptionProviderLabel(
+        makeSub({ status: 'pending', provider: null, current_period_end: PAST })
+      )
+    ).toBeNull();
+  });
+
+  it('pending de cartão (recomeçando depois de cancelar) também não rotula', () => {
+    expect(subscriptionProviderLabel(makeSub({ status: 'pending' }))).toBeNull();
+  });
+
+  it('provider desconhecido e sem pagamento → null', () => {
+    expect(
+      subscriptionProviderLabel(makeSub({ provider: 'outro', current_period_end: null }))
+    ).toBeNull();
   });
 });
 

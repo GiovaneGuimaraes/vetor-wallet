@@ -164,7 +164,7 @@ describe('PlanosPage (cartão, T-124c)', () => {
     expect(redirectTo).toHaveBeenCalledWith('https://pay.example.com/c/abc');
   });
 
-  it('erro 409 ALREADY_SUBSCRIBED mostra a mensagem e não redireciona', async () => {
+  it('409 ALREADY_SUBSCRIBED com estado que segue "assinável" após o sync: mostra a mensagem', async () => {
     createImpl = () =>
       Promise.reject(Object.assign(new Error('Já existe'), { code: 'ALREADY_SUBSCRIBED' }));
     renderPage();
@@ -173,8 +173,50 @@ describe('PlanosPage (cartão, T-124c)', () => {
     fireEvent.click(monthly);
 
     expect(await screen.findByText('Você já tem uma assinatura ativa.')).toBeTruthy();
+    expect(syncSubscription).toHaveBeenCalledTimes(2); // abertura + reconciliação do 409
     expect(redirectTo).not.toHaveBeenCalled();
-    expect((monthly as HTMLButtonElement).disabled).toBe(false);
+    // A vitrine some durante a verificação e volta: reconsulta o botão.
+    const [again] = screen.getAllByRole('button', { name: 'Assinar' });
+    expect((again as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('409 ALREADY_SUBSCRIBED → chama o sync e re-renderiza com o estado novo (sem erro solto)', async () => {
+    let calls = 0;
+    syncImpl = () => {
+      calls += 1;
+      return Promise.resolve(calls === 1 ? me() : me({ subscription: sub(), plan: PLANS[0] }));
+    };
+    createImpl = () =>
+      Promise.reject(Object.assign(new Error('Já existe'), { code: 'ALREADY_SUBSCRIBED' }));
+    renderPage();
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Assinar' }))[0]);
+
+    expect(await screen.findByRole('button', { name: 'Gerenciar assinatura' })).toBeTruthy();
+    expect(syncSubscription).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('Você já tem uma assinatura ativa.')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Assinar' })).toBeNull();
+  });
+
+  it('cartão active vencido localmente: não oferece Assinar; "Verificar de novo" faz o sync', async () => {
+    const lapsed = me({
+      subscription: sub({ status: 'expired', current_period_end: '2020-01-01 00:00:00' }),
+      plan: PLANS[0],
+    });
+    let calls = 0;
+    syncImpl = () => {
+      calls += 1;
+      return Promise.resolve(calls === 1 ? lapsed : me({ subscription: sub(), plan: PLANS[0] }));
+    };
+    renderPage();
+
+    expect(await screen.findByText(/Ainda não confirmamos a renovação/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Assinar' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Verificar de novo' }));
+
+    expect(await screen.findByText(/válido até 15 de março de 2099/)).toBeTruthy();
+    expect(syncSubscription).toHaveBeenCalledTimes(2);
   });
 
   it('erro 502 do provedor mostra a mensagem de indisponível', async () => {
@@ -219,6 +261,60 @@ describe('PlanosPage (cartão, T-124c)', () => {
     expect(screen.getByText('Pagamento confirmado! Sua assinatura está ativa.')).toBeTruthy();
     expect(screen.getByText(/válido até 15 de março de 2099/)).toBeTruthy();
     expect(screen.getByTestId('location').textContent).toBe('/planos');
+  });
+
+  it('desmontar durante a confirmação limpa o timer: nenhum sync depois, nenhum erro', async () => {
+    vi.useFakeTimers();
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    syncImpl = () =>
+      Promise.resolve(me({ subscription: sub({ status: 'pending', current_period_end: null }) }));
+
+    const { unmount } = renderPage('/planos?checkout=completed');
+    await flush();
+    await flush();
+    expect(screen.getByText('Confirmando pagamento…')).toBeTruthy();
+    const callsAtUnmount = syncSubscription.mock.calls.length;
+
+    unmount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+    });
+
+    expect(syncSubscription.mock.calls.length).toBe(callsAtUnmount);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it('sem confirmação em ~2 min: para o sync, avisa e limpa o parâmetro', async () => {
+    vi.useFakeTimers();
+    syncImpl = () =>
+      Promise.resolve(
+        me({
+          subscription: sub({ status: 'pending', current_period_end: null }),
+          pendingCheckout: { url: 'https://pay.example.com/c/1', plan_id: 1, created_at: '' },
+        })
+      );
+
+    renderPage('/planos?checkout=completed');
+    await flush();
+    await flush();
+    expect(screen.getByText('Confirmando pagamento…')).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2 * 60 * 1000 + 20_000);
+    });
+
+    expect(screen.queryByText('Confirmando pagamento…')).toBeNull();
+    expect(screen.getByText(/Ainda não recebemos a confirmação do pagamento/)).toBeTruthy();
+    expect(screen.getByTestId('location').textContent).toBe('/planos');
+    const callsAfterTimeout = syncSubscription.mock.calls.length;
+    expect(callsAfterTimeout).toBeGreaterThan(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+    });
+    expect(syncSubscription.mock.calls.length).toBe(callsAfterTimeout);
   });
 
   it('pending_checkout mostra "Continuar pagamento" com a URL do checkout aberto', async () => {

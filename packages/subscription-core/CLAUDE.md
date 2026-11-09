@@ -585,8 +585,15 @@ parâmetro da URL (replace). Estados (`subscriptionUiState`): pending_checkout
 ("Continuar pagamento"), confirming, active ("Gerenciar assinatura" → portal),
 payment_failed ("Atualizar cartão" → portal), canceled_with_access ("acesso
 até X"), legacy_pix ("não renova"; assina no cartão só depois de vencer),
-expired, none, staging (banner). **`hasPaidAccess` espelha `isSubscriptionActive`**
-(canceled com período no futuro tem acesso) — gate e tela concordam. Saíram o
+card_lapsed (cartão `active` vencido localmente: sem "Assinar", que daria 409 —
+"Verificar de novo" faz `sync`, e há o portal; um 409 `ALREADY_SUBSCRIBED` no
+POST também dispara `sync` e re-renderiza), expired, none, staging (banner).
+**`hasPaidAccess` espelha `isSubscriptionActive`** (canceled com período no
+futuro tem acesso) — gate e tela concordam. **Pix legado = `provider`
+nulo/`pix_legacy` E já pago** (status ≠ `pending`, com fim de período): o
+`pending` de um checkout de cartão também tem `provider` nulo até a ativação.
+A `/conta` usa o MESMO `subscriptionUiState` (`subscriptionStatusLabel`) e omite
+a forma de pagamento enquanto não houve pagamento. Saíram o
 painel Pix (QR, copia-e-cola, contagem), o polling de cobrança e o "Simular
 pagamento". Não há botão de cancelar no app: cancelar é pelo portal.
 
