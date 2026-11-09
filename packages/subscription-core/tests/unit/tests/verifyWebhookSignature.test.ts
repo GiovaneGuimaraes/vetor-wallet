@@ -108,9 +108,7 @@ describe('verifyWebhookSignature', () => {
       expect(() =>
         verifyWebhookSignature({ rawBody: BODY, signature, legacySecret: SECRET })
       ).not.toThrow();
-      expect(verifyWebhookSignature({ rawBody: BODY, signature, legacySecret: SECRET })).toBe(
-        null
-      );
+      expect(verifyWebhookSignature({ rawBody: BODY, signature, legacySecret: SECRET })).toBe(null);
     }
   });
 
