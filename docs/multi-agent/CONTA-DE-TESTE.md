@@ -30,9 +30,15 @@ inventa conta nem pede a senha no chat** — registra o bloqueio em `TODO-HUMANO
 - **Login real pelo Cognito**: `POST /api/auth/login` do `rest-api` valida contra o pool. Não há
   atalho de dev que pule o Cognito — decisão do humano (2026-11-08): o caminho de auth que o
   agente testa é o mesmo do usuário.
-- **Sem assinatura necessária**: `BILLING_ENABLED=false` em staging, então o gate de escrita é
-  no-op. Se um dia ligar, a conta precisa de assinatura ativa (`/api/billing/simulate`, que já
-  responde 404 em produção).
+- **Assinatura**: com `BILLING_ENABLED=false` o gate de escrita é no-op e a conta não precisa de
+  assinatura. Com `BILLING_ENABLED=true` (o `.env` local do humano) a conta precisa de assinatura
+  ativa para gravar. **Não existe mais simulação de pagamento** (`/api/billing/simulate` saiu na
+  T-124c, junto com o Pix de assinatura): o agente só chega até a `url` do checkout hospedado da
+  AbacatePay (`POST /api/subscriptions`); o **pagamento com o cartão de teste
+  `4242 4242 4242 4242` exige navegador e é do humano**. O agente NÃO automatiza essa página.
+  Evidência de runtime de billing = login + `POST /api/subscriptions` + `GET /me` + `POST /sync`,
+  e **limpar** na AbacatePay dev o que criou (`POST /subscriptions/checkouts/delete?id=`,
+  `POST /customers/delete?id=`, `POST /products/delete?id=`), para o teste do humano começar limpo.
 - **A linha em `users` nasce no primeiro login** (espelho da identidade — `auth-core`), por
   `DATABASE_URL` local. Cada worktree com banco próprio cria a sua. Para a role de admin:
   `pnpm --filter vetor-wallet-cli roles:grant-admin <email>` (só se a tarefa toca `/admin`).
