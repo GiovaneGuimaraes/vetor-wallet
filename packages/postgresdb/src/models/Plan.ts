@@ -26,6 +26,14 @@ export class Plan extends Model {
   @Column({ type: DataType.BOOLEAN, allowNull: false })
   declare active: boolean;
 
+  /** Produto da AbacatePay que cobra este plano no cartão (T-124a). */
+  @Column({ type: DataType.TEXT })
+  declare abacateProductId: string | null;
+
+  /** Preço (centavos) com que o produto foi criado lá — o provedor não edita preço. */
+  @Column({ type: CENTS })
+  declare abacateProductPriceCents: number | null;
+
   @CreatedAt
   declare createdAt: Date;
 }

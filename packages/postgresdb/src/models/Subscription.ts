@@ -40,6 +40,29 @@ export class Subscription extends Model {
   @Column({ type: DataType.DATE })
   declare currentPeriodEnd: Date | null;
 
+  /**
+   * T-124a. NULL = Pix legado; futuros 'pix_legacy' | 'abacatepay_card'. TEXT,
+   * não ENUM: no SQLite a coluna entrou sem CHECK (CHECK novo exigiria rebuild)
+   * e o vocabulário ainda não foi fixado pela regra (T-124b1).
+   */
+  @Column({ type: DataType.TEXT })
+  declare provider: string | null;
+
+  /** `subs_…` da AbacatePay. Único quando presente. */
+  @Unique('idx_subscriptions_abacate_id')
+  @Column({ type: DataType.TEXT })
+  declare abacateSubscriptionId: string | null;
+
+  /** Status cru do provedor (ACTIVE/CANCELLED/…). */
+  @Column({ type: DataType.TEXT })
+  declare providerStatus: string | null;
+
+  @Column({ type: DataType.DATE })
+  declare canceledAt: Date | null;
+
+  @Column({ type: DataType.DATE })
+  declare lastSyncedAt: Date | null;
+
   @CreatedAt
   declare createdAt: Date;
 

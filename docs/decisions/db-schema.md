@@ -333,6 +333,66 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_webhook_events_event
   ON billing_webhook_events(event_id);
 
 -- ─────────────────────────────────────────────────────────────────────────
+-- Assinatura recorrente no cartão — AbacatePay (T-124a, só o schema)
+-- ─────────────────────────────────────────────────────────────────────────
+-- Dono: @vetor-wallet/subscription-core. Na T-124a nada lê nem escreve aqui;
+-- a regra vem na T-124b1 e as rotas na T-124b2. Migração NÃO destrutiva:
+-- tabelas novas + ALTER ADD COLUMN anuláveis, nenhum DROP, nenhum CHECK mexido.
+
+-- ALTER idempotente em plans:
+--   abacate_product_id          TEXT     -- produto da AbacatePay deste plano
+--   abacate_product_price_cents INTEGER  -- preço (CENTAVOS) com que o produto
+--                                        -- foi criado; o provedor não edita
+--                                        -- preço, então divergir de price_cents
+--                                        -- = produto a recriar. NULL = não criado.
+
+-- ALTER idempotente em subscriptions (todas TEXT, anuláveis, sem DEFAULT):
+--   provider                -- NULL = Pix legado; futuros 'pix_legacy' | 'abacatepay_card'
+--   abacate_subscription_id -- 'subs_…' do provedor
+--   provider_status         -- status cru do provedor (ACTIVE/CANCELLED/…)
+--   canceled_at             -- SQLite UTC
+--   last_synced_at          -- SQLite UTC; última reconciliação com a API
+-- Sem CHECK em `provider` e o CHECK de `status` NÃO muda: CHECK novo/alterado
+-- numa tabela existente exige rebuild no SQLite (= migração destrutiva).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_abacate_id
+  ON subscriptions(abacate_subscription_id) WHERE abacate_subscription_id IS NOT NULL;
+
+-- Cliente na AbacatePay, criado só na assinatura (e-mail + nome, sem CPF).
+-- Fora de `users` porque `users` é do auth-core e core não escreve em tabela
+-- de outro core.
+CREATE TABLE IF NOT EXISTS billing_customers (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id             INTEGER NOT NULL REFERENCES users(id),
+  abacate_customer_id TEXT    NOT NULL,
+  created_at          TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_customers_user ON billing_customers(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_customers_abacate_id
+  ON billing_customers(abacate_customer_id);
+
+-- Checkout de assinatura: para o cartão, o papel de `pix_charges` — o DONO vem
+-- desta linha, nunca do payload do provedor. A linha nasce CREATING, ANTES da
+-- chamada ao provedor (por isso abacate_checkout_id é NULL até a resposta).
+CREATE TABLE IF NOT EXISTS subscription_checkouts (
+  id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id                 INTEGER NOT NULL REFERENCES users(id),
+  plan_id                 INTEGER NOT NULL REFERENCES plans(id),
+  abacate_checkout_id     TEXT,                          -- 'bill_…'
+  checkout_url            TEXT,                          -- página hospedada
+  status                  TEXT    NOT NULL DEFAULT 'CREATING'
+                          CHECK(status IN ('CREATING','OPEN','COMPLETED','SUPERSEDED','FAILED')),
+  abacate_subscription_id TEXT,                          -- 'subs_…', só após o pagamento
+  created_at              TEXT    NOT NULL DEFAULT (datetime('now')),
+  completed_at            TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subscription_checkouts_abacate_id
+  ON subscription_checkouts(abacate_checkout_id) WHERE abacate_checkout_id IS NOT NULL;
+-- A trava contra dois checkouts simultâneos: no máximo UM aberto por usuário.
+-- Os terminais (COMPLETED/SUPERSEDED/FAILED) ficam fora do índice e acumulam.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subscription_checkouts_user_open
+  ON subscription_checkouts(user_id) WHERE status IN ('CREATING', 'OPEN');
+
+-- ─────────────────────────────────────────────────────────────────────────
 -- Open Finance / Pluggy (T-089a)
 -- ─────────────────────────────────────────────────────────────────────────
 -- Uma linha por CONEXÃO do usuário com uma instituição financeira (o "item" da
