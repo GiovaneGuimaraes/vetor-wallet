@@ -1,0 +1,15 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`createProduct POST /products/create com preço em centavos, BRL e ciclo 1`] = `
+{
+  "body": {
+    "currency": "BRL",
+    "cycle": "MONTHLY",
+    "externalId": "plan:pro_monthly:2990",
+    "name": "Vetor Wallet — Pro Mensal (acentuação e travessão passam)",
+    "price": 2990,
+  },
+  "method": "POST",
+  "url": "https://api.abacatepay.com/v2/products/create",
+}
+`;

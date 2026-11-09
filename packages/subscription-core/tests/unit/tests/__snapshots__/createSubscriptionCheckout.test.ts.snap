@@ -1,0 +1,23 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`createSubscriptionCheckout POST /subscriptions/create: um item do produto, só CARD, URLs de volta 1`] = `
+{
+  "body": {
+    "completionUrl": "http://localhost:5173/planos?checkout=17",
+    "customerId": "cust_abc",
+    "externalId": "checkout:17",
+    "items": [
+      {
+        "id": "prod_abc",
+        "quantity": 1,
+      },
+    ],
+    "methods": [
+      "CARD",
+    ],
+    "returnUrl": "http://localhost:5173/planos",
+  },
+  "method": "POST",
+  "url": "https://api.abacatepay.com/v2/subscriptions/create",
+}
+`;

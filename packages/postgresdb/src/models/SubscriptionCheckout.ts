@@ -12,11 +12,7 @@ import { Plan } from './Plan';
 import { User } from './User';
 
 export type SubscriptionCheckoutStatus =
-  | 'CREATING'
-  | 'OPEN'
-  | 'COMPLETED'
-  | 'SUPERSEDED'
-  | 'FAILED';
+  'CREATING' | 'OPEN' | 'COMPLETED' | 'SUPERSEDED' | 'FAILED';
 
 /**
  * Checkout de assinatura no cartão (T-124a): para o cartão, o papel que

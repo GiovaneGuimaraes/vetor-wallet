@@ -1,0 +1,9 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`listSubscriptionsByCheckout GET /subscriptions/list com o checkoutId escapado na query 1`] = `
+{
+  "body": undefined,
+  "method": "GET",
+  "url": "https://api.abacatepay.com/v2/subscriptions/list?checkoutId=bill_a%20b%26c",
+}
+`;

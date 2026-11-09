@@ -314,7 +314,9 @@ describe('initDb — assinatura no cartão (T-124a)', () => {
     });
 
     it('status nasce CREATING por default', async () => {
-      await db.execute(`UPDATE subscription_checkouts SET status = 'FAILED' WHERE user_id = ${userB}`);
+      await db.execute(
+        `UPDATE subscription_checkouts SET status = 'FAILED' WHERE user_id = ${userB}`
+      );
       const created = await db.execute(
         `INSERT INTO subscription_checkouts (user_id, plan_id) VALUES (${userB}, ${planId})`
       );
