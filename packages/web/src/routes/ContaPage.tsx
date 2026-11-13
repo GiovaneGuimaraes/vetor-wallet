@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { MySubscriptionResponse } from '@vetor-wallet/shared';
-import { getMySubscription, updateMe, changePassword } from '../api';
+import { getMySubscription, updateMe, changePassword, openCustomerPortal } from '../api';
+import { redirectTo } from '../navigation';
 import { useShellContext } from '../layout/ShellContext';
 import { BackToHomeLink } from '../components/BackToHomeLink';
 import { CollapsibleSection } from '../components/CollapsibleSection';
@@ -60,6 +61,8 @@ export function ContaPage() {
   const [subError, setSubError] = useState<string | null>(null);
   // Instante da leitura: o rótulo compara o fim do período com ELE (render puro).
   const [subReadAtMs, setSubReadAtMs] = useState(0);
+  const [portalBusy, setPortalBusy] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
 
   const loadSubscription = useCallback(async () => {
     setSubError(null);
@@ -124,6 +127,24 @@ export function ContaPage() {
       setPasswordError(e instanceof Error ? e.message : 'Falha ao trocar a senha');
     } finally {
       setPasswordSaving(false);
+    }
+  }
+
+  // Cancelar é no portal da AbacatePay (acesso segue até o fim do período pago).
+  async function handleCancel() {
+    setPortalError(null);
+    setPortalBusy(true);
+    try {
+      const { url } = await openCustomerPortal();
+      redirectTo(url);
+    } catch (e) {
+      const err = e as Error & { code?: string };
+      setPortalError(
+        err.code === 'PAYMENT_PROVIDER_ERROR'
+          ? 'O provedor de pagamento está indisponível no momento. Tente novamente em instantes.'
+          : (err.message ?? 'Falha ao abrir o portal da assinatura')
+      );
+      setPortalBusy(false);
     }
   }
 
@@ -261,6 +282,22 @@ export function ContaPage() {
                         : 'válido até'}{' '}
                     {formatPeriodEnd(sub.subscription.current_period_end)}
                   </p>
+                )}
+                {(state === 'active' || state === 'payment_failed' || state === 'card_lapsed') && (
+                  <div className="vw-form-actions">
+                    <button
+                      type="button"
+                      className="vw-btn-ghost"
+                      disabled={portalBusy}
+                      onClick={handleCancel}
+                    >
+                      {portalBusy ? 'Abrindo...' : 'Cancelar assinatura'}
+                    </button>
+                    <p className="vw-conta-subscription-period">
+                      Você continua com acesso até o fim do período já pago.
+                    </p>
+                    {portalError && <p className="vw-form-error">{portalError}</p>}
+                  </div>
                 )}
               </div>
             ) : (

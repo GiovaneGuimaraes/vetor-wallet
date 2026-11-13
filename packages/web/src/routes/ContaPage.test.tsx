@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { MySubscriptionResponse, Subscription, User } from '@vetor-wallet/shared';
 import type { ShellContext } from '../layout/ShellContext';
@@ -31,8 +31,15 @@ vi.mock('../layout/ShellContext', async () => {
 
 let meImpl: () => Promise<MySubscriptionResponse> = () => Promise.resolve(me());
 
+const redirectTo = vi.fn();
+let portalImpl: () => Promise<{ url: string }> = () =>
+  Promise.resolve({ url: 'https://portal.example.com/s' });
+
+vi.mock('../navigation', () => ({ redirectTo: (url: string) => redirectTo(url) }));
+
 vi.mock('../api', () => ({
   getMySubscription: () => meImpl(),
+  openCustomerPortal: () => portalImpl(),
   updateMe: vi.fn(),
   changePassword: vi.fn(),
 }));
@@ -84,6 +91,8 @@ function renderConta() {
 
 afterEach(() => {
   cleanup();
+  redirectTo.mockClear();
+  portalImpl = () => Promise.resolve({ url: 'https://portal.example.com/s' });
   meImpl = () => Promise.resolve(me());
 });
 
@@ -168,5 +177,82 @@ describe('ContaPage — card Assinatura (T-124c)', () => {
     expect(await screen.findByText('Status: Vencida')).toBeTruthy();
     expect(screen.getByText(/venceu em/)).toBeTruthy();
     expect(screen.getByText('Pagamento: Pix (não renova)')).toBeTruthy();
+  });
+});
+
+describe('ContaPage — cancelar assinatura', () => {
+  it('cartão ativo: "Cancelar assinatura" abre o portal', async () => {
+    meImpl = () => Promise.resolve(me({ subscription: sub(), plan: PLAN }));
+    renderConta();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancelar assinatura' }));
+
+    await vi.waitFor(() => expect(redirectTo).toHaveBeenCalledWith('https://portal.example.com/s'));
+  });
+
+  it('falha do portal mostra o erro e destrava o botão', async () => {
+    meImpl = () => Promise.resolve(me({ subscription: sub(), plan: PLAN }));
+    portalImpl = () =>
+      Promise.reject(Object.assign(new Error('x'), { code: 'PAYMENT_PROVIDER_ERROR' }));
+    renderConta();
+
+    const btn = await screen.findByRole('button', { name: 'Cancelar assinatura' });
+    fireEvent.click(btn);
+
+    expect(await screen.findByText(/provedor de pagamento está indisponível/)).toBeTruthy();
+    expect(redirectTo).not.toHaveBeenCalled();
+    expect((btn as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('sem botão: Pix legado, cancelada, vencida, pendente e sem assinatura', async () => {
+    const cases: MySubscriptionResponse[] = [
+      me({ subscription: sub({ provider: null, provider_status: null }), plan: PLAN }),
+      me({ subscription: sub({ status: 'canceled' }), plan: PLAN }),
+      me({
+        subscription: sub({
+          status: 'expired',
+          provider: null,
+          current_period_end: '2020-01-01 00:00:00',
+        }),
+        plan: PLAN,
+      }),
+      me({
+        subscription: sub({ status: 'pending', provider: null, current_period_end: null }),
+        plan: PLAN,
+        pendingCheckout: { url: 'https://pay.example.com/c/1', plan_id: 1, created_at: '' },
+      }),
+      me(),
+    ];
+    for (const c of cases) {
+      meImpl = () => Promise.resolve(c);
+      const { unmount } = renderConta();
+      await vi.waitFor(() => expect(screen.queryByText('Carregando...')).toBeNull());
+      expect(screen.queryByRole('button', { name: 'Cancelar assinatura' })).toBeNull();
+      unmount();
+    }
+  });
+});
+
+describe('ContaPage — cancelar assinatura nos demais estados do gate', () => {
+  it('pagamento recusado (PAYMENT_FAILED) mostra o botão', async () => {
+    meImpl = () =>
+      Promise.resolve(me({ subscription: sub({ provider_status: 'PAYMENT_FAILED' }), plan: PLAN }));
+    renderConta();
+
+    expect(await screen.findByRole('button', { name: 'Cancelar assinatura' })).toBeTruthy();
+  });
+
+  it('cartão vencido localmente (card_lapsed) mostra o botão', async () => {
+    meImpl = () =>
+      Promise.resolve(
+        me({
+          subscription: sub({ status: 'expired', current_period_end: '2020-01-01 00:00:00' }),
+          plan: PLAN,
+        })
+      );
+    renderConta();
+
+    expect(await screen.findByText('Status: Verificando a renovação')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cancelar assinatura' })).toBeTruthy();
   });
 });
