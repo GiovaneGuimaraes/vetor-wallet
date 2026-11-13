@@ -51,62 +51,111 @@ export interface DiversificationTip {
 }
 
 /** Abaixo disto o patrimônio em investimentos é residual demais para gerar sugestão (ruído). */
-const MIN_TOTAL_CENTS_FOR_TIPS = 100_00;
+export const MIN_TOTAL_CENTS_FOR_TIPS = 100_00;
 /** % mínima em Renda Fixa antes de avisar sobre reserva de segurança baixa. */
-const MIN_RENDA_FIXA_PCT = 10;
+export const MIN_RENDA_FIXA_PCT = 10;
 /** % acima da qual um único ativo de renda variável é considerado concentração alta. */
-const MAX_CONCENTRATION_PCT = 40;
+export const MAX_CONCENTRATION_PCT = 40;
 
+/**
+ * Cotação indisponível (falha silenciosa da brapi, ver CLAUDE.md › "Falha
+ * silenciosa de cotações") degrada para o valor investido — MESMA convenção
+ * de `homeMetrics.computeStockTotals` — nunca para zero. Zero faria o
+ * assistente dizer "você não tem posições" com a carteira cheia só porque a
+ * brapi está fora do ar.
+ */
 function positionCents(position: Position): number {
-  return Math.round((position.currentValue ?? 0) * 100);
+  return Math.round((position.currentValue ?? position.invested) * 100);
+}
+
+export interface PortfolioStats {
+  variableCents: number;
+  fixedIncomeCents: number;
+  totalCents: number;
+  /** 0..100. 0 quando `totalCents` é 0. */
+  rendaFixaPct: number;
+  biggestTicker: string | null;
+  biggestCents: number;
+  /** % do maior ativo dentro da renda variável. 0 quando `variableCents` é 0. */
+  concentrationPct: number;
+  fiiCents: number;
+  acaoCents: number;
+  /** % de FII dentro da renda variável. 0 quando `variableCents` é 0. */
+  fiiPct: number;
+}
+
+/**
+ * Números crus por trás das tips e do painel de perguntas prontas
+ * (`portfolioAssistant.ts`) — uma única fonte de verdade para os dois.
+ */
+export function computePortfolioStats(input: DiversificationInput): PortfolioStats {
+  const variableCents = input.positions.reduce((sum, p) => sum + positionCents(p), 0);
+  const fixedIncomeCents = input.fixedIncomeCurrentCents;
+  const totalCents = variableCents + fixedIncomeCents;
+
+  let biggestTicker: string | null = null;
+  let biggestCents = 0;
+  for (const p of input.positions) {
+    const cents = positionCents(p);
+    if (cents > biggestCents) {
+      biggestCents = cents;
+      biggestTicker = p.ticker;
+    }
+  }
+
+  const fiiCents = input.positions
+    .filter((p) => classifyTicker(p.ticker) === 'FII')
+    .reduce((sum, p) => sum + positionCents(p), 0);
+  const acaoCents = input.positions
+    .filter((p) => classifyTicker(p.ticker) === 'ACAO')
+    .reduce((sum, p) => sum + positionCents(p), 0);
+
+  return {
+    variableCents,
+    fixedIncomeCents,
+    totalCents,
+    rendaFixaPct: totalCents > 0 ? (fixedIncomeCents / totalCents) * 100 : 0,
+    biggestTicker,
+    biggestCents,
+    concentrationPct: variableCents > 0 ? (biggestCents / variableCents) * 100 : 0,
+    fiiCents,
+    acaoCents,
+    fiiPct: variableCents > 0 ? (fiiCents / variableCents) * 100 : 0,
+  };
 }
 
 export function buildDiversificationTips(input: DiversificationInput): DiversificationTip[] {
-  const variableCents = input.positions.reduce((sum, p) => sum + positionCents(p), 0);
-  const totalCents = variableCents + input.fixedIncomeCurrentCents;
-
-  if (totalCents < MIN_TOTAL_CENTS_FOR_TIPS) return [];
+  const stats = computePortfolioStats(input);
+  if (stats.totalCents < MIN_TOTAL_CENTS_FOR_TIPS) return [];
 
   const tips: DiversificationTip[] = [];
 
-  if (variableCents > 0) {
-    const rendaFixaPct = (input.fixedIncomeCurrentCents / totalCents) * 100;
-    if (rendaFixaPct < MIN_RENDA_FIXA_PCT) {
+  if (stats.variableCents > 0) {
+    if (stats.rendaFixaPct < MIN_RENDA_FIXA_PCT) {
       tips.push({
         id: 'sem-renda-fixa',
         level: 'warn',
         title: 'Pouca reserva em renda fixa',
         message:
-          `Só ${rendaFixaPct.toFixed(0)}% do seu patrimônio em investimentos está em renda ` +
-          'fixa. A prática mais comum é manter uma reserva em ativos líquidos e de baixo risco ' +
-          '(Tesouro Selic, CDB com liquidez diária) antes de concentrar tudo em renda variável.',
+          `Só ${stats.rendaFixaPct.toFixed(0)}% do seu patrimônio em investimentos está em ` +
+          'renda fixa. A prática mais comum é manter uma reserva em ativos líquidos e de baixo ' +
+          'risco (Tesouro Selic, CDB com liquidez diária) antes de concentrar tudo em renda ' +
+          'variável.',
       });
     }
 
-    const biggestCents = input.positions.reduce(
-      (max, p) => Math.max(max, positionCents(p)),
-      0
-    );
-    const concentrationPct = (biggestCents / variableCents) * 100;
-    if (concentrationPct > MAX_CONCENTRATION_PCT) {
+    if (stats.concentrationPct > MAX_CONCENTRATION_PCT) {
       tips.push({
         id: 'concentracao',
         level: 'warn',
         title: 'Carteira concentrada em um único ativo',
         message:
-          `Um ativo responde por ${concentrationPct.toFixed(0)}% da sua renda variável. ` +
+          `Um ativo responde por ${stats.concentrationPct.toFixed(0)}% da sua renda variável. ` +
           'Diversificar entre mais empresas/fundos reduz o impacto de um resultado ruim isolado.',
       });
     }
 
-    const fiiCents = input.positions
-      .filter((p) => classifyTicker(p.ticker) === 'FII')
-      .reduce((sum, p) => sum + positionCents(p), 0);
-    const acaoCents = input.positions
-      .filter((p) => classifyTicker(p.ticker) === 'ACAO')
-      .reduce((sum, p) => sum + positionCents(p), 0);
-
-    if (acaoCents > 0 && fiiCents === 0) {
+    if (stats.acaoCents > 0 && stats.fiiCents === 0) {
       tips.push({
         id: 'sem-fii',
         level: 'info',

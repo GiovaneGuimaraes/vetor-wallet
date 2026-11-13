@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   classifyTicker,
   buildDiversificationTips,
+  computePortfolioStats,
   type DiversificationInput,
 } from './diversificationInsights';
 import type { Position } from '@vetor-wallet/shared';
@@ -35,6 +36,28 @@ describe('classifyTicker', () => {
   it('cai em OUTRO fora desses padrões', () => {
     expect(classifyTicker('XYZ1')).toBe('OUTRO');
     expect(classifyTicker('AB')).toBe('OUTRO');
+  });
+});
+
+describe('computePortfolioStats', () => {
+  it('degrada para o valor investido quando a cotação está indisponível (currentValue null)', () => {
+    // Falha silenciosa da brapi (CLAUDE.md › "Falha silenciosa de cotações"):
+    // currentValue null NÃO pode virar renda variável zerada.
+    const semCotacao: Position = {
+      ticker: 'PETR4',
+      quantity: 11,
+      avgPrice: 30,
+      invested: 1000,
+      currentPrice: null,
+      currentValue: null,
+      profitLoss: null,
+      profitLossPct: null,
+      allocationPct: null,
+    };
+    const stats = computePortfolioStats({ positions: [semCotacao], fixedIncomeCurrentCents: 0 });
+    expect(stats.variableCents).toBe(100_000);
+    expect(stats.acaoCents).toBe(100_000);
+    expect(stats.biggestTicker).toBe('PETR4');
   });
 });
 

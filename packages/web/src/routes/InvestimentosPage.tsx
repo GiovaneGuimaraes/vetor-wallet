@@ -20,8 +20,7 @@ import {
   nodeValue,
   upcomingMaturities,
 } from './investmentsDashboard';
-import { buildDiversificationTips } from './diversificationInsights';
-import { DiversificationTipsCard } from '../components/DiversificationTipsCard';
+import { PortfolioAssistantPanel } from '../components/PortfolioAssistantPanel';
 import './layers-savings.css';
 import './investimentos.css';
 
@@ -145,10 +144,10 @@ export function InvestimentosPage() {
   );
   const allocation = buildAllocation(overview);
   const upcoming = upcomingMaturities(fixedIncomePositions);
-  const diversificationTips = buildDiversificationTips({
+  const assistantInput = {
     positions: walletSummary?.positions ?? [],
     fixedIncomeCurrentCents: overview.fixedIncomeCurrentCents,
-  });
+  };
 
   return (
     <div>
@@ -248,7 +247,7 @@ export function InvestimentosPage() {
         </div>
       </div>
 
-      <DiversificationTipsCard tips={diversificationTips} />
+      <PortfolioAssistantPanel input={assistantInput} />
 
       <div className="vw-layer-grid">
         {INVESTMENT_NODES.map((node, i) => {
