@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type { Query } from '@vetor-wallet/query';
 
 import { assertCanStartCheckout } from './assertCanStartCheckout';
@@ -58,8 +60,10 @@ interface OpenRow {
  * 4. **INSERT `CREATING` ANTES do provedor**, com `ON CONFLICT DO NOTHING`: o
  *    índice único parcial `(user_id) WHERE status IN ('CREATING','OPEN')` é a
  *    trava — sem linha devolvida, outro clique ganhou → `CheckoutInProgressError`.
- *    O `externalId` do checkout é `checkout:<id local>`, então não existe
- *    cobrança órfã (o risco aceito do Pix).
+ *    O `externalId` do checkout é `checkout:<id local>:<uuid>`. O uuid é
+ *    obrigatório: a AbacatePay devolve o checkout EXISTENTE quando o `externalId`
+ *    repete (mesmo apagado — o link morre: "não encontramos este link"), e o id
+ *    local sozinho colide entre bancos (dev, staging, banco recriado).
  * 5. UPSERT de `subscriptions` para `pending`, sem rebaixar linha com acesso
  *    pago no período nem tocar assinatura de cartão não cancelada, e sem
  *    escrever `provider_status`. Vem antes do provedor para que todo checkout
@@ -159,7 +163,7 @@ export const startCardCheckout = async (args: {
     bill = await createSubscriptionCheckout({
       productId,
       customerId: args.customerId,
-      externalId: `checkout:${checkoutId}`,
+      externalId: `checkout:${checkoutId}:${randomUUID()}`,
       completionUrl: args.completionUrl,
       returnUrl: args.returnUrl,
     });
