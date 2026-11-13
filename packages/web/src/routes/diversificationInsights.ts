@@ -1,7 +1,9 @@
 import type { Position } from '@vetor-wallet/shared';
 
 /**
- * Sugestões de diversificação do "agente VetorWallet" em `/investimentos`.
+ * "Opinião do agente VetorWallet" nos cards de `/investimentos` — um ícone
+ * pequeno no canto do card de Ações e no de Renda Fixa; clicar abre um
+ * popover com a opinião, fechado por um "×" (não por hover).
  *
  * Deliberadamente SEM IA/LLM: regras fixas, em cima do que já temos na tela
  * (posições da B3 + total consolidado de Renda Fixa). Ponto de partida para
@@ -41,16 +43,7 @@ export interface DiversificationInput {
   fixedIncomeCurrentCents: number;
 }
 
-export type DiversificationTipLevel = 'warn' | 'info' | 'ok';
-
-export interface DiversificationTip {
-  id: 'sem-renda-fixa' | 'concentracao' | 'sem-fii' | 'diversificada';
-  level: DiversificationTipLevel;
-  title: string;
-  message: string;
-}
-
-/** Abaixo disto o patrimônio em investimentos é residual demais para gerar sugestão (ruído). */
+/** Abaixo disto o patrimônio em investimentos é residual demais para gerar opinião (ruído). */
 export const MIN_TOTAL_CENTS_FOR_TIPS = 100_00;
 /** % mínima em Renda Fixa antes de avisar sobre reserva de segurança baixa. */
 export const MIN_RENDA_FIXA_PCT = 10;
@@ -60,9 +53,9 @@ export const MAX_CONCENTRATION_PCT = 40;
 /**
  * Cotação indisponível (falha silenciosa da brapi, ver CLAUDE.md › "Falha
  * silenciosa de cotações") degrada para o valor investido — MESMA convenção
- * de `homeMetrics.computeStockTotals` — nunca para zero. Zero faria o
- * assistente dizer "você não tem posições" com a carteira cheia só porque a
- * brapi está fora do ar.
+ * de `homeMetrics.computeStockTotals` — nunca para zero. Zero faria o agente
+ * dizer "você não tem posições" com a carteira cheia só porque a brapi está
+ * fora do ar.
  */
 function positionCents(position: Position): number {
   return Math.round((position.currentValue ?? position.invested) * 100);
@@ -84,10 +77,7 @@ export interface PortfolioStats {
   fiiPct: number;
 }
 
-/**
- * Números crus por trás das tips e do painel de perguntas prontas
- * (`portfolioAssistant.ts`) — uma única fonte de verdade para os dois.
- */
+/** Números crus por trás de `agentOpinionForNode` — uma única fonte de verdade. */
 export function computePortfolioStats(input: DiversificationInput): PortfolioStats {
   const variableCents = input.positions.reduce((sum, p) => sum + positionCents(p), 0);
   const fixedIncomeCents = input.fixedIncomeCurrentCents;
@@ -124,59 +114,75 @@ export function computePortfolioStats(input: DiversificationInput): PortfolioSta
   };
 }
 
-export function buildDiversificationTips(input: DiversificationInput): DiversificationTip[] {
+export type AgentOpinionLevel = 'warn' | 'ok';
+
+export interface AgentOpinion {
+  level: AgentOpinionLevel;
+  message: string;
+}
+
+/** Os dois cards do hub de Investimentos com dado real hoje (`cripto` é "em breve"). */
+export type InvestmentOpinionNodeKey = 'acoes' | 'renda-fixa';
+
+function pct(n: number): string {
+  return n.toFixed(0);
+}
+
+/**
+ * Opinião do agente para UM card específico — `null` quando não há nada
+ * relevante a dizer ainda (patrimônio residual, ou "Ações" sem nenhuma
+ * posição de renda variável lançada).
+ */
+export function agentOpinionForNode(
+  nodeKey: InvestmentOpinionNodeKey,
+  input: DiversificationInput
+): AgentOpinion | null {
   const stats = computePortfolioStats(input);
-  if (stats.totalCents < MIN_TOTAL_CENTS_FOR_TIPS) return [];
+  if (stats.totalCents < MIN_TOTAL_CENTS_FOR_TIPS) return null;
 
-  const tips: DiversificationTip[] = [];
-
-  if (stats.variableCents > 0) {
-    if (stats.rendaFixaPct < MIN_RENDA_FIXA_PCT) {
-      tips.push({
-        id: 'sem-renda-fixa',
+  if (nodeKey === 'renda-fixa') {
+    if (stats.variableCents > 0 && stats.rendaFixaPct < MIN_RENDA_FIXA_PCT) {
+      return {
         level: 'warn',
-        title: 'Pouca reserva em renda fixa',
         message:
-          `Só ${stats.rendaFixaPct.toFixed(0)}% do seu patrimônio em investimentos está em ` +
-          'renda fixa. A prática mais comum é manter uma reserva em ativos líquidos e de baixo ' +
-          'risco (Tesouro Selic, CDB com liquidez diária) antes de concentrar tudo em renda ' +
-          'variável.',
-      });
+          `Só ${pct(stats.rendaFixaPct)}% do seu patrimônio em investimentos está em renda ` +
+          'fixa. A prática mais comum é manter uma reserva em ativos líquidos e de baixo risco ' +
+          '(Tesouro Selic, CDB com liquidez diária) antes de concentrar tudo em renda variável.',
+      };
     }
-
-    if (stats.concentrationPct > MAX_CONCENTRATION_PCT) {
-      tips.push({
-        id: 'concentracao',
-        level: 'warn',
-        title: 'Carteira concentrada em um único ativo',
-        message:
-          `Um ativo responde por ${stats.concentrationPct.toFixed(0)}% da sua renda variável. ` +
-          'Diversificar entre mais empresas/fundos reduz o impacto de um resultado ruim isolado.',
-      });
-    }
-
-    if (stats.acaoCents > 0 && stats.fiiCents === 0) {
-      tips.push({
-        id: 'sem-fii',
-        level: 'info',
-        title: 'Sem fundos imobiliários na carteira',
-        message:
-          'Você tem posição em ações, mas nenhuma em fundos imobiliários (FIIs). Misturar as ' +
-          'duas classes é uma forma comum de diversificar dentro da renda variável.',
-      });
-    }
-  }
-
-  if (tips.length === 0) {
-    tips.push({
-      id: 'diversificada',
+    return {
       level: 'ok',
-      title: 'Carteira com boa distribuição',
       message:
-        'Sua carteira está distribuída entre renda variável e renda fixa, sem concentração ' +
-        'alta em um único ativo — nenhum alerta por aqui hoje.',
-    });
+        `${pct(stats.rendaFixaPct)}% do seu patrimônio em investimentos está em renda fixa — ` +
+        'dentro do que considero uma reserva de segurança adequada.',
+    };
   }
 
-  return tips;
+  // nodeKey === 'acoes'
+  if (stats.variableCents === 0) return null;
+
+  const problems: string[] = [];
+  if (stats.concentrationPct > MAX_CONCENTRATION_PCT) {
+    problems.push(
+      `${stats.biggestTicker} responde por ${pct(stats.concentrationPct)}% da sua renda ` +
+        'variável. Diversificar entre mais empresas/fundos reduz o impacto de um resultado ' +
+        'ruim isolado.'
+    );
+  }
+  if (stats.acaoCents > 0 && stats.fiiCents === 0) {
+    problems.push(
+      'Você tem posição em ações, mas nenhuma em fundos imobiliários (FIIs). Misturar as duas ' +
+        'classes é uma forma comum de diversificar dentro da renda variável.'
+    );
+  }
+
+  if (problems.length > 0) {
+    return { level: 'warn', message: problems.join(' ') };
+  }
+  return {
+    level: 'ok',
+    message:
+      `Seu ativo mais pesado, ${stats.biggestTicker}, responde por ${pct(stats.concentrationPct)}% ` +
+      'da sua renda variável — sem concentração alta em um único ativo hoje.',
+  };
 }

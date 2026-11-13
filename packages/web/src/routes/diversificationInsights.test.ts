@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   classifyTicker,
-  buildDiversificationTips,
   computePortfolioStats,
+  agentOpinionForNode,
   type DiversificationInput,
 } from './diversificationInsights';
 import type { Position } from '@vetor-wallet/shared';
@@ -61,88 +61,77 @@ describe('computePortfolioStats', () => {
   });
 });
 
-describe('buildDiversificationTips', () => {
-  it('não gera sugestão para patrimônio residual (abaixo do piso de ruído)', () => {
+describe('agentOpinionForNode', () => {
+  it('não opina para patrimônio residual (abaixo do piso de ruído), em nenhum card', () => {
     const input: DiversificationInput = {
       positions: [position('PETR4', 50)],
       fixedIncomeCurrentCents: 0,
     };
-    expect(buildDiversificationTips(input)).toEqual([]);
+    expect(agentOpinionForNode('acoes', input)).toBeNull();
+    expect(agentOpinionForNode('renda-fixa', input)).toBeNull();
   });
 
-  it('avisa sobre pouca renda fixa quando só há ações', () => {
-    const input: DiversificationInput = {
-      positions: [position('PETR4', 10000)],
-      fixedIncomeCurrentCents: 0,
-    };
-    const tips = buildDiversificationTips(input);
-    expect(tips.map((t) => t.id)).toContain('sem-renda-fixa');
+  describe('card "acoes"', () => {
+    it('não opina quando não há nenhuma posição de renda variável', () => {
+      const input: DiversificationInput = { positions: [], fixedIncomeCurrentCents: 1_000_00 };
+      expect(agentOpinionForNode('acoes', input)).toBeNull();
+    });
+
+    it('avisa concentração quando um ativo passa de 40% da renda variável', () => {
+      const input: DiversificationInput = {
+        positions: [position('PETR4', 8000), position('VALE3', 1000), position('ITSA4', 1000)],
+        fixedIncomeCurrentCents: 100_000,
+      };
+      const opinion = agentOpinionForNode('acoes', input)!;
+      expect(opinion.level).toBe('warn');
+      expect(opinion.message).toContain('PETR4');
+    });
+
+    it('avisa ausência de FII quando só há ações', () => {
+      const input: DiversificationInput = {
+        positions: [position('PETR4', 3400), position('VALE3', 3300), position('ITSA4', 3300)],
+        fixedIncomeCurrentCents: 100_000,
+      };
+      const opinion = agentOpinionForNode('acoes', input)!;
+      expect(opinion.level).toBe('warn');
+      expect(opinion.message).toMatch(/fundos imobiliários/i);
+    });
+
+    it('opina "ok" quando bem distribuída e sem concentração', () => {
+      const input: DiversificationInput = {
+        positions: [position('PETR4', 2500), position('VALE3', 2500), position('HGLG11', 2000)],
+        fixedIncomeCurrentCents: 300_000,
+      };
+      const opinion = agentOpinionForNode('acoes', input)!;
+      expect(opinion.level).toBe('ok');
+    });
   });
 
-  it('não avisa sobre renda fixa quando ela já é >= 10% do total', () => {
-    const input: DiversificationInput = {
-      positions: [position('PETR4', 9000)],
-      fixedIncomeCurrentCents: 100_000, // 90% em RF
-    };
-    const tips = buildDiversificationTips(input);
-    expect(tips.map((t) => t.id)).not.toContain('sem-renda-fixa');
-  });
+  describe('card "renda-fixa"', () => {
+    it('avisa reserva baixa quando RF está abaixo de 10% do total', () => {
+      const input: DiversificationInput = {
+        positions: [position('PETR4', 10000)],
+        fixedIncomeCurrentCents: 0,
+      };
+      const opinion = agentOpinionForNode('renda-fixa', input)!;
+      expect(opinion.level).toBe('warn');
+      expect(opinion.message).toContain('0%');
+    });
 
-  it('avisa sobre concentração quando um ativo passa de 40% da renda variável', () => {
-    const input: DiversificationInput = {
-      positions: [position('PETR4', 8000), position('VALE3', 1000), position('ITSA4', 1000)],
-      fixedIncomeCurrentCents: 100_000,
-    };
-    const tips = buildDiversificationTips(input);
-    expect(tips.map((t) => t.id)).toContain('concentracao');
-  });
+    it('opina "ok" quando RF já é >= 10% do total', () => {
+      const input: DiversificationInput = {
+        positions: [position('PETR4', 9000)],
+        fixedIncomeCurrentCents: 100_000,
+      };
+      const opinion = agentOpinionForNode('renda-fixa', input)!;
+      expect(opinion.level).toBe('ok');
+    });
 
-  it('não avisa sobre concentração quando bem distribuída entre ativos', () => {
-    const input: DiversificationInput = {
-      positions: [position('PETR4', 3400), position('VALE3', 3300), position('ITSA4', 3300)],
-      fixedIncomeCurrentCents: 100_000,
-    };
-    const tips = buildDiversificationTips(input);
-    expect(tips.map((t) => t.id)).not.toContain('concentracao');
-  });
-
-  it('sugere FII quando só há ações e nenhum FII', () => {
-    const input: DiversificationInput = {
-      positions: [position('PETR4', 3400), position('VALE3', 3300), position('ITSA4', 3300)],
-      fixedIncomeCurrentCents: 100_000,
-    };
-    const tips = buildDiversificationTips(input);
-    expect(tips.map((t) => t.id)).toContain('sem-fii');
-  });
-
-  it('não sugere FII quando já existe posição em FII', () => {
-    const input: DiversificationInput = {
-      positions: [position('PETR4', 5000), position('HGLG11', 5000)],
-      fixedIncomeCurrentCents: 100_000,
-    };
-    const tips = buildDiversificationTips(input);
-    expect(tips.map((t) => t.id)).not.toContain('sem-fii');
-  });
-
-  it('devolve o tip "diversificada" quando nenhum alerta dispara', () => {
-    const input: DiversificationInput = {
-      positions: [position('PETR4', 2500), position('VALE3', 2500), position('HGLG11', 2000)],
-      fixedIncomeCurrentCents: 300_000,
-    };
-    const tips = buildDiversificationTips(input);
-    expect(tips).toEqual([
-      expect.objectContaining({ id: 'diversificada', level: 'ok' }),
-    ]);
-  });
-
-  it('só avalia renda-fixa/concentração/FII quando há renda variável (RF pura não dispara nada)', () => {
-    const input: DiversificationInput = {
-      positions: [],
-      fixedIncomeCurrentCents: 1_000_00,
-    };
-    const tips = buildDiversificationTips(input);
-    expect(tips).toEqual([
-      expect.objectContaining({ id: 'diversificada', level: 'ok' }),
-    ]);
+    it('opina "ok" mesmo sem nenhuma posição de renda variável (RF pura)', () => {
+      const input: DiversificationInput = { positions: [], fixedIncomeCurrentCents: 1_000_00 };
+      const opinion = agentOpinionForNode('renda-fixa', input)!;
+      expect(opinion.level).toBe('ok');
+      expect(opinion.message).toContain('100%');
+    });
   });
 });

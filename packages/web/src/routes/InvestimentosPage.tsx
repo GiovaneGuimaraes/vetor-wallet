@@ -20,7 +20,8 @@ import {
   nodeValue,
   upcomingMaturities,
 } from './investmentsDashboard';
-import { PortfolioAssistantPanel } from '../components/PortfolioAssistantPanel';
+import { agentOpinionForNode, type AgentOpinion } from './diversificationInsights';
+import { AgentOpinionBadge } from '../components/AgentOpinionBadge';
 import './layers-savings.css';
 import './investimentos.css';
 
@@ -144,7 +145,7 @@ export function InvestimentosPage() {
   );
   const allocation = buildAllocation(overview);
   const upcoming = upcomingMaturities(fixedIncomePositions);
-  const assistantInput = {
+  const opinionInput = {
     positions: walletSummary?.positions ?? [],
     fixedIncomeCurrentCents: overview.fixedIncomeCurrentCents,
   };
@@ -247,8 +248,6 @@ export function InvestimentosPage() {
         </div>
       </div>
 
-      <PortfolioAssistantPanel input={assistantInput} />
-
       <div className="vw-layer-grid">
         {INVESTMENT_NODES.map((node, i) => {
           const value = nodeValue(node.key, {
@@ -257,29 +256,39 @@ export function InvestimentosPage() {
             pluggyFixedIncomeCents: pluggyCents,
             manualFixedIncomeCents: manualCents,
           });
+          let opinion: AgentOpinion | null = null;
+          if (node.key === 'acoes') opinion = agentOpinionForNode('acoes', opinionInput);
+          else if (node.key === 'renda-fixa')
+            opinion = agentOpinionForNode('renda-fixa', opinionInput);
+
           return (
-            <button
+            <div
               key={node.key}
-              type="button"
-              className="vw-layer-card vw-rise"
+              className="vw-layer-card-wrap vw-rise"
               style={{ ['--vw-rise-i' as string]: i + 1 }}
-              onClick={() => navigate(node.path)}
             >
-              <p className="vw-layer-card-name">{node.name}</p>
-              <p className="vw-layer-card-desc">{node.desc}</p>
-              <p className="vw-layer-card-value">
-                {node.comingSoon || value === null ? dash : fmtCur.format(value)}
-              </p>
-              {node.comingSoon && <span className="vw-layer-card-chip">em breve</span>}
-              <img
-                src={`/layers/${node.mascot}`}
-                alt=""
-                className="vw-layer-card-mascot"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            </button>
+              <button
+                type="button"
+                className="vw-layer-card"
+                onClick={() => navigate(node.path)}
+              >
+                <p className="vw-layer-card-name">{node.name}</p>
+                <p className="vw-layer-card-desc">{node.desc}</p>
+                <p className="vw-layer-card-value">
+                  {node.comingSoon || value === null ? dash : fmtCur.format(value)}
+                </p>
+                {node.comingSoon && <span className="vw-layer-card-chip">em breve</span>}
+                <img
+                  src={`/layers/${node.mascot}`}
+                  alt=""
+                  className="vw-layer-card-mascot"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </button>
+              <AgentOpinionBadge opinion={opinion} />
+            </div>
           );
         })}
       </div>
