@@ -49,6 +49,14 @@ export const MIN_TOTAL_CENTS_FOR_TIPS = 100_00;
 export const MIN_RENDA_FIXA_PCT = 10;
 /** % acima da qual um único ativo de renda variável é considerado concentração alta. */
 export const MAX_CONCENTRATION_PCT = 40;
+/**
+ * % de Renda Fixa acima da qual, com um valor considerável parado nela
+ * (`MIN_CONSIDERABLE_FIXED_INCOME_CENTS`), sugiro diversificar parte para
+ * renda variável — o espelho da sugestão de reserva baixa.
+ */
+export const MAX_RENDA_FIXA_PCT = 80;
+/** Piso de "valor considerável" parado em Renda Fixa para a sugestão acima (R$ 5.000). Julgamento, não um número oficial. */
+export const MIN_CONSIDERABLE_FIXED_INCOME_CENTS = 500_000;
 
 /**
  * Cotação indisponível (falha silenciosa da brapi, ver CLAUDE.md › "Falha
@@ -114,7 +122,9 @@ export function computePortfolioStats(input: DiversificationInput): PortfolioSta
   };
 }
 
-export type AgentOpinionLevel = 'warn' | 'ok';
+export type AgentOpinionLevel = 'warn' | 'info' | 'ok';
+
+const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export interface AgentOpinion {
   level: AgentOpinionLevel;
@@ -148,6 +158,18 @@ export function agentOpinionForNode(
           `Só ${pct(stats.rendaFixaPct)}% do seu patrimônio em investimentos está em renda ` +
           'fixa. A prática mais comum é manter uma reserva em ativos líquidos e de baixo risco ' +
           '(Tesouro Selic, CDB com liquidez diária) antes de concentrar tudo em renda variável.',
+      };
+    }
+    if (
+      stats.rendaFixaPct > MAX_RENDA_FIXA_PCT &&
+      stats.fixedIncomeCents >= MIN_CONSIDERABLE_FIXED_INCOME_CENTS
+    ) {
+      return {
+        level: 'info',
+        message:
+          `${pct(stats.rendaFixaPct)}% do seu patrimônio em investimentos está em renda fixa ` +
+          `(${BRL.format(stats.fixedIncomeCents / 100)}). Como é uma quantia considerável, pode ` +
+          'valer a pena colocar parte dela em renda variável (ações e/ou FIIs) para diversificar.',
       };
     }
     return {

@@ -127,11 +127,40 @@ describe('agentOpinionForNode', () => {
       expect(opinion.level).toBe('ok');
     });
 
-    it('opina "ok" mesmo sem nenhuma posição de renda variável (RF pura)', () => {
+    it('opina "ok" mesmo sem nenhuma posição de renda variável (RF pura), se o valor não é considerável', () => {
       const input: DiversificationInput = { positions: [], fixedIncomeCurrentCents: 1_000_00 };
       const opinion = agentOpinionForNode('renda-fixa', input)!;
       expect(opinion.level).toBe('ok');
       expect(opinion.message).toContain('100%');
+    });
+
+    it('sugere diversificar para renda variável quando RF > 80% E o valor é considerável (>= R$5.000)', () => {
+      const input: DiversificationInput = {
+        positions: [position('PETR4', 100)], // R$ 100 em ações
+        fixedIncomeCurrentCents: 10_000_00, // R$ 10.000 em RF, ~99% do total
+      };
+      const opinion = agentOpinionForNode('renda-fixa', input)!;
+      expect(opinion.level).toBe('info');
+      expect(opinion.message).toMatch(/renda variável/i);
+      expect(opinion.message).toContain('R$');
+    });
+
+    it('sugere diversificar mesmo sem nenhuma posição de renda variável, se o valor em RF é considerável', () => {
+      const input: DiversificationInput = {
+        positions: [],
+        fixedIncomeCurrentCents: 10_000_00, // R$ 10.000, 100% do total
+      };
+      const opinion = agentOpinionForNode('renda-fixa', input)!;
+      expect(opinion.level).toBe('info');
+    });
+
+    it('não sugere diversificar quando RF está acima de 80% mas o valor absoluto ainda é pequeno', () => {
+      const input: DiversificationInput = {
+        positions: [],
+        fixedIncomeCurrentCents: 200_00, // R$ 200 — acima do piso de ruído, abaixo do de "considerável"
+      };
+      const opinion = agentOpinionForNode('renda-fixa', input)!;
+      expect(opinion.level).toBe('ok');
     });
   });
 });

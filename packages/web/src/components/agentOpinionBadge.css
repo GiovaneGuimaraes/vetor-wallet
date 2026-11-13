@@ -37,6 +37,10 @@
   border-color: var(--color-warn);
 }
 
+.vw-agent-badge-icon--info {
+  border-color: var(--color-bench-cdi);
+}
+
 .vw-agent-badge-icon--ok {
   border-color: var(--color-up);
 }
