@@ -232,3 +232,27 @@ describe('ContaPage — cancelar assinatura', () => {
     }
   });
 });
+
+describe('ContaPage — cancelar assinatura nos demais estados do gate', () => {
+  it('pagamento recusado (PAYMENT_FAILED) mostra o botão', async () => {
+    meImpl = () =>
+      Promise.resolve(me({ subscription: sub({ provider_status: 'PAYMENT_FAILED' }), plan: PLAN }));
+    renderConta();
+
+    expect(await screen.findByRole('button', { name: 'Cancelar assinatura' })).toBeTruthy();
+  });
+
+  it('cartão vencido localmente (card_lapsed) mostra o botão', async () => {
+    meImpl = () =>
+      Promise.resolve(
+        me({
+          subscription: sub({ status: 'expired', current_period_end: '2020-01-01 00:00:00' }),
+          plan: PLAN,
+        })
+      );
+    renderConta();
+
+    expect(await screen.findByText('Status: Verificando a renovação')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cancelar assinatura' })).toBeTruthy();
+  });
+});
