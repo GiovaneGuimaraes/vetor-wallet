@@ -604,7 +604,7 @@ só renderizam (costura em `PlanosPage.test.tsx`).
 
 Valia para a criação de cobrança Pix, que saiu na T-124c. No cartão o risco não
 existe: a linha local de `subscription_checkouts` nasce ANTES do provedor
-(`externalId = checkout:<id local>`).
+(`externalId = checkout:<id local>:<uuid>`; o uuid evita colisão entre bancos — a API devolve o checkout antigo, já apagado, para `externalId` repetido).
 
 ## Env
 

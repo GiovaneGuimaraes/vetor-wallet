@@ -110,7 +110,8 @@ describe('startCardCheckout', () => {
     expect(JSON.parse(createCall[1].body)).toEqual({
       items: [{ id: 'prod_1', quantity: 1 }],
       customerId: 'cust_1',
-      externalId: 'checkout:1',
+      // uuid: id local sozinho colide entre bancos e a API devolve o checkout antigo.
+      externalId: expect.stringMatching(/^checkout:1:[0-9a-f-]{36}$/),
       methods: ['CARD'],
       completionUrl: 'http://localhost:5173/planos?checkout=completed',
       returnUrl: 'http://localhost:5173/planos?checkout=returned',
