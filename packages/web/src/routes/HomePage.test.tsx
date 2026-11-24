@@ -344,3 +344,15 @@ describe('HomePage — patrimônio total com Renda Fixa (T-091d, d4)', () => {
     ).toBeTruthy();
   });
 });
+
+describe('HomePage — ordem dos cards de layer', () => {
+  it('Investimentos é o 2º e Despesas o último; os demais mantêm a ordem relativa', async () => {
+    const { container } = renderPage();
+    await settleNetWorth();
+
+    const names = Array.from(container.querySelectorAll('.vw-layer-card-name')).map(
+      (el) => el.textContent
+    );
+    expect(names).toEqual(['Renda mensal', 'Investimentos', 'Poupança', 'Despesas']);
+  });
+});

@@ -55,6 +55,8 @@ interface LayerCardConfig {
   chip?: string;
 }
 
+// Ordem de exibição (o grid segue a ordem do DOM, no desktop e no mobile):
+// Renda, Investimentos, Poupança, Despesas.
 const LAYER_CARDS: LayerCardConfig[] = [
   {
     key: 'renda',
@@ -62,20 +64,6 @@ const LAYER_CARDS: LayerCardConfig[] = [
     mascot: 'receitas-t.png',
     name: 'Renda mensal',
     desc: 'Fontes de receita do mês',
-  },
-  {
-    key: 'despesas',
-    path: '/despesas',
-    mascot: 'despesas-t.png',
-    name: 'Despesas',
-    desc: 'Gastos por categoria',
-  },
-  {
-    key: 'poupanca',
-    path: '/poupanca',
-    mascot: 'poupanca-t.png',
-    name: 'Poupança',
-    desc: 'Saldo, aportes e rendimento',
   },
   // T-091a: os cards "Ações" e "Criptomoedas" fundiram-se neste — Investimentos
   // é o guarda-chuva (Ações, Cripto e Renda Fixa vivem no hub `/investimentos`).
@@ -87,6 +75,20 @@ const LAYER_CARDS: LayerCardConfig[] = [
     mascot: 'acoes-t.png',
     name: 'Investimentos',
     desc: 'Ações, cripto e renda fixa',
+  },
+  {
+    key: 'poupanca',
+    path: '/poupanca',
+    mascot: 'poupanca-t.png',
+    name: 'Poupança',
+    desc: 'Saldo, aportes e rendimento',
+  },
+  {
+    key: 'despesas',
+    path: '/despesas',
+    mascot: 'despesas-t.png',
+    name: 'Despesas',
+    desc: 'Gastos por categoria',
   },
 ];
 
