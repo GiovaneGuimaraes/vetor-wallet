@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { BackToHomeLink } from '../components/BackToHomeLink';
 import type { MySubscriptionResponse, Plan } from '@vetor-wallet/shared';
 import {
   createSubscription,
@@ -245,13 +246,16 @@ export function PlanosPage() {
   }
 
   const header = (
-    <div className="vw-page-header">
-      <h1 className="vw-page-title">Planos</h1>
-      <p className="vw-page-subtitle">
-        O Vetor Wallet é gratuito para renda, despesas e poupança. Assine o Pro para desbloquear
-        Ações da B3, Criptomoedas e importação automática via Pluggy.
-      </p>
-    </div>
+    <>
+      <BackToHomeLink />
+      <div className="vw-page-header">
+        <h1 className="vw-page-title">Planos</h1>
+        <p className="vw-page-subtitle">
+          O Vetor Wallet é gratuito para renda, despesas e poupança. Assine o Pro para desbloquear
+          Ações da B3, Criptomoedas e importação automática via Pluggy.
+        </p>
+      </div>
+    </>
   );
 
   if (loading) {
