@@ -21,6 +21,8 @@ Este diretório define o fluxo de trabalho multi-agente em loop fechado do proje
 | [`CALIBRAGEM.md`](./CALIBRAGEM.md) | Orquestrador | Placar dos modelos e as causas das reprovações — o dado que calibra o roteamento abaixo |
 | [`CONTA-DE-TESTE.md`](./CONTA-DE-TESTE.md) | Humano | Como o agente usa a conta de teste do Cognito de staging (sem o valor das credenciais — o repo é público) |
 | [`TODO-HUMANO.md`](./TODO-HUMANO.md) | Executores e orquestrador | Pendências que só o humano pode resolver (decisões, credenciais, aprovações) |
+| [`BOT.md`](./BOT.md) | Humano | Contrato do bot orquestrador genérico do Orca: método portável (Parte 1) + regras deste repo (Parte 2). Ponto de entrada do bot |
+| [`LIMPEZA.md`](./LIMPEZA.md) | Humano | O que o bot de limpeza pode e nunca pode apagar |
 | `../../CLAUDE.md` | Humano | Arquitetura, comandos, convenções e política de testes — leitura obrigatória de todos |
 
 ## Higiene do `BACKLOG.md` e modelo de tarefa
