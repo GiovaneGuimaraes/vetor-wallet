@@ -40,7 +40,7 @@ import {
   type FixedIncomeFormValues,
 } from './fixedIncome';
 import { CollapsibleSection } from '../components/CollapsibleSection';
-import { BackToHomeLink } from '../components/BackToHomeLink';
+import { BackToInvestimentosLink } from '../components/BackLink';
 import { mascotSrcForLayer } from '../layout/mascots';
 import './layers.css';
 import './layers-savings.css';
@@ -371,7 +371,7 @@ export function RendaFixaPage() {
 
   return (
     <div>
-      <BackToHomeLink />
+      <BackToInvestimentosLink />
       <div className="vw-page-header-row">
         <div className="vw-page-header">
           <h1 className="vw-page-title">Renda Fixa</h1>

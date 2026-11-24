@@ -1,4 +1,4 @@
-import { BackToHomeLink } from '../components/BackToHomeLink';
+import { BackToInvestimentosLink } from '../components/BackLink';
 
 /**
  * Rota `/investimentos/cripto` (T-004; era `/cripto` até a T-091a, que a
@@ -23,7 +23,7 @@ export function CriptoPage() {
         O acompanhamento de criptomoedas ainda não está disponível. Em breve você vai poder
         acompanhar suas posições em cripto aqui, do mesmo jeito que já faz com suas ações.
       </p>
-      <BackToHomeLink />
+      <BackToInvestimentosLink />
     </div>
   );
 }
