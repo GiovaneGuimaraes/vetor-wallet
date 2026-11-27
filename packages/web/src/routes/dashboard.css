@@ -136,26 +136,21 @@
 /* um não deve arriscar o outro.                                        */
 /* ------------------------------------------------------------------ */
 
-.vw-alloc-row {
-  display: flex;
+/* Coluna "Alocação" da tabela de Posições: barra fina + % (T-057c, fundida
+   na tabela) */
+.vw-alloc-cell-td {
+  min-width: 128px;
+}
+
+.vw-alloc-cell {
+  display: inline-flex;
   align-items: center;
-  gap: 14px;
-  padding: 8px 22px;
-}
-
-.vw-alloc-ticker {
-  flex: 0 0 84px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-ink);
-}
-
-.vw-alloc-bar-col {
-  flex: 1 1 auto;
-  min-width: 0;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .vw-alloc-track {
+  width: 64px;
   height: 6px;
   border-radius: 99px;
   background: var(--color-edge);
@@ -170,12 +165,124 @@
 }
 
 .vw-alloc-pct {
-  flex: 0 0 56px;
+  min-width: 42px;
   text-align: right;
   font-size: 12px;
   font-weight: 600;
   color: var(--color-dim);
   font-variant-numeric: tabular-nums;
+}
+
+.vw-positions-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-inline: 22px;
+  margin-bottom: 16px;
+}
+
+.vw-positions-new {
+  font-size: 12px;
+  padding: 5px 12px;
+}
+
+/* Mobile: colunas secundárias somem (Qtd, PM, Cotação, Resultado em R$) — ficam
+   ticker, minigráfico, valor, alocação e % — e o padding encolhe para caber sem
+   rolagem horizontal. */
+@media (max-width: 640px) {
+  .vw-col-sec {
+    display: none;
+  }
+
+  .vw-positions-table th,
+  .vw-positions-table td {
+    padding-inline: 8px;
+  }
+
+  .vw-positions-table th:first-child,
+  .vw-positions-table td:first-child {
+    padding-left: 14px;
+  }
+
+  .vw-positions-table th:last-child,
+  .vw-positions-table td:last-child {
+    padding-right: 14px;
+  }
+
+  .vw-alloc-cell-td {
+    min-width: 0;
+  }
+
+  .vw-alloc-cell {
+    flex-direction: column-reverse;
+    align-items: flex-end;
+    gap: 3px;
+  }
+
+  .vw-alloc-track {
+    width: 44px;
+  }
+
+  .vw-positions-head {
+    padding-inline: 14px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Abas de /investimentos/acoes                                         */
+/* ------------------------------------------------------------------ */
+
+.vw-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-edge);
+  overflow-x: auto;
+}
+
+.vw-tab {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-dim);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+/* O ativo fica de fora do hover (mesma armadilha do seletor de janela: a regra
+   de hover não pode vencer a do ativo). */
+.vw-tab:hover:not([aria-selected='true']) {
+  color: var(--color-ink);
+}
+
+.vw-tab[aria-selected='true'] {
+  color: var(--color-ink);
+  border-bottom-color: var(--color-ink);
+}
+
+.vw-tab:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+.vw-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.vw-chart-box {
+  width: 100%;
+  min-width: 0;
 }
 
 /* Tooltip de hover dos gráficos SVG (HistoryChart/PriceChart/ProjectionChart,

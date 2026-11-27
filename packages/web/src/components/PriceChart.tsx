@@ -171,7 +171,17 @@ export function PriceChart({
       />
 
       {avgY !== null && averagePrice !== null && (
-        <text x={chartRight} y={avgY - 4} textAnchor="end" fontSize={9} fill="var(--color-dim)">
+        <text
+          x={chartRight}
+          y={avgY - 4}
+          textAnchor="end"
+          fontSize={11}
+          stroke="var(--card-1)"
+          strokeWidth={3}
+          paintOrder="stroke"
+          strokeLinejoin="round"
+          fill="var(--color-dim)"
+        >
           {`Médio: ${format(averagePrice)}`}
         </text>
       )}
@@ -189,7 +199,11 @@ export function PriceChart({
               x={tick.x}
               y={valueLabelY}
               textAnchor={anchor}
-              fontSize={9}
+              fontSize={11}
+              stroke="var(--card-1)"
+              strokeWidth={3}
+              paintOrder="stroke"
+              strokeLinejoin="round"
               fill="var(--color-dim)"
             >
               {format(tick.price)}
@@ -198,7 +212,11 @@ export function PriceChart({
               x={tick.x}
               y={viewHeight - 6}
               textAnchor={anchor}
-              fontSize={9}
+              fontSize={11}
+              stroke="var(--card-1)"
+              strokeWidth={3}
+              paintOrder="stroke"
+              strokeLinejoin="round"
               fill="var(--color-dim)"
             >
               {formatDayMonth(snapshotDate(tick.captured_at))}

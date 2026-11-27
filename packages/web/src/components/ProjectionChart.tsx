@@ -38,8 +38,6 @@ import { svgPointFromPointerEvent } from '../routes/svgPointer';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
-const VIEW_WIDTH = 320;
-const VIEW_HEIGHT = 140;
 /** Margens do desenho: espaço para os rótulos de valor/mês nas bordas. */
 const PADDING = { top: 20, right: 8, bottom: 20, left: 8 };
 /** Início/meio/fim — a mesma contagem de `pickTicks` já usada por outros specs. */
@@ -48,9 +46,16 @@ const TICK_COUNT = 3;
 export interface ProjectionChartProps {
   /** Série mês 0..N já pronta (`buildProjectionSeries`, `chartGeometry.ts`). */
   series: ProjectionPoint[];
+  /** Tamanho do viewBox em px reais (ver `ResponsiveChart`). */
+  viewWidth?: number;
+  viewHeight?: number;
 }
 
-export function ProjectionChart({ series }: ProjectionChartProps) {
+export function ProjectionChart({
+  series,
+  viewWidth = 320,
+  viewHeight = 140,
+}: ProjectionChartProps) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   if (series.length < 2) return null;
@@ -60,9 +65,9 @@ export function ProjectionChart({ series }: ProjectionChartProps) {
   const months = series[series.length - 1].month;
 
   const chartLeft = PADDING.left;
-  const chartRight = VIEW_WIDTH - PADDING.right;
+  const chartRight = viewWidth - PADDING.right;
   const chartTop = PADDING.top;
-  const chartBottom = VIEW_HEIGHT - PADDING.bottom;
+  const chartBottom = viewHeight - PADDING.bottom;
 
   const domain = computeValueDomain(
     series.map((p) => p.value),
@@ -108,7 +113,7 @@ export function ProjectionChart({ series }: ProjectionChartProps) {
       ? positionTooltip(
           points[hoverIndex as number].x,
           points[hoverIndex as number].y,
-          VIEW_WIDTH,
+          viewWidth,
           tooltipWidth
         )
       : null;
@@ -125,7 +130,7 @@ export function ProjectionChart({ series }: ProjectionChartProps) {
 
   return (
     <svg
-      viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
+      viewBox={`0 0 ${viewWidth} ${viewHeight}`}
       style={{ width: '100%', height: 'auto' }}
       role="img"
       className="vw-projection-chart"
@@ -187,7 +192,17 @@ export function ProjectionChart({ series }: ProjectionChartProps) {
         return (
           <g key={`tick-${tick.month}`}>
             <circle cx={tick.x} cy={tick.y} r={2.5} fill={lineColor} />
-            <text x={tick.x} y={labelY} textAnchor={anchor} fontSize={9} fill="var(--color-dim)">
+            <text
+              x={tick.x}
+              y={labelY}
+              textAnchor={anchor}
+              fontSize={11}
+              stroke="var(--card-1)"
+              strokeWidth={3}
+              paintOrder="stroke"
+              strokeLinejoin="round"
+              fill="var(--color-dim)"
+            >
               {formatAxisValue(tick.value)}
             </text>
           </g>

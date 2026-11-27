@@ -45,8 +45,6 @@ import { svgPointFromPointerEvent } from '../routes/svgPointer';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
-const VIEW_WIDTH = 320;
-const VIEW_HEIGHT = 150;
 const PADDING = { top: 20, right: 8, bottom: 24, left: 8 };
 const TICK_COUNT = 3;
 
@@ -60,17 +58,26 @@ export interface HistoryChartProps {
   cdiLine?: AlignedSeries | null;
   /** Linha do Ibovespa em reais, alinhada 1:1 com `points` (T-068). */
   ibovLine?: AlignedSeries | null;
+  /** Tamanho do viewBox em px reais (ver `ResponsiveChart`): escala ~1:1, sem rótulo gigante. */
+  viewWidth?: number;
+  viewHeight?: number;
 }
 
-export function HistoryChart({ points, cdiLine, ibovLine }: HistoryChartProps) {
+export function HistoryChart({
+  points,
+  cdiLine,
+  ibovLine,
+  viewWidth = 320,
+  viewHeight = 150,
+}: HistoryChartProps) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   if (points.length < 2) return null;
 
   const chartLeft = PADDING.left;
-  const chartRight = VIEW_WIDTH - PADDING.right;
+  const chartRight = viewWidth - PADDING.right;
   const chartTop = PADDING.top;
-  const chartBottom = VIEW_HEIGHT - PADDING.bottom;
+  const chartBottom = viewHeight - PADDING.bottom;
 
   // Uma linha de benchmark só conta se tiver o mesmo comprimento de `points`
   // (o alinhamento é 1:1 por construção; a checagem evita desenhar lixo se um
@@ -159,7 +166,7 @@ export function HistoryChart({ points, cdiLine, ibovLine }: HistoryChartProps) {
       ? positionTooltip(
           valuePoints[hoverIndex as number].x,
           valuePoints[hoverIndex as number].y,
-          VIEW_WIDTH,
+          viewWidth,
           tooltipWidth
         )
       : null;
@@ -184,7 +191,7 @@ export function HistoryChart({ points, cdiLine, ibovLine }: HistoryChartProps) {
   return (
     <>
       <svg
-        viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
+        viewBox={`0 0 ${viewWidth} ${viewHeight}`}
         style={{ width: '100%', height: 'auto' }}
         role="img"
         className="vw-history-chart"
@@ -274,16 +281,24 @@ export function HistoryChart({ points, cdiLine, ibovLine }: HistoryChartProps) {
                 x={tick.x}
                 y={valueLabelY}
                 textAnchor={anchor}
-                fontSize={9}
+                fontSize={11}
+                stroke="var(--card-1)"
+                strokeWidth={3}
+                paintOrder="stroke"
+                strokeLinejoin="round"
                 fill="var(--color-dim)"
               >
                 {formatAxisValue(tick.value)}
               </text>
               <text
                 x={tick.x}
-                y={VIEW_HEIGHT - 6}
+                y={viewHeight - 6}
                 textAnchor={anchor}
-                fontSize={9}
+                fontSize={11}
+                stroke="var(--card-1)"
+                strokeWidth={3}
+                paintOrder="stroke"
+                strokeLinejoin="round"
                 fill="var(--color-dim)"
               >
                 {formatDayMonth(tick.date)}

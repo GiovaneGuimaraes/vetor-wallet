@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   getOperations,
   createOperation,
@@ -17,9 +18,12 @@ import { ProjectionChart } from '../components/ProjectionChart';
 import { HistoryChart } from '../components/HistoryChart';
 import { PriceChart } from '../components/PriceChart';
 import { MarketToday } from '../components/MarketToday';
+import { ResponsiveChart } from '../components/ResponsiveChart';
+import { TabPanel, Tabs } from '../components/Tabs';
 import { StockChartModal } from '../components/StockChartModal';
 import { useShellContext } from '../layout/ShellContext';
 import { decideWalletFlow } from './walletFlow';
+import { DEFAULT_STOCKS_TAB, STOCKS_TABS, parseStocksTab, type StocksTab } from './stocksTabs';
 import { buildProjectionSeries } from './chartGeometry';
 import type {
   BenchmarkHistoryResponse,
@@ -148,6 +152,32 @@ const DEFAULT_HISTORY_DAYS = 90;
 export function DashboardPage() {
   const { wallet, walletLoaded, walletLoadError, walletSummary, refreshWallet } = useShellContext();
   const walletFlow = decideWalletFlow(wallet, walletLoaded, walletLoadError);
+
+  // Aba ativa na URL (`?aba=`): sobrevive a recarregar/compartilhar e ao Voltar
+  // (trocar de aba empilha no histórico). Só o painel ativo monta — o Mercado
+  // não pede histórico enquanto a aba não é aberta.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = parseStocksTab(searchParams.get('aba'));
+  const selectTab = useCallback(
+    (tab: StocksTab) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (tab === DEFAULT_STOCKS_TAB) next.delete('aba');
+          else next.set('aba', tab);
+          return next;
+        },
+        { replace: false }
+      );
+    },
+    [setSearchParams]
+  );
+  // Formulário de "Nova operação" (aba Operações); o atalho da Carteira abre já expandido.
+  const [formOpen, setFormOpen] = useState(false);
+  const openNewOperation = useCallback(() => {
+    setFormOpen(true);
+    selectTab('operacoes');
+  }, [selectTab]);
 
   const [operations, setOperations] = useState<Operation[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -445,30 +475,56 @@ export function DashboardPage() {
         </div>
       )}
 
+      <Tabs
+        tabs={STOCKS_TABS}
+        active={activeTab}
+        onChange={selectTab}
+        idPrefix="acoes"
+        ariaLabel="Seções de Ações"
+      />
+
       {/* T-054: `walletLoaded` (contexto) cobre o carregamento do portfolio
           consolidado, que a página não busca mais sozinha — combinado com o
           `loadingData` local (só das operações) para não renderizar o
           dashboard "pela metade" enquanto qualquer um dos dois ainda está em
           voo no primeiro load. */}
-      {loadingData || !walletLoaded ? (
+      {activeTab === 'mercado' ? (
+        <TabPanel idPrefix="acoes" tabKey="mercado">
+          {/* Mercado: dado público, independe da carteira (falha isolada no
+              componente). Lista de acompanhamento/descoberta entram aqui como
+              novas seções, ao lado de `MarketToday`. */}
+          <MarketToday
+            positions={walletSummary?.positions ?? null}
+            onSelectTicker={(ticker, name) => setChartTarget({ ticker, name })}
+            // Históricos do mercado só depois da carteira: as cotações dela (mesma
+            // fila da brapi no servidor) vêm antes — e só com a aba aberta.
+            chartsEnabled={walletLoaded && !loadingData}
+          />
+        </TabPanel>
+      ) : loadingData || !walletLoaded ? (
         <div className="text-center py-16 text-dim text-sm">Carregando...</div>
+      ) : activeTab === 'operacoes' ? (
+        <TabPanel idPrefix="acoes" tabKey="operacoes">
+          {/* T-077: formulário recolhido por padrão — consulta é o uso mais frequente. */}
+          <CollapsibleSection
+            label="Nova operação"
+            openLabel="Nova operação"
+            open={formOpen}
+            onOpenChange={setFormOpen}
+          >
+            <OperationForm onSubmit={handleCreate} />
+          </CollapsibleSection>
+
+          <OperationsList operations={operations} onDelete={handleDelete} />
+        </TabPanel>
       ) : (
-        <>
+        <TabPanel idPrefix="acoes" tabKey="carteira">
           <PortfolioDashboard
             summary={walletSummary}
             walletColor={wallet?.color}
             onSelectTicker={(ticker) => setChartTarget({ ticker, name: null })}
+            onNewOperation={openNewOperation}
           />
-
-          {/* T-077: "Nova operação" passa a vir DEPOIS do resumo (cards +
-              tabela de posições), recolhida por padrão — no mobile (390px) o
-              form era o primeiro elemento da página, antes de qualquer
-              consulta. Mesmo padrão `CollapsibleSection` da T-074
-              (DespesasPage): consulta é o uso ~10x mais frequente que
-              lançamento. */}
-          <CollapsibleSection label="Nova operação" openLabel="Nova operação">
-            <OperationForm onSubmit={handleCreate} />
-          </CollapsibleSection>
 
           {/*
             Evolução da carteira (T-058b): oculto sem posições, mesmo guard do
@@ -566,7 +622,17 @@ export function DashboardPage() {
 
               {!historyError && historyPoints !== null && historyPoints.length >= 2 && (
                 <div className="vw-history-chart-wrap">
-                  <HistoryChart points={historyPoints} cdiLine={cdiLine} ibovLine={ibovLine} />
+                  <ResponsiveChart ratio={0.26} minHeight={170} maxHeight={240}>
+                    {({ width, height }) => (
+                      <HistoryChart
+                        points={historyPoints}
+                        cdiLine={cdiLine}
+                        ibovLine={ibovLine}
+                        viewWidth={width}
+                        viewHeight={height}
+                      />
+                    )}
+                  </ResponsiveChart>
                 </div>
               )}
             </div>
@@ -637,7 +703,16 @@ export function DashboardPage() {
 
               {!priceError && priceSnapshots !== null && priceSnapshots.length >= 2 && (
                 <div className="vw-history-chart-wrap">
-                  <PriceChart snapshots={priceSnapshots} averagePrice={priceAveragePrice} />
+                  <ResponsiveChart ratio={0.26} minHeight={170} maxHeight={240}>
+                    {({ width, height }) => (
+                      <PriceChart
+                        snapshots={priceSnapshots}
+                        averagePrice={priceAveragePrice}
+                        viewWidth={width}
+                        viewHeight={height}
+                      />
+                    )}
+                  </ResponsiveChart>
                 </div>
               )}
             </div>
@@ -765,7 +840,15 @@ export function DashboardPage() {
                       já cobrem os demais casos em que a série vem vazia. */}
                   {projectionSeries.length >= 2 && (
                     <div className="vw-projection-chart-wrap">
-                      <ProjectionChart series={projectionSeries} />
+                      <ResponsiveChart ratio={0.24} minHeight={150} maxHeight={200}>
+                        {({ width, height }) => (
+                          <ProjectionChart
+                            series={projectionSeries}
+                            viewWidth={width}
+                            viewHeight={height}
+                          />
+                        )}
+                      </ResponsiveChart>
                     </div>
                   )}
                 </div>
@@ -777,20 +860,8 @@ export function DashboardPage() {
               )}
             </div>
           )}
-
-          <OperationsList operations={operations} onDelete={handleDelete} />
-        </>
+        </TabPanel>
       )}
-
-      {/* Mercado hoje (brapi /quote/list, com atraso): dado público do mercado,
-          independe do carregamento da carteira — falha isolada no componente. */}
-      <MarketToday
-        positions={walletSummary?.positions ?? null}
-        onSelectTicker={(ticker, name) => setChartTarget({ ticker, name })}
-        // Históricos do mercado só depois da carteira: as cotações dela (mesma
-        // fila da brapi no servidor) e os minigráficos das posições vêm antes.
-        chartsEnabled={walletLoaded && !loadingData}
-      />
 
       {chartTarget && (
         <StockChartModal
