@@ -10,7 +10,8 @@ Client HTTP da [brapi.dev](https://brapi.dev) do Vetor Wallet, extraído de
 
 ```
 src/
-├── quotes.ts   # requestQuotes() (interno, lança) + as duas políticas:
+├── quotes.ts   # requestQuote()/requestQuotes() (internos: 1 ticker por
+│               # requisição, série, cache 5 min) + as duas políticas:
 │               # fetchQuotes() degrada (quotes vazio + failed=true) e
 │               # fetchQuotesStrict() lança. Timeout 5s
 ├── tickers.ts  # searchTickers()/getUnknownTickers(): busca de tickers com
@@ -21,23 +22,37 @@ src/
 
 ## Invariantes (não quebrar)
 
-- **`fetchQuotes` tem timeout de 5s e degrada em silêncio.** Cotação ausente
-  é tolerável: quem chama (`services/benchmarks.ts`, `routes/portfolio.ts`)
-  segue a request com `quotesUnavailable` sinalizado, e há cache de
-  snapshots diários para preencher a lacuna. Erro de rede, timeout ou
-  resposta não-ok viram `{ quotes: new Map(), failed: true }` — nunca lança.
-- **`fetchQuotesStrict` é a política OPOSTA, de propósito (T-120).** Um só client
-  (`requestQuotes`: mesma URL/token/timeout/parse); as duas funções só diferem no
-  que fazem com o erro. A estrita lança: o erro original em rede/timeout,
-  `brapi responded with <status>` em não-ok e `brapi returned empty results`
-  quando pediu tickers e nada veio. Ticker ausente de um payload NÃO vazio só
-  fica fora do `Map` (como na tolerante). Com lista vazia ainda faz a requisição
-  (herdado; a tolerante curto-circuita sem chamar). Quem usa: a coleta de
-  snapshots (`portfolio-core`), onde o `withRetry` precisa do erro e um preço
-  falso gravado seria pior que nenhum. Não funda as duas políticas.
-- **`failed: true` é exclusivo de a própria requisição ter falhado**, não de
-  um ticker específico não vir no payload de uma resposta bem-sucedida
-  (ticker deslistado/typo simplesmente fica de fora do `Map`).
+- **Plano GRÁTIS da brapi: 1 ticker por requisição e 1 requisição simultânea**
+  (verificado com requisições reais; o dono não paga plano de dados). 2+ tickers
+  na mesma URL → HTTP 400 `QUOTES_PER_REQUEST_EXCEEDED`; concorrência → 429.
+  Por isso `requestQuotes` faz **uma requisição por ticker, em série — nunca
+  `Promise.all`**. Cada 200 gasta 1 da cota mensal de 15.000; 4xx não gasta.
+  Não volte a juntar tickers numa URL só (quebra com 2+ ativos: carteira sem
+  cotação e job de snapshots falhando em todo retry).
+- **Economia de cota**: tickers são deduplicados e há **cache em memória por
+  ticker, TTL 5 min** (`QUOTE_CACHE_TTL_MS`; a cotação do grátis já tem ~30 min de
+  atraso). Só preço obtido é cacheado. O cache vale para as duas políticas — o
+  retry do snapshot não repete tickers que já deram certo. Novo caminho que
+  busque cotação deve passar por `fetchQuotes`/`fetchQuotesStrict`, nunca
+  chamar a brapi direto. `_resetQuoteCache` existe só para teste.
+- **429**: até 3 tentativas por ticker, backoff de 500 ms e 1,5 s. Depois disso, é
+  falha daquele ticker. Mensagens de erro/log (`brapi responded with <status> for
+  <ticker>`) nunca incluem a URL, que carrega o token.
+- **`fetchQuotes` (tolerante) nunca lança.** Falha de um ticker (rede, timeout,
+  não-ok) não derruba os demais: os que deram certo ficam em `quotes` e
+  `failed: true` sinaliza que ao menos um falhou (a rota segue com
+  `quotesUnavailable`, e há snapshots diários para preencher a lacuna). Timeout
+  5s por requisição.
+- **`fetchQuotesStrict` é a política OPOSTA, de propósito (T-120).** Mesmo
+  client; só difere no que faz com o erro. Lança na PRIMEIRA falha de ticker
+  (erro original em rede/timeout, `brapi responded with <status> for <ticker>`)
+  e `brapi returned empty results` quando pediu tickers e nenhum preço veio.
+  Ticker ausente do payload só fica fora do `Map`. Lista vazia não faz
+  requisição. Quem usa: coleta de snapshots (`portfolio-core`), onde o
+  `withRetry` precisa do erro e um preço falso gravado seria pior que nenhum. Não
+  funda as duas políticas.
+- **`failed: true` é exclusivo de a requisição de um ticker ter falhado**, não de
+  um ticker não vir no payload de uma resposta bem-sucedida (deslistado/typo).
 - **`searchTickers`/`getUnknownTickers` usam um cache de 24h** (`tickerCache`
   em memória do processo). Se a brapi falhar e houver cache válido ou
   expirado, devolve o cache stale em vez de lista vazia — só retorna
