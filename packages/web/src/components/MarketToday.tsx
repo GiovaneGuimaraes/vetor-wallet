@@ -9,6 +9,9 @@ import {
   formatTradedValue,
   ownedTickerSet,
 } from '../routes/marketToday';
+import { IBOV_TICKER } from '../routes/stockCharts';
+import { IbovespaCard } from './IbovespaCard';
+import { TickerSparkline } from './TickerSparkline';
 
 type Tab = 'gainers' | 'losers' | 'mostTraded';
 
@@ -24,7 +27,14 @@ const TABS: { key: Tab; label: string; empty: string }[] = [
  * ranking próprio; tickers que o usuário já tem em carteira vêm marcados.
  * A falha do fetch fica isolada aqui — nunca derruba o resto da página.
  */
-export function MarketToday({ positions }: { positions: { ticker: string }[] | null }) {
+export function MarketToday({
+  positions,
+  onSelectTicker,
+}: {
+  positions: { ticker: string }[] | null;
+  /** Abre o gráfico expandido (Ibovespa ou linha da lista). */
+  onSelectTicker: (ticker: string, name: string | null) => void;
+}) {
   const [data, setData] = useState<MarketTodayResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -65,6 +75,8 @@ export function MarketToday({ positions }: { positions: { ticker: string }[] | n
         </span>
       </div>
 
+      <IbovespaCard onSelect={() => onSelectTicker(IBOV_TICKER, 'Ibovespa')} />
+
       <div className="vw-history-window vw-market-tabs" role="group" aria-label="Lista do mercado">
         {TABS.map((t) => (
           <button
@@ -95,24 +107,32 @@ export function MarketToday({ positions }: { positions: { ticker: string }[] | n
           {rows.map((q) => {
             const tone = changeTone(q.change);
             return (
-              <li key={q.ticker} className="vw-market-row">
-                <div className="vw-market-id">
-                  <span className="vw-market-ticker">
-                    {q.ticker}
-                    {owned.has(q.ticker.toUpperCase()) && (
-                      <span className="vw-market-owned">Na carteira</span>
-                    )}
+              <li key={q.ticker} className="vw-market-item">
+                <button
+                  type="button"
+                  className="vw-market-row"
+                  onClick={() => onSelectTicker(q.ticker, q.name)}
+                  title="Abrir gráfico"
+                >
+                  <span className="vw-market-id">
+                    <span className="vw-market-ticker">
+                      {q.ticker}
+                      {owned.has(q.ticker.toUpperCase()) && (
+                        <span className="vw-market-owned">Na carteira</span>
+                      )}
+                    </span>
+                    <span className="vw-market-name">
+                      {tab === 'mostTraded' ? `${q.name} · ${formatTradedValue(q)}` : q.name}
+                    </span>
                   </span>
-                  <span className="vw-market-name">
-                    {tab === 'mostTraded' ? `${q.name} · ${formatTradedValue(q)}` : q.name}
+                  <TickerSparkline ticker={q.ticker} />
+                  <span className="vw-market-quote">
+                    <span className="vw-market-price">{formatPrice(q.close)}</span>
+                    <span className={`vw-market-change vw-market-change--${tone}`}>
+                      {formatChange(q.change)}
+                    </span>
                   </span>
-                </div>
-                <div className="vw-market-quote">
-                  <span className="vw-market-price">{formatPrice(q.close)}</span>
-                  <span className={`vw-market-change vw-market-change--${tone}`}>
-                    {formatChange(q.change)}
-                  </span>
-                </div>
+                </button>
               </li>
             );
           })}

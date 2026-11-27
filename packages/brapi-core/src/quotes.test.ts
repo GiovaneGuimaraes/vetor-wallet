@@ -448,6 +448,36 @@ describe('fila global, orçamento de tempo e retry estrito', () => {
     await vi.runAllTimersAsync();
   });
 
+  it('tolerante: com o teto esgotado, ticker em cache responde e o resto NÃO é enfileirado', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(
+        (url: string) =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve(okPayload(url.split('/').pop()!, 1)), 4000)
+          )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    // Aquece o cache de ZZ9.
+    const warm = fetchQuotes(['ZZ9']);
+    await vi.advanceTimersByTimeAsync(4001);
+    await warm;
+    fetchMock.mockClear();
+
+    // A1+B2 = 8 s, C3 estoura o teto; ZZ9 (cache) ainda responde; D4 não vai à fila.
+    const p = fetchQuotes(['A1', 'B2', 'C3', 'ZZ9', 'D4']);
+    await vi.advanceTimersByTimeAsync(QUOTES_TOTAL_BUDGET_MS + 1);
+    const { quotes, failed } = await p;
+
+    expect(failed).toBe(true);
+    expect([...quotes.keys()]).toEqual(['A1', 'B2', 'ZZ9']);
+    await vi.runAllTimersAsync();
+    const called = fetchMock.mock.calls.map((c) => String(c[0]).split('/').pop());
+    expect(called).toEqual(['A1', 'B2', 'C3']);
+  });
+
   it('estrito: o retry reaproveita o cache após falha parcial', async () => {
     let vale3Fails = true;
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {

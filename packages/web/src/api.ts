@@ -12,6 +12,7 @@ import type {
   TickersResponse,
   QuoteSnapshot,
   MarketTodayResponse,
+  TickerHistory,
   Wallet,
   NewWallet,
   IncomeSource,
@@ -899,5 +900,17 @@ export async function syncPluggy(params: {
 export async function getMarketToday(): Promise<MarketTodayResponse> {
   const res = await apiFetch('/api/market/today');
   if (!res.ok) throw new Error('Falha ao buscar o mercado de hoje');
+  return res.json();
+}
+
+/**
+ * Histórico diário (até 3 meses) de um ticker para os gráficos de
+ * `/investimentos/acoes`. O servidor cacheia por horas (cota da brapi); quem
+ * coordena as chamadas no web é `components/tickerHistory.ts` (cache + limite
+ * de concorrência) — não chame direto de componente.
+ */
+export async function getTickerHistory(ticker: string): Promise<TickerHistory> {
+  const res = await apiFetch(`/api/market/history/${encodeURIComponent(ticker)}`);
+  if (!res.ok) throw new Error(`Histórico indisponível (${res.status})`);
   return res.json();
 }

@@ -1,3 +1,5 @@
+import { enqueueBrapi, _resetBrapiQueue } from './brapiQueue';
+
 const BRAPI_BASE = 'https://brapi.dev/api/quote';
 
 export interface FetchQuotesResult {
@@ -45,27 +47,18 @@ const quoteCache = new Map<string, { price: number; expiresAt: number }>();
 export const QUOTES_TOTAL_BUDGET_MS = 10_000;
 
 /**
- * Fila global do processo: o plano grátis permite 1 requisição simultânea, e
- * `/api/portfolio` + `/api/benchmarks` chegam juntas do web. Toda ida à brapi
- * passa por aqui, uma por vez, não importa quantas chamadas de fetchQuotes
- * estejam concorrendo. `inFlight` reaproveita a mesma Promise para um ticker já
- * pedido (enfileirado ou em voo), então chamadas concorrentes não duplicam
- * requisição nem cota.
+ * `inFlight` reaproveita a mesma Promise para um ticker já pedido (enfileirado
+ * ou em voo), então chamadas concorrentes não duplicam requisição nem cota. A
+ * fila em si (1 requisição por vez no processo) é a global de `brapiQueue.ts`,
+ * compartilhada com o histórico diário dos gráficos.
  */
-let queueTail: Promise<unknown> = Promise.resolve();
 const inFlight = new Map<string, Promise<number | undefined>>();
-
-function enqueue<T>(job: () => Promise<T>): Promise<T> {
-  const run = queueTail.then(job);
-  queueTail = run.catch(() => undefined);
-  return run;
-}
 
 /** Só para teste. */
 export function _resetQuoteCache(): void {
   quoteCache.clear();
   inFlight.clear();
-  queueTail = Promise.resolve();
+  _resetBrapiQueue();
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -96,18 +89,24 @@ async function requestQuote(ticker: string): Promise<number | undefined> {
   }
 }
 
+/** Preço em cache e ainda válido, ou `undefined`. Não enfileira nada. */
+function readCachedQuote(ticker: string): number | undefined {
+  const cached = quoteCache.get(ticker);
+  return cached && cached.expiresAt > Date.now() ? cached.price : undefined;
+}
+
 /**
  * Preço de UM ticker: cache → Promise já em voo → nova requisição na fila global.
  * Só preço obtido é cacheado — falha e ticker ausente do payload não entram.
  */
 function getQuote(ticker: string): Promise<number | undefined> {
-  const cached = quoteCache.get(ticker);
-  if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.price);
+  const cached = readCachedQuote(ticker);
+  if (cached !== undefined) return Promise.resolve(cached);
 
   const pending = inFlight.get(ticker);
   if (pending) return pending;
 
-  const p = enqueue(() => requestQuote(ticker)).then((price) => {
+  const p = enqueueBrapi(() => requestQuote(ticker)).then((price) => {
     if (price !== undefined) {
       quoteCache.set(ticker, { price, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
     }
@@ -146,11 +145,20 @@ async function requestQuotes(
 
   for (const ticker of new Set(tickers)) {
     try {
-      let pending = getQuote(ticker);
-      if (!strict) {
+      // Cache primeiro: ticker já cotado responde mesmo com o orçamento esgotado.
+      const cached = readCachedQuote(ticker);
+      if (cached !== undefined) {
+        quotes.set(ticker, cached);
+        continue;
+      }
+      let pending: Promise<number | undefined>;
+      if (strict) {
+        pending = getQuote(ticker);
+      } else {
+        // Passou do teto: falha SEM enfileirar (não gasta cota nem ocupa a fila).
         const remaining = deadline - Date.now();
         if (remaining <= 0) throw new Error(`orçamento de tempo esgotado para ${ticker}`);
-        pending = withinBudget(pending, remaining, ticker);
+        pending = withinBudget(getQuote(ticker), remaining, ticker);
       }
       const price = await pending;
       if (price !== undefined) quotes.set(ticker, price);

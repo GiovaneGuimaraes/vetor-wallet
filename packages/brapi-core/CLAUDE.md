@@ -14,10 +14,15 @@ src/
 │               # requisição, série, cache 5 min) + as duas políticas:
 │               # fetchQuotes() degrada (quotes vazio + failed=true) e
 │               # fetchQuotesStrict() lança. Timeout 5s
+├── brapiQueue.ts         # enqueueBrapi(): a fila global (1 requisição por vez)
+├── fetchDailyHistory.ts  # histórico 3mo/1d com cache de 12h + coalescência
+├── requestDailyHistory.ts # a requisição crua do histórico (sem fila/cache)
+├── BrapiStatusError.ts   # erro de status não-ok, com `status`
 ├── tickers.ts  # searchTickers()/getUnknownTickers(): busca de tickers com
 │               # cache de 24h em memória; timeout 10s no fetch da lista
-└── index.ts    # barrel: fetchQuotes, fetchQuotesStrict, searchTickers, getUnknownTickers,
-                # _resetCache/_setCache (helpers de teste)
+└── index.ts    # barrel: fetchQuotes, fetchQuotesStrict, fetchDailyHistory,
+                # BrapiStatusError, searchTickers, getUnknownTickers, mercado,
+                # _reset*/_setCache (helpers de teste)
 ```
 
 ## Invariantes (não quebrar)
@@ -37,16 +42,30 @@ src/
   chamar a brapi direto. `_resetQuoteCache` existe só para teste.
 - **Nunca 2 chamadas à brapi em voo no processo.** `/api/portfolio` e
   `/api/benchmarks` chegam juntas do web, e o grátis só aceita 1 simultânea (senão
-  429). Toda requisição passa por uma **fila global** (`enqueue`) e um ticker já
-  pedido reaproveita a mesma Promise (`inFlight`): chamadas concorrentes não
-  duplicam requisição nem cota. Novo caminho de cotação entra nessa fila.
+  429). Toda requisição passa por uma **fila global** (`enqueueBrapi`, em
+  `brapiQueue.ts`) e um ticker já pedido reaproveita a mesma Promise (`inFlight`):
+  chamadas concorrentes não duplicam requisição nem cota. Cotação E histórico
+  diário entram na MESMA fila; novo caminho que gaste cota entra nela também.
+- **Histórico diário dos gráficos (`fetchDailyHistory`)**: `/quote/{ticker}?range=3mo&interval=1d`
+  — o máximo do plano grátis (1y e intradiário → 400; `^BVSP` funciona). 1 ticker por
+  requisição, pela fila global, com coalescência própria (`inFlight`). **Cache em memória
+  de 12 h por ticker** (`HISTORY_CACHE_TTL_MS`): o dado é de fechamento diário, e com 12 h
+  cada ticker custa no máximo ~2 requisições/dia, compartilhadas entre usuários e visitas.
+  **Erro não é cacheado**; 200 sem pontos é (gastou cota, repetir não muda). Lança
+  `BrapiStatusError` (com `status`) em resposta não-ok — a rota traduz 400/404 em 404 e o
+  resto em 502. `requestDailyHistory` é a requisição crua (429 com o mesmo backoff);
+  teste em `src/dailyHistory.test.ts`. Os períodos 5D/1M/3M do web são recortes disto.
 - **Teto total de tempo no modo tolerante: `QUOTES_TOTAL_BUDGET_MS` = 10 s por
   chamada** (N × timeout de 5 s em série travaria `GET /api/portfolio` com a brapi
   fora). O que não coube volta como falha (`failed: true`); a requisição em curso
   não é abortada, termina na fila e popula o cache. O modo estrito não tem teto.
+  **O cache é consultado ANTES do orçamento**: ticker já cotado responde mesmo com
+  o teto esgotado, e o que passou do teto falha **sem ser enfileirado** (não gasta
+  cota nem ocupa a fila).
 - **429**: até 3 tentativas por ticker, backoff de 500 ms e 1,5 s. Depois disso, é
-  falha daquele ticker. Mensagens de erro/log (`brapi responded with <status> for
-<ticker>`) nunca incluem a URL, que carrega o token.
+  falha daquele ticker. Mensagens de erro/log
+  (`brapi responded with <status> for <ticker>`) nunca incluem a URL, que carrega
+  o token.
 - **`fetchQuotes` (tolerante) nunca lança.** Falha de um ticker (rede, timeout,
   não-ok) não derruba os demais: os que deram certo ficam em `quotes` e
   `failed: true` sinaliza que ao menos um falhou (a rota segue com

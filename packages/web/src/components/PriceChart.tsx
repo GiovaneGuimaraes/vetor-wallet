@@ -24,8 +24,6 @@ import { svgPointFromPointerEvent } from '../routes/svgPointer';
 
 const fmtCur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
-const VIEW_WIDTH = 320;
-const VIEW_HEIGHT = 150;
 const PADDING = { top: 20, right: 8, bottom: 24, left: 8 };
 const TICK_COUNT = 3;
 
@@ -34,17 +32,29 @@ export interface PriceChartProps {
   snapshots: QuoteSnapshot[];
   /** Preço médio de compra do usuário no ticker — `null` omite a referência. */
   averagePrice: number | null;
+  /** Formato dos valores (default BRL); o Ibovespa usa pontos. */
+  formatValue?: (value: number) => string;
+  /** Tamanho do viewBox: maior = rótulos proporcionalmente menores (gráfico expandido). */
+  viewWidth?: number;
+  viewHeight?: number;
 }
 
-export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
+export function PriceChart({
+  snapshots,
+  averagePrice,
+  formatValue = (v: number) => fmtCur.format(v),
+  viewWidth = 320,
+  viewHeight = 150,
+}: PriceChartProps) {
+  const format = formatValue;
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   if (snapshots.length < 2) return null;
 
   const chartLeft = PADDING.left;
-  const chartRight = VIEW_WIDTH - PADDING.right;
+  const chartRight = viewWidth - PADDING.right;
   const chartTop = PADDING.top;
-  const chartBottom = VIEW_HEIGHT - PADDING.bottom;
+  const chartBottom = viewHeight - PADDING.bottom;
 
   const prices = snapshots.map((s) => s.price);
   const domain = computePriceDomain(prices, averagePrice);
@@ -73,10 +83,10 @@ export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
 
   const first = snapshots[0];
   const last = snapshots[snapshots.length - 1];
-  const description = `Preço de ${formatDayMonth(snapshotDate(first.captured_at))} (${fmtCur.format(
+  const description = `Preço de ${formatDayMonth(snapshotDate(first.captured_at))} (${format(
     first.price
-  )}) a ${formatDayMonth(snapshotDate(last.captured_at))} (${fmtCur.format(last.price)}).${
-    averagePrice !== null ? ` Preço médio de compra: ${fmtCur.format(averagePrice)}.` : ''
+  )}) a ${formatDayMonth(snapshotDate(last.captured_at))} (${format(last.price)}).${
+    averagePrice !== null ? ` Preço médio de compra: ${format(averagePrice)}.` : ''
   }`;
 
   const avgY = averagePrice !== null ? yScale(averagePrice) : null;
@@ -89,7 +99,7 @@ export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
       ? positionTooltip(
           pricePoints[hoverIndex as number].x,
           pricePoints[hoverIndex as number].y,
-          VIEW_WIDTH,
+          viewWidth,
           tooltipWidth
         )
       : null;
@@ -106,7 +116,7 @@ export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
 
   return (
     <svg
-      viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
+      viewBox={`0 0 ${viewWidth} ${viewHeight}`}
       style={{ width: '100%', height: 'auto' }}
       role="img"
       className="vw-price-chart"
@@ -162,7 +172,7 @@ export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
 
       {avgY !== null && averagePrice !== null && (
         <text x={chartRight} y={avgY - 4} textAnchor="end" fontSize={9} fill="var(--color-dim)">
-          {`Médio: ${fmtCur.format(averagePrice)}`}
+          {`Médio: ${format(averagePrice)}`}
         </text>
       )}
 
@@ -182,11 +192,11 @@ export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
               fontSize={9}
               fill="var(--color-dim)"
             >
-              {fmtCur.format(tick.price)}
+              {format(tick.price)}
             </text>
             <text
               x={tick.x}
-              y={VIEW_HEIGHT - 6}
+              y={viewHeight - 6}
               textAnchor={anchor}
               fontSize={9}
               fill="var(--color-dim)"
@@ -225,7 +235,7 @@ export function PriceChart({ snapshots, averagePrice }: PriceChartProps) {
               <div className="vw-chart-tooltip-date">
                 {formatDayMonth(snapshotDate(hoverSnapshot.captured_at))}
               </div>
-              <div className="vw-chart-tooltip-value">{fmtCur.format(hoverSnapshot.price)}</div>
+              <div className="vw-chart-tooltip-value">{format(hoverSnapshot.price)}</div>
             </div>
           </foreignObject>
         </g>
