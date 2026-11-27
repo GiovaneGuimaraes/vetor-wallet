@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Position } from '@vetor-wallet/shared';
-import { buildAllocationRows } from './allocationRows';
+import { allocationCell, buildAllocationRows, sortByAllocation } from './allocationRows';
 
 function pos(ticker: string, allocationPct: number | null): Position {
   return {
@@ -68,5 +68,24 @@ describe('buildAllocationRows', () => {
     const positions = [pos('AAA3', 10), pos('BBB3', 90)];
     buildAllocationRows(positions);
     expect(positions.map((p) => p.ticker)).toEqual(['AAA3', 'BBB3']);
+  });
+});
+
+describe('sortByAllocation / allocationCell (coluna da tabela de Posições)', () => {
+  it('ordena posições por alocação, nulos por último, sem mutar a entrada', () => {
+    const input = [pos('AAA3', null), pos('BBB3', 10), pos('CCC3', 60)];
+    expect(sortByAllocation(input).map((p) => p.ticker)).toEqual(['CCC3', 'BBB3', 'AAA3']);
+    expect(input.map((p) => p.ticker)).toEqual(['AAA3', 'BBB3', 'CCC3']);
+  });
+
+  it('allocationCell limita a barra a [0, 100] e usa "—" sem cotação', () => {
+    expect(allocationCell(pos('A', 130)).pctClamped).toBe(100);
+    expect(allocationCell(pos('A', -3)).pctClamped).toBe(0);
+    expect(allocationCell(pos('A', null))).toMatchObject({
+      pct: null,
+      pctClamped: 0,
+      pctLabel: '—',
+    });
+    expect(allocationCell(pos('A', 5)).pctLabel).toBe('5,0%');
   });
 });

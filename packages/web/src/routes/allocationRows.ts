@@ -31,17 +31,25 @@ const pctFormatter = new Intl.NumberFormat('pt-BR', {
  * `null` para a matemática de largura da barra.
  */
 export function buildAllocationRows(positions: Position[]): AllocationRow[] {
-  return [...positions]
-    .sort((a, b) => {
-      if (a.allocationPct === null && b.allocationPct === null) return 0;
-      if (a.allocationPct === null) return 1;
-      if (b.allocationPct === null) return -1;
-      return b.allocationPct - a.allocationPct;
-    })
-    .map((p) => ({
-      ticker: p.ticker,
-      pct: p.allocationPct,
-      pctClamped: p.allocationPct === null ? 0 : Math.min(100, Math.max(0, p.allocationPct)),
-      pctLabel: p.allocationPct === null ? '—' : `${pctFormatter.format(p.allocationPct)}%`,
-    }));
+  return sortByAllocation(positions).map(allocationCell);
+}
+
+/** Posições por `allocationPct` decrescente; nulos por último, ordem relativa estável. */
+export function sortByAllocation(positions: Position[]): Position[] {
+  return [...positions].sort((a, b) => {
+    if (a.allocationPct === null && b.allocationPct === null) return 0;
+    if (a.allocationPct === null) return 1;
+    if (b.allocationPct === null) return -1;
+    return b.allocationPct - a.allocationPct;
+  });
+}
+
+/** Alocação de UMA posição — a coluna "Alocação" da tabela de Posições. */
+export function allocationCell(p: Pick<Position, 'ticker' | 'allocationPct'>): AllocationRow {
+  return {
+    ticker: p.ticker,
+    pct: p.allocationPct,
+    pctClamped: p.allocationPct === null ? 0 : Math.min(100, Math.max(0, p.allocationPct)),
+    pctLabel: p.allocationPct === null ? '—' : `${pctFormatter.format(p.allocationPct)}%`,
+  };
 }

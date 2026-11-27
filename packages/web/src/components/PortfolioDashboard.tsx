@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { PortfolioSummary, Position } from '@vetor-wallet/shared';
-import { buildAllocationRows } from '../routes/allocationRows';
+import { allocationCell, sortByAllocation } from '../routes/allocationRows';
 import { TickerSparkline } from './TickerSparkline';
 import '../routes/dashboard.css';
 
@@ -9,6 +9,8 @@ interface Props {
   walletColor?: string;
   /** Abre o gráfico expandido do ativo (clique no ticker ou no minigráfico). */
   onSelectTicker?: (ticker: string) => void;
+  /** Atalho "Nova operação" (leva à aba Operações com o formulário aberto). */
+  onNewOperation?: () => void;
 }
 
 // ── Formatters ────────────────────────────────────────────────────────────
@@ -141,10 +143,13 @@ function SummaryCard({ label, value, pct, sentiment }: SummaryCardProps) {
 // ── PositionRow ───────────────────────────────────────────────────────────
 interface PositionRowProps {
   p: Position;
+  /** Maior alocação da carteira: a barra é relativa a ela (a 1ª ocupa a trilha toda). */
+  maxAllocation: number;
   onSelectTicker?: (ticker: string) => void;
 }
 
-function PositionRow({ p, onSelectTicker }: PositionRowProps) {
+function PositionRow({ p, maxAllocation, onSelectTicker }: PositionRowProps) {
+  const alloc = allocationCell(p);
   const isUp = p.profitLoss === null ? null : p.profitLoss >= 0;
   const plColor =
     isUp === null ? 'var(--color-ink)' : isUp ? 'var(--color-up)' : 'var(--color-down)';
@@ -165,7 +170,7 @@ function PositionRow({ p, onSelectTicker }: PositionRowProps) {
           p.ticker
         )}
       </td>
-      <td className="vw-positions-spark">
+      <td className="vw-positions-spark vw-col-sec">
         {onSelectTicker ? (
           <button
             type="button"
@@ -179,20 +184,44 @@ function PositionRow({ p, onSelectTicker }: PositionRowProps) {
           <TickerSparkline ticker={p.ticker} priority="high" />
         )}
       </td>
-      <td style={{ color: 'var(--color-ink)', opacity: 0.7 }}>
+      <td className="vw-col-sec" style={{ color: 'var(--color-ink)', opacity: 0.7 }}>
         {p.quantity.toLocaleString('pt-BR')}
       </td>
-      <td style={{ color: 'var(--color-ink)', opacity: 0.7 }}>{fmt.format(p.avgPrice)}</td>
-      <td style={{ color: 'var(--color-ink)', opacity: 0.7 }}>{fmtCur(p.currentPrice)}</td>
+      <td className="vw-col-sec" style={{ color: 'var(--color-ink)', opacity: 0.7 }}>
+        {fmt.format(p.avgPrice)}
+      </td>
+      <td className="vw-col-sec" style={{ color: 'var(--color-ink)', opacity: 0.7 }}>
+        {fmtCur(p.currentPrice)}
+      </td>
       <td style={{ color: 'var(--color-ink)', opacity: 0.7 }}>{fmtCur(p.currentValue)}</td>
-      <td style={{ color: plColor, fontWeight: 500 }}>{fmtCur(p.profitLoss)}</td>
+      <td className="vw-alloc-cell-td">
+        <div className="vw-alloc-cell" aria-label={`Alocação de ${p.ticker}: ${alloc.pctLabel}`}>
+          <div className="vw-alloc-track" aria-hidden="true">
+            <div
+              className="vw-alloc-fill"
+              style={{
+                width: `${maxAllocation > 0 ? (alloc.pctClamped / maxAllocation) * 100 : 0}%`,
+              }}
+            />
+          </div>
+          <span className="vw-alloc-pct">{alloc.pctLabel}</span>
+        </div>
+      </td>
+      <td className="vw-col-sec" style={{ color: plColor, fontWeight: 500 }}>
+        {fmtCur(p.profitLoss)}
+      </td>
       <td style={{ color: plColor, fontWeight: 500 }}>{fmtPct(p.profitLossPct)}</td>
     </tr>
   );
 }
 
 // ── PortfolioDashboard ────────────────────────────────────────────────────
-export function PortfolioDashboard({ summary, walletColor = '#e3d5b8', onSelectTicker }: Props) {
+export function PortfolioDashboard({
+  summary,
+  walletColor = '#e3d5b8',
+  onSelectTicker,
+  onNewOperation,
+}: Props) {
   // Suppress unused var warning — walletColor reserved for future wallet selector
   void walletColor;
 
@@ -219,6 +248,13 @@ export function PortfolioDashboard({ summary, walletColor = '#e3d5b8', onSelectT
         >
           Adicione operações para ver sua carteira.
         </p>
+        {onNewOperation && (
+          <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: 8 }}>
+            <button type="button" className="vw-btn-primary" onClick={onNewOperation}>
+              Cadastrar primeira operação
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -241,7 +277,8 @@ export function PortfolioDashboard({ summary, walletColor = '#e3d5b8', onSelectT
   const resultSentiment: SentimentColor =
     totalProfitLoss === null ? null : totalProfitLoss >= 0 ? 'up' : 'down';
 
-  const allocationRows = buildAllocationRows(positions);
+  const sortedPositions = sortByAllocation(positions);
+  const maxAllocation = Math.max(0, ...sortedPositions.map((p) => allocationCell(p).pctClamped));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -307,7 +344,7 @@ export function PortfolioDashboard({ summary, walletColor = '#e3d5b8', onSelectT
         />
       </div>
 
-      {/* Positions table — 8 colunas (minigráfico de 1 mês após o ticker); ticker abre o gráfico */}
+      {/* Positions table — minigráfico de 1 mês após o ticker, coluna de alocação (barra + %), ordenada por alocação; ticker abre o gráfico. No mobile somem as colunas `.vw-col-sec`. */}
       <div
         style={{
           background: 'var(--card-1)',
@@ -316,81 +353,45 @@ export function PortfolioDashboard({ summary, walletColor = '#e3d5b8', onSelectT
           padding: '20px 0',
         }}
       >
-        <h2
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: 'var(--color-ink)',
-            paddingInline: 22,
-            marginBottom: 16,
-          }}
-        >
-          Posições
-        </h2>
+        <div className="vw-positions-head">
+          <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-ink)' }}>Posições</h2>
+          {onNewOperation && (
+            <button
+              type="button"
+              className="vw-btn-ghost vw-positions-new"
+              onClick={onNewOperation}
+            >
+              + Nova operação
+            </button>
+          )}
+        </div>
 
         <div className="vw-positions-table-wrap">
-          <table className="vw-positions-table" style={{ minWidth: 740 }}>
+          <table className="vw-positions-table">
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(var(--edge-rgb), 0.5)' }}>
                 <th>Ticker</th>
-                <th>1 mês</th>
-                <th>Qtd</th>
-                <th>PM (R$)</th>
-                <th>Cotação</th>
+                <th className="vw-col-sec">1 mês</th>
+                <th className="vw-col-sec">Qtd</th>
+                <th className="vw-col-sec">PM (R$)</th>
+                <th className="vw-col-sec">Cotação</th>
                 <th>Valor Atual</th>
-                <th>Resultado</th>
+                <th>Alocação</th>
+                <th className="vw-col-sec">Resultado</th>
                 <th>%</th>
               </tr>
             </thead>
             <tbody>
-              {positions.map((p) => (
-                <PositionRow key={p.ticker} p={p} onSelectTicker={onSelectTicker} />
+              {sortedPositions.map((p) => (
+                <PositionRow
+                  key={p.ticker}
+                  p={p}
+                  maxAllocation={maxAllocation}
+                  onSelectTicker={onSelectTicker}
+                />
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/*
-        Alocação da carteira (T-057c): uma barra por posição, dentro do
-        PortfolioDashboard (mesmo card family da tabela de posições, que já
-        exibe os mesmos tickers) — evita um card solto na DashboardPage sem
-        relação direta com o resto do simulador de projeção (T-056b/T-057b).
-        `allocationPct` nulo (cotação indisponível) vira barra vazia com "—",
-        nunca NaN (ver `buildAllocationRows`, allocationRows.ts).
-      */}
-      <div
-        style={{
-          background: 'var(--card-1)',
-          border: '1px solid var(--color-edge)',
-          borderRadius: 'var(--radius-card)',
-          padding: '20px 0',
-        }}
-      >
-        <h2
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: 'var(--color-ink)',
-            paddingInline: 22,
-            marginBottom: 8,
-          }}
-        >
-          Alocação da carteira
-        </h2>
-
-        <div>
-          {allocationRows.map((row) => (
-            <div className="vw-alloc-row" key={row.ticker}>
-              <span className="vw-alloc-ticker">{row.ticker}</span>
-              <div className="vw-alloc-bar-col">
-                <div className="vw-alloc-track">
-                  <div className="vw-alloc-fill" style={{ width: `${row.pctClamped}%` }} />
-                </div>
-              </div>
-              <span className="vw-alloc-pct">{row.pctLabel}</span>
-            </div>
-          ))}
         </div>
       </div>
     </div>
