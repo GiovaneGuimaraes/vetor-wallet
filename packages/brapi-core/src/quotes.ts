@@ -4,60 +4,126 @@ export interface FetchQuotesResult {
   /** ticker → cotação atual, para os tickers que a brapi retornou. */
   quotes: Map<string, number>;
   /**
-   * true quando a própria requisição à brapi falhou (erro de rede, timeout ou
-   * resposta não-ok) e por isso NENHUMA cotação pôde ser obtida — diferente
-   * de um ticker específico simplesmente não vir no payload de uma resposta
-   * bem-sucedida (ex.: ticker deslistado/typo), que não seta essa flag.
+   * true quando a requisição de ALGUM ticker falhou (rede, timeout, não-ok,
+   * 429 esgotado) — os demais tickers seguem em `quotes`. Diferente de um
+   * ticker simplesmente não vir no payload de uma resposta bem-sucedida
+   * (ex.: deslistado/typo), que não seta essa flag.
    */
   failed: boolean;
 }
 
 /**
- * A requisição única à brapi, compartilhada pelas duas políticas de erro.
- * LANÇA em rede/timeout (erro original) e em status não-ok. Não decide o que
- * fazer com isso — quem chama é que escolhe degradar ou propagar.
+ * LIMITE DO PLANO GRÁTIS DA BRAPI (verificado com requisições reais): 1 ticker
+ * por requisição e 1 requisição simultânea. 2+ tickers → HTTP 400
+ * `QUOTES_PER_REQUEST_EXCEEDED`; concorrência → 429. Por isso cada ticker é uma
+ * requisição própria e as requisições são SEMPRE em série (nunca Promise.all).
+ * Cada 200 consome 1 da cota mensal (15.000); 4xx não consome.
  */
-async function requestQuotes(tickers: string[]): Promise<Map<string, number>> {
+
+/**
+ * TTL do cache em memória por ticker. A cotação do plano grátis já vem com
+ * ~30 min de atraso, então 5 min de cache não deixa o dado perceptivelmente mais
+ * velho, e evita que cada render/refresh/job gaste cota: uma carteira de N ativos
+ * custa no máximo N requisições a cada 5 min, não N por chamada.
+ */
+export const QUOTE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+const MAX_ATTEMPTS = 3; // 1 tentativa + 2 retries em 429
+const RETRY_BACKOFF_MS = [500, 1500];
+
+const quoteCache = new Map<string, { price: number; expiresAt: number }>();
+
+/** Só para teste. */
+export function _resetQuoteCache(): void {
+  quoteCache.clear();
+}
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Uma requisição à brapi para UM ticker. Devolve o preço, ou `undefined` se o
+ * payload não trouxe o ticker (deslistado/typo). LANÇA em rede/timeout e em
+ * status não-ok; 429 tem backoff curto antes de desistir. A mensagem de erro
+ * nunca inclui a URL (que carrega o token).
+ */
+async function requestQuote(ticker: string): Promise<number | undefined> {
   const token = process.env.BRAPI_TOKEN;
-  const joined = tickers.join(',');
-  const url = token ? `${BRAPI_BASE}/${joined}?token=${token}` : `${BRAPI_BASE}/${joined}`;
+  const path = encodeURIComponent(ticker);
+  const url = token ? `${BRAPI_BASE}/${path}?token=${token}` : `${BRAPI_BASE}/${path}`;
 
-  const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-  if (!res.ok) throw new Error(`brapi responded with ${res.status}`);
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (res.status === 429 && attempt < MAX_ATTEMPTS) {
+      await sleep(RETRY_BACKOFF_MS[attempt - 1]);
+      continue;
+    }
+    if (!res.ok) throw new Error(`brapi responded with ${res.status} for ${ticker}`);
 
-  const data = (await res.json()) as {
-    results?: { symbol: string; regularMarketPrice: number }[];
-  };
-  const map = new Map<string, number>();
-  for (const item of data.results ?? []) {
-    map.set(item.symbol, item.regularMarketPrice);
+    const data = (await res.json()) as {
+      results?: { symbol: string; regularMarketPrice: number }[];
+    };
+    return data.results?.find((r) => r.symbol === ticker)?.regularMarketPrice;
   }
-  return map;
 }
 
 /**
- * Política TOLERANTE (telas): nunca lança. Falha da requisição vira
- * `{ quotes: vazio, failed: true }`; lista vazia não chama a brapi.
+ * Cotações de N tickers: dedupe, cache por ticker e UMA requisição por ticker
+ * em série. Com `strict`, a primeira falha lança; sem ele, falhas por ticker são
+ * contadas e os demais tickers seguem. Só preço obtido é cacheado — falha e
+ * ticker ausente do payload não entram no cache.
+ */
+async function requestQuotes(
+  tickers: string[],
+  strict: boolean
+): Promise<{ quotes: Map<string, number>; failures: number }> {
+  const quotes = new Map<string, number>();
+  let failures = 0;
+
+  for (const ticker of new Set(tickers)) {
+    const cached = quoteCache.get(ticker);
+    if (cached && cached.expiresAt > Date.now()) {
+      quotes.set(ticker, cached.price);
+      continue;
+    }
+    try {
+      const price = await requestQuote(ticker);
+      if (price !== undefined) {
+        quotes.set(ticker, price);
+        quoteCache.set(ticker, { price, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
+      }
+    } catch (err) {
+      if (strict) throw err;
+      failures++;
+      console.warn(
+        `[brapi] cotação de ${ticker} indisponível: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+  return { quotes, failures };
+}
+
+/**
+ * Política TOLERANTE (telas): nunca lança. Falha de um ticker não derruba os
+ * demais; `failed: true` sinaliza que ao menos um falhou. Lista vazia não chama
+ * a brapi.
  */
 export async function fetchQuotes(tickers: string[]): Promise<FetchQuotesResult> {
   if (tickers.length === 0) return { quotes: new Map(), failed: false };
 
-  try {
-    return { quotes: await requestQuotes(tickers), failed: false };
-  } catch {
-    return { quotes: new Map(), failed: true };
-  }
+  const { quotes, failures } = await requestQuotes(tickers, false);
+  return { quotes, failed: failures > 0 };
 }
 
 /**
- * Política ESTRITA (coleta de snapshots): LANÇA em erro de rede, status
- * não-ok e resposta sem nenhum resultado para tickers pedidos — para o retry
- * agir e para nunca gravar um preço inventado. Ticker ausente de um payload
- * não-vazio só fica fora do mapa. Com `tickers` vazio ainda faz a requisição
- * (comportamento herdado do client que vivia no portfolio-core).
+ * Política ESTRITA (coleta de snapshots): LANÇA na primeira falha de ticker
+ * (rede, timeout, status não-ok) e em resposta sem nenhum preço para tickers
+ * pedidos — para o retry agir e para nunca gravar um preço inventado. Ticker
+ * ausente do payload só fica fora do mapa. Com `tickers` vazio não faz
+ * requisição. O cache vale também aqui: o retry não repete os tickers que já
+ * deram certo na tentativa anterior.
  */
 export async function fetchQuotesStrict(tickers: string[]): Promise<Map<string, number>> {
-  const map = await requestQuotes(tickers);
-  if (map.size === 0 && tickers.length > 0) throw new Error('brapi returned empty results');
-  return map;
+  const { quotes } = await requestQuotes(tickers, true);
+  if (quotes.size === 0 && tickers.length > 0) throw new Error('brapi returned empty results');
+  return quotes;
 }
