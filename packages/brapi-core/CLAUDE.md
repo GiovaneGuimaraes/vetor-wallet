@@ -43,6 +43,12 @@ src/
   expirado, devolve o cache stale em vez de lista vazia — só retorna
   `listAvailable: false` quando não há NENHUM cache. `_resetCache`/
   `_setCache` existem só para teste.
+- **Universo do "Mercado hoje" (`fetchMarketList`/`getMarketUniverse`)**: `/quote/list?type=stock&limit=1000`
+  (grátis, sem token, não consome cota — por isso o token NÃO é enviado). Cache próprio
+  de **15 min**, separado do de 24h dos tickers (não os una). Brapi fora: devolve o cache
+  vencido com o `fetchedAt` original (horário honesto); sem cache, lança (a rota vira 502).
+  Formato-alvo (1 função por arquivo), teste em `src/marketList.test.ts`. O ranking e o
+  piso de liquidez (R$ 5 mi/dia) vivem no `portfolio-core` (`rankMarketMovers`), não aqui.
 - **Token via `process.env.BRAPI_TOKEN`**, lido dentro de cada função (não
   no top-level do módulo) — permite trocar o env entre casos de teste.
 - **Nunca importa `@vetor-wallet/db`** (regra 2 de `docs/PACKAGES.md`,

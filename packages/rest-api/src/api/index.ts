@@ -24,6 +24,7 @@ import plansRouter from './routes/plans';
 import subscriptionsRouter from './routes/subscriptions';
 import webhooksRouter from './routes/webhooks';
 import pluggyRouter from './routes/pluggy';
+import marketRouter from './routes/market';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/requestLogger';
 import { catchUpIfNeeded } from '@vetor-wallet/portfolio-core';
@@ -86,6 +87,7 @@ app.use('/api/fixed-income', fixedIncomeRouter);
 app.use('/api/plans', plansRouter);
 app.use('/api/subscriptions', subscriptionsRouter);
 app.use('/api/pluggy', pluggyRouter);
+app.use('/api/market', marketRouter);
 
 app.use(errorHandler);
 

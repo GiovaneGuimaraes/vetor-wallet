@@ -144,6 +144,34 @@ export interface TickersResponse {
   listAvailable: boolean;
 }
 
+/**
+ * Um ativo do `/quote/list` da brapi (fatia "Mercado hoje"). `change` é a
+ * variação do dia em PERCENTUAL (3.2 = +3,2%), `volume` é em AÇÕES (não R$).
+ */
+export interface MarketQuote {
+  ticker: string;
+  name: string;
+  close: number;
+  change: number;
+  volume: number;
+  marketCap: number | null;
+  sector: string | null;
+}
+
+/** Resposta de `GET /api/market/today`. */
+export interface MarketTodayResponse {
+  /** Maiores altas do dia (variação % decrescente). */
+  gainers: MarketQuote[];
+  /** Maiores baixas do dia (variação % crescente). */
+  losers: MarketQuote[];
+  /** Mais negociadas (volume financeiro `close × volume` decrescente). */
+  mostTraded: MarketQuote[];
+  /** Quando a brapi foi consultada (ISO 8601) — o dado tem atraso. */
+  asOf: string;
+  /** Piso de volume financeiro (R$) que ativos precisam ter para entrar. */
+  minTradedValue: number;
+}
+
 export interface BenchmarkData {
   period: { from: string; to: string };
   portfolio: number | null;

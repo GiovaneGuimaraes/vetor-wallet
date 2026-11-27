@@ -50,3 +50,11 @@ export { runSnapshotJob } from './runSnapshotJob';
 export type { RunSnapshotJobParams } from './runSnapshotJob';
 export { catchUpIfNeeded } from './catchUpIfNeeded';
 export type { CatchUpIfNeededParams } from './catchUpIfNeeded';
+
+// ── Mercado hoje (puro): ranking do /quote/list da brapi ──
+export {
+  rankMarketMovers,
+  MIN_TRADED_VALUE_BRL,
+  MIN_PRICE_BRL,
+  MOVERS_LIMIT,
+} from './rankMarketMovers';
