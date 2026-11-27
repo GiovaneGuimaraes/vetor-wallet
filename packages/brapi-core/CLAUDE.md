@@ -46,6 +46,15 @@ src/
   `brapiQueue.ts`) e um ticker já pedido reaproveita a mesma Promise (`inFlight`):
   chamadas concorrentes não duplicam requisição nem cota. Cotação E histórico
   diário entram na MESMA fila; novo caminho que gaste cota entra nela também.
+- **Cotação tem prioridade sobre histórico na fila** (`enqueueBrapi(job, 'quote' |
+  'history')`): duas filas lógicas, um executor; histórico só roda sem cotação
+  pendente (sem preempção — espera no máximo o job em voo). E o modo tolerante
+  **enfileira todos os tickers de uma vez**, senão um histórico entraria entre
+  duas cotações seriais. Job de cotação que chega ao topo depois do teto de quem
+  o pediu é descartado sem ir à brapi — exceto se um chamador estrito também o
+  espera (`InFlightQuote.deadline = null`). Motivo (revisão da PR #284): com
+  cache frio, ~16 históricos da página na frente de 10 cotações a 600 ms
+  estouravam o teto de 10 s e a carteira ficava "sem cotação".
 - **Histórico diário dos gráficos (`fetchDailyHistory`)**: `/quote/{ticker}?range=3mo&interval=1d`
   — o máximo do plano grátis (1y e intradiário → 400; `^BVSP` funciona). 1 ticker por
   requisição, pela fila global, com coalescência própria (`inFlight`). **Cache em memória

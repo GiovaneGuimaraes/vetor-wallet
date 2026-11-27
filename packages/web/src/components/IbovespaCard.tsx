@@ -9,8 +9,15 @@ import { changeTone, formatAsOf, formatChange } from '../routes/marketToday';
  * o servidor cacheia por horas) — por isso o horário do dado aparece ao lado.
  * Clicar abre o gráfico expandido. Falha não esconde a lista do mercado.
  */
-export function IbovespaCard({ onSelect }: { onSelect: () => void }) {
-  const state = useTickerHistory(IBOV_TICKER);
+export function IbovespaCard({
+  onSelect,
+  enabled = true,
+}: {
+  onSelect: () => void;
+  /** `false` = espera (a carteira carrega antes; ver MarketToday). */
+  enabled?: boolean;
+}) {
+  const state = useTickerHistory(IBOV_TICKER, { enabled });
   const data = state.status === 'ok' ? state.data : null;
   const last = data?.points[data.points.length - 1]?.close ?? null;
   const value = data?.price ?? last;
@@ -29,7 +36,7 @@ export function IbovespaCard({ onSelect }: { onSelect: () => void }) {
               : 'Índice B3'}
         </span>
       </span>
-      <TickerSparkline ticker={IBOV_TICKER} />
+      <TickerSparkline ticker={IBOV_TICKER} enabled={enabled} />
       <span className="vw-market-quote">
         <span className="vw-market-price">
           {value !== null ? formatIndexPoints(value) : state.status === 'loading' ? '…' : '—'}

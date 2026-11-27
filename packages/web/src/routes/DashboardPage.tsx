@@ -787,6 +787,9 @@ export function DashboardPage() {
       <MarketToday
         positions={walletSummary?.positions ?? null}
         onSelectTicker={(ticker, name) => setChartTarget({ ticker, name })}
+        // Históricos do mercado só depois da carteira: as cotações dela (mesma
+        // fila da brapi no servidor) e os minigráficos das posições vêm antes.
+        chartsEnabled={walletLoaded && !loadingData}
       />
 
       {chartTarget && (

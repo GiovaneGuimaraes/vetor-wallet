@@ -478,6 +478,28 @@ describe('fila global, orçamento de tempo e retry estrito', () => {
     expect(called).toEqual(['A1', 'B2', 'C3']);
   });
 
+  it('job que o tolerante largou pelo teto ainda roda se o estrito também espera por ele', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(
+        (url: string) =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve(okPayload(url.split('/').pop()!, 1)), 4000)
+          )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const tolerant = fetchQuotes(['A1', 'B2', 'C3', 'D4']);
+    const strict = fetchQuotesStrict(['D4']); // coalesce no job de D4, sem teto
+    await vi.advanceTimersByTimeAsync(QUOTES_TOTAL_BUDGET_MS + 1);
+    expect((await tolerant).failed).toBe(true);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect((await strict).get('D4')).toBe(1);
+    const called = fetchMock.mock.calls.map((c) => String(c[0]).split('/').pop());
+    expect(called).toEqual(['A1', 'B2', 'C3', 'D4']);
+  });
+
   it('estrito: o retry reaproveita o cache após falha parcial', async () => {
     let vale3Fails = true;
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {

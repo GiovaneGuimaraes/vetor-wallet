@@ -100,4 +100,29 @@ describe('StockChartModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  it('foco: entra no diálogo, Tab fica preso dentro e volta para quem abriu ao fechar', async () => {
+    histories = { PETR4: threeMonths('PETR4') };
+    const opener = document.createElement('button');
+    opener.textContent = 'abrir';
+    document.body.appendChild(opener);
+    opener.focus();
+
+    const { unmount } = render(<StockChartModal ticker="PETR4" onClose={() => {}} />);
+    await screen.findByText('Início (25/10)');
+    const dialog = screen.getByRole('dialog');
+    expect(document.activeElement).toBe(dialog);
+
+    const close = screen.getByRole('button', { name: 'Fechar' });
+    const last = screen.getByRole('button', { name: '3M' });
+    last.focus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(last);
+
+    unmount();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
 });

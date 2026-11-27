@@ -40,7 +40,7 @@ export function StockChartModal({
   onClose,
 }: StockChartModalProps) {
   const [period, setPeriod] = useState<ChartPeriod>('1M');
-  const state = useTickerHistory(ticker);
+  const state = useTickerHistory(ticker, { priority: 'high' });
   const dialogRef = useRef<HTMLDivElement>(null);
   const isIndex = ticker === IBOV_TICKER;
   const fmt = isIndex ? formatIndexPoints : formatPrice;
@@ -48,16 +48,38 @@ export function StockChartModal({
   // inflam quando o gráfico escala até ~620 px; no celular fica o 320 de sempre.
   const [wide] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 560);
 
+  // Esc fecha; Tab/Shift+Tab ficam presos dentro do diálogo.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = [
+        ...dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), [href]'),
+      ];
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === dialogRef.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // Foco no diálogo ao abrir e de volta em quem abriu ao fechar.
   useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dialogRef.current?.focus();
+    return () => opener?.focus();
   }, []);
 
   const points = state.status === 'ok' ? slicePeriod(state.data.points, period) : [];

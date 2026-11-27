@@ -173,4 +173,66 @@ describe('fetchDailyHistory', () => {
     expect(maxInFlight).toBe(1);
     expect(f).toHaveBeenCalledTimes(4);
   });
+
+  it('prioridade: cotação pedida DEPOIS passa à frente de históricos já enfileirados', async () => {
+    const order: string[] = [];
+    const f = vi.fn(async (url: string) => {
+      const symbol = url.split('?')[0].split('/').pop()!;
+      const kind = url.includes('range=') ? 'H' : 'Q';
+      order.push(`${kind}:${symbol}`);
+      await new Promise((r) => setTimeout(r, 5));
+      return kind === 'H'
+        ? ok(historyBody(symbol))
+        : ok({ results: [{ symbol, regularMarketPrice: 10 }] });
+    });
+    vi.stubGlobal('fetch', f);
+
+    const histories = ['H1', 'H2', 'H3', 'H4'].map((t) => fetchDailyHistory(t));
+    await new Promise((r) => setTimeout(r, 1)); // H1 já em voo
+    const quotes = fetchQuotes(['PETR4', 'VALE3']);
+    await Promise.all([...histories, quotes]);
+
+    // H1 já tinha começado (sem preempção); as cotações furam a fila dos demais.
+    expect(order).toEqual(['H:H1', 'Q:PETR4', 'Q:VALE3', 'H:H2', 'H:H3', 'H:H4']);
+  });
+
+  it('cenário medido: 16 históricos de cache frio + 10 cotações a 600 ms não estouram o teto', async () => {
+    vi.useFakeTimers();
+    const f = vi.fn(
+      (url: string) =>
+        new Promise<Response>((resolve) => {
+          const symbol = url.split('?')[0].split('/').pop()!;
+          const body = url.includes('range=')
+            ? historyBody(symbol)
+            : { results: [{ symbol, regularMarketPrice: 10 }] };
+          setTimeout(() => resolve(ok(body)), 600);
+        })
+    );
+    vi.stubGlobal('fetch', f);
+
+    const histories = Array.from({ length: 16 }, (_, i) => fetchDailyHistory(`HIST${i}`));
+    await vi.advanceTimersByTimeAsync(1);
+    const tickers = Array.from({ length: 10 }, (_, i) => `CART${i}3`);
+    const p = fetchQuotes(tickers);
+    await vi.advanceTimersByTimeAsync(10_000);
+    const { quotes, failed } = await p;
+
+    expect(failed).toBe(false);
+    expect(quotes.size).toBe(10);
+    await vi.runAllTimersAsync();
+    await Promise.all(histories);
+  });
+
+  it('erro de um job não trava a fila: o próximo (de qualquer prioridade) segue', async () => {
+    const f = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('rede'))
+      .mockResolvedValue(ok({ results: [{ symbol: 'PETR4', regularMarketPrice: 10 }] }));
+    vi.stubGlobal('fetch', f);
+    const h = fetchDailyHistory('X1').catch((e: Error) => e.message);
+    await new Promise((r) => setTimeout(r, 0)); // o histórico já está em voo
+    const q = fetchQuotes(['PETR4']);
+    expect(await h).toBe('rede');
+    expect((await q).quotes.get('PETR4')).toBe(10);
+  });
 });

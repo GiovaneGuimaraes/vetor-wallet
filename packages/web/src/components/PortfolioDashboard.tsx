@@ -173,10 +173,10 @@ function PositionRow({ p, onSelectTicker }: PositionRowProps) {
             onClick={() => onSelectTicker(p.ticker)}
             aria-label={`Gráfico de ${p.ticker}`}
           >
-            <TickerSparkline ticker={p.ticker} />
+            <TickerSparkline ticker={p.ticker} priority="high" />
           </button>
         ) : (
-          <TickerSparkline ticker={p.ticker} />
+          <TickerSparkline ticker={p.ticker} priority="high" />
         )}
       </td>
       <td style={{ color: 'var(--color-ink)', opacity: 0.7 }}>

@@ -25,8 +25,8 @@ export function _resetHistoryCache(): void {
 /**
  * Histórico diário de 3 meses de um ticker: cache (12 h) → Promise já em voo →
  * nova requisição na fila GLOBAL da brapi (a mesma das cotações: nunca 2
- * chamadas em voo). Erro NÃO é cacheado (a próxima chamada tenta de novo);
- * resposta 200 sem pontos é cacheada (gastou cota, e repetir não muda nada).
+ * chamadas em voo), com prioridade BAIXA: cotação passa na frente. Erro NÃO é
+ * cacheado (a próxima chamada tenta de novo); resposta 200 sem pontos é cacheada (gastou cota, e repetir não muda nada).
  * LANÇA o erro da requisição — quem decide degradar é a rota.
  */
 export function fetchDailyHistory(ticker: string): Promise<TickerHistory> {
@@ -36,7 +36,7 @@ export function fetchDailyHistory(ticker: string): Promise<TickerHistory> {
   const pending = inFlight.get(ticker);
   if (pending) return pending;
 
-  const p = enqueueBrapi(() => requestDailyHistory(ticker)).then((value) => {
+  const p = enqueueBrapi(() => requestDailyHistory(ticker), 'history').then((value) => {
     cache.set(ticker, { value, expiresAt: Date.now() + HISTORY_CACHE_TTL_MS });
     return value;
   });

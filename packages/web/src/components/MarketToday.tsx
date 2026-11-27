@@ -30,10 +30,17 @@ const TABS: { key: Tab; label: string; empty: string }[] = [
 export function MarketToday({
   positions,
   onSelectTicker,
+  chartsEnabled = true,
 }: {
   positions: { ticker: string }[] | null;
   /** Abre o gráfico expandido (Ibovespa ou linha da lista). */
   onSelectTicker: (ticker: string, name: string | null) => void;
+  /**
+   * `false` = ainda não pedir os históricos (minigráficos/Ibovespa). A página
+   * só libera depois que a carteira carregou: as cotações dela vêm primeiro e
+   * os gráficos da carteira saem antes dos do mercado.
+   */
+  chartsEnabled?: boolean;
 }) {
   const [data, setData] = useState<MarketTodayResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,7 +82,10 @@ export function MarketToday({
         </span>
       </div>
 
-      <IbovespaCard onSelect={() => onSelectTicker(IBOV_TICKER, 'Ibovespa')} />
+      <IbovespaCard
+        enabled={chartsEnabled}
+        onSelect={() => onSelectTicker(IBOV_TICKER, 'Ibovespa')}
+      />
 
       <div className="vw-history-window vw-market-tabs" role="group" aria-label="Lista do mercado">
         {TABS.map((t) => (
@@ -125,7 +135,7 @@ export function MarketToday({
                       {tab === 'mostTraded' ? `${q.name} · ${formatTradedValue(q)}` : q.name}
                     </span>
                   </span>
-                  <TickerSparkline ticker={q.ticker} />
+                  <TickerSparkline ticker={q.ticker} enabled={chartsEnabled} />
                   <span className="vw-market-quote">
                     <span className="vw-market-price">{formatPrice(q.close)}</span>
                     <span className={`vw-market-change vw-market-change--${tone}`}>

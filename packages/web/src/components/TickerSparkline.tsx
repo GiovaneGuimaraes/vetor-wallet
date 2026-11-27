@@ -1,4 +1,4 @@
-import { useTickerHistory } from './tickerHistory';
+import { useTickerHistory, type TickerHistoryOptions } from './tickerHistory';
 import { SPARKLINE_PERIOD, slicePeriod, sparklinePath, trendTone } from '../routes/stockCharts';
 
 const W = 72;
@@ -10,8 +10,8 @@ const H = 26;
  * chega — a linha da lista nunca espera por ele. Sem histórico: um traço
  * discreto no lugar, sem quebrar a linha.
  */
-export function TickerSparkline({ ticker }: { ticker: string }) {
-  const state = useTickerHistory(ticker);
+export function TickerSparkline({ ticker, ...options }: { ticker: string } & TickerHistoryOptions) {
+  const state = useTickerHistory(ticker, options);
 
   if (state.status === 'loading') {
     return <span className="vw-spark vw-spark--loading" aria-label="Carregando gráfico" />;

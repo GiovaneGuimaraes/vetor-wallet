@@ -93,4 +93,31 @@ describe('createHistoryLoader', () => {
     loader.reset();
     await expect(loader.load('A')).resolves.toBe(2);
   });
+
+  it('prioridade: carteira (high) sai antes do mercado (low) já na fila; low pedido como high sobe', async () => {
+    const pending = new Map<string, ReturnType<typeof deferred<string>>>();
+    const started: string[] = [];
+    const loader = createHistoryLoader(
+      (x: string) => {
+        started.push(x);
+        const d = deferred<string>();
+        pending.set(x, d);
+        return d.promise;
+      },
+      { concurrency: 1, ttlMs: 1000 }
+    );
+    loader.load('MKT1', 'low'); // ocupa o único slot
+    loader.load('MKT2', 'low');
+    loader.load('MKT3', 'low');
+    loader.load('CART1', 'high');
+    loader.load('MKT3', 'high'); // gráfico aberto de um ativo do mercado
+    await flush();
+    expect(started).toEqual(['MKT1']);
+
+    for (const t of ['MKT1', 'CART1', 'MKT3', 'MKT2']) {
+      pending.get(t)!.resolve(t);
+      await flush();
+    }
+    expect(started).toEqual(['MKT1', 'CART1', 'MKT3', 'MKT2']);
+  });
 });

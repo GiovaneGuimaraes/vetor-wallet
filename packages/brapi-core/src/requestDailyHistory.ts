@@ -4,7 +4,8 @@ import { BrapiStatusError } from './BrapiStatusError';
 const BRAPI_BASE = 'https://brapi.dev/api/quote';
 /** Plano grátis: só `interval=1d` e no máximo `range=3mo` (1y/intradiário → 400). */
 const QUERY = 'range=3mo&interval=1d';
-const TIMEOUT_MS = 8_000;
+// Igual ao da cotação: um histórico em voo segura cotações no máximo por isso.
+const TIMEOUT_MS = 5_000;
 const MAX_ATTEMPTS = 3;
 const RETRY_BACKOFF_MS = [500, 1500];
 

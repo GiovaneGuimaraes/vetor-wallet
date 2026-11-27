@@ -167,4 +167,19 @@ describe('MarketToday', () => {
     await screen.findByRole('img', { name: 'UPAA3: alta no último mês' });
     expect(historyCalls.filter((t) => t === 'UPAA3')).toHaveLength(1);
   });
+
+  it('com chartsEnabled=false a lista aparece mas nenhum histórico é pedido (espera a carteira)', async () => {
+    impl = async () => response();
+    histories = { UPAA3: hist('UPAA3', [1, 2]) };
+    const { rerender } = render(
+      <MarketToday positions={null} onSelectTicker={noop} chartsEnabled={false} />
+    );
+    await screen.findByText('UPAA3');
+    await new Promise((r) => setTimeout(r, 10));
+    expect(historyCalls).toEqual([]);
+
+    rerender(<MarketToday positions={[]} onSelectTicker={noop} chartsEnabled />);
+    await screen.findByRole('img', { name: 'UPAA3: alta no último mês' });
+    expect(historyCalls).toContain('UPAA3');
+  });
 });
