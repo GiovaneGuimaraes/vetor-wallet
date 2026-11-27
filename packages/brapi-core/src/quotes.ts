@@ -33,9 +33,39 @@ const RETRY_BACKOFF_MS = [500, 1500];
 
 const quoteCache = new Map<string, { price: number; expiresAt: number }>();
 
+/**
+ * Teto TOTAL de tempo de uma chamada a `fetchQuotes` (política tolerante).
+ * Sem ele, N tickers × timeout de 5 s em série deixariam `GET /api/portfolio`
+ * minutos pendurado com a brapi fora. Estourado o teto, os tickers que ainda não
+ * responderam (ou nem começaram) voltam como falha (`failed: true`); o que já foi
+ * obtido segue em `quotes`. A requisição em curso não é abortada: termina na
+ * fila, popula o cache e serve a próxima chamada. A política estrita NÃO tem
+ * teto (job com retry, sem usuário esperando).
+ */
+export const QUOTES_TOTAL_BUDGET_MS = 10_000;
+
+/**
+ * Fila global do processo: o plano grátis permite 1 requisição simultânea, e
+ * `/api/portfolio` + `/api/benchmarks` chegam juntas do web. Toda ida à brapi
+ * passa por aqui, uma por vez, não importa quantas chamadas de fetchQuotes
+ * estejam concorrendo. `inFlight` reaproveita a mesma Promise para um ticker já
+ * pedido (enfileirado ou em voo), então chamadas concorrentes não duplicam
+ * requisição nem cota.
+ */
+let queueTail: Promise<unknown> = Promise.resolve();
+const inFlight = new Map<string, Promise<number | undefined>>();
+
+function enqueue<T>(job: () => Promise<T>): Promise<T> {
+  const run = queueTail.then(job);
+  queueTail = run.catch(() => undefined);
+  return run;
+}
+
 /** Só para teste. */
 export function _resetQuoteCache(): void {
   quoteCache.clear();
+  inFlight.clear();
+  queueTail = Promise.resolve();
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -67,10 +97,44 @@ async function requestQuote(ticker: string): Promise<number | undefined> {
 }
 
 /**
- * Cotações de N tickers: dedupe, cache por ticker e UMA requisição por ticker
- * em série. Com `strict`, a primeira falha lança; sem ele, falhas por ticker são
- * contadas e os demais tickers seguem. Só preço obtido é cacheado — falha e
- * ticker ausente do payload não entram no cache.
+ * Preço de UM ticker: cache → Promise já em voo → nova requisição na fila global.
+ * Só preço obtido é cacheado — falha e ticker ausente do payload não entram.
+ */
+function getQuote(ticker: string): Promise<number | undefined> {
+  const cached = quoteCache.get(ticker);
+  if (cached && cached.expiresAt > Date.now()) return Promise.resolve(cached.price);
+
+  const pending = inFlight.get(ticker);
+  if (pending) return pending;
+
+  const p = enqueue(() => requestQuote(ticker)).then((price) => {
+    if (price !== undefined) {
+      quoteCache.set(ticker, { price, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
+    }
+    return price;
+  });
+  inFlight.set(ticker, p);
+  const cleanup = () => {
+    if (inFlight.get(ticker) === p) inFlight.delete(ticker);
+  };
+  p.then(cleanup, cleanup);
+  return p;
+}
+
+/** Espera `p` por no máximo `ms`; estourado, rejeita (sem abortar `p`). */
+function withinBudget<T>(p: Promise<T>, ms: number, ticker: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const budget = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`orçamento de tempo esgotado para ${ticker}`)), ms);
+  });
+  return Promise.race([p, budget]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Cotações de N tickers: dedupe, cache, coalescência e fila global (1 ticker por
+ * requisição, 1 requisição por vez no processo). Estrito: a primeira falha lança,
+ * sem teto de tempo. Tolerante: falhas por ticker são contadas e os demais
+ * seguem, dentro de `QUOTES_TOTAL_BUDGET_MS`.
  */
 async function requestQuotes(
   tickers: string[],
@@ -78,19 +142,18 @@ async function requestQuotes(
 ): Promise<{ quotes: Map<string, number>; failures: number }> {
   const quotes = new Map<string, number>();
   let failures = 0;
+  const deadline = Date.now() + QUOTES_TOTAL_BUDGET_MS;
 
   for (const ticker of new Set(tickers)) {
-    const cached = quoteCache.get(ticker);
-    if (cached && cached.expiresAt > Date.now()) {
-      quotes.set(ticker, cached.price);
-      continue;
-    }
     try {
-      const price = await requestQuote(ticker);
-      if (price !== undefined) {
-        quotes.set(ticker, price);
-        quoteCache.set(ticker, { price, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
+      let pending = getQuote(ticker);
+      if (!strict) {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) throw new Error(`orçamento de tempo esgotado para ${ticker}`);
+        pending = withinBudget(pending, remaining, ticker);
       }
+      const price = await pending;
+      if (price !== undefined) quotes.set(ticker, price);
     } catch (err) {
       if (strict) throw err;
       failures++;
