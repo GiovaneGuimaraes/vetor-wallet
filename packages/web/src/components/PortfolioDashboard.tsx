@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import type { PortfolioSummary, Position } from '@vetor-wallet/shared';
 import { buildAllocationRows } from '../routes/allocationRows';
+import { TickerSparkline } from './TickerSparkline';
 import '../routes/dashboard.css';
 
 interface Props {
   summary: PortfolioSummary | null;
   walletColor?: string;
+  /** Abre o gráfico expandido do ativo (clique no ticker ou no minigráfico). */
+  onSelectTicker?: (ticker: string) => void;
 }
 
 // ── Formatters ────────────────────────────────────────────────────────────
@@ -138,16 +141,44 @@ function SummaryCard({ label, value, pct, sentiment }: SummaryCardProps) {
 // ── PositionRow ───────────────────────────────────────────────────────────
 interface PositionRowProps {
   p: Position;
+  onSelectTicker?: (ticker: string) => void;
 }
 
-function PositionRow({ p }: PositionRowProps) {
+function PositionRow({ p, onSelectTicker }: PositionRowProps) {
   const isUp = p.profitLoss === null ? null : p.profitLoss >= 0;
   const plColor =
     isUp === null ? 'var(--color-ink)' : isUp ? 'var(--color-up)' : 'var(--color-down)';
 
   return (
     <tr className="vw-positions-row">
-      <td>{p.ticker}</td>
+      <td>
+        {onSelectTicker ? (
+          <button
+            type="button"
+            className="vw-positions-ticker-btn"
+            onClick={() => onSelectTicker(p.ticker)}
+            title="Abrir gráfico"
+          >
+            {p.ticker}
+          </button>
+        ) : (
+          p.ticker
+        )}
+      </td>
+      <td className="vw-positions-spark">
+        {onSelectTicker ? (
+          <button
+            type="button"
+            className="vw-positions-spark-btn"
+            onClick={() => onSelectTicker(p.ticker)}
+            aria-label={`Gráfico de ${p.ticker}`}
+          >
+            <TickerSparkline ticker={p.ticker} priority="high" />
+          </button>
+        ) : (
+          <TickerSparkline ticker={p.ticker} priority="high" />
+        )}
+      </td>
       <td style={{ color: 'var(--color-ink)', opacity: 0.7 }}>
         {p.quantity.toLocaleString('pt-BR')}
       </td>
@@ -161,7 +192,7 @@ function PositionRow({ p }: PositionRowProps) {
 }
 
 // ── PortfolioDashboard ────────────────────────────────────────────────────
-export function PortfolioDashboard({ summary, walletColor = '#e3d5b8' }: Props) {
+export function PortfolioDashboard({ summary, walletColor = '#e3d5b8', onSelectTicker }: Props) {
   // Suppress unused var warning — walletColor reserved for future wallet selector
   void walletColor;
 
@@ -276,7 +307,7 @@ export function PortfolioDashboard({ summary, walletColor = '#e3d5b8' }: Props) 
         />
       </div>
 
-      {/* Positions table — exatamente 7 colunas, sem linha expansível */}
+      {/* Positions table — 8 colunas (minigráfico de 1 mês após o ticker); ticker abre o gráfico */}
       <div
         style={{
           background: 'var(--card-1)',
@@ -298,10 +329,11 @@ export function PortfolioDashboard({ summary, walletColor = '#e3d5b8' }: Props) 
         </h2>
 
         <div className="vw-positions-table-wrap">
-          <table className="vw-positions-table" style={{ minWidth: 640 }}>
+          <table className="vw-positions-table" style={{ minWidth: 740 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(var(--edge-rgb), 0.5)' }}>
                 <th>Ticker</th>
+                <th>1 mês</th>
                 <th>Qtd</th>
                 <th>PM (R$)</th>
                 <th>Cotação</th>
@@ -312,7 +344,7 @@ export function PortfolioDashboard({ summary, walletColor = '#e3d5b8' }: Props) 
             </thead>
             <tbody>
               {positions.map((p) => (
-                <PositionRow key={p.ticker} p={p} />
+                <PositionRow key={p.ticker} p={p} onSelectTicker={onSelectTicker} />
               ))}
             </tbody>
           </table>

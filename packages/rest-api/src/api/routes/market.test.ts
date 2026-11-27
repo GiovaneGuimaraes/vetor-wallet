@@ -17,11 +17,17 @@ installFakeCognito();
 // A brapi nunca é chamada de verdade: o universo vem deste mock.
 // Impl em função comum (não vi.fn().mockRejectedValue): ver PluggyImportModal.test.tsx.
 let universeImpl: () => Promise<unknown> = async () => ({ quotes: [], fetchedAt: 0 });
+let historyImpl: (ticker: string) => Promise<unknown> = async () => ({});
+const historyCalls: string[] = [];
 vi.mock('@vetor-wallet/brapi-core', async () => {
   const actual = await vi.importActual<typeof import('@vetor-wallet/brapi-core')>(
     '@vetor-wallet/brapi-core'
   );
-  return { ...actual, getMarketUniverse: () => universeImpl() };
+  return {
+    ...actual,
+    getMarketUniverse: () => universeImpl(),
+    fetchDailyHistory: (t: string) => historyImpl(t),
+  };
 });
 
 const q = (ticker: string, change: number, over: Record<string, unknown> = {}) => ({
@@ -83,5 +89,87 @@ describe('GET /api/market/today', () => {
     const res = await agent.get('/api/market/today');
     expect(res.status).toBe(502);
     expect(res.body.error).toBeTruthy();
+  });
+});
+
+describe('GET /api/market/history/:ticker', () => {
+  let app: Express;
+  let agent: ReturnType<typeof request.agent>;
+  let BrapiStatusError: typeof import('@vetor-wallet/brapi-core').BrapiStatusError;
+
+  beforeAll(async () => {
+    ({ BrapiStatusError } = await import('@vetor-wallet/brapi-core'));
+    const { default: authRouter } = await import('../auth/router');
+    const { default: marketRouter } = await import('./market');
+    const { errorHandler } = await import('../middleware/errorHandler');
+    app = express();
+    app.use(express.json());
+    app.use(session({ name: 'sid', secret: 's', resave: false, saveUninitialized: false }));
+    app.use('/api/auth', authRouter);
+    app.use('/api/market', marketRouter);
+    app.use(errorHandler);
+    agent = request.agent(app);
+    await agent
+      .post('/api/auth/register')
+      .send({ email: 'market-history@test.com', password: 'password123' });
+  });
+
+  const sample = (ticker: string) => ({
+    ticker,
+    name: 'Empresa',
+    price: 10,
+    changePercent: 1,
+    points: [
+      { date: '2026-11-24', close: 9 },
+      { date: '2026-11-25', close: 10 },
+    ],
+    fetchedAt: '2026-11-26T12:00:00.000Z',
+  });
+
+  it('exige autenticação (401)', async () => {
+    const res = await request(app).get('/api/market/history/PETR4');
+    expect(res.status).toBe(401);
+  });
+
+  it('devolve o histórico com cache privado e normaliza o ticker para maiúsculas', async () => {
+    historyImpl = async (t) => {
+      historyCalls.push(t);
+      return sample(t);
+    };
+    const res = await agent.get('/api/market/history/petr4');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(sample('PETR4'));
+    expect(res.headers['cache-control']).toBe('private, max-age=3600');
+    expect(historyCalls.at(-1)).toBe('PETR4');
+  });
+
+  it('aceita índice com ^ (Ibovespa)', async () => {
+    const res = await agent.get(`/api/market/history/${encodeURIComponent('^BVSP')}`);
+    expect(res.status).toBe(200);
+    expect(historyCalls.at(-1)).toBe('^BVSP');
+  });
+
+  it('ticker malformado → 400 sem ir à brapi', async () => {
+    const before = historyCalls.length;
+    const res = await agent.get(`/api/market/history/${encodeURIComponent('PETR4,VALE3')}`);
+    expect(res.status).toBe(400);
+    expect(historyCalls.length).toBe(before);
+  });
+
+  it('brapi 404 → 404 (ativo sem histórico)', async () => {
+    historyImpl = async (t) => {
+      throw new BrapiStatusError(404, t);
+    };
+    const res = await agent.get('/api/market/history/XPTO3');
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBeTruthy();
+  });
+
+  it('brapi fora → 502', async () => {
+    historyImpl = async () => {
+      throw new Error('network down');
+    };
+    const res = await agent.get('/api/market/history/VALE3');
+    expect(res.status).toBe(502);
   });
 });

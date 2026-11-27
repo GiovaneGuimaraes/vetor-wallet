@@ -17,6 +17,7 @@ import { ProjectionChart } from '../components/ProjectionChart';
 import { HistoryChart } from '../components/HistoryChart';
 import { PriceChart } from '../components/PriceChart';
 import { MarketToday } from '../components/MarketToday';
+import { StockChartModal } from '../components/StockChartModal';
 import { useShellContext } from '../layout/ShellContext';
 import { decideWalletFlow } from './walletFlow';
 import { buildProjectionSeries } from './chartGeometry';
@@ -164,6 +165,16 @@ export function DashboardPage() {
   const historyRequestRef = useRef(0);
 
   const hasPositions = walletSummary !== null && walletSummary.positions.length > 0;
+
+  // Gráfico expandido (ativo da carteira ou do "Mercado hoje"); null = fechado.
+  const [chartTarget, setChartTarget] = useState<{ ticker: string; name: string | null } | null>(
+    null
+  );
+  const closeChart = useCallback(() => setChartTarget(null), []);
+  const chartAveragePrice =
+    chartTarget && walletSummary
+      ? (walletSummary.positions.find((p) => p.ticker === chartTarget.ticker)?.avgPrice ?? null)
+      : null;
 
   const refreshHistory = useCallback(async (days: number) => {
     const requestId = ++historyRequestRef.current;
@@ -443,7 +454,11 @@ export function DashboardPage() {
         <div className="text-center py-16 text-dim text-sm">Carregando...</div>
       ) : (
         <>
-          <PortfolioDashboard summary={walletSummary} walletColor={wallet?.color} />
+          <PortfolioDashboard
+            summary={walletSummary}
+            walletColor={wallet?.color}
+            onSelectTicker={(ticker) => setChartTarget({ ticker, name: null })}
+          />
 
           {/* T-077: "Nova operação" passa a vir DEPOIS do resumo (cards +
               tabela de posições), recolhida por padrão — no mobile (390px) o
@@ -769,7 +784,22 @@ export function DashboardPage() {
 
       {/* Mercado hoje (brapi /quote/list, com atraso): dado público do mercado,
           independe do carregamento da carteira — falha isolada no componente. */}
-      <MarketToday positions={walletSummary?.positions ?? null} />
+      <MarketToday
+        positions={walletSummary?.positions ?? null}
+        onSelectTicker={(ticker, name) => setChartTarget({ ticker, name })}
+        // Históricos do mercado só depois da carteira: as cotações dela (mesma
+        // fila da brapi no servidor) e os minigráficos das posições vêm antes.
+        chartsEnabled={walletLoaded && !loadingData}
+      />
+
+      {chartTarget && (
+        <StockChartModal
+          ticker={chartTarget.ticker}
+          name={chartTarget.name}
+          averagePrice={chartAveragePrice}
+          onClose={closeChart}
+        />
+      )}
     </div>
   );
 }

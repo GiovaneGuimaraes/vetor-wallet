@@ -448,6 +448,63 @@ describe('fila global, orçamento de tempo e retry estrito', () => {
     await vi.runAllTimersAsync();
   });
 
+  it('tolerante: com o teto esgotado, ticker em cache responde; o que passou do teto não é esperado, mas alimenta o cache', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(
+        (url: string) =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve(okPayload(url.split('/').pop()!, 1)), 4000)
+          )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    // Aquece o cache de ZZ9.
+    const warm = fetchQuotes(['ZZ9']);
+    await vi.advanceTimersByTimeAsync(4001);
+    await warm;
+    fetchMock.mockClear();
+
+    // A1+B2 = 8 s, C3 estoura o teto; ZZ9 (cache) ainda responde; D4 não é esperado.
+    const p = fetchQuotes(['A1', 'B2', 'C3', 'ZZ9', 'D4']);
+    await vi.advanceTimersByTimeAsync(QUOTES_TOTAL_BUDGET_MS + 1);
+    const { quotes, failed } = await p;
+
+    expect(failed).toBe(true);
+    expect([...quotes.keys()]).toEqual(['A1', 'B2', 'ZZ9']);
+    await vi.runAllTimersAsync();
+    const called = fetchMock.mock.calls.map((c) => String(c[0]).split('/').pop());
+    // D4 já estava na fila desde o início: não foi esperado, mas foi buscado
+    // e cacheado (ninguém recebe erro de orçamento de outro chamador).
+    expect(called).toEqual(['A1', 'B2', 'C3', 'D4']);
+    fetchMock.mockClear();
+    expect((await fetchQuotes(['D4'])).quotes.get('D4')).toBe(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('job que o tolerante largou pelo teto ainda roda se o estrito também espera por ele', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(
+        (url: string) =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve(okPayload(url.split('/').pop()!, 1)), 4000)
+          )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const tolerant = fetchQuotes(['A1', 'B2', 'C3', 'D4']);
+    const strict = fetchQuotesStrict(['D4']); // coalesce no job de D4, sem teto
+    await vi.advanceTimersByTimeAsync(QUOTES_TOTAL_BUDGET_MS + 1);
+    expect((await tolerant).failed).toBe(true);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect((await strict).get('D4')).toBe(1);
+    const called = fetchMock.mock.calls.map((c) => String(c[0]).split('/').pop());
+    expect(called).toEqual(['A1', 'B2', 'C3', 'D4']);
+  });
+
   it('estrito: o retry reaproveita o cache após falha parcial', async () => {
     let vale3Fails = true;
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
@@ -467,5 +524,90 @@ describe('fila global, orçamento de tempo e retry estrito', () => {
     expect([...map.keys()]).toEqual(['PETR4', 'VALE3', 'ITUB4']);
     // PETR4 não é pedido de novo no retry
     expect(called()).toEqual(['PETR4', 'VALE3', 'VALE3', 'ITUB4']);
+  });
+});
+
+describe('estrito nunca recebe o teto de tempo do tolerante (revisão da #284)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  /** brapi falsa: 1 s por requisição, preço 7 para qualquer ticker. */
+  function slowBrapi() {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(
+        (url: string) =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve(okPayload(url.split('/').pop()!, 7)), 1000)
+          )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  const TICKERS = Array.from({ length: 15 }, (_, i) => `S${i}`);
+
+  // (a) reprodução do revisor em t=5 s, e (b) antes, no limite e depois do teto do tolerante.
+  it.each([0, 5_000, QUOTES_TOTAL_BUDGET_MS, QUOTES_TOTAL_BUDGET_MS + 2_000])(
+    'estrito entrando em t=%i ms devolve as 15 cotações; o tolerante só registra falha local',
+    async (strictStartMs) => {
+      vi.useFakeTimers();
+      const fetchMock = slowBrapi();
+
+      const tolerant = fetchQuotes(TICKERS);
+      let strict: Promise<Map<string, number>> | undefined;
+      if (strictStartMs === 0) strict = fetchQuotesStrict(TICKERS);
+      else {
+        await vi.advanceTimersByTimeAsync(strictStartMs);
+        strict = fetchQuotesStrict(TICKERS);
+      }
+      const strictResult = strict.then(
+        (m) => ({ ok: true as const, m }),
+        (e: Error) => ({ ok: false as const, e })
+      );
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      const t = await tolerant;
+      expect(t.failed).toBe(true);
+      expect(t.quotes.size).toBeGreaterThan(0);
+      expect(t.quotes.size).toBeLessThan(15);
+
+      const s = await strictResult;
+      expect(s.ok ? null : s.e.message).toBeNull();
+      expect(s.ok && s.m.size).toBe(15);
+      // Coalescência: cada ticker foi à brapi uma única vez.
+      expect(fetchMock).toHaveBeenCalledTimes(15);
+    }
+  );
+
+  // (c) nada do que o tolerante largou vira erro cacheado ou Promise rejeitada compartilhada.
+  it('o que o tolerante largou fica em cache como preço, não como erro', async () => {
+    vi.useFakeTimers();
+    const fetchMock = slowBrapi();
+    const tolerant = fetchQuotes(TICKERS);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect((await tolerant).failed).toBe(true);
+
+    fetchMock.mockClear();
+    const again = await fetchQuotesStrict(TICKERS);
+    expect(again.size).toBe(15);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('falha REAL compartilhada: quem chega logo depois da rejeição faz pedido novo', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValue(okPayload('PETR4', 30));
+    vi.stubGlobal('fetch', fetchMock);
+
+    // No mesmo tick da rejeição, um segundo chamador pede o ticker.
+    const second = fetchQuotesStrict(['PETR4']).catch(() => {
+      return fetchQuotesStrict(['PETR4']);
+    });
+    await expect(second).resolves.toEqual(new Map([['PETR4', 30]]));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

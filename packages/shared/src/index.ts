@@ -172,6 +172,30 @@ export interface MarketTodayResponse {
   minTradedValue: number;
 }
 
+/** Um fechamento diário (`date` = `YYYY-MM-DD` no fuso de Brasília). */
+export interface DailyClose {
+  date: string;
+  close: number;
+}
+
+/**
+ * Histórico diário de um ticker para os gráficos de `/investimentos/acoes`
+ * (`GET /api/market/history/:ticker`). Plano grátis da brapi: só `interval=1d`
+ * e no máximo `range=3mo` — os períodos 5D/1M/3M do web são recortes disto.
+ */
+export interface TickerHistory {
+  ticker: string;
+  name: string | null;
+  /** Último preço conhecido pela brapi quando o histórico foi buscado. */
+  price: number | null;
+  /** Variação do dia em PERCENTUAL (1.2 = +1,2%) no momento da busca. */
+  changePercent: number | null;
+  /** Fechamentos em ordem crescente de data (pode vir vazio). */
+  points: DailyClose[];
+  /** Quando a brapi foi consultada (ISO 8601) — o servidor cacheia por horas. */
+  fetchedAt: string;
+}
+
 export interface BenchmarkData {
   period: { from: string; to: string };
   portfolio: number | null;
