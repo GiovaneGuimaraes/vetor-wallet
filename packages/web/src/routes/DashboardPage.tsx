@@ -16,6 +16,7 @@ import { mascotSrcForLayer } from '../layout/mascots';
 import { ProjectionChart } from '../components/ProjectionChart';
 import { HistoryChart } from '../components/HistoryChart';
 import { PriceChart } from '../components/PriceChart';
+import { MarketToday } from '../components/MarketToday';
 import { useShellContext } from '../layout/ShellContext';
 import { decideWalletFlow } from './walletFlow';
 import { buildProjectionSeries } from './chartGeometry';
@@ -765,6 +766,10 @@ export function DashboardPage() {
           <OperationsList operations={operations} onDelete={handleDelete} />
         </>
       )}
+
+      {/* Mercado hoje (brapi /quote/list, com atraso): dado público do mercado,
+          independe do carregamento da carteira — falha isolada no componente. */}
+      <MarketToday positions={walletSummary?.positions ?? null} />
     </div>
   );
 }

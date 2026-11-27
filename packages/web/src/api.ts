@@ -11,6 +11,7 @@ import type {
   User,
   TickersResponse,
   QuoteSnapshot,
+  MarketTodayResponse,
   Wallet,
   NewWallet,
   IncomeSource,
@@ -891,5 +892,12 @@ export async function syncPluggy(params: {
     const err = await res.json().catch(() => ({ error: 'Erro desconhecido' }));
     throw new Error(err.error ?? 'Falha ao importar os dados do banco');
   }
+  return res.json();
+}
+
+/** "Mercado hoje" (brapi `/quote/list`, com atraso): altas, baixas e mais negociadas. */
+export async function getMarketToday(): Promise<MarketTodayResponse> {
+  const res = await apiFetch('/api/market/today');
+  if (!res.ok) throw new Error('Falha ao buscar o mercado de hoje');
   return res.json();
 }

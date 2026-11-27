@@ -193,6 +193,7 @@ O SQLite (`packages/rest-api/data/wallet.db`) é criado no primeiro boot.
 | alerts | GET, POST, DELETE /api/alerts[/:id] | backend ativo, sem UI (T-026) |
 | benchmarks | GET /api/benchmarks, GET /api/benchmarks/history?days= | CDI/Ibovespa: acumulado do período (número) e série diária p/ o gráfico (T-068) |
 | tickers | GET /api/tickers | busca na brapi |
+| market | GET /api/market/today | "Mercado hoje": top 5 altas, baixas e mais negociadas da B3 (brapi `/quote/list`, grátis, cache 15 min, com atraso) + `asOf`/`minTradedValue`. Piso de liquidez: R$ 5 mi/dia, cotação ≥ R$ 1 e valor de mercado conhecido (`rankMarketMovers`, portfolio-core). Dado global (sem `user_id`); brapi fora sem cache → 502 |
 | income | CRUD /api/income[/:id] | fontes fixas mensais, sem data |
 | income-entries | CRUD /api/income-entries[/:id]?month= | renda avulsa datada (T-036); POST aceita `externalId` opcional — repetido responde 409 `{ duplicate: true, entry }` (T-084) |
 | expenses | CRUD /api/expenses[/:id] | fixas; categoria normalizada (T-028) |

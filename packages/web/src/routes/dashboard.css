@@ -109,7 +109,9 @@
     border-color 0.12s ease;
 }
 
-.vw-history-window-btn:hover:not(:disabled) {
+/* O ativo fica de fora: com (0,3,0) esta regra vencia a do ativo (0,2,0) e deixava
+   o texto ink sobre o fundo --btn-1 (invisível) com o mouse em cima. */
+.vw-history-window-btn:hover:not(:disabled, .vw-history-window-btn--active) {
   color: var(--color-ink);
 }
 
@@ -256,4 +258,118 @@
   background: currentColor;
   margin-right: 5px;
   vertical-align: middle;
+}
+
+/* ------------------------------------------------------------------ */
+/* "Mercado hoje" (components/MarketToday.tsx)                         */
+/* ------------------------------------------------------------------ */
+
+.vw-market {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.vw-market-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+}
+
+.vw-market-note {
+  font-size: 11px;
+  color: var(--color-dim);
+}
+
+.vw-market-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.vw-market-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.vw-market-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-edge);
+}
+
+.vw-market-row:first-child {
+  border-top: 0;
+}
+
+.vw-market-id {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vw-market-ticker {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vw-market-name {
+  font-size: 11px;
+  color: var(--color-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vw-market-owned {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-dim);
+  border: 1px solid var(--color-edge);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+.vw-market-quote {
+  flex: 0 0 auto;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.vw-market-price {
+  font-size: 13px;
+  color: var(--color-ink);
+}
+
+.vw-market-change {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.vw-market-change--up {
+  color: var(--color-up);
+}
+
+.vw-market-change--down {
+  color: var(--color-down);
+}
+
+.vw-market-change--flat {
+  color: var(--color-dim);
 }
