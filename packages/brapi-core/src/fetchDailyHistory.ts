@@ -36,14 +36,22 @@ export function fetchDailyHistory(ticker: string): Promise<TickerHistory> {
   const pending = inFlight.get(ticker);
   if (pending) return pending;
 
-  const p = enqueueBrapi(() => requestDailyHistory(ticker), 'history').then((value) => {
-    cache.set(ticker, { value, expiresAt: Date.now() + HISTORY_CACHE_TTL_MS });
-    return value;
-  });
-  inFlight.set(ticker, p);
-  const cleanup = () => {
+  // A entrada sai de `inFlight` ANTES de a Promise assentar: quem chega depois
+  // de uma falha faz pedido novo em vez de reaproveitar a Promise rejeitada.
+  const forget = () => {
     if (inFlight.get(ticker) === p) inFlight.delete(ticker);
   };
-  p.then(cleanup, cleanup);
+  const p: Promise<TickerHistory> = enqueueBrapi(() => requestDailyHistory(ticker), 'history').then(
+    (value) => {
+      forget();
+      cache.set(ticker, { value, expiresAt: Date.now() + HISTORY_CACHE_TTL_MS });
+      return value;
+    },
+    (err: unknown) => {
+      forget();
+      throw err;
+    }
+  );
+  inFlight.set(ticker, p);
   return p;
 }

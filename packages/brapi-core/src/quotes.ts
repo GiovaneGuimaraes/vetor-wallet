@@ -52,16 +52,12 @@ export const QUOTES_TOTAL_BUDGET_MS = 10_000;
  * fila em si (1 requisição por vez no processo) é a global de `brapiQueue.ts`,
  * compartilhada com o histórico diário dos gráficos (cotação tem prioridade).
  *
- * `deadline`: até quando a requisição ainda serve a quem pediu. Um job que só
- * chamadas tolerantes esperam e que chega ao topo da fila depois do teto delas
- * é DESCARTADO sem ir à brapi (não gasta cota nem ocupa a fila). `null` = alguém
- * sem teto (modo estrito) espera por ele: roda sempre.
+ * A Promise compartilhada só rejeita com erro REAL da brapi (rede, timeout,
+ * status não-ok) — nunca com o teto de tempo de um chamador: o teto é aplicado
+ * localmente por quem o tem (`withinBudget`), e o job em si sempre roda. Assim
+ * um chamador estrito (snapshots) nunca recebe erro de orçamento de uma tela.
  */
-interface InFlightQuote {
-  promise: Promise<number | undefined>;
-  deadline: number | null;
-}
-const inFlight = new Map<string, InFlightQuote>();
+const inFlight = new Map<string, Promise<number | undefined>>();
 
 /** Só para teste. */
 export function _resetQuoteCache(): void {
@@ -109,38 +105,34 @@ function readCachedQuote(ticker: string): number | undefined {
 /**
  * Preço de UM ticker: cache → Promise já em voo → nova requisição na fila global.
  * Só preço obtido é cacheado — falha e ticker ausente do payload não entram.
- * `deadline` (modo tolerante) ou `null` (estrito): ver `InFlightQuote`.
+ * A entrada sai de `inFlight` ANTES de a Promise assentar (no mesmo handler):
+ * quem chega depois de uma falha nunca reaproveita a Promise já rejeitada, faz
+ * um pedido novo.
  */
-function getQuote(ticker: string, deadline: number | null): Promise<number | undefined> {
+function getQuote(ticker: string): Promise<number | undefined> {
   const cached = readCachedQuote(ticker);
   if (cached !== undefined) return Promise.resolve(cached);
 
   const pending = inFlight.get(ticker);
-  if (pending) {
-    if (pending.deadline !== null) {
-      pending.deadline = deadline === null ? null : Math.max(pending.deadline, deadline);
-    }
-    return pending.promise;
-  }
+  if (pending) return pending;
 
-  const entry: InFlightQuote = { promise: Promise.resolve(undefined), deadline };
-  const p = enqueueBrapi(() => {
-    if (entry.deadline !== null && Date.now() >= entry.deadline) {
-      return Promise.reject(budgetError(ticker));
-    }
-    return requestQuote(ticker);
-  }).then((price) => {
-    if (price !== undefined) {
-      quoteCache.set(ticker, { price, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
-    }
-    return price;
-  });
-  entry.promise = p;
-  inFlight.set(ticker, entry);
-  const cleanup = () => {
-    if (inFlight.get(ticker) === entry) inFlight.delete(ticker);
+  const forget = () => {
+    if (inFlight.get(ticker) === p) inFlight.delete(ticker);
   };
-  p.then(cleanup, cleanup);
+  const p: Promise<number | undefined> = enqueueBrapi(() => requestQuote(ticker)).then(
+    (price) => {
+      forget();
+      if (price !== undefined) {
+        quoteCache.set(ticker, { price, expiresAt: Date.now() + QUOTE_CACHE_TTL_MS });
+      }
+      return price;
+    },
+    (err: unknown) => {
+      forget();
+      throw err;
+    }
+  );
+  inFlight.set(ticker, p);
   return p;
 }
 
@@ -159,8 +151,10 @@ function withinBudget<T>(p: Promise<T>, ms: number, ticker: string): Promise<T> 
  * primeira falha lança e não pede os próximos, sem teto de tempo. Tolerante:
  * enfileira TODOS de uma vez (em ordem) para nenhum histórico entrar entre duas
  * cotações; falhas por ticker são contadas e os demais seguem, dentro de
- * `QUOTES_TOTAL_BUDGET_MS` — o que chega ao topo da fila depois do teto é
- * descartado sem ir à brapi.
+ * `QUOTES_TOTAL_BUDGET_MS`. O que não coube no teto o tolerante deixa de
+ * ESPERAR (vira falha local), mas o job segue na fila e alimenta o cache —
+ * descartar o job no topo da fila deixava a Promise compartilhada rejeitar com
+ * o teto de outro chamador e vazava o erro para o estrito (revisão da #284).
  */
 async function requestQuotes(
   tickers: string[],
@@ -178,8 +172,8 @@ async function requestQuotes(
     for (const ticker of unique) {
       const cached = readCachedQuote(ticker);
       if (cached !== undefined) continue;
-      const p = getQuote(ticker, deadline);
-      p.catch(() => undefined); // quem passou do teto não é esperado aqui
+      const p = getQuote(ticker);
+      p.catch(() => undefined); // quem passou do teto não é esperado aqui (o job segue)
       pending.set(ticker, p);
     }
   }
@@ -193,15 +187,11 @@ async function requestQuotes(
       }
       let price: number | undefined;
       if (strict) {
-        price = await getQuote(ticker, null);
+        price = await getQuote(ticker);
       } else {
         const remaining = deadline - Date.now();
         if (remaining <= 0) throw budgetError(ticker);
-        price = await withinBudget(
-          pending.get(ticker) ?? getQuote(ticker, deadline),
-          remaining,
-          ticker
-        );
+        price = await withinBudget(pending.get(ticker) ?? getQuote(ticker), remaining, ticker);
       }
       if (price !== undefined) quotes.set(ticker, price);
     } catch (err) {

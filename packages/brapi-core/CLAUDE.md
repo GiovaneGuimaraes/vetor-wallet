@@ -50,11 +50,17 @@ src/
   'history')`): duas filas lógicas, um executor; histórico só roda sem cotação
   pendente (sem preempção — espera no máximo o job em voo). E o modo tolerante
   **enfileira todos os tickers de uma vez**, senão um histórico entraria entre
-  duas cotações seriais. Job de cotação que chega ao topo depois do teto de quem
-  o pediu é descartado sem ir à brapi — exceto se um chamador estrito também o
-  espera (`InFlightQuote.deadline = null`). Motivo (revisão da PR #284): com
-  cache frio, ~16 históricos da página na frente de 10 cotações a 600 ms
-  estouravam o teto de 10 s e a carteira ficava "sem cotação".
+  duas cotações seriais. Motivo (revisão da PR #284): com cache frio, ~16
+  históricos da página na frente de 10 cotações a 600 ms estouravam o teto de
+  10 s e a carteira ficava "sem cotação".
+- **Promise compartilhada só rejeita com erro REAL da brapi** (rede, timeout,
+  status não-ok) — nunca com o teto de tempo de um chamador. O teto é aplicado
+  localmente por quem o tem (`withinBudget`); o job sempre roda. Um job
+  "descartado no topo da fila" pelo teto do tolerante já existiu e vazava o erro
+  de orçamento para o chamador ESTRITO que coalescia nele (snapshots falhando por
+  causa de uma tela aberta) — não volte a descartar. E a entrada sai de
+  `inFlight` no MESMO handler que assenta a Promise (cotação e histórico): quem
+  chega depois de uma falha faz pedido novo, nunca herda a Promise rejeitada.
 - **Histórico diário dos gráficos (`fetchDailyHistory`)**: `/quote/{ticker}?range=3mo&interval=1d`
   — o máximo do plano grátis (1y e intradiário → 400; `^BVSP` funciona). 1 ticker por
   requisição, pela fila global, com coalescência própria (`inFlight`). **Cache em memória
@@ -69,8 +75,10 @@ src/
   fora). O que não coube volta como falha (`failed: true`); a requisição em curso
   não é abortada, termina na fila e popula o cache. O modo estrito não tem teto.
   **O cache é consultado ANTES do orçamento**: ticker já cotado responde mesmo com
-  o teto esgotado, e o que passou do teto falha **sem ser enfileirado** (não gasta
-  cota nem ocupa a fila).
+  o teto esgotado. O que passou do teto o tolerante deixa de ESPERAR (falha local),
+  mas o job já estava na fila desde o início da chamada e segue: busca o preço e
+  alimenta o cache (gasta cota — são os tickers da própria carteira, que a próxima
+  chamada pediria de qualquer jeito). Depois do teto, nada NOVO é enfileirado.
 - **429**: até 3 tentativas por ticker, backoff de 500 ms e 1,5 s. Depois disso, é
   falha daquele ticker. Mensagens de erro/log
   (`brapi responded with <status> for <ticker>`) nunca incluem a URL, que carrega
