@@ -120,3 +120,23 @@
   color: var(--color-dim);
   white-space: nowrap;
 }
+
+/* Wrapper do card de Ações/Renda Fixa/Criptomoedas no grid de Investimentos:
+ * o grid estica `.vw-layer-card-wrap` (grid item) para a altura da linha,
+ * mas o `<button class="vw-layer-card">` dentro dele (não é mais o grid
+ * item) só tem altura automática — sem o `height: 100%` abaixo, o badge
+ * "Opinião do agente" (posicionado relativo ao wrapper) ficaria solto fora
+ * do card sempre que a linha for mais alta que o conteúdo do botão. */
+.vw-layer-card-wrap {
+  position: relative;
+  height: 100%;
+}
+
+.vw-layer-card-wrap > .vw-layer-card {
+  /* Sem isto, um `<button>` encolhe pro conteúdo mesmo com `display: block`
+   * (sizing intrínseco de controle de formulário) — só não aparecia antes
+   * porque o botão era o PRÓPRIO grid item, esticado pelo `stretch` default
+   * do grid independente do seu CSS. */
+  width: 100%;
+  height: 100%;
+}
