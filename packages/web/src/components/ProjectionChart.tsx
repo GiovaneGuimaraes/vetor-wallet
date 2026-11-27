@@ -188,7 +188,10 @@ export function ProjectionChart({
         const isLast = i === ticks.length - 1;
         const anchor = isFirst ? 'start' : isLast ? 'end' : 'middle';
         const nearTop = tick.y < chartTop + 14;
-        const labelY = nearTop ? tick.y + 14 : tick.y - 8;
+        // Rótulo do lado oposto ao traço: o ponto final de uma alta (e o inicial
+        // de uma queda) tem o traço chegando por baixo/saindo por cima.
+        const below = isDown ? isLast : !isLast;
+        const labelY = below ? tick.y + 16 : nearTop ? tick.y + 14 : tick.y - 8;
         return (
           <g key={`tick-${tick.month}`}>
             <circle cx={tick.x} cy={tick.y} r={2.5} fill={lineColor} />

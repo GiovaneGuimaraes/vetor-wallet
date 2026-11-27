@@ -143,10 +143,12 @@ function SummaryCard({ label, value, pct, sentiment }: SummaryCardProps) {
 // ── PositionRow ───────────────────────────────────────────────────────────
 interface PositionRowProps {
   p: Position;
+  /** Maior alocação da carteira: a barra é relativa a ela (a 1ª ocupa a trilha toda). */
+  maxAllocation: number;
   onSelectTicker?: (ticker: string) => void;
 }
 
-function PositionRow({ p, onSelectTicker }: PositionRowProps) {
+function PositionRow({ p, maxAllocation, onSelectTicker }: PositionRowProps) {
   const alloc = allocationCell(p);
   const isUp = p.profitLoss === null ? null : p.profitLoss >= 0;
   const plColor =
@@ -168,7 +170,7 @@ function PositionRow({ p, onSelectTicker }: PositionRowProps) {
           p.ticker
         )}
       </td>
-      <td className="vw-positions-spark">
+      <td className="vw-positions-spark vw-col-sec">
         {onSelectTicker ? (
           <button
             type="button"
@@ -195,7 +197,12 @@ function PositionRow({ p, onSelectTicker }: PositionRowProps) {
       <td className="vw-alloc-cell-td">
         <div className="vw-alloc-cell" aria-label={`Alocação de ${p.ticker}: ${alloc.pctLabel}`}>
           <div className="vw-alloc-track" aria-hidden="true">
-            <div className="vw-alloc-fill" style={{ width: `${alloc.pctClamped}%` }} />
+            <div
+              className="vw-alloc-fill"
+              style={{
+                width: `${maxAllocation > 0 ? (alloc.pctClamped / maxAllocation) * 100 : 0}%`,
+              }}
+            />
           </div>
           <span className="vw-alloc-pct">{alloc.pctLabel}</span>
         </div>
@@ -271,6 +278,7 @@ export function PortfolioDashboard({
     totalProfitLoss === null ? null : totalProfitLoss >= 0 ? 'up' : 'down';
 
   const sortedPositions = sortByAllocation(positions);
+  const maxAllocation = Math.max(0, ...sortedPositions.map((p) => allocationCell(p).pctClamped));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -363,7 +371,7 @@ export function PortfolioDashboard({
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(var(--edge-rgb), 0.5)' }}>
                 <th>Ticker</th>
-                <th>1 mês</th>
+                <th className="vw-col-sec">1 mês</th>
                 <th className="vw-col-sec">Qtd</th>
                 <th className="vw-col-sec">PM (R$)</th>
                 <th className="vw-col-sec">Cotação</th>
@@ -375,7 +383,12 @@ export function PortfolioDashboard({
             </thead>
             <tbody>
               {sortedPositions.map((p) => (
-                <PositionRow key={p.ticker} p={p} onSelectTicker={onSelectTicker} />
+                <PositionRow
+                  key={p.ticker}
+                  p={p}
+                  maxAllocation={maxAllocation}
+                  onSelectTicker={onSelectTicker}
+                />
               ))}
             </tbody>
           </table>

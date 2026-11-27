@@ -64,7 +64,9 @@
 /* a tabela de posições, não deve entrar no scroll dela.                */
 /* ------------------------------------------------------------------ */
 
+/* Ocupa a linha inteira do grid "Valor projetado × Ganho" (antes ficava na 1ª coluna). */
 .vw-projection-chart-wrap {
+  grid-column: 1 / -1;
   margin-top: 4px;
 }
 
@@ -191,7 +193,7 @@
    ticker, minigráfico, valor, alocação e % — e o padding encolhe para caber sem
    rolagem horizontal. */
 @media (max-width: 640px) {
-  .vw-col-sec {
+  .vw-positions-table .vw-col-sec {
     display: none;
   }
 
@@ -237,7 +239,6 @@
   display: flex;
   gap: 4px;
   border-bottom: 1px solid var(--color-edge);
-  overflow-x: auto;
 }
 
 .vw-tab {
