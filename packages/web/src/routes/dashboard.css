@@ -109,7 +109,9 @@
     border-color 0.12s ease;
 }
 
-.vw-history-window-btn:hover:not(:disabled) {
+/* O ativo fica de fora: com (0,3,0) esta regra vencia a do ativo (0,2,0) e deixava
+   o texto ink sobre o fundo --btn-1 (invisível) com o mouse em cima. */
+.vw-history-window-btn:hover:not(:disabled, .vw-history-window-btn--active) {
   color: var(--color-ink);
 }
 

@@ -11,6 +11,8 @@ export interface MarketUniverse {
 }
 
 let marketCache: MarketUniverse | null = null;
+/** Requisição em voo: chamadas concorrentes com cache frio/vencido compartilham 1 fetch. */
+let inflight: Promise<MarketUniverse> | null = null;
 
 /**
  * Universo de ações com cache em memória de 15 min, SEPARADO do cache de 24h
@@ -20,6 +22,15 @@ let marketCache: MarketUniverse | null = null;
  */
 export async function getMarketUniverse(now: number = Date.now()): Promise<MarketUniverse> {
   if (marketCache && now - marketCache.fetchedAt < MARKET_CACHE_TTL_MS) return marketCache;
+  if (!inflight) {
+    inflight = refresh(now).finally(() => {
+      inflight = null;
+    });
+  }
+  return inflight;
+}
+
+async function refresh(now: number): Promise<MarketUniverse> {
   try {
     marketCache = { quotes: await fetchMarketList(), fetchedAt: now };
     return marketCache;
@@ -31,4 +42,5 @@ export async function getMarketUniverse(now: number = Date.now()): Promise<Marke
 
 export function _resetMarketCache(): void {
   marketCache = null;
+  inflight = null;
 }

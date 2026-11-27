@@ -95,6 +95,14 @@ describe('getMarketUniverse', () => {
     expect(stale.quotes).toHaveLength(2);
   });
 
+  it('chamadas concorrentes com cache frio compartilham uma só requisição', async () => {
+    const f = okFetch();
+    vi.stubGlobal('fetch', f);
+    const [a, b] = await Promise.all([getMarketUniverse(1000), getMarketUniverse(1000)]);
+    expect(f).toHaveBeenCalledTimes(1);
+    expect(a).toBe(b);
+  });
+
   it('sem cache e com a brapi fora, lança', async () => {
     vi.stubGlobal('fetch', failFetch());
     await expect(getMarketUniverse()).rejects.toThrow();

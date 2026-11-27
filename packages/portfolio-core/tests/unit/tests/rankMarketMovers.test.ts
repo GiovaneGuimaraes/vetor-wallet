@@ -69,4 +69,24 @@ describe('rankMarketMovers', () => {
     expect(r.losers).toEqual([]);
     expect(r.mostTraded).toEqual([]);
   });
+
+  it('em altas/baixas mantém só a classe mais líquida de cada empresa; mais negociadas não dedupa', () => {
+    const universe = [
+      q('RENT3', 15, { volume: 2_000_000 }),
+      q('RENT4', 16, { volume: 5_000_000 }),
+      q('OTHR3', 5),
+      q('LOSA3', -9, { volume: 3_000_000 }),
+      q('LOSA4', -8, { volume: 1_000_000 }),
+    ];
+    const r = rankMarketMovers(universe);
+    expect(r.gainers.map((x) => x.ticker)).toEqual(['RENT4', 'OTHR3']);
+    expect(r.losers.map((x) => x.ticker)).toEqual(['LOSA3']);
+    expect(r.mostTraded.map((x) => x.ticker)).toEqual([
+      'RENT4',
+      'LOSA3',
+      'RENT3',
+      'LOSA4',
+      'OTHR3',
+    ]);
+  });
 });
