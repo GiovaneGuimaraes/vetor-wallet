@@ -1,5 +1,16 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { fetchQuotes, fetchQuotesStrict } from './quotes';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { fetchQuotes, fetchQuotesStrict, _resetQuoteCache, QUOTE_CACHE_TTL_MS } from './quotes';
+
+const okPayload = (symbol: string, price: number) => ({
+  ok: true,
+  status: 200,
+  json: async () => ({ results: [{ symbol, regularMarketPrice: price }] }),
+});
+
+beforeEach(() => {
+  _resetQuoteCache();
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+});
 
 describe('fetchQuotes', () => {
   afterEach(() => {
@@ -111,13 +122,16 @@ describe('fetchQuotes', () => {
       delete process.env.BRAPI_TOKEN;
       await fetchQuotes(['PETR4', 'VALE3']);
       process.env.BRAPI_TOKEN = 'tok';
-      await fetchQuotes(['PETR4']);
+      await fetchQuotes(['ITUB4']);
     } finally {
       if (original === undefined) delete process.env.BRAPI_TOKEN;
       else process.env.BRAPI_TOKEN = original;
     }
-    expect(fetchMock.mock.calls[0][0]).toBe('https://brapi.dev/api/quote/PETR4,VALE3');
-    expect(fetchMock.mock.calls[1][0]).toBe('https://brapi.dev/api/quote/PETR4?token=tok');
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
+      'https://brapi.dev/api/quote/PETR4',
+      'https://brapi.dev/api/quote/VALE3',
+      'https://brapi.dev/api/quote/ITUB4?token=tok',
+    ]);
   });
 });
 
@@ -132,15 +146,11 @@ describe('fetchQuotesStrict', () => {
 
   it('returns the ticker -> price map on success, with timeout signal and no token', async () => {
     delete process.env.BRAPI_TOKEN;
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        results: [
-          { symbol: 'PETR4', regularMarketPrice: 38.5 },
-          { symbol: 'VALE3', regularMarketPrice: 61 },
-        ],
-      }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async (url: string) =>
+        url.includes('PETR4') ? okPayload('PETR4', 38.5) : okPayload('VALE3', 61)
+      );
     vi.stubGlobal('fetch', fetchMock);
 
     const map = await fetchQuotesStrict(['PETR4', 'VALE3']);
@@ -151,7 +161,10 @@ describe('fetchQuotesStrict', () => {
         ['VALE3', 61],
       ])
     );
-    expect(fetchMock.mock.calls[0][0]).toBe('https://brapi.dev/api/quote/PETR4,VALE3');
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([
+      'https://brapi.dev/api/quote/PETR4',
+      'https://brapi.dev/api/quote/VALE3',
+    ]);
     expect(fetchMock.mock.calls[0][1]).toEqual(
       expect.objectContaining({ signal: expect.any(Object) })
     );
@@ -211,5 +224,152 @@ describe('fetchQuotesStrict', () => {
     );
 
     await expect(fetchQuotesStrict([])).resolves.toEqual(new Map());
+  });
+});
+
+describe('plano grátis: 1 ticker por requisição, em série', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('2+ tickers geram N chamadas seriais, nunca concorrentes, sem vírgula na URL', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      const symbol = url.split('/').pop()!;
+      return okPayload(symbol, 10);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { quotes, failed } = await fetchQuotes(['PETR4', 'VALE3', 'ITUB4']);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(maxInFlight).toBe(1);
+    expect(fetchMock.mock.calls.every((c) => !String(c[0]).includes(','))).toBe(true);
+    expect(failed).toBe(false);
+    expect([...quotes.keys()]).toEqual(['PETR4', 'VALE3', 'ITUB4']);
+  });
+
+  it('deduplica tickers repetidos', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okPayload('PETR4', 30));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchQuotes(['PETR4', 'PETR4']);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('tolerante: falha de um ticker não derruba os demais; failed=true', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockImplementation(async (url: string) =>
+          url.endsWith('VALE3') ? { ok: false, status: 400 } : okPayload(url.split('/').pop()!, 7)
+        )
+    );
+
+    const { quotes, failed } = await fetchQuotes(['PETR4', 'VALE3', 'ITUB4']);
+
+    expect(failed).toBe(true);
+    expect(quotes.get('PETR4')).toBe(7);
+    expect(quotes.get('ITUB4')).toBe(7);
+    expect(quotes.has('VALE3')).toBe(false);
+  });
+
+  it('estrito: lança na falha de um ticker e não segue para os próximos', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async (url: string) =>
+        url.endsWith('VALE3') ? { ok: false, status: 400 } : okPayload(url.split('/').pop()!, 7)
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchQuotesStrict(['PETR4', 'VALE3', 'ITUB4'])).rejects.toThrow(
+      'brapi responded with 400 for VALE3'
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('o erro nunca vaza o token', async () => {
+    process.env.BRAPI_TOKEN = 'segredo-123';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+    try {
+      await fetchQuotes(['PETR4']);
+      await expect(fetchQuotesStrict(['VALE3'])).rejects.not.toThrow(/segredo-123/);
+      const logged = (console.warn as ReturnType<typeof vi.fn>).mock.calls.flat().join(' ');
+      expect(logged).not.toContain('segredo-123');
+    } finally {
+      delete process.env.BRAPI_TOKEN;
+    }
+  });
+
+  it('cache: segunda chamada dentro do TTL não vai à rede; depois do TTL vai', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue(okPayload('PETR4', 30));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchQuotes(['PETR4']);
+    const again = await fetchQuotes(['PETR4']);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(again.quotes.get('PETR4')).toBe(30);
+    // o cache vale para a política estrita também
+    await fetchQuotesStrict(['PETR4']);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(QUOTE_CACHE_TTL_MS + 1);
+    await fetchQuotes(['PETR4']);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('cache: falha e ticker ausente do payload não são cacheados', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ results: [] }) })
+      .mockResolvedValue(okPayload('PETR4', 30));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchQuotes(['PETR4']);
+    await fetchQuotes(['PETR4']);
+    const third = await fetchQuotes(['PETR4']);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(third.quotes.get('PETR4')).toBe(30);
+  });
+
+  it('retry curto em 429 e depois sucesso', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 429 })
+      .mockResolvedValue(okPayload('PETR4', 30));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const p = fetchQuotes(['PETR4']);
+    await vi.runAllTimersAsync();
+    const { quotes, failed } = await p;
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(failed).toBe(false);
+    expect(quotes.get('PETR4')).toBe(30);
+  });
+
+  it('429 persistente desiste após 3 tentativas', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 429 });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const p = fetchQuotes(['PETR4']);
+    await vi.runAllTimersAsync();
+    const { failed } = await p;
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(failed).toBe(true);
   });
 });
