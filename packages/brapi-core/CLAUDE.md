@@ -35,9 +35,18 @@ src/
   retry do snapshot não repete tickers que já deram certo. Novo caminho que
   busque cotação deve passar por `fetchQuotes`/`fetchQuotesStrict`, nunca
   chamar a brapi direto. `_resetQuoteCache` existe só para teste.
+- **Nunca 2 chamadas à brapi em voo no processo.** `/api/portfolio` e
+  `/api/benchmarks` chegam juntas do web, e o grátis só aceita 1 simultânea (senão
+  429). Toda requisição passa por uma **fila global** (`enqueue`) e um ticker já
+  pedido reaproveita a mesma Promise (`inFlight`): chamadas concorrentes não
+  duplicam requisição nem cota. Novo caminho de cotação entra nessa fila.
+- **Teto total de tempo no modo tolerante: `QUOTES_TOTAL_BUDGET_MS` = 10 s por
+  chamada** (N × timeout de 5 s em série travaria `GET /api/portfolio` com a brapi
+  fora). O que não coube volta como falha (`failed: true`); a requisição em curso
+  não é abortada, termina na fila e popula o cache. O modo estrito não tem teto.
 - **429**: até 3 tentativas por ticker, backoff de 500 ms e 1,5 s. Depois disso, é
   falha daquele ticker. Mensagens de erro/log (`brapi responded with <status> for
-  <ticker>`) nunca incluem a URL, que carrega o token.
+<ticker>`) nunca incluem a URL, que carrega o token.
 - **`fetchQuotes` (tolerante) nunca lança.** Falha de um ticker (rede, timeout,
   não-ok) não derruba os demais: os que deram certo ficam em `quotes` e
   `failed: true` sinaliza que ao menos um falhou (a rota segue com

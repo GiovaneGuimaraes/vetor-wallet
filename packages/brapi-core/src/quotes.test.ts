@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { fetchQuotes, fetchQuotesStrict, _resetQuoteCache, QUOTE_CACHE_TTL_MS } from './quotes';
+import {
+  fetchQuotes,
+  fetchQuotesStrict,
+  _resetQuoteCache,
+  QUOTE_CACHE_TTL_MS,
+  QUOTES_TOTAL_BUDGET_MS,
+} from './quotes';
 
 const okPayload = (symbol: string, price: number) => ({
   ok: true,
@@ -371,5 +377,95 @@ describe('plano grátis: 1 ticker por requisição, em série', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(failed).toBe(true);
+  });
+});
+
+describe('fila global, orçamento de tempo e retry estrito', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it('chamadas concorrentes (portfolio + benchmarks): nunca 2 em voo, 1 fetch por ticker', async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return okPayload(url.split('/').pop()!, 10);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const [a, b, strict] = await Promise.all([
+      fetchQuotes(['PETR4', 'VALE3']),
+      fetchQuotes(['VALE3', 'ITUB4']),
+      fetchQuotesStrict(['ITUB4', 'PETR4']),
+    ]);
+
+    expect(maxInFlight).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(a.quotes.size).toBe(2);
+    expect(b.quotes.size).toBe(2);
+    expect(strict.size).toBe(2);
+  });
+
+  it('falha de um ticker em voo propaga a quem o compartilha e não é cacheada', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValue(okPayload('PETR4', 30));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const [a, b] = await Promise.all([fetchQuotes(['PETR4']), fetchQuotes(['PETR4'])]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(a.failed).toBe(true);
+    expect(b.failed).toBe(true);
+
+    const c = await fetchQuotes(['PETR4']);
+    expect(c.failed).toBe(false);
+  });
+
+  it('tolerante: teto total de tempo; o que não coube volta como falha', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(
+        (url: string) =>
+          new Promise((resolve) =>
+            setTimeout(() => resolve(okPayload(url.split('/').pop()!, 1)), 4000)
+          )
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const p = fetchQuotes(['A1', 'B2', 'C3', 'D4', 'E5']);
+    await vi.advanceTimersByTimeAsync(QUOTES_TOTAL_BUDGET_MS + 1);
+    const { quotes, failed } = await p;
+
+    expect(failed).toBe(true);
+    expect([...quotes.keys()]).toEqual(['A1', 'B2']);
+    await vi.runAllTimersAsync();
+  });
+
+  it('estrito: o retry reaproveita o cache após falha parcial', async () => {
+    let vale3Fails = true;
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      const symbol = url.split('/').pop()!;
+      if (symbol === 'VALE3' && vale3Fails) return { ok: false, status: 500 };
+      return okPayload(symbol, 9);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const called = () => fetchMock.mock.calls.map((c) => String(c[0]).split('/').pop());
+
+    await expect(fetchQuotesStrict(['PETR4', 'VALE3', 'ITUB4'])).rejects.toThrow('VALE3');
+    expect(called()).toEqual(['PETR4', 'VALE3']);
+
+    vale3Fails = false;
+    const map = await fetchQuotesStrict(['PETR4', 'VALE3', 'ITUB4']);
+
+    expect([...map.keys()]).toEqual(['PETR4', 'VALE3', 'ITUB4']);
+    // PETR4 não é pedido de novo no retry
+    expect(called()).toEqual(['PETR4', 'VALE3', 'VALE3', 'ITUB4']);
   });
 });
